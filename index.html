@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hà Nội · 48 giờ cuối — CN 02/08 & T2 03/08</title>
+<meta name="description" content="Lịch trình hai ngày cuối ở Hà Nội cho anh, mèo & moon. Chủ nhật 02/08, thứ hai 03/08, bay về Sài Gòn 18h30.">
+<meta name="theme-color" content="#17509E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..900&family=Be+Vietnam+Pro:ital,wght@0,300;0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+/* ─────────────────────────────────────────────
+   Biển tên phố Hà Nội — men xanh, chữ trắng.
+   ───────────────────────────────────────────── */
+:root{
+  --azure:#17509E;
+  --azure-deep:#0E3670;
+  --azure-lite:#3D79CE;
+  --plate-text:#FFFFFF;
+  --paper:#F1F0EA;          /* trung tính lệch xanh-xám, không phải kem */
+  --surface:#FAF9F5;
+  --ink:#101620;
+  --ink-2:#3F4A57;
+  --ink-3:#78838F;
+  --rule:rgba(16,22,32,.14);
+  --vermeil:#C93425;        /* chỉ dùng cho mốc cứng: giờ bay */
+  --jade:#2A6F5E;
+  --amber:#A9701A;
+  --shadow:0 1px 0 rgba(16,22,32,.05), 0 20px 44px -32px rgba(14,54,112,.55);
+  --disp:"Archivo",system-ui,sans-serif;
+  --sans:"Be Vietnam Pro",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --azure:#4A8AE0;--azure-deep:#0B1E3C;--azure-lite:#7EB0F0;--plate-text:#F4F8FF;
+    --paper:#0C1118;--surface:#131A24;--ink:#E9EDF2;--ink-2:#AEBAC7;--ink-3:#77838F;
+    --rule:rgba(233,237,242,.16);--vermeil:#F0705E;--jade:#5FBFA6;--amber:#E0AC55;
+    --shadow:0 1px 0 rgba(0,0,0,.5), 0 20px 44px -32px rgba(0,0,0,.9);
+  }
+}
+:root[data-theme="dark"]{
+  --azure:#4A8AE0;--azure-deep:#0B1E3C;--azure-lite:#7EB0F0;--plate-text:#F4F8FF;
+  --paper:#0C1118;--surface:#131A24;--ink:#E9EDF2;--ink-2:#AEBAC7;--ink-3:#77838F;
+  --rule:rgba(233,237,242,.16);--vermeil:#F0705E;--jade:#5FBFA6;--amber:#E0AC55;
+  --shadow:0 1px 0 rgba(0,0,0,.5), 0 20px 44px -32px rgba(0,0,0,.9);
+}
+:root[data-theme="light"]{
+  --azure:#17509E;--azure-deep:#0E3670;--azure-lite:#3D79CE;--plate-text:#FFFFFF;
+  --paper:#F1F0EA;--surface:#FAF9F5;--ink:#101620;--ink-2:#3F4A57;--ink-3:#78838F;
+  --rule:rgba(16,22,32,.14);--vermeil:#C93425;--jade:#2A6F5E;--amber:#A9701A;
+  --shadow:0 1px 0 rgba(16,22,32,.05), 0 20px 44px -32px rgba(14,54,112,.55);
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+body{
+  margin:0;background:var(--paper);color:var(--ink);
+  font-family:var(--sans);font-weight:300;font-size:16px;line-height:1.6;
+}
+.wrap{max-width:920px;margin:0 auto;padding:0 20px 90px}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--azure);outline-offset:3px;border-radius:3px}
+
+/* ── BIỂN TÊN PHỐ ────────────────────────── */
+.plate{
+  background:var(--azure);color:var(--plate-text);
+  border:2px solid var(--azure);box-shadow:inset 0 0 0 2px var(--plate-text);
+  border-radius:3px;padding:10px 16px 11px;display:inline-block;
+}
+:root[data-theme="dark"] .plate,
+:root:not([data-theme="light"]) .plate{}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .plate{background:var(--azure-deep);border-color:var(--azure)}}
+:root[data-theme="dark"] .plate{background:var(--azure-deep);border-color:var(--azure)}
+
+/* ── HEADER ──────────────────────────────── */
+header{padding:56px 0 8px}
+.eyebrow{
+  font-family:var(--disp);font-size:11px;font-weight:700;letter-spacing:.26em;
+  text-transform:uppercase;color:var(--azure);
+}
+.marquee{margin-top:18px}
+.marquee .plate{max-width:100%}
+.marquee .l1{
+  font-family:var(--disp);font-weight:900;font-stretch:112%;
+  font-size:clamp(30px,8.2vw,62px);line-height:.98;letter-spacing:-.015em;
+  text-transform:uppercase;display:block;
+}
+.marquee .l2{
+  font-family:var(--disp);font-weight:500;font-size:clamp(11px,2.6vw,15px);
+  letter-spacing:.16em;text-transform:uppercase;display:block;margin-top:7px;
+  opacity:.85;
+}
+.sub{margin:26px 0 0;font-size:16px;color:var(--ink-2);max-width:54ch}
+.sub em{font-style:normal;color:var(--ink);font-weight:600}
+.facts{margin-top:24px;display:flex;flex-wrap:wrap;gap:8px}
+.fact{
+  font-size:12.5px;letter-spacing:.02em;padding:6px 12px;border:1px solid var(--rule);
+  border-radius:2px;background:var(--surface);color:var(--ink-2);
+}
+.fact b{font-weight:600;color:var(--ink)}
+.fact.hard{border-color:var(--vermeil);color:var(--vermeil)}
+.fact.hard b{color:var(--vermeil)}
+
+/* ── NAV ─────────────────────────────────── */
+nav{
+  position:sticky;top:0;z-index:20;margin:34px -20px 0;padding:9px 20px;
+  background:color-mix(in srgb,var(--paper) 88%,transparent);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);
+  display:flex;gap:4px;align-items:center;overflow-x:auto;scrollbar-width:none;
+}
+nav::-webkit-scrollbar{display:none}
+nav a{
+  white-space:nowrap;font-family:var(--disp);font-size:12px;font-weight:600;letter-spacing:.09em;
+  text-transform:uppercase;text-decoration:none;color:var(--ink-3);padding:7px 11px;border-radius:2px;
+}
+nav a:hover{color:var(--azure);background:var(--surface)}
+#tog{
+  margin-left:auto;flex:0 0 auto;border:1px solid var(--rule);background:var(--surface);
+  color:var(--ink-3);height:31px;padding:0 12px;border-radius:2px;cursor:pointer;
+  font-family:var(--disp);font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;
+}
+#tog:hover{border-color:var(--azure);color:var(--azure)}
+
+/* ── NGÀY ────────────────────────────────── */
+.day{margin-top:72px;scroll-margin-top:64px}
+.day-head{display:flex;flex-wrap:wrap;align-items:center;gap:18px}
+.day-head .plate{padding:8px 14px 9px}
+.day-head .plate .a{
+  font-family:var(--disp);font-weight:900;font-stretch:110%;font-size:26px;line-height:1;
+  text-transform:uppercase;letter-spacing:-.01em;display:block;
+}
+.day-head .plate .b{
+  font-family:var(--disp);font-weight:500;font-size:10px;letter-spacing:.18em;
+  text-transform:uppercase;display:block;margin-top:5px;opacity:.85;
+}
+.day-head h2{
+  font-family:var(--disp);font-weight:800;font-size:clamp(21px,4.6vw,30px);
+  margin:0;line-height:1.12;letter-spacing:-.015em;text-wrap:balance;flex:1 1 260px;
+}
+.day-rule{height:3px;background:var(--azure);margin-top:16px;border-radius:2px}
+
+/* ── DÒNG THỜI GIAN ──────────────────────── */
+.tl{display:flex;flex-direction:column}
+.item{
+  display:grid;grid-template-columns:104px 1fr;gap:0 24px;
+  padding:24px 0;border-bottom:1px solid var(--rule);
+}
+.item:last-child{border-bottom:0}
+.t{padding-top:1px}
+.t .hh{
+  font-family:var(--disp);font-weight:800;font-size:23px;line-height:1;color:var(--azure);
+  font-variant-numeric:tabular-nums;letter-spacing:-.01em;
+}
+.t .dur{
+  display:block;margin-top:6px;font-family:var(--disp);font-size:10px;font-weight:600;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);
+}
+.b h3{
+  font-family:var(--disp);font-weight:800;font-size:19px;margin:0 0 7px;line-height:1.25;
+  letter-spacing:-.01em;text-wrap:balance;
+}
+.b p{margin:0 0 8px;color:var(--ink-2);font-size:15px}
+.b p:last-child{margin-bottom:0}
+.b b{font-weight:600;color:var(--ink)}
+.tag{
+  font-family:var(--disp);font-size:9.5px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;
+  vertical-align:middle;margin-left:8px;padding:3px 7px;border-radius:2px;white-space:nowrap;
+  border:1px solid var(--jade);color:var(--jade);
+}
+.tag.shut{border-color:var(--amber);color:var(--amber)}
+.tag.hard{border-color:var(--vermeil);color:var(--vermeil)}
+.notes{display:flex;flex-wrap:wrap;gap:5px 16px;margin-top:9px;font-size:12.5px;color:var(--ink-3)}
+.notes span b{color:var(--ink-2);font-weight:600}
+.alt{
+  margin-top:11px;padding:11px 14px;background:var(--surface);border:1px solid var(--rule);
+  border-left:3px solid var(--azure);border-radius:0 2px 2px 0;font-size:14px;color:var(--ink-2);
+}
+.alt strong{color:var(--ink);font-weight:600}
+
+/* ── BẢNG GIỜ RA SÂN BAY ─────────────────── */
+.board{margin-top:72px;scroll-margin-top:64px;border:2px solid var(--vermeil);border-radius:3px;overflow:hidden}
+.board-top{
+  background:var(--vermeil);color:#fff;padding:11px 18px;display:flex;justify-content:space-between;
+  gap:10px;flex-wrap:wrap;font-family:var(--disp);font-size:11px;font-weight:700;
+  letter-spacing:.18em;text-transform:uppercase;
+}
+.board-body{background:var(--surface);padding:6px 18px}
+.row{
+  display:grid;grid-template-columns:92px 1fr;gap:16px;align-items:baseline;
+  padding:13px 0;border-bottom:1px dashed var(--rule);
+}
+.row:last-child{border-bottom:0}
+.row .n{
+  font-family:var(--disp);font-weight:900;font-size:25px;color:var(--ink);
+  font-variant-numeric:tabular-nums;letter-spacing:-.01em;
+}
+.row .l{font-size:14.5px;color:var(--ink-2)}
+.row.final .n{color:var(--vermeil)}
+
+/* ── SỔ TAY ──────────────────────────────── */
+.panel{margin-top:72px;scroll-margin-top:64px}
+.panel > h2{
+  font-family:var(--disp);font-weight:900;font-stretch:108%;font-size:clamp(22px,5vw,32px);
+  margin:0 0 4px;letter-spacing:-.02em;text-transform:uppercase;
+}
+.panel > p.lead{margin:0 0 22px;font-size:14px;color:var(--ink-3)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(232px,1fr));gap:2px;background:var(--rule);
+  border:1px solid var(--rule);border-radius:3px;overflow:hidden}
+.cell{background:var(--surface);padding:20px 18px}
+.cell h4{
+  font-family:var(--disp);font-size:10.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--azure);margin:0 0 11px;
+}
+.cell ul{margin:0;padding-left:16px;font-size:14.5px;color:var(--ink-2)}
+.cell li{margin-bottom:7px}
+.cell li:last-child{margin-bottom:0}
+.cell li b{font-weight:600;color:var(--ink)}
+
+.done{display:flex;flex-wrap:wrap;gap:8px}
+.done i{
+  font-style:normal;font-size:13.5px;padding:7px 13px;border-radius:2px;border:1px solid var(--rule);
+  background:var(--surface);color:var(--ink-3);text-decoration:line-through;
+  text-decoration-color:var(--vermeil);text-decoration-thickness:1.5px;
+}
+footer{
+  margin-top:64px;padding-top:20px;border-top:3px solid var(--azure);
+  font-size:12.5px;color:var(--ink-3);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;
+}
+
+@media(max-width:620px){
+  .item{grid-template-columns:1fr;gap:0}
+  .t{display:flex;align-items:baseline;gap:10px;margin-bottom:8px}
+  .t .dur{margin-top:0}
+  .row{grid-template-columns:78px 1fr;gap:12px}
+  .row .n{font-size:21px}
+}
+@media print{
+  nav,#tog{display:none}
+  body{background:#fff;color:#000}
+  .day,.item,.board{page-break-inside:avoid}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">Lịch trình · Hà Nội</div>
+  <div class="marquee">
+    <div class="plate">
+      <span class="l1">48 giờ cuối</span>
+      <span class="l2">Chủ nhật 02.08 → Thứ hai 03.08.2026</span>
+    </div>
+  </div>
+  <p class="sub">Hai ngày khép lại chuyến Hà Nội. Chủ nhật đi trọn vẹn, thứ hai gọn gàng rồi ra Nội Bài. Ba người: anh, <em>mèo</em> và <em>moon</em>.</p>
+  <div class="facts">
+    <div class="fact">Xuất phát <b>Daewoo · 360 Kim Mã</b></div>
+    <div class="fact">Đi bộ ngày 1 <b>~8–10 km</b></div>
+    <div class="fact hard">Bay về SG <b>18:30 thứ hai</b></div>
+  </div>
+</header>
+
+<nav>
+  <a href="#d1">Chủ nhật</a>
+  <a href="#d2">Thứ hai</a>
+  <a href="#bay">Ra sân bay</a>
+  <a href="#sotay">Sổ tay</a>
+  <a href="#dadi">Đã đi</a>
+  <button id="tog" type="button">Nền</button>
+</nav>
+
+<!-- ═══ CHỦ NHẬT ═══ -->
+<section class="day" id="d1">
+  <div class="day-head">
+    <div class="plate">
+      <span class="a">Chủ nhật</span>
+      <span class="b">02 · 08 · 2026</span>
+    </div>
+    <h2>Ba Đình buổi sáng, phố cổ buổi chiều</h2>
+  </div>
+  <div class="day-rule"></div>
+
+  <div class="tl">
+
+    <div class="item">
+      <div class="t"><span class="hh">06:45</span><span class="dur">Ăn sáng</span></div>
+      <div class="b">
+        <h3>Phở, bún quanh Đội Cấn – Ngọc Hà</h3>
+        <p>Đi bộ hoặc Grab 5 phút từ Daewoo. Khu Đội Cấn – Ngọc Hà – Linh Lang dày hàng phở, bún riêu, bánh cuốn mở từ 6h. Ăn nhẹ thôi, 7h30 phải có mặt ở Lăng và còn xếp hàng.</p>
+        <div class="alt"><strong>Muốn ăn đúng bài:</strong> Grab 10 phút xuống phố cổ — Phở gia truyền Bát Đàn (49 Bát Đàn, thường hết trước 10h) hoặc bánh cuốn Bà Hoành (66 Tô Hiến Thành). Trừ hao thêm 20 phút.</div>
+      </div>
+    </div>
+
+    <div class="item">
+      <div class="t"><span class="hh">07:30</span><span class="dur">3 tiếng</span></div>
+      <div class="b">
+        <h3>Lăng Bác &amp; quần thể Ba Đình<span class="tag">Miễn phí</span></h3>
+        <p>Chủ nhật mở <b>7:30 – 11:00</b> (mùa nóng 1/4–31/10). Đi một mạch: viếng Lăng → Phủ Chủ tịch → Nhà sàn và ao cá → Chùa Một Cột. Cách khách sạn 1,8 km.</p>
+        <div class="notes">
+          <span><b>Trang phục:</b> không quần short trên gối, không áo ba lỗ</span>
+          <span><b>Đồ đạc:</b> gửi ở nhà gửi đồ, không mang máy ảnh vào trong Lăng</span>
+          <span><b>Nên tới:</b> 7:15 xếp hàng là vừa</span>
+        </div>
+        <div class="alt"><strong>Nếu moon mệt hoặc nắng gắt:</strong> bỏ Bảo tàng Hồ Chí Minh, đi thẳng sang Hoàng thành cho mát.</div>
+      </div>
+    </div>
+
+    <div class="item">
+      <div class="t"><span class="hh">10:30</span><span class="dur">1,5 tiếng</span></div>
+      <div class="b">
+        <h3>Hoàng thành Thăng Long<span class="tag shut">Thứ hai nghỉ</span></h3>
+        <p>19C Hoàng Diệu, đi bộ 10 phút từ Ba Đình, mở 8:00–17:00. <b>Chỉ đi được hôm nay</b> vì mai thứ hai đóng cửa. Đường đi: Đoan Môn → nền Điện Kính Thiên → <b>hầm D67</b> (hầm chỉ huy thời chiến, mát và đáng xem nhất) → hố khảo cổ 18 Hoàng Diệu.</p>
+        <div class="notes"><span><b>Vé:</b> khoảng 30–70k, hỏi lại quầy</span></div>
+      </div>
+    </div>
+
+    <div class="item">
+      <div class="t"><span class="hh">12:00</span><span class="dur">Ăn trưa</span></div>
+      <div class="b">
+        <h3>Chả cá — món còn nợ ở Hà Nội</h3>
+        <p>Chả cá Thăng Long (21 Đường Thành) hoặc Chả cá Lã Vọng (14 Chả Cá). Có điều hoà, ngồi được lâu, đúng lúc nắng đỉnh điểm. Gọi thêm bia hơi.</p>
+        <div class="alt"><strong>Đổi món:</strong> bún chả Hàng Quạt (74 Hàng Quạt) — ngon nhưng quán nhỏ, nóng, đóng tầm 14h. Hoặc bún đậu mắm tôm nếu mèo và moon thích ăn nhẹ.</div>
+      </div>
+    </div>
+
+    <div class="item">
+      <div class="t"><span class="hh">13:30</span><span class="dur">2 tiếng</span></div>
+      <div class="b">
+        <h3>Trốn nắng — chọn một</h3>
+        <p><b>A · Bảo tàng Dân tộc học.</b> Nguyễn Văn Huyên, 8:30–17:30, vé 40k, thứ hai nghỉ. Vườn kiến trúc nhà rông, nhà mồ, nhà dài — vui cho cả nhóm, cách Daewoo 3 km.</p>
+        <p><b>B · Về khách sạn ngủ trưa, spa hoặc massage.</b> Buổi tối còn dài, nghỉ là phương án khôn ngoan.</p>
+        <p><b>C · Bảo tàng Mỹ thuật Việt Nam.</b> 66 Nguyễn Thái Học, yên tĩnh, mát, gần Văn Miếu.</p>
+        <div class="notes"><span><b>Thời tiết:</b> đầu tháng 8 khoảng 33–36°C, hay mưa rào buổi chiều</span></div>
+      </div>
+    </div>
+
+    <div class="item">
+      <div class="t"><span class="hh">15:45</span><span class="dur">Cà phê</span></div>
+      <div class="b">
+        <h3>Cà phê nhìn xuống Hồ Gươm</h3>
+        <p>Đã có Giảng rồi nên đổi view. <b>Café Phố Cổ</b> (11 Hàng Gai — đi xuyên qua cửa hàng lụa rồi leo lên sân thượng, view hồ đẹp nhất phố cổ) hoặc <b>Đinh Cafe</b> (13 Đinh Tiên Hoàng, tầng 2).</p>
+      </div>
+    </div>
+
+    <div class="item">
+      <div class="t"><span class="hh">16:45</span><span class="dur">1 tiếng</span></div>
+      <div class="b">
+        <h3>Đền Ngọc Sơn, vòng Hàng Gai – Hàng Bạc</h3>
+        <p>Đền đóng cửa 18:00, vé khoảng 50k. Ra cầu Thê Húc lúc nắng xiên là đẹp nhất. Sau đó thả bộ Hàng Gai (lụa, tranh) và Hàng Bạc — mua quà luôn hôm nay để mai đỡ vội.</p>
+      </div>
+    </div>
+
+    <div class="item">
+      <div class="t"><span class="hh">17:45</span><span class="dur">Ăn tối sớm</span></div>
+      <div class="b">
+        <h3>Bia hơi Tạ Hiện, nem chua rán</h3>
+        <p>Ăn sớm để kịp tour đêm. Nếu chọn phương án B bên dưới thì cứ ăn thong thả tới 19h.</p>
+      </div>
+    </div>
+
+    <div class="item">
+      <div class="t"><span class="hh">19:00</span><span class="dur">Điểm nhấn</span></div>
+      <div class="b">
+        <h3>Tour đêm Văn Miếu — Tinh hoa đạo học<span class="tag">Chỉ Tư, Bảy, CN</span></h3>
+        <p>58 Quốc Tử Giám. Vé <b>199k một người</b>, bán tại quầy. Cuối tuần rất đông nên <b>tới từ 18:30</b> mua vé cho chắc. Đỉnh điểm là màn <b>3D mapping lúc 19:45</b>, đi hết khoảng 21:00–21:30. Hôm nay chủ nhật nên có, mai không có.</p>
+        <div class="alt"><strong>Phương án B, nhẹ nhàng hơn:</strong> phố đi bộ Hồ Gươm tối chủ nhật — nhạc đường phố, trò chơi dân gian, mở tới nửa đêm. Rồi trà chanh Nhà Thờ.</div>
+      </div>
+    </div>
+
+    <div class="item">
+      <div class="t"><span class="hh">21:30</span><span class="dur">Kết ngày</span></div>
+      <div class="b">
+        <h3>Về Daewoo, sắp vali trước</h3>
+        <p>Xếp đồ tối nay, mai chỉ còn đồ vệ sinh cá nhân. Trả phòng 12:00, gửi hành lý ở lễ tân.</p>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══ THỨ HAI ═══ -->
+<section class="day" id="d2">
+  <div class="day-head">
+    <div class="plate">
+      <span class="a">Thứ hai</span>
+      <span class="b">03 · 08 · 2026</span>
+    </div>
+    <h2>Nửa ngày gọn, rồi ra Nội Bài</h2>
+  </div>
+  <div class="day-rule"></div>
+
+  <div class="tl">
+
+    <div class="item">
+      <div class="t"><span class="hh">07:15</span><span class="dur">Ăn sáng</span></div>
+      <div class="b">
+        <h3>Phở bò Ấu Triệu hoặc bánh cuốn nóng</h3>
+        <p>Ấu Triệu nép sau Nhà thờ Lớn, tiện đường xuống Văn Miếu. Cà phê nhanh rồi đi, hôm nay bám giờ.</p>
+      </div>
+    </div>
+
+    <div class="item">
+      <div class="t"><span class="hh">08:00</span><span class="dur">1,5 tiếng</span></div>
+      <div class="b">
+        <h3>Văn Miếu – Quốc Tử Giám<span class="tag">Mở cả thứ hai</span></h3>
+        <p>58 Quốc Tử Giám, mở từ 8:00, cách Daewoo 2,5 km. Ban ngày khác hẳn ban đêm: bia tiến sĩ, hồ Thiên Quang, Khuê Văn Các. Nếu tối qua đã đi tour đêm thì rút gọn còn 45 phút và dồn giờ cho Hoả Lò.</p>
+      </div>
+    </div>
+
+    <div class="item">
+      <div class="t"><span class="hh">09:45</span><span class="dur">1,5 tiếng</span></div>
+      <div class="b">
+        <h3>Di tích Nhà tù Hoả Lò<span class="tag">Mở cả thứ hai</span></h3>
+        <p>1 Hoả Lò, mở 8:00–17:00, vé khoảng 50k. <b>Thuê audio guide</b> — phần dựng âm thanh ở đây thuộc hàng tốt nhất Việt Nam. Trong nhà, mát, đi 60–90 phút là đủ.</p>
+        <div class="notes"><span><b>Nhớ:</b> thứ hai Hoàng thành, Dân tộc học và Bảo tàng Lịch sử Quân sự đều nghỉ</span></div>
+      </div>
+    </div>
+
+    <div class="item">
+      <div class="t"><span class="hh">11:30</span><span class="dur">Bữa chốt</span></div>
+      <div class="b">
+        <h3>Bữa cuối ở Hà Nội</h3>
+        <p><b>Bún chả</b> (Hương Liên hoặc Đắc Kim) nếu muốn kết bằng món đường phố. Hoặc chốt thêm một quán Michelin nữa: <b>Tầm Vị</b> (4B Yên Thế, ngay cạnh Văn Miếu, cơm Bắc kiểu nhà) — <b>cần đặt bàn trước</b>, gọi từ tối chủ nhật.</p>
+      </div>
+    </div>
+
+    <div class="item">
+      <div class="t"><span class="hh">13:00</span><span class="dur">75 phút</span></div>
+      <div class="b">
+        <h3>Mua quà — làm gọn, đừng dàn trải</h3>
+        <p><b>Cách nhanh:</b> Lotte Center (54 Liễu Giai) ngay sát Daewoo. Lotte Mart tầng hầm đủ ô mai, trà sen, cà phê, bánh — xong trong 45 phút. Còn dư giờ thì lên <b>đài quan sát tầng 65</b> ngắm toàn thành phố.</p>
+        <div class="alt"><strong>Cách xịn hơn nếu còn thời gian:</strong> ô mai <strong>Hồng Lam</strong> (11 Hàng Đường), bánh cốm <strong>Nguyên Ninh</strong> (11 Hàng Than). Bánh cốm chỉ để được vài ngày nên mua sát giờ bay là chuẩn.</div>
+      </div>
+    </div>
+
+    <div class="item">
+      <div class="t"><span class="hh">14:30</span><span class="dur">45 phút</span></div>
+      <div class="b">
+        <h3>Về Daewoo — tắm, lấy hành lý, thở</h3>
+        <p>Tắm một cái cho tỉnh trước chuyến bay. Kiểm lại: sạc, giấy tờ, quà dễ vỡ bọc kỹ, bánh cốm để tay xách.</p>
+      </div>
+    </div>
+
+    <div class="item">
+      <div class="t"><span class="hh">15:20</span><span class="dur">Khởi hành</span></div>
+      <div class="b">
+        <h3>Rời khách sạn đi Nội Bài<span class="tag hard">Mốc cứng</span></h3>
+        <p>Grab hoặc Xanh SM 7 chỗ khoảng 250–350k. Tuyến Kim Mã → Võ Chí Công → cầu Nhật Tân → Nội Bài, <b>40–55 phút</b>. Chiều thứ hai Võ Chí Công dễ đông.</p>
+        <div class="alt"><strong>Nếu trời mưa:</strong> đẩy lên <strong>15:00</strong>. Mưa ở Hà Nội làm thời gian ra sân bay đội thêm 20–30 phút rất dễ.</div>
+      </div>
+    </div>
+
+    <div class="item">
+      <div class="t"><span class="hh">16:15</span><span class="dur">Sân bay</span></div>
+      <div class="b">
+        <h3>Nội Bài — nhà ga T1, nội địa</h3>
+        <p>Check-in, gửi hành lý. Quầy đóng trước giờ bay <b>40 phút, khoảng 17:50</b>. Dư giờ thì ăn nhẹ trong ga.</p>
+      </div>
+    </div>
+
+    <div class="item">
+      <div class="t"><span class="hh">18:30</span><span class="dur">Cất cánh</span></div>
+      <div class="b">
+        <h3>Hà Nội → Sài Gòn</h3>
+        <p>Hạ cánh Tân Sơn Nhất khoảng 20:40–20:50.</p>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══ BẢNG GIỜ ═══ -->
+<section class="board" id="bay">
+  <div class="board-top"><span>Mốc giờ thứ hai</span><span>Không được trễ</span></div>
+  <div class="board-body">
+    <div class="row"><div class="n">12:00</div><div class="l">Trả phòng, gửi vali ở lễ tân</div></div>
+    <div class="row"><div class="n">15:20</div><div class="l">Rời khách sạn (mưa thì 15:00)</div></div>
+    <div class="row"><div class="n">16:15</div><div class="l">Có mặt ở nhà ga T1</div></div>
+    <div class="row"><div class="n">17:50</div><div class="l">Quầy check-in đóng</div></div>
+    <div class="row final"><div class="n">18:30</div><div class="l">Cất cánh về Sài Gòn</div></div>
+  </div>
+</section>
+
+<!-- ═══ SỔ TAY ═══ -->
+<section class="panel" id="sotay">
+  <h2>Sổ tay hai ngày</h2>
+  <p class="lead">Những thứ hay quên, gom hết vào đây.</p>
+  <div class="grid">
+    <div class="cell">
+      <h4>Thứ hai đóng cửa</h4>
+      <ul>
+        <li><b>Lăng Bác</b> — nghỉ thứ hai và thứ sáu</li>
+        <li><b>Hoàng thành Thăng Long</b></li>
+        <li><b>Bảo tàng Dân tộc học</b></li>
+        <li><b>Bảo tàng Lịch sử Quân sự</b> (đã đi rồi)</li>
+        <li>Vẫn mở: <b>Văn Miếu</b>, <b>Hoả Lò</b>, Bảo tàng Mỹ thuật</li>
+      </ul>
+    </div>
+    <div class="cell">
+      <h4>Thời tiết và đồ mang</h4>
+      <ul>
+        <li>Đầu tháng 8: <b>33–36°C</b>, ẩm, mưa rào chiều tối</li>
+        <li>Ô gấp, quạt cầm tay, nước</li>
+        <li>Quần dài hoặc váy quá gối cho <b>Lăng Bác</b></li>
+        <li>Giày đi bộ, ngày 1 đi khoảng 8–10 km</li>
+        <li>Kem chống nắng, khăn giấy ướt</li>
+      </ul>
+    </div>
+    <div class="cell">
+      <h4>Đi lại</h4>
+      <ul>
+        <li>Grab và Xanh SM là chính, Xanh SM mát hơn</li>
+        <li>Daewoo → Ba Đình <b>1,8 km</b></li>
+        <li>Daewoo → phố cổ <b>3,5 km</b></li>
+        <li>Daewoo → Nội Bài <b>27 km, 40–55 phút</b></li>
+        <li>Trong phố cổ thì đi bộ, gọi xe chỉ tổ mệt</li>
+      </ul>
+    </div>
+    <div class="cell">
+      <h4>Món chưa thử</h4>
+      <ul>
+        <li><b>Chả cá</b> — đã xếp vào trưa chủ nhật</li>
+        <li><b>Bún chả</b> nướng than hoa</li>
+        <li><b>Phở cuốn</b> Ngũ Xã, <b>bánh tôm</b> Hồ Tây</li>
+        <li><b>Bún riêu cua</b>, <b>bún thang</b></li>
+        <li><b>Nem chua rán</b> với bia hơi Tạ Hiện</li>
+      </ul>
+    </div>
+    <div class="cell">
+      <h4>Quà mang về</h4>
+      <ul>
+        <li>Ô mai Hồng Lam, trà sen Tây Hồ</li>
+        <li>Bánh cốm Nguyên Ninh, mua sát giờ bay</li>
+        <li>Cà phê, lụa Hàng Gai</li>
+        <li>Gọn nhất: <b>Lotte Mart</b> tầng hầm, cạnh khách sạn</li>
+      </ul>
+    </div>
+    <div class="cell">
+      <h4>Nếu mưa</h4>
+      <ul>
+        <li>Chiều chủ nhật chuyển sang <b>Dân tộc học</b> hoặc <b>Mỹ thuật</b></li>
+        <li>Mưa to có thể hoãn 3D mapping ở Văn Miếu — đổi sang phố đi bộ hoặc cà phê</li>
+        <li>Thứ hai dồn hết vào <b>Hoả Lò</b> và Lotte Center</li>
+        <li>Ra sân bay sớm hơn <b>20 phút</b></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ ĐÃ ĐI ═══ -->
+<section class="panel" id="dadi">
+  <h2>Đã đi rồi</h2>
+  <p class="lead">Lịch trình phía trên đã tránh hết những chỗ này.</p>
+  <div class="done">
+    <i>Kem Tràng Tiền</i>
+    <i>Cà phê Giảng</i>
+    <i>Bảo tàng Lịch sử Quân sự</i>
+    <i>Khách sạn Daewoo</i>
+    <i>Vài quán Michelin</i>
+  </div>
+</section>
+
+<footer>
+  <span>Cho anh, mèo và moon · Hà Nội 02–03.08.2026</span>
+  <span>Giờ mở cửa và giá vé nên xác nhận lại trước khi đi</span>
+</footer>
+
+</div>
+
+<script>
+(function(){
+  var r=document.documentElement,k="hn48-theme",saved=null;
+  try{saved=localStorage.getItem(k)}catch(e){}
+  if(saved) r.setAttribute("data-theme",saved);
+  document.getElementById("tog").addEventListener("click",function(){
+    var isDark=getComputedStyle(document.body).backgroundColor==="rgb(12, 17, 24)";
+    var next=isDark?"light":"dark";
+    r.setAttribute("data-theme",next);
+    try{localStorage.setItem(k,next)}catch(e){}
+  });
+})();
+</script>
+</body>
+</html>
