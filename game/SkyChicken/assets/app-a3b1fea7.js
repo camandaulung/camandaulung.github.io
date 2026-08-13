@@ -5595,7 +5595,9 @@ SC.UI = {
     on('btnQuit', () => SC.Game.quitToMenu());
     on('btnResRetry', () => SC.Game.startLevel(SC.Game.levelId));
     on('btnResNext', () => SC.Game.startLevel(Math.min(SC.TOTAL_LEVELS, SC.Game.levelId + 1)));
-    on('btnResMenu', () => { SC.Game.quitToMenu(); this.show('maps'); this.buildMapList(); });
+    // Về LOBBY chứ không về bản đồ: lobby mới đã nói rõ chặng kế tiếp là màn nào,
+    // nên đó mới là chỗ người chơi muốn quay về sau khi xong một màn.
+    on('btnResMenu', () => { this.buildMapList(); SC.Game.quitToMenu(); });
     on('btnInstall', () => SC.PWA.install());
     on('btnUpdate', () => SC.PWA.applyUpdate());
     on('btnMergeCloud', () => SC.AuthPanel.pick('cloud'));

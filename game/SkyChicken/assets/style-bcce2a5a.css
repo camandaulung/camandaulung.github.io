@@ -53,6 +53,12 @@ body.is-touch #game{cursor:auto}
 
 .layer{position:absolute;inset:0;pointer-events:none}
 .layer.screen{pointer-events:auto;display:flex;flex-direction:column}
+
+/* Màn phủ (briefing, tạm dừng, kết quả...) phải nằm TRÊN nội dung của màn bên dưới.
+   Mọi .layer đều là anh em cùng một ngữ cảnh xếp lớp, nên .saga-node{z-index:2}
+   của bản đồ hành trình vẫn vẽ đè lên panel briefing nếu panel không có z-index. */
+.layer.screen.dim{z-index:10}
+#toastZone{z-index:15}          /* thông báo bay lên: trên hết, kể cả trên màn phủ */
 .hidden{display:none!important}
 .dim{background:rgba(4,7,16,.78);backdrop-filter:blur(6px)}
 
