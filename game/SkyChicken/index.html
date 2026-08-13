@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#05070f">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Sky Chicken — Bắn gà 100 màn</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="stylesheet" href="assets/style-4c69122b.css">
+</head>
+<body>
+<div id="stage">
+  <canvas id="game"></canvas>
+
+  <!-- Toàn bộ UI nằm trong khung ảo 540×H rồi scale theo màn hình -->
+  <div id="ui">
+
+  <!-- ===== HUD (in-game) ===== -->
+  <div id="hud" class="layer hidden">
+    <div class="hud-top">
+      <div class="hud-left">
+        <div class="hp-wrap">
+          <div class="hp-bar"><i id="hpFill"></i></div>
+          <div class="sh-bar"><i id="shFill"></i></div>
+        </div>
+        <div class="hud-stats">
+          <span class="chip">★ <b id="hudScore">0</b></span>
+          <span class="chip gold">◈ <b id="hudCoin">0</b></span>
+          <span class="chip save hidden" id="hudRescue">☺ <b>0/0</b></span>
+        </div>
+      </div>
+      <div class="hud-right">
+        <div class="lvl-tag">MAP <b id="hudLevel">01</b></div>
+        <button id="btnMute" class="icon-btn">🔊</button>
+        <button id="btnPause" class="icon-btn">❚❚</button>
+      </div>
+    </div>
+
+    <div class="wave-wrap">
+      <div class="wave-bar"><i id="waveFill"></i></div>
+      <span id="waveTxt">WAVE 1/5</span>
+    </div>
+
+    <div id="bossBar" class="boss-wrap hidden">
+      <span id="bossName">BOSS</span>
+      <div class="boss-bar"><i id="bossFill"></i></div>
+    </div>
+
+    <div class="hud-bottom">
+      <div class="wpn">
+        <span class="wpn-ic">⚡</span>
+        <div class="wpn-pips" id="wpnPips"></div>
+      </div>
+      <div class="hud-right-col">
+        <div class="combo hidden" id="comboBox">x<b id="comboVal">2</b> COMBO</div>
+        <div class="timer" id="hudTimer">⏱ <b>0s</b></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- thông báo bay lên: để ngoài HUD nên mọi màn hình đều hiện được -->
+  <div id="toastZone" class="layer"></div>
+
+  <!-- bảng 3 nhiệm vụ hiện lúc vào màn rồi tự mờ đi -->
+  <div id="missionPanel" class="layer hidden">
+    <div class="mission-box">
+      <h4>NHIỆM VỤ</h4>
+      <ul id="missionList"></ul>
+    </div>
+  </div>
+
+  <!-- ===== MENU ===== -->
+  <div id="scrMenu" class="layer screen">
+    <div class="logo">
+      <span class="logo-sub">CHIẾN DỊCH</span>
+      <h1>SKY<em>CHICKEN</em></h1>
+      <span class="logo-tag">100 MAPS · AUTO FIRE · AUTO LOOT</span>
+    </div>
+    <div class="menu-btns">
+      <div class="now-card" id="menuNow">
+        <span class="now-label" id="nowLabel">CHẶNG TIẾP THEO</span>
+        <b class="now-map" id="nowMap">MÀN 01</b>
+        <span class="now-biome" id="nowBiome">ĐỒNG QUÊ 1</span>
+        <div class="now-foot">
+          <span>★ <b id="nowStars">0</b>/<i id="nowStarMax">300</i></span>
+          <span class="gold">◈ <b id="menuCoin">0</b></span>
+          <span class="pw">⚔ <b id="nowPower">0</b></span>
+        </div>
+      </div>
+      <button class="btn primary" id="btnPlay">BẮT ĐẦU</button>
+      <button class="btn ghost" id="btnMaps">CHỌN MAP</button>
+      <button class="btn ghost" id="btnShop">⬆ NÂNG CẤP <em id="shopBadge"></em></button>
+      <button class="btn ghost" id="btnRank">🏆 BẢNG XẾP HẠNG</button>
+
+      <!-- Hồ sơ chơi trên máy này (tối đa 3), khác với đăng nhập Google -->
+      <button class="prof-chip" id="btnProfile"><span>🐔</span><b>PHI CÔNG 1</b><em>ĐỔI</em></button>
+
+      <!-- Đăng nhập: không bắt buộc, chỉ cần khi muốn lên bảng & giữ tiến độ đổi máy -->
+      <div class="auth-box" id="authBox">
+        <button class="btn ghost small" id="btnLogin">ĐĂNG NHẬP GOOGLE</button>
+        <div class="auth-user hidden" id="authUser">
+          <img class="auth-av hidden" id="authAvatar" alt="">
+          <b id="authName">Phi công</b>
+          <span class="sync-dot" id="syncDot"></span>
+          <button class="icon-btn" id="btnLogout" title="Đăng xuất">⏻</button>
+        </div>
+      </div>
+
+      <button class="btn ghost hidden" id="btnInstall">⤓ CÀI VỀ MÁY</button>
+      <button class="btn primary hidden" id="btnUpdate">↻ CÓ BẢN MỚI — CẬP NHẬT</button>
+      <div class="menu-row">
+        <button class="btn ghost small toggle" id="btnSfx">🔊 HIỆU ỨNG</button>
+        <button class="btn ghost small toggle" id="btnMus">🎵 NHẠC NỀN</button>
+        <button class="btn ghost small toggle" id="btnShake">📳 RUNG</button>
+      </div>
+      <div class="menu-row">
+        <button class="btn ghost small" id="btnFull">TOÀN MÀN HÌNH</button>
+        <button class="btn ghost small" id="btnReset">XÓA TIẾN ĐỘ</button>
+      </div>
+    </div>
+    <p class="hint" id="menuHint">Di chuyển bằng <b>chuột</b> · Tự bắn · Tự nhặt đồ · <b>P</b> hoặc <b>Space</b> để tạm dừng</p>
+    <button class="portal-back hidden" id="btnPortal">‹ PORTAL</button>
+  </div>
+
+  <!-- ===== MAP SELECT ===== -->
+  <div id="scrMaps" class="layer screen hidden">
+    <div class="scr-head">
+      <button class="icon-btn back" id="btnMapsBack">‹</button>
+      <h2>CHỌN CHIẾN TRƯỜNG</h2>
+      <span class="total-star">★ <b id="totalStars">0</b>/<i id="maxStars">300</i></span>
+      <button class="icon-btn" id="btnShop2">⬆</button>
+    </div>
+    <div class="map-scroll" id="mapList"></div>
+  </div>
+
+  <!-- ===== BRIEFING (xem trước nhiệm vụ của map) ===== -->
+  <div id="scrBrief" class="layer screen dim hidden">
+    <div class="panel brief">
+      <span class="brief-biome" id="briefBiome">ĐỒNG QUÊ</span>
+      <h3 id="briefTitle">MAP 01</h3>
+      <div class="brief-foe" id="briefFoe"></div>
+      <div class="brief-star">
+        <div class="stars small" id="briefStars"><i></i><i></i><i></i></div>
+        <span id="briefStarTxt">0/3</span>
+      </div>
+      <ul class="mission-rows" id="briefMissions"></ul>
+      <div class="res-btns">
+        <button class="btn ghost" id="btnBriefBack">QUAY LẠI</button>
+        <button class="btn primary" id="btnBriefGo">XUẤT KÍCH</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SHOP (nâng cấp vĩnh viễn) ===== -->
+  <div id="scrShop" class="layer screen hidden">
+    <div class="scr-head">
+      <button class="icon-btn back" id="btnShopBack">‹</button>
+      <h2>NÂNG CẤP</h2>
+      <span class="power-tag" id="shopPower">⚔ <b>0</b></span>
+      <span class="total-star gold">◈ <b id="shopCoin">0</b></span>
+    </div>
+    <div class="shop-scroll" id="shopList"></div>
+    <p class="shop-note">Nâng cấp có hiệu lực vĩnh viễn ở mọi map</p>
+  </div>
+
+  <!-- ===== BẢNG XẾP HẠNG ===== -->
+  <div id="scrRank" class="layer screen hidden">
+    <div class="scr-head">
+      <button class="icon-btn back" id="btnRankBack">‹</button>
+      <h2>BẢNG XẾP HẠNG</h2>
+    </div>
+    <div class="rank-tabs" id="rankTabs">
+      <button data-tab="level" class="on">MÀN CAO NHẤT</button>
+      <button data-tab="time">TỐC ĐỘ</button>
+      <button data-tab="stars">TỔNG SAO</button>
+    </div>
+    <div class="rank-scroll" id="rankList"></div>
+    <div class="rank-me hidden" id="rankMe"></div>
+  </div>
+
+  <!-- ===== HỒ SƠ (tối đa 3 trên một máy) ===== -->
+  <div id="scrProfile" class="layer screen hidden">
+    <div class="scr-head">
+      <button class="icon-btn back" id="btnProfileBack">‹</button>
+      <h2>HỒ SƠ PHI CÔNG</h2>
+    </div>
+    <div class="prof-scroll">
+      <div id="profList"></div>
+
+      <div class="prof-new" id="profNewBox">
+        <span class="prof-new-lb">TẠO HỒ SƠ MỚI</span>
+        <div class="ava-pick" id="avaPick"></div>
+        <input id="profName" maxlength="14" placeholder="Tên phi công" autocomplete="off">
+        <button class="btn primary" id="btnProfNew">TẠO HỒ SƠ</button>
+      </div>
+      <p class="prof-full hidden" id="profFull">Đã đủ 3 hồ sơ. Xoá bớt một hồ sơ để tạo mới.</p>
+      <p class="prof-note">Mỗi hồ sơ có tiến độ, vàng và nâng cấp riêng.
+        Trên bản đồ hành trình sẽ thấy các hồ sơ khác đang đứng ở chặng nào.</p>
+    </div>
+  </div>
+
+  <!-- ===== HƯỚNG DẪN BẬT ĐĂNG NHẬP (hiện khi chưa khai báo Firebase) ===== -->
+  <div id="scrSetup" class="layer screen dim hidden">
+    <div class="panel setup">
+      <h3>CHƯA BẬT ĐĂNG NHẬP</h3>
+      <p class="setup-lead">Game đang chạy ở chế độ ẩn danh. Để bật đăng nhập Google
+        và bảng xếp hạng toàn cầu, cần tạo một dự án Firebase miễn phí:</p>
+      <ol class="setup-steps">
+        <li>Vào <b>console.firebase.google.com</b> → tạo dự án → thêm ứng dụng Web</li>
+        <li><b>Authentication</b> → Sign-in method → bật <b>Google</b></li>
+        <li><b>Authentication</b> → Settings → Authorized domains → thêm tên miền của Anh</li>
+        <li><b>Firestore Database</b> → tạo mới → dán luật trong <b>firestore.rules</b></li>
+        <li>Chép 4 khoá vào <b>js/config-firebase.js</b> rồi tải lại trang</li>
+      </ol>
+      <p class="setup-note">Bảng xếp hạng của máy này (3 hồ sơ) vẫn dùng được ngay, không cần bước nào.</p>
+      <button class="btn primary" id="btnSetupClose">ĐÃ HIỂU</button>
+    </div>
+  </div>
+
+  <!-- ===== CHỌN TIẾN ĐỘ (khi máy và đám mây lệch nhau) ===== -->
+  <div id="scrMerge" class="layer screen dim hidden">
+    <div class="panel">
+      <h3>TIẾN ĐỘ KHÁC NHAU</h3>
+      <p class="merge-note">Tài khoản này đã có tiến độ trên đám mây. Giữ bản nào?</p>
+      <button class="btn ghost merge-opt" id="btnMergeCloud">
+        <span>ĐÁM MÂY</span><em id="mergeCloud"></em>
+      </button>
+      <button class="btn ghost merge-opt" id="btnMergeLocal">
+        <span>MÁY NÀY</span><em id="mergeLocal"></em>
+      </button>
+    </div>
+  </div>
+
+  <!-- ===== PAUSE ===== -->
+  <div id="scrPause" class="layer screen dim hidden">
+    <div class="panel">
+      <h3>TẠM DỪNG</h3>
+      <button class="btn primary" id="btnResume">TIẾP TỤC</button>
+      <div class="menu-row">
+        <button class="btn ghost small toggle" id="btnSfx2">🔊 HIỆU ỨNG</button>
+        <button class="btn ghost small toggle" id="btnMus2">🎵 NHẠC NỀN</button>
+        <button class="btn ghost small toggle" id="btnShake2">📳 RUNG</button>
+      </div>
+      <button class="btn ghost" id="btnRestart">CHƠI LẠI</button>
+      <button class="btn ghost" id="btnQuit">RA MENU</button>
+    </div>
+  </div>
+
+  <!-- ===== RESULT ===== -->
+  <div id="scrResult" class="layer screen dim hidden">
+    <div class="panel result">
+      <h3 id="resTitle">HOÀN THÀNH</h3>
+      <div class="res-level" id="resLevel">MÀN 01 · ĐỒNG QUÊ 1</div>
+      <div class="stars" id="resStars"><i></i><i></i><i></i></div>
+      <ul class="mission-rows" id="resMissions"></ul>
+      <ul class="res-rows">
+        <li><span>Điểm</span><b id="resScore">0</b></li>
+        <li><span>Tiêu diệt</span><b id="resKill">0</b></li>
+        <li><span>Chính xác</span><b id="resAcc">0%</b></li>
+      </ul>
+      <ul class="gold-rows" id="resGold"></ul>
+      <div class="res-btns">
+        <button class="btn ghost" id="btnResRetry">CHƠI LẠI</button>
+        <button class="btn primary" id="btnResNext">MAP TIẾP</button>
+      </div>
+      <div class="res-links">
+        <button class="btn text" id="btnResShop">⬆ Nâng cấp</button>
+        <button class="btn text" id="btnResMenu">Về chọn map</button>
+      </div>
+    </div>
+  </div>
+
+  </div><!-- /#ui -->
+
+  <!-- Nhắc xoay dọc khi cầm điện thoại nằm ngang -->
+  <div id="rotateHint">
+    <div class="rot-ic">📱</div>
+    <p>Xoay dọc máy để chơi</p>
+  </div>
+</div>
+<script src="assets/app-3e6c8d8e.js"></script>
+</body>
+</html>

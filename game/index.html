@@ -274,6 +274,19 @@
     }
     .dot-coming { background: var(--accent); opacity: 0.7; }
     .dot-dev { background: var(--faint); }
+    /* game da choi duoc: cham xanh nhap nhay + vien sang de noi bat giua cac the "sap ra mat" */
+    .dot-live { background: #4dffa1; animation: pulse-live 2s ease-in-out infinite; }
+    @keyframes pulse-live {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(77, 255, 161, 0.55); }
+      50% { box-shadow: 0 0 0 5px rgba(77, 255, 161, 0); }
+    }
+    .game-card.live { border-color: rgba(77, 255, 161, 0.34); }
+    .game-card.live:hover { border-color: rgba(77, 255, 161, 0.6); box-shadow: 0 20px 50px -24px rgba(77, 255, 161, 0.4); }
+    .game-card.live .card-halo { background: #4dffa1; }
+    .game-card.live .card-status { color: #4dffa1; }
+    .game-card.live .card-play { color: #4dffa1; }
+    .game-card.live .card-thumb { display: grid; place-items: center; text-decoration: none; }
+    .game-card.live .card-thumb svg { stroke: #4dffa1; opacity: 0.75; }
 
     .card-play {
       font-family: var(--font-mono); font-size: 11px; font-weight: 500;
@@ -418,8 +431,32 @@
 
     <!-- ── Games grid ───────────────────────────────────────── -->
     <section class="games-section" id="games" data-od-id="games-section">
-      <div class="section-label">S&#7855;p ra m&#7855;t</div>
+      <div class="section-label">Ch&#417;i &#273;&#432;&#7907;c ngay</div>
       <div class="games-grid">
+
+        <!-- Sky Chicken — game duy nhat da choi duoc -->
+        <article class="game-card live" data-od-id="game-card-skychicken">
+          <a class="card-thumb" href="./SkyChicken/" aria-label="Ch&#417;i Sky Chicken">
+            <svg viewBox="0 0 48 48">
+              <path d="M24 8l4 10 10 2-7 7 2 10-9-5-9 5 2-10-7-7 10-2z"/>
+              <path d="M24 30v8M20 38h8"/>
+            </svg>
+          </a>
+          <div class="card-body">
+            <span class="card-tag">B&#7855;n g&#224;</span>
+            <h3 class="card-title">Sky Chicken</h3>
+            <p class="card-desc">60 m&#224;n, 10 v&#249;ng, 20 tr&#249;m ri&#234;ng. Di chu&#7875;n b&#7857;ng chu&#7897;t ho&#7863;c ch&#7841;m k&#233;o &mdash;
+              t&#7921; b&#7855;n, t&#7921; nh&#7863;t &#273;&#7891;. C&#224;i v&#7873; m&#225;y ch&#417;i offline &#273;&#432;&#7907;c.</p>
+            <div class="card-footer">
+              <span class="card-status"><span class="dot dot-live"></span>Ch&#417;i &#273;&#432;&#7907;c</span>
+              <a class="card-play" href="./SkyChicken/">
+                Ch&#417;i ngay
+                <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+              </a>
+            </div>
+          </div>
+          <div class="card-halo"></div>
+        </article>
 
         <!-- Card 1 -->
         <article class="game-card" data-od-id="game-card-trivia">
@@ -529,8 +566,8 @@
           <div class="stat-label">Qu&#7843;ng c&#225;o</div>
         </div>
         <div class="stat-card" data-od-id="stat-games">
-          <div class="stat-value">3+</div>
-          <div class="stat-label">Game s&#7855;p ra m&#7855;t</div>
+          <div class="stat-value">1</div>
+          <div class="stat-label">Game ch&#417;i &#273;&#432;&#7907;c</div>
         </div>
       </div>
     </section>
