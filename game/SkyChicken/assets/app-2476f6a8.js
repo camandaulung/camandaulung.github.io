@@ -627,11 +627,23 @@ SC.Power = {
   spd()   { return 1 + this._t() * this.S.spd; },    // tốc độ di chuyển
   orbit() { return this._t() * this.S.orbit; },      // độ cong đạn địch (rad/giây)
 
+  /* Bậc danh hiệu — để ở một chỗ duy nhất vì cả rank() lẫn next() đều đọc,
+     và lobby dùng next() để nhắc "còn mấy điểm nữa lên hạng". */
+  TIERS: [[0, 'TÂN BINH'], [25, 'CỨNG CÁP'], [45, 'THIỆN CHIẾN'], [65, 'TINH NHUỆ'], [85, 'HUYỀN THOẠI']],
+
   /* Nhãn hiển thị cho người chơi */
   rank() {
     const p = this.total();
-    return p >= 85 ? 'HUYỀN THOẠI' : p >= 65 ? 'TINH NHUỆ'
-      : p >= 45 ? 'THIỆN CHIẾN' : p >= 25 ? 'CỨNG CÁP' : 'TÂN BINH';
+    let name = this.TIERS[0][1];
+    for (const [need, n] of this.TIERS) if (p >= need) name = n;
+    return name;
+  },
+
+  /* Bậc kế tiếp: { need, name } — trả null khi đã ở bậc cao nhất */
+  next() {
+    const p = this.total();
+    for (const [need, name] of this.TIERS) if (p < need) return { need: need - p, name };
+    return null;
   }
 };
 
@@ -4030,6 +4042,9 @@ SC.Renderer = {
 
     SC.BG.render(ctx);
 
+    // Ở lobby: máy bay đứng chờ, vẽ ngay trên nền và dưới lớp UI của DOM
+    if (g.state === 'menu') SC.LobbyShip.render(ctx);
+
     if (g.state !== 'menu') {
       SC.Items.render(ctx);        // vật phẩm nằm dưới cùng
       SC.Rescue.render(ctx);
@@ -4101,25 +4116,19 @@ SC.AudioUI = {
     this.sync();
   },
 
-  /* đồng bộ nhãn + độ mờ của mọi nút theo trạng thái hiện tại */
+  /* Đồng bộ trạng thái mọi nút.
+     Chỉ bật/tắt class .off — icon (2 bản on/off) và nhãn đã nằm sẵn trong HTML,
+     CSS .ic-swap lo việc đổi hình. Ghi textContent ở đây là xoá sạch cả icon lẫn chữ. */
   sync() {
-    const set = (id, isOn, icOn, icOff, label) => {
+    const set = (id, isOn) => {
       const b = document.getElementById(id);
-      if (!b) return;
-      b.classList.toggle('off', !isOn);
-      b.textContent = (isOn ? icOn : icOff) + ' ' + label;
+      if (b) b.classList.toggle('off', !isOn);
     };
-    set('btnSfx', SC.Audio.sfxOn, '🔊', '🔇', 'HIỆU ỨNG');
-    set('btnSfx2', SC.Audio.sfxOn, '🔊', '🔇', 'HIỆU ỨNG');
-    set('btnMus', SC.Audio.musOn, '🎵', '🚫', 'NHẠC NỀN');
-    set('btnMus2', SC.Audio.musOn, '🎵', '🚫', 'NHẠC NỀN');
-
-    const m = document.getElementById('btnMute');
-    if (m) {
-      const anyOn = SC.Audio.sfxOn || SC.Audio.musOn;
-      m.textContent = anyOn ? '🔊' : '🔇';
-      m.classList.toggle('off', !anyOn);
-    }
+    set('btnSfx', SC.Audio.sfxOn);
+    set('btnSfx2', SC.Audio.sfxOn);
+    set('btnMus', SC.Audio.musOn);
+    set('btnMus2', SC.Audio.musOn);
+    set('btnMute', SC.Audio.sfxOn || SC.Audio.musOn);
   }
 };
 
@@ -4154,6 +4163,11 @@ SC.Settings = {
     on('btnFull', () => SC.View.toggleFullscreen());
     on('btnReset', () => this.reset());
 
+    // Màn cài đặt: gom hết chrome của app ra khỏi lobby (âm thanh, rung, màn hình,
+    // tài khoản, xoá tiến độ) để lobby chỉ còn việc chơi.
+    on('btnOptions', () => SC.UI.show('options'));
+    on('btnOptionsBack', () => { SC.UI.show('menu'); SC.UI.syncMenu(); });
+
     // nhãn nút toàn màn hình phải theo trạng thái THẬT, kể cả khi bấm F11 hay Esc
     const sync = () => this.syncFullscreen();
     document.addEventListener('fullscreenchange', sync);
@@ -4171,20 +4185,22 @@ SC.Settings = {
     SC.UI.toast(this.shake ? 'RUNG MÀN HÌNH: BẬT' : 'RUNG MÀN HÌNH: TẮT');
   },
 
+  /* Chỉ đổi class, KHÔNG ghi đè textContent: nhãn và icon SVG nằm sẵn trong HTML,
+     ghi textContent là xoá mất luôn cả hai (bài học từ bản dùng emoji). */
   sync() {
     for (const id of ['btnShake', 'btnShake2']) {
       const b = document.getElementById(id);
-      if (!b) continue;
-      b.classList.toggle('off', !this.shake);
-      b.textContent = (this.shake ? '📳' : '🚫') + ' RUNG';
+      if (b) b.classList.toggle('off', !this.shake);
     }
   },
 
   syncFullscreen() {
     const b = document.getElementById('btnFull');
     if (!b) return;
-    b.textContent =
-      (document.fullscreenElement || document.webkitFullscreenElement) ? 'CỬA SỔ' : 'TOÀN MÀN HÌNH';
+    const full = !!(document.fullscreenElement || document.webkitFullscreenElement);
+    b.classList.toggle('off', full);            // .off ở đây = đang toàn màn hình -> icon thu nhỏ
+    const lb = document.getElementById('btnFullLabel');
+    if (lb) lb.textContent = full ? 'CỬA SỔ' : 'TOÀN MÀN HÌNH';
   },
 
   reset() {
@@ -4200,38 +4216,147 @@ SC.Settings = {
 
 ;
 /* ===== js/ui-menu-card.js ===== */
-/* ui-menu-card.js — thẻ tóm tắt tiến độ ở màn hình đầu
+/* ui-menu-card.js — thẻ xuất kích ở lobby
  *
- * Trước đây menu không nói gì về tiến độ: mở game lên không biết mình đang ở
- * chặng nào, được bao nhiêu sao. Thẻ này trả lời ba câu đó ngay khi vào. */
+ * Trước đây menu chỉ nói được 5 con số trần trụi, trong khi dữ liệu để lobby "có chất"
+ * đã nằm sẵn trong game từ lâu mà không ai lấy ra: danh hiệu phi công (SC.Power.rank),
+ * tên trùm sắp gặp (lv.bossName), vị trí trong vùng (lv.stage), nhãn độ khó (lv.chunk),
+ * màu của vùng (biome.hue). Tệp này kéo hết chúng ra mặt tiền.
+ *
+ * Nó cũng là chỗ quyết định MÀU của cả lobby: gán --tint theo vùng sắp tới, và đặt
+ * nền parallax của canvas về đúng biome đó — nên mở game lên là thấy cảnh nơi mình
+ * sắp bay tới, không phải cánh đồng của màn 1.
+ */
 
 SC.MenuCard = {
+  _prev: {},        // giá trị lần trước -> chỉ chạy hiệu ứng đếm khi số THỰC SỰ đổi
+
   sync(ui) {
     const id = s => document.getElementById(s);
     const set = (s, v) => { const e = id(s); if (e) e.textContent = v; };
 
-    set('menuCoin', ui.progress.coin);
-    const badge = id('shopBadge');
-    if (badge) badge.className = SC.Upg.anyAffordable() ? 'dot' : '';
-
     const next = Math.min(SC.TOTAL_LEVELS, ui.progress.unlocked);
     const lv = SC.LEVELS[next - 1];
     if (!lv) return;
+    const biome = SC.BIOMES[lv.biome];
+    const per = SC.LEVELS_PER_BIOME;
 
-    // đã từng qua chặng này chưa -> đổi lời dẫn cho đúng ngữ cảnh
+    /* ---------- màu của cả lobby theo vùng sắp tới ---------- */
+    // Dùng đúng công thức của bản đồ hành trình (ui-map-select.js) nên hai màn cùng hệ màu
+    const menu = id('scrMenu');
+    if (menu) menu.style.setProperty('--tint', `hsl(${biome.hue},70%,62%)`);
+    this.syncBiome(lv);
+
+    /* ---------- lời dẫn + chặng ---------- */
     const done = Object.prototype.hasOwnProperty.call(ui.progress.stars, lv.id);
     set('nowLabel', done ? 'CHƠI TIẾP' : next === 1 ? 'BẮT ĐẦU HÀNH TRÌNH' : 'CHẶNG TIẾP THEO');
-    set('nowMap', 'MÀN ' + String(lv.id).padStart(2, '0')
-      + (lv.finalBoss ? ' · TRÙM VÙNG' : lv.boss ? ' · ELITE' : ''));
-    set('nowBiome', lv.name);
-    set('nowStars', ui.totalStar());
-    set('nowStarMax', SC.TOTAL_STARS);
-    set('nowPower', SC.Power.total());
+    set('nowMap', 'MÀN ' + String(lv.id).padStart(2, '0'));
+    set('nowBiome', `${biome.name} · ${lv.stage}/${per}`);
 
+    // nhãn độ khó của chặng, tô đỏ ở hai đỉnh cao trào của vùng
+    const chunk = id('nowChunk');
+    if (chunk) {
+      chunk.textContent = lv.chunk || '';
+      chunk.classList.toggle('hard', !!lv.boss);
+    }
+
+    // tên trùm: chỉ hiện ở chặng thật sự có trùm, còn lại giấu hẳn cho đỡ ồn
+    const foe = id('nowFoe');
+    if (foe) {
+      foe.classList.toggle('hidden', !lv.boss);
+      if (lv.boss) foe.textContent = (lv.finalBoss ? 'TRÙM VÙNG · ' : 'ELITE · ') + lv.bossName;
+    }
     const card = id('menuNow');
     if (card) card.classList.toggle('boss', !!lv.boss);
 
-    SC.AuthPanel.sync();          // thẻ hồ sơ + trạng thái đăng nhập nằm ngay dưới
+    /* ---------- tiến độ sao ---------- */
+    const star = ui.totalStar();
+    set('nowStars', star);
+    set('nowStarMax', SC.TOTAL_STARS);
+    const fill = id('nowStarFill');
+    if (fill) fill.style.width = (star / SC.TOTAL_STARS * 100).toFixed(1) + '%';
+
+    /* ---------- ví + sức mạnh ---------- */
+    this._count('nowPower', SC.Power.total());
+    this._count('menuCoin', ui.progress.coin);
+    set('nowUpg', SC.Upg.totalLevels());
+    set('nowUpgMax', SC.Upg.totalMax());
+
+    const badge = id('shopBadge');
+    if (badge) badge.className = SC.Upg.anyAffordable() ? 'dot' : '';
+
+    // dòng phụ dưới logo: số map lấy từ dữ liệu, đổi levelsPerBiome trong Excel là tự đúng
+    set('logoTag', `${SC.TOTAL_LEVELS} MAPS · AUTO FIRE · AUTO LOOT`);
+
+    this.hookLine(ui, lv, biome, per);
+    SC.AuthPanel.sync();          // thẻ hồ sơ + danh hiệu + trạng thái đăng nhập
+  },
+
+  /* Nền lobby lấy đúng cảnh của vùng sắp tới. Gọi lại mỗi lần sync vì đổi hồ sơ
+     hay xoá tiến độ đều làm chặng kế nhảy sang vùng khác. */
+  syncBiome(lv) {
+    if (SC.Game && SC.Game.state === 'menu' && SC.BG.biomeId !== lv.biome) SC.BG.setBiome(lv.biome);
+  },
+
+  /* ---------- dòng nhắc động ----------
+     Lấy dòng ĐẦU TIÊN khớp, không có gì đáng nói thì ẩn hẳn — thà im lặng còn hơn
+     hiện một câu chung chung mà lần nào mở game cũng thấy y hệt. */
+  hookLine(ui, lv, biome, per) {
+    const el = document.getElementById('lobbyHook');
+    if (!el) return;
+    const msg = this._pickHook(ui, lv, biome, per);
+    el.classList.toggle('hidden', !msg);
+    if (msg) el.innerHTML = msg;
+  },
+
+  _pickHook(ui, lv, biome, per) {
+    const esc = s => SC.Rank.esc(String(s));
+
+    // 1. sắp tới trùm vùng — chỉ nhắc khi chặng này CHƯA phải trùm (thẻ đã nói rồi)
+    if (!lv.boss) {
+      const left = per - lv.stage;
+      if (left > 0 && left <= 2)
+        return `Còn <b>${left}</b> chặng nữa gặp <b>${esc(biome.bossName)}</b>`;
+    }
+
+    // 2. sắp lên danh hiệu
+    const nx = SC.Power.next();
+    if (nx && nx.need <= 8) return `Còn <b>${nx.need}</b> lực chiến nữa lên <b>${esc(nx.name)}</b>`;
+
+    // 3. hồ sơ khác trên máy đang đi trước mình
+    const me = ui.progress.unlocked;
+    const ahead = SC.Profiles.summaries()
+      .filter(p => !p.isMe && p.level > me)
+      .sort((a, b) => b.level - a.level)[0];
+    if (ahead) return `<b>${esc(ahead.name)}</b> đã tới màn <b>${ahead.level}</b>`;
+
+    // 4. đủ vàng nâng cấp -> gọi tên món rẻ nhất mua được cho cụ thể
+    const buyable = SC.UPGRADES
+      .filter(u => SC.Upg.canBuy(u.key))
+      .sort((a, b) => SC.Upg.cost(a.key) - SC.Upg.cost(b.key))[0];
+    if (buyable) return `Đủ vàng nâng <b>${esc(buyable.name)}</b>`;
+
+    return '';
+  },
+
+  /* Đếm lên khi số đổi — cho cảm giác vừa kiếm được, không phải con số chết.
+     Chỉ chạy khi giá trị khác lần trước, nếu không mỗi lần về menu lại đếm lại. */
+  _count(elId, target) {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    const from = this._prev[elId];
+    this._prev[elId] = target;
+
+    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (from === undefined || from === target || reduce) { el.textContent = target; return; }
+
+    clearInterval(el._countT);
+    const t0 = performance.now(), span = 450, d = target - from;
+    el._countT = setInterval(() => {
+      const k = Math.min(1, (performance.now() - t0) / span);
+      el.textContent = Math.round(from + d * (1 - Math.pow(1 - k, 3)));   // ease-out
+      if (k >= 1) clearInterval(el._countT);
+    }, 32);
   }
 };
 
@@ -4850,9 +4975,14 @@ SC.AuthPanel = {
     if (!login || !user) return;
 
     // thẻ hồ sơ đang chơi (danh tính cục bộ, luôn có kể cả chưa đăng nhập)
+    // Kèm danh hiệu theo lực chiến (SC.Power.rank) — nâng cấp xong quay ra lobby là
+    // thấy mình vừa lên hạng, thay vì chỉ thấy một con số nhích lên.
     const cur = SC.Profiles.cur();
     const chip = id('btnProfile');
-    if (chip && cur) chip.innerHTML = `<span>${cur.avatar}</span><b>${SC.Rank.esc(cur.name)}</b><em>ĐỔI</em>`;
+    if (chip && cur) chip.innerHTML =
+      `<span>${cur.avatar}</span>` +
+      `<span class="prof-txt"><b>${SC.Rank.esc(cur.name)}</b>` +
+      `<i class="prof-rank">${SC.Power.rank()}</i></span><em>ĐỔI</em>`;
 
     const u = SC.Auth.user, busy = SC.Auth.busy;
     login.classList.toggle('hidden', !!u);
@@ -5108,7 +5238,8 @@ SC.MapSelect = {
     const head = document.createElement('div');
     head.className = 'saga-head' + (open ? '' : ' lock');
     head.innerHTML = `<b>${biome.name}</b>
-      <span>${open ? `★ ${stars}/${per * 3}` : '🔒 CHƯA MỞ'}</span>`;
+      <span>${open ? `★ ${stars}/${per * 3}`
+        : '<svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg> CHƯA MỞ'}</span>`;
     box.appendChild(head);
 
     const path = document.createElement('div');
@@ -5152,7 +5283,8 @@ SC.MapSelect = {
     el.style.top = (this.TOP + k * this.NODE_GAP) + 'px';
 
     el.innerHTML = `
-      <span class="sn-num">${locked ? '🔒' : lv.stage}</span>
+      <span class="sn-num">${locked
+        ? '<svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg>' : lv.stage}</span>
       ${lv.boss ? `<span class="sn-tag">${lv.finalBoss ? 'TRÙM VÙNG' : 'ELITE'}</span>` : ''}
       ${locked ? '' : `<span class="sn-star">${'★'.repeat(st)}${'☆'.repeat(3 - st)}</span>`}`;
 
@@ -5291,6 +5423,79 @@ SC.Shop = {
 };
 
 ;
+/* ===== js/ui-lobby-ship.js ===== */
+/* ui-lobby-ship.js — máy bay của người chơi đứng chờ ở lobby
+ *
+ * Vì sao có: mở game lên mà không thấy chiếc máy bay mình đang cày để nâng cấp thì
+ * lobby chỉ là một cái menu. Ở đây nó hiện ngay giữa màn, mang đúng cấp vũ khí sẽ
+ * vào trận và đúng số máy bay phụ đã mua — nên mua PHI ĐỘI xong quay ra là thấy liền.
+ *
+ * Không dựng SC.Player: chỉ mượn SC.draw.fighter() để vẽ, nên không có va chạm,
+ * không bắn, không đụng gì tới trạng thái ván chơi.
+ */
+
+SC.LobbyShip = {
+  y: 0,               // tâm sân bay, đơn vị khung ảo — layout() tính lại
+  ready: false,
+
+  /* Đọc vị trí ô .lobby-stage. #ui có kích thước đúng bằng khung ảo (system-viewport.js)
+     nên offsetTop/offsetHeight của phần tử con CHÍNH LÀ toạ độ ảo, khỏi quy đổi. */
+  layout() {
+    const el = document.getElementById('shipStage');
+    if (!el || !el.offsetHeight) { this.ready = false; return; }
+    this.y = el.offsetTop + el.offsetHeight / 2;
+    this.ready = true;
+  },
+
+  /* Cấp vũ khí sẽ mang vào chặng kế = vũ khí khởi đầu của map + nâng cấp đã mua */
+  _weapon() {
+    const next = Math.min(SC.TOTAL_LEVELS, SC.UI.progress.unlocked);
+    const lv = SC.LEVELS[next - 1];
+    return Math.min(SC.CFG.maxWeapon, (lv ? lv.startWeapon : 1) + SC.Upg.weaponBonus());
+  },
+
+  render(ctx) {
+    if (!this.ready) this.layout();
+    if (!this.ready) return;
+
+    // Người dùng bật "giảm chuyển động" thì đứng yên, vẫn thấy đủ máy bay
+    const still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const t = still ? 0 : performance.now() / 1000;
+
+    const cx = SC.W / 2;
+    const cy = this.y + (still ? 0 : Math.sin(t * 1.6) * 5);
+    const r = SC.CFG.playerRadius * 1.35;      // to hơn lúc chơi cho ra dáng ảnh chân dung
+    const tilt = still ? 0 : Math.sin(t * 0.9) * 0.22;
+
+    // phi đội bay kèm, vẽ trước để nằm dưới máy bay chính
+    const wing = SC.Upg.wingCount();
+    for (let i = 0; i < wing; i++) {
+      const side = i % 2 === 0 ? -1 : 1;
+      const ring = Math.floor(i / 2);
+      const wx = cx + side * (54 + ring * 34);
+      const wy = cy + 30 + ring * 16 + (still ? 0 : Math.sin(t * 2.2 + i) * 4);
+      this._one(ctx, wx, wy, r * 0.62, tilt * 0.6, 1);
+    }
+
+    this._one(ctx, cx, cy, r, tilt, this._weapon());
+  },
+
+  /* một chiếc: lửa động cơ + thân, dùng chung bộ vẽ với lúc chơi */
+  _one(ctx, x, y, r, tilt, weapon) {
+    ctx.save();
+    ctx.translate(x, y);
+    const f = 1 + Math.sin(performance.now() / 1000 * 30) * 0.22;
+    SC.draw.glow(ctx, 0, r * 1.5, 18 * f, '#5ad0ff', 0.55);
+    ctx.fillStyle = 'rgba(140,230,255,.9)';
+    ctx.beginPath();
+    ctx.moveTo(-5, r * 1.1); ctx.lineTo(0, r * (1.5 + f * 0.5)); ctx.lineTo(5, r * 1.1);
+    ctx.closePath(); ctx.fill();
+    SC.draw.fighter(ctx, r, tilt, weapon);
+    ctx.restore();
+  }
+};
+
+;
 /* ===== js/ui-screens.js ===== */
 /* ui-screens.js — quản lý màn hình DOM: menu, chọn map, HUD, tạm dừng, kết quả + lưu tiến độ */
 
@@ -5307,6 +5512,7 @@ SC.UI = {
       hud: id('hud'), menu: id('scrMenu'), maps: id('scrMaps'),
       pause: id('scrPause'), result: id('scrResult'), shop: id('scrShop'), brief: id('scrBrief'),
       rank: id('scrRank'), merge: id('scrMerge'), profile: id('scrProfile'), setup: id('scrSetup'),
+      options: id('scrOptions'),
       hpFill: id('hpFill'), shFill: id('shFill'),
       score: id('hudScore'), coin: id('hudCoin'), level: id('hudLevel'),
       waveFill: id('waveFill'), waveTxt: id('waveTxt'),
@@ -5380,10 +5586,17 @@ SC.UI = {
 
   /* ---------- điều hướng màn hình ---------- */
   show(which) {
-    for (const k of ['menu', 'maps', 'pause', 'result', 'shop', 'brief', 'rank', 'profile'])
+    for (const k of ['menu', 'maps', 'pause', 'result', 'shop', 'brief', 'rank', 'profile', 'options'])
       this.el[k].classList.add('hidden');
     this.el.hud.classList.toggle('hidden', which !== 'game');
     if (this.el[which]) this.el[which].classList.remove('hidden');
+
+    // Băng PWA chỉ mời cài/cập nhật lúc đang ở lobby, không chen ngang màn chơi
+    const pwa = document.getElementById('pwaBanner');
+    if (pwa) pwa.classList.toggle('hidden', which !== 'menu' || !SC.PWA.anyOffer());
+
+    // máy bay ở lobby cần biết ô sân nằm đâu, đo sau khi màn đã hiện
+    if (which === 'menu' && SC.LobbyShip) SC.LobbyShip.layout();
   },
   showOverlay(which) { this.el[which].classList.remove('hidden'); },
   hideOverlay(which) { this.el[which].classList.add('hidden'); },
@@ -5534,6 +5747,7 @@ SC.PWA = {
       this.waiting = worker;
       const b = document.getElementById('btnUpdate');
       if (b) b.classList.remove('hidden');
+      this.syncBanner();
       if (SC.Game.state === 'menu') SC.UI.toast('CÓ BẢN CẬP NHẬT MỚI');
     };
 
@@ -5558,6 +5772,25 @@ SC.PWA = {
   showButton(show) {
     const b = document.getElementById('btnInstall');
     if (b) b.classList.toggle('hidden', !show);
+    this.syncBanner();
+  },
+
+  /* Có lời mời nào đang treo không (cài về máy / có bản mới)? */
+  anyOffer() {
+    const vis = id => {
+      const b = document.getElementById(id);
+      return !!b && !b.classList.contains('hidden');
+    };
+    return vis('btnInstall') || vis('btnUpdate');
+  },
+
+  /* Băng thông báo trượt lên từ đáy: chỉ hiện ở lobby và chỉ khi có việc để mời.
+     Trước đây hai nút này nằm cố định giữa menu, xuất hiện bất chợt là đẩy layout. */
+  syncBanner() {
+    const bar = document.getElementById('pwaBanner');
+    if (!bar) return;
+    const atMenu = !SC.Game || SC.Game.state === 'menu';
+    bar.classList.toggle('hidden', !atMenu || !this.anyOffer());
   },
 
   /* Bấm nút cài: bật lại hộp thoại đã chặn ở trên */
@@ -5649,6 +5882,8 @@ SC.Game = {
     SC.View.onResize = () => {
       SC.BG.rebuild();
       this.player.setTarget(this.player.tx, this.player.ty);
+      // khung ảo đổi chiều cao -> ô sân bay ở lobby nằm chỗ khác, phải đo lại
+      SC.LobbyShip.layout();
       // xoay ngang máy -> tạm dừng, tránh chết oan khi màn hình bị che
       if (SC.View.rotated && this.state === 'play') this.pause(true);
     };

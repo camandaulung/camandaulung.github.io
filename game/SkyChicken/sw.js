@@ -6,17 +6,21 @@
  *     thay vì tự đổi bản giữa lúc đang chơi
  */
 
-const CACHE = 'sky-chicken-5c6ca892';
+const CACHE = 'sky-chicken-b755d0a6';
 
 const SHELL = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
-  "./assets/style-4c69122b.css",
-  "./assets/app-3e6c8d8e.js",
+  "./assets/style-89ffc7fd.css",
+  "./assets/app-2476f6a8.js",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
-  "./icons/icon-maskable-512.png"
+  "./icons/icon-maskable-512.png",
+  "./assets/fonts/chakra-petch-600-latin.woff2",
+  "./assets/fonts/chakra-petch-600-viet.woff2",
+  "./assets/fonts/chakra-petch-700-latin.woff2",
+  "./assets/fonts/chakra-petch-700-viet.woff2"
 ];
 
 self.addEventListener('install', e => {

@@ -1,10 +1,35 @@
 /* SKY CHICKEN — mockup shell UI (canvas = gameplay, DOM = menus/HUD) */
 *{margin:0;padding:0;box-sizing:border-box}
+
+/* Chữ tiêu đề: Chakra Petch (SIL OFL) — tự chứa trong assets/fonts để bản cài về
+   máy vẫn đúng font lúc mất mạng. Chỉ nạp 2 nét (600/700) × 2 bộ ký tự. */
+@font-face{font-family:'Chakra Petch';font-style:normal;font-weight:600;font-display:swap;
+  src:url(../assets/fonts/chakra-petch-600-latin.woff2) format('woff2');
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:'Chakra Petch';font-style:normal;font-weight:600;font-display:swap;
+  src:url(../assets/fonts/chakra-petch-600-viet.woff2) format('woff2');
+  unicode-range:U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB}
+@font-face{font-family:'Chakra Petch';font-style:normal;font-weight:700;font-display:swap;
+  src:url(../assets/fonts/chakra-petch-700-latin.woff2) format('woff2');
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:'Chakra Petch';font-style:normal;font-weight:700;font-display:swap;
+  src:url(../assets/fonts/chakra-petch-700-viet.woff2) format('woff2');
+  unicode-range:U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB}
+
 :root{
   --acc:#ffd23f; --acc2:#ff7a1a; --cy:#3fe0ff; --dan:#ff3b5c; --ok:#4dff9f;
   --ink:#e8f2ff; --dim:#8fa3c0; --panel:rgba(10,16,32,.92);
   --font:'Segoe UI',system-ui,sans-serif;
+  --font-display:'Chakra Petch','Bahnschrift','Arial Narrow',var(--font);
+  /* màu vùng hiện tại — ui-menu-card.js ghi đè theo biome của chặng kế */
+  --tint:#3fe0ff;
 }
+
+/* icon monoline dùng chung, ăn màu chữ của nút nên đổi theo state */
+.ic{width:1.15em;height:1.15em;flex:none;display:inline-block;vertical-align:-.18em;color:inherit}
+.ic-swap .ic-off{display:none}
+.ic-swap.off .ic-on{display:none}
+.ic-swap.off .ic-off{display:inline-block}
 html,body{height:100%;background:#05070f;overflow:hidden;font-family:var(--font);color:var(--ink);
   -webkit-font-smoothing:antialiased;user-select:none;-webkit-user-select:none;
   overscroll-behavior:none;-webkit-tap-highlight-color:transparent}
@@ -31,51 +56,123 @@ body.is-touch #game{cursor:auto}
 .hidden{display:none!important}
 .dim{background:rgba(4,7,16,.78);backdrop-filter:blur(6px)}
 
-/* ---------- buttons ---------- */
-.btn{pointer-events:auto;border:0;cursor:pointer;font:600 15px/1 var(--font);letter-spacing:.12em;
+/* ---------- buttons ----------
+   Quy ước state: hover đổi NỀN (sáng/tối thêm), không bao giờ đổi màu CHỮ nhạt đi.
+   Mọi nút đều phải có :focus-visible thấy rõ — game chơi được bằng bàn phím. */
+.btn{pointer-events:auto;border:0;cursor:pointer;
+  font:700 15px/1 var(--font-display);letter-spacing:.1em;
+  display:inline-flex;align-items:center;justify-content:center;gap:9px;
   padding:15px 30px;border-radius:11px;color:#07101f;background:linear-gradient(180deg,#ffe27a,#ffab1f);
   box-shadow:0 5px 0 #b96b00,0 12px 24px rgba(255,150,20,.28);transition:.12s}
+@media (hover:hover){
+  .btn:hover{background:linear-gradient(180deg,#fff0ac,#ffbe45);
+    box-shadow:0 5px 0 #b96b00,0 14px 30px rgba(255,150,20,.42)}
+}
 .btn:active{transform:translateY(4px);box-shadow:0 1px 0 #b96b00}
 .btn.ghost{background:rgba(255,255,255,.06);color:var(--ink);box-shadow:inset 0 0 0 1px rgba(120,180,255,.28)}
+@media (hover:hover){
+  .btn.ghost:hover{background:rgba(255,255,255,.15);box-shadow:inset 0 0 0 1px rgba(150,205,255,.55)}
+}
 .btn.ghost:active{transform:translateY(2px)}
-.btn.text{background:none;box-shadow:none;color:var(--dim);font-weight:500;letter-spacing:.06em;padding:10px}
+.btn.text{background:none;box-shadow:none;color:var(--dim);font-weight:500;letter-spacing:.06em;padding:10px;
+  font-family:var(--font)}
+@media (hover:hover){.btn.text:hover{color:var(--ink)}}
 .icon-btn{pointer-events:auto;width:38px;height:38px;border-radius:10px;border:0;cursor:pointer;
-  background:rgba(255,255,255,.08);color:var(--ink);font-size:15px;
+  display:inline-flex;align-items:center;justify-content:center;
+  background:rgba(255,255,255,.08);color:var(--ink);font-size:15px;transition:.12s;
   box-shadow:inset 0 0 0 1px rgba(120,180,255,.25)}
+@media (hover:hover){
+  .icon-btn:hover{background:rgba(255,255,255,.18);box-shadow:inset 0 0 0 1px rgba(150,205,255,.5)}
+}
+.icon-btn:active{transform:translateY(2px)}
 .icon-btn.back{font-size:26px;line-height:0}
+.icon-btn .ic{width:19px;height:19px}
 
-/* ---------- menu ---------- */
-#scrMenu{align-items:center;justify-content:center;gap:44px;
-  background:radial-gradient(120% 80% at 50% 8%,#16305e 0%,#080d1d 55%,#04060e 100%)}
+/* Vòng focus 2 lớp: viền tối bám dưới nên nhìn rõ trên cả nền trời sáng lẫn tối */
+.btn:focus-visible,.icon-btn:focus-visible,.prof-chip:focus-visible,
+.rail-btn:focus-visible,.saga-node:focus-visible,.shop-buy:focus-visible,
+.rank-tabs button:focus-visible,.prof-row:focus-visible{
+  outline:2px solid var(--acc);outline-offset:2px;
+  box-shadow:0 0 0 4px rgba(4,7,16,.85),inset 0 0 0 1px rgba(150,205,255,.5)}
+
+/* Công tắc ĐANG TẮT: vẫn bấm được nên KHÔNG hạ độ tương phản chữ.
+   Đổi nền chìm + icon gạch chéo để nói "đang tắt", chữ giữ nguyên màu. */
+.btn.toggle.off{background:rgba(255,255,255,.03);
+  box-shadow:inset 0 0 0 1px rgba(120,180,255,.16)}
+.btn.toggle.off .ic{color:var(--dim)}
+@media (hover:hover){
+  .btn.toggle.off:hover{background:rgba(255,255,255,.11);box-shadow:inset 0 0 0 1px rgba(150,205,255,.4)}
+}
+.icon-btn.off .ic{color:var(--dim)}
+
+/* ---------- lobby ----------
+   KHÔNG đặt nền đặc ở đây: canvas phía sau đang chạy parallax 4 lớp (sao, mây, đồi)
+   và đổi cảnh theo vùng người chơi sắp tới. Chỉ phủ một lớp scrim vừa đủ đọc chữ. */
+#scrMenu{justify-content:space-between;align-items:center;
+  padding:calc(10px + var(--safe-top)) 0 calc(12px + var(--safe-bottom))}
+#scrMenu::before{content:'';position:absolute;inset:0;pointer-events:none;z-index:-1;
+  background:
+    linear-gradient(180deg,rgba(4,7,16,.86) 0%,rgba(4,7,16,.34) 26%,
+      rgba(4,7,16,.30) 46%,rgba(4,7,16,.82) 72%,rgba(4,7,16,.94) 100%),
+    radial-gradient(120% 60% at 50% 0%,color-mix(in srgb,var(--tint) 22%,transparent),transparent 70%)}
+
+.lobby-top{display:flex;align-items:center;gap:10px;width:100%;padding:0 14px;flex:none}
+.lobby-top .portal-back{position:static;flex:none}
+.lobby-top .prof-chip{flex:1;min-width:0}
+/* Sân bay: để RỖNG có chủ ý — máy bay được vẽ trên canvas đúng ô này.
+   ui-lobby-ship.js đọc offsetTop/offsetHeight của nó để biết vẽ vào đâu. */
+.lobby-stage{flex:1;min-height:64px;pointer-events:none}
+.lobby-deploy{display:flex;flex-direction:column;gap:12px;width:min(310px,74%);flex:none}
+.lobby-rail{display:flex;gap:8px;width:min(330px,80%);margin-top:14px;flex:none}
+
 .logo{text-align:center}
-.logo-sub{font-size:12px;letter-spacing:.55em;color:var(--cy);opacity:.8}
-.logo h1{font-size:56px;line-height:.95;letter-spacing:.06em;margin:8px 0;font-weight:800;
+.logo-sub{font-family:var(--font-display);font-size:12px;letter-spacing:.5em;color:var(--tint);
+  text-shadow:0 0 18px color-mix(in srgb,var(--tint) 60%,transparent)}
+.logo h1{font-family:var(--font-display);font-size:58px;line-height:.94;letter-spacing:-.02em;
+  margin:6px 0;font-weight:700;
   background:linear-gradient(180deg,#fff,#ffd23f 60%,#ff7a1a);-webkit-background-clip:text;
-  background-clip:text;color:transparent;filter:drop-shadow(0 6px 18px rgba(255,160,40,.35))}
-.logo h1 em{display:block;font-style:normal;font-size:52px;letter-spacing:.14em}
-.logo-tag{font-size:11px;letter-spacing:.28em;color:var(--dim)}
-.menu-btns{display:flex;flex-direction:column;gap:14px;width:280px}
+  background-clip:text;color:transparent;filter:drop-shadow(0 6px 20px rgba(255,160,40,.4))}
+.logo h1 em{display:block;font-style:normal;font-size:52px;letter-spacing:.02em}
+.logo-tag{font-size:11px;letter-spacing:.26em;color:var(--dim)}
+
 .menu-row{display:flex;gap:10px}
 .menu-row .btn{flex:1}
-.btn.small{padding:13px 6px;font-size:12px;letter-spacing:.06em}
-.btn.toggle.off{opacity:.45}
-.icon-btn.off{opacity:.45}
-.hint{position:absolute;bottom:calc(26px + var(--safe-bottom));font-size:13px;color:var(--dim);
-  text-align:center;padding:0 30px;line-height:1.7}
+.btn.small{padding:13px 8px;font-size:12px;letter-spacing:.07em}
+.btn-deploy{width:100%;font-size:18px;letter-spacing:.16em;padding:17px 20px}
+
+/* 3 lối vào phụ: cùng một kiểu ghost, không cái nào tranh vai với XUẤT KÍCH */
+.rail-btn{position:relative;pointer-events:auto;flex:1;cursor:pointer;border:0;
+  display:flex;flex-direction:column;align-items:center;gap:5px;
+  padding:11px 4px;border-radius:12px;transition:.12s;
+  font:600 10px/1 var(--font-display);letter-spacing:.12em;color:var(--ink);
+  background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 1px rgba(120,180,255,.22)}
+.rail-btn .ic{width:21px;height:21px;color:var(--tint)}
+@media (hover:hover){
+  .rail-btn:hover{background:rgba(255,255,255,.15);box-shadow:inset 0 0 0 1px rgba(150,205,255,.5)}
+}
+.rail-btn:active{transform:translateY(2px)}
+
+/* dòng nhắc động: chỉ hiện khi thật sự có điều đáng nói (xem ui-menu-card.js) */
+.lobby-hook{font-size:11.5px;letter-spacing:.05em;color:var(--ink);text-align:center;
+  line-height:1.5;padding:0 6px;opacity:.92}
+.lobby-hook b{color:var(--acc);font-weight:700}
+
+.hint{font-size:12px;color:var(--dim);text-align:center;padding:0 30px;line-height:1.6;flex:none}
 .hint b{color:var(--acc)}
 
 /* nút quay về portal minigame — chỉ hiện khi game nằm trong thư mục con */
-.portal-back{position:absolute;top:calc(14px + var(--safe-top));left:14px;
-  pointer-events:auto;border:0;cursor:pointer;border-radius:9px;padding:9px 14px;
-  font:600 11px/1 var(--font);letter-spacing:.16em;color:var(--dim);
-  background:rgba(0,0,0,.35);box-shadow:inset 0 0 0 1px rgba(120,180,255,.22)}
+.portal-back{pointer-events:auto;border:0;cursor:pointer;border-radius:9px;padding:9px 12px;
+  font:600 11px/1 var(--font-display);letter-spacing:.14em;color:var(--ink);transition:.12s;
+  background:rgba(0,0,0,.4);box-shadow:inset 0 0 0 1px rgba(120,180,255,.22)}
+@media (hover:hover){.portal-back:hover{background:rgba(0,0,0,.62);
+  box-shadow:inset 0 0 0 1px rgba(150,205,255,.45)}}
 .portal-back:active{transform:translateY(2px)}
-body.is-touch .portal-back{font-size:14px;padding:14px 18px}
+body.is-touch .portal-back{font-size:13px;padding:13px 15px}
 
 /* ---------- map select ---------- */
 #scrMaps{background:radial-gradient(110% 70% at 50% 0%,#132a52,#05070f 70%)}
 .scr-head{display:flex;align-items:center;gap:14px;padding:calc(18px + var(--safe-top)) 16px 12px}
-.scr-head h2{flex:1;font-size:16px;letter-spacing:.24em;font-weight:700}
+.scr-head h2{flex:1;font-family:var(--font-display);font-size:16px;letter-spacing:.22em;font-weight:700}
 .total-star{font-size:13px;color:var(--acc)}
 /* chỉ số lực chiến */
 .power-tag{font-size:12px;color:var(--dan);letter-spacing:.06em}
@@ -249,18 +346,72 @@ body.is-touch .portal-back{font-size:14px;padding:14px 18px}
 .shop-note{text-align:center;font-size:11px;color:var(--dim);
   padding:8px 16px calc(14px + var(--safe-bottom))}
 
-/* thẻ tóm tắt tiến độ ở menu */
-.now-card{text-align:center;padding:12px 14px;border-radius:13px;margin-bottom:6px;
-  background:rgba(255,255,255,.05);box-shadow:inset 0 0 0 1px rgba(140,190,255,.22)}
-.now-card.boss{background:linear-gradient(180deg,rgba(255,59,92,.16),rgba(255,255,255,.04));
-  box-shadow:inset 0 0 0 1px rgba(255,90,120,.42)}
-.now-label{display:block;font-size:9px;letter-spacing:.3em;color:var(--cy)}
-.now-map{display:block;font-size:19px;letter-spacing:.1em;color:#fff;margin:4px 0 1px}
-.now-biome{display:block;font-size:11px;letter-spacing:.18em;color:var(--dim)}
-.now-foot{display:flex;justify-content:center;gap:14px;margin-top:9px;
-  font-size:11px;letter-spacing:.1em;color:var(--dim)}
-.now-foot b{color:#fff}
+/* ---------- thẻ xuất kích ở lobby ----------
+   Nhuộm theo màu vùng sắp tới (--tint do ui-menu-card.js gán), cùng hệ với
+   bản đồ hành trình nên hai màn nhìn liền một mạch. */
+.now-card{text-align:center;padding:13px 14px 12px;border-radius:14px;
+  background:linear-gradient(180deg,color-mix(in srgb,var(--tint) 15%,rgba(8,13,26,.7)),rgba(8,13,26,.82));
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--tint) 45%,transparent),
+    0 14px 34px rgba(0,0,0,.45)}
+.now-card.boss{
+  background:linear-gradient(180deg,rgba(255,59,92,.22),rgba(12,8,16,.85));
+  box-shadow:inset 0 0 0 1px rgba(255,90,120,.5),0 14px 34px rgba(0,0,0,.5)}
+.now-head{display:flex;align-items:center;justify-content:center;gap:8px}
+.now-label{font-family:var(--font-display);font-size:9px;letter-spacing:.28em;color:var(--tint)}
+.now-card.boss .now-label{color:#ff8a9c}
+/* nhãn độ khó của chặng — lấy thẳng lv.chunk */
+.now-chunk{font-family:var(--font-display);font-size:8.5px;letter-spacing:.16em;color:var(--ink);
+  padding:3px 7px;border-radius:20px;background:rgba(255,255,255,.12)}
+.now-chunk:empty{display:none}
+.now-chunk.hard{background:rgba(255,59,92,.28);color:#ffd3da}
+.now-map{display:block;font-family:var(--font-display);font-size:23px;letter-spacing:.03em;
+  color:#fff;margin:5px 0 2px}
+.now-biome{display:block;font-size:11px;letter-spacing:.16em;color:var(--ink);opacity:.85}
+/* tên trùm sắp gặp — chỉ hiện ở chặng có boss */
+.now-foe{display:block;font-family:var(--font-display);font-size:12px;letter-spacing:.1em;
+  color:#ff8a9c;margin-top:5px}
+
+/* thanh sao: tiến độ toàn chiến dịch, thấy được mình còn cách đích bao xa */
+.star-track{display:flex;align-items:center;gap:9px;margin:10px 0 9px}
+.star-bar{flex:1;height:6px;border-radius:4px;overflow:hidden;background:rgba(0,0,0,.45);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.09)}
+.star-bar i{display:block;height:100%;width:0;border-radius:4px;
+  background:linear-gradient(90deg,var(--acc2),var(--acc));transition:width .5s ease-out}
+.star-num{font-size:10.5px;letter-spacing:.06em;color:var(--acc);white-space:nowrap}
+.star-num b{color:#fff;font-weight:700}
+.star-num i{font-style:normal;opacity:.7}
+
+.now-foot{display:flex;justify-content:center;gap:14px;
+  font-size:11px;letter-spacing:.08em;color:var(--dim)}
+.now-foot b{color:#fff;font-weight:700}
+.now-foot i{font-style:normal}
 .now-foot .gold,.now-foot .gold b{color:var(--acc)}
+.now-foot .upg b{color:var(--cy)}
+
+/* ---------- màn cài đặt ---------- */
+#scrOptions{background:radial-gradient(110% 70% at 50% 0%,#14203c,#05070f 70%)}
+.opt-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;
+  display:flex;flex-direction:column;gap:9px;
+  padding:2px 18px calc(24px + var(--safe-bottom))}
+.opt-lb{font-family:var(--font-display);font-size:9px;letter-spacing:.26em;color:var(--tint);
+  margin-top:10px}
+.opt-lb.danger-lb{color:#ff8a9c}
+.opt-row{display:flex;gap:8px}
+.opt-row .btn{flex:1;flex-direction:column;gap:6px}
+.opt-wide{width:100%}
+.opt-note{font-size:11px;line-height:1.6;color:var(--dim)}
+.btn.ghost.danger{color:#ffbcc6;box-shadow:inset 0 0 0 1px rgba(255,90,120,.4)}
+@media (hover:hover){
+  .btn.ghost.danger:hover{background:rgba(255,59,92,.22);color:#fff;
+    box-shadow:inset 0 0 0 1px rgba(255,120,145,.7)}
+}
+
+/* ---------- băng thông báo PWA ---------- */
+.pwa-banner{position:absolute;left:0;right:0;bottom:calc(10px + var(--safe-bottom));
+  display:flex;justify-content:center;gap:8px;padding:0 16px;pointer-events:none;z-index:5}
+.pwa-banner .btn{pointer-events:auto;box-shadow:0 5px 0 #b96b00,0 10px 26px rgba(0,0,0,.5)}
+.pwa-banner .btn.ghost{box-shadow:inset 0 0 0 1px rgba(150,205,255,.4),0 10px 26px rgba(0,0,0,.5);
+  background:rgba(10,16,32,.9)}
 
 .wallet{text-align:center;font-size:13px;letter-spacing:.14em;color:var(--acc);margin-bottom:4px}
 #shopBadge.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--dan);
@@ -293,13 +444,23 @@ body.is-touch .portal-back{font-size:14px;padding:14px 18px}
 
 /* ---------- hồ sơ phi công ---------- */
 .prof-chip{pointer-events:auto;display:flex;align-items:center;gap:9px;width:100%;cursor:pointer;
-  border:0;border-radius:11px;padding:9px 12px;font:inherit;color:var(--ink);
-  background:rgba(255,255,255,.05);box-shadow:inset 0 0 0 1px rgba(140,190,255,.2)}
-.prof-chip span{font-size:19px;line-height:1}
-.prof-chip b{flex:1;min-width:0;text-align:left;font-size:12px;letter-spacing:.1em;
+  border:0;border-radius:11px;padding:8px 12px;font:inherit;color:var(--ink);transition:.12s;
+  background:rgba(6,10,20,.6);box-shadow:inset 0 0 0 1px rgba(140,190,255,.2)}
+@media (hover:hover){
+  .prof-chip:hover{background:rgba(16,26,48,.86);box-shadow:inset 0 0 0 1px rgba(160,205,255,.5)}
+}
+.prof-chip>span:first-child{font-size:19px;line-height:1;flex:none}
+/* tên + danh hiệu xếp dọc: danh hiệu lấy từ SC.Power.rank(), lên hạng là thấy ngay */
+.prof-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;text-align:left}
+.prof-chip b{font-family:var(--font-display);font-size:12px;letter-spacing:.08em;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.prof-chip em{font-style:normal;font-size:9px;letter-spacing:.18em;color:var(--cy)}
+.prof-chip .prof-rank{font-style:normal;font-family:var(--font-display);
+  font-size:8.5px;letter-spacing:.18em;color:var(--tint)}
+.prof-chip em{font-style:normal;font-size:8.5px;letter-spacing:.18em;color:var(--cy);flex:none}
 .prof-chip:active{transform:translateY(2px)}
+body.is-touch .prof-chip b{font-size:14px}
+body.is-touch .prof-chip .prof-rank{font-size:11px}
+body.is-touch .prof-chip em{font-size:11px}
 
 #scrProfile{background:radial-gradient(110% 70% at 50% 0%,#123a34,#05070f 70%)}
 .prof-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;
@@ -379,7 +540,7 @@ body.is-touch .portal-back{font-size:14px;padding:14px 18px}
 .panel{width:300px;background:var(--panel);border-radius:18px;padding:26px 24px;text-align:center;
   box-shadow:inset 0 0 0 1px rgba(130,190,255,.2),0 24px 60px rgba(0,0,0,.6);
   display:flex;flex-direction:column;gap:12px}
-.panel h3{font-size:15px;letter-spacing:.3em;color:var(--acc);margin-bottom:6px}
+.panel h3{font-family:var(--font-display);font-size:15px;letter-spacing:.26em;color:var(--acc);margin-bottom:6px}
 .stars{display:flex;justify-content:center;gap:10px;margin:2px 0 6px}
 .stars i{width:34px;height:34px;background:rgba(255,255,255,.12);clip-path:polygon(50% 0,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%)}
 .stars i.on{background:linear-gradient(180deg,#fff3b0,#ffb01f);box-shadow:0 0 22px rgba(255,190,60,.5)}
@@ -441,10 +602,29 @@ body.is-touch .shop-ic{width:54px;height:54px;font-size:25px}
 body.is-touch .shop-buy{font-size:16px;min-height:62px;min-width:92px}
 body.is-touch .shop-note{font-size:13px}
 body.is-touch .wallet{font-size:16px}
-body.is-touch .now-label{font-size:12px}
-body.is-touch .now-map{font-size:23px}
-body.is-touch .now-biome{font-size:14px}
-body.is-touch .now-foot{font-size:14px}
+body.is-touch .now-label{font-size:11px}
+body.is-touch .now-chunk{font-size:10px}
+body.is-touch .now-map{font-size:26px}
+body.is-touch .now-biome{font-size:13px}
+body.is-touch .now-foe{font-size:14px}
+body.is-touch .now-foot{font-size:13px}
+body.is-touch .star-num{font-size:13px}
+body.is-touch .rail-btn{font-size:12px;padding:13px 4px}
+body.is-touch .rail-btn .ic{width:25px;height:25px}
+body.is-touch .lobby-hook{font-size:14px}
+/* Khung ngắn (máy bảng ~4:3, SC.H≈720): co lại cho vừa, KHÔNG để tràn khỏi khung ảo */
+@media (max-aspect-ratio:5/7){
+  #scrMenu{gap:0}
+  .logo h1{font-size:44px}
+  .logo h1 em{font-size:40px}
+  .logo-sub{font-size:10px;letter-spacing:.4em}
+  .logo-tag{font-size:10px}
+  .lobby-rail{margin-top:9px}
+  body.is-touch .btn.btn-deploy{min-height:60px}
+  body.is-touch .rail-btn{padding:10px 4px}
+  .hint{font-size:11px}
+  body.is-touch .hint{font-size:13px}
+}
 body.is-touch .mission-box li{font-size:15px}
 body.is-touch .mission-box h4{font-size:14px}
 body.is-touch .m-ic{width:30px;height:30px;font-size:15px}
@@ -466,3 +646,17 @@ body.is-touch .toast.big{font-size:32px}
 #rotateHint .rot-ic{font-size:60px;animation:rot 1.8s ease-in-out infinite}
 #rotateHint p{font-size:15px;letter-spacing:.2em;color:var(--dim)}
 @keyframes rot{0%,100%{transform:rotate(-90deg)}50%{transform:rotate(0)}}
+
+/* ---------- tôn trọng cài đặt giảm chuyển động của hệ điều hành ----------
+   Tắt mọi thứ lặp vô hạn và mọi chuyển cảnh; thông tin giữ nguyên, không mất gì.
+   Nền parallax trên canvas do JS vẽ nên xử lý riêng trong ui-lobby-ship.js. */
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{
+    animation-duration:.001ms!important;animation-iteration-count:1!important;
+    transition-duration:.001ms!important;scroll-behavior:auto!important}
+  .btn.text.glow{animation:none;opacity:1}
+  .sync-dot.sync{animation:none}
+  .saga-node.next{animation:none}
+  #rotateHint .rot-ic{animation:none;transform:rotate(-90deg)}
+  .star-bar i{transition:none}
+}

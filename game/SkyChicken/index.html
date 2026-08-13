@@ -11,9 +11,91 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="icon" type="image/png" href="icons/icon-192.png">
-<link rel="stylesheet" href="assets/style-4c69122b.css">
+<link rel="stylesheet" href="assets/style-89ffc7fd.css">
 </head>
 <body>
+
+<!-- ===== Bộ icon dùng chung (monoline, ăn currentColor nên đổi màu theo state) =====
+     Chỉ thay cho emoji MÀU. Các ký hiệu hình học ◈ ★ ⚔ ⚡ ✦ ◇ ✈ vẫn giữ nguyên vì
+     dùng chung với vật phẩm vẽ trên canvas. -->
+<svg id="icons" aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden">
+  <defs>
+    <g id="i-base" fill="none" stroke="currentColor" stroke-width="1.7"
+       stroke-linecap="round" stroke-linejoin="round"></g>
+  </defs>
+  <symbol id="i-map" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+    stroke-linecap="round" stroke-linejoin="round">
+    <path d="M9 4 3 6.5v13L9 17l6 2.5 6-2.5v-13L15 6.5 9 4Z"/><path d="M9 4v13M15 6.5v13"/>
+  </symbol>
+  <symbol id="i-upgrade" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+    stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 20V6"/><path d="m6 12 6-6 6 6"/><path d="M5 3h14"/>
+  </symbol>
+  <symbol id="i-trophy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+    stroke-linecap="round" stroke-linejoin="round">
+    <path d="M7 4h10v6a5 5 0 0 1-10 0V4Z"/><path d="M7 6H4v2a3 3 0 0 0 3 3M17 6h3v2a3 3 0 0 1-3 3"/>
+    <path d="M10 20h4M12 15v5"/>
+  </symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+    stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="3.2"/>
+    <path d="M12 2.6v2.6M12 18.8v2.6M21.4 12h-2.6M5.2 12H2.6M18.6 5.4l-1.8 1.8M7.2 16.8l-1.8 1.8M18.6 18.6l-1.8-1.8M7.2 7.2 5.4 5.4"/>
+  </symbol>
+  <symbol id="i-sfx-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+    stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 9.5h3.5L12 5.5v13L7.5 14.5H4v-5Z"/><path d="M16 9a4.5 4.5 0 0 1 0 6M18.8 6.5a8 8 0 0 1 0 11"/>
+  </symbol>
+  <symbol id="i-sfx-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+    stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 9.5h3.5L12 5.5v13L7.5 14.5H4v-5Z"/><path d="m16.5 9.5 5 5M21.5 9.5l-5 5"/>
+  </symbol>
+  <symbol id="i-mus-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+    stroke-linecap="round" stroke-linejoin="round">
+    <path d="M9 18V5.5l10-2V16"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/>
+  </symbol>
+  <symbol id="i-mus-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+    stroke-linecap="round" stroke-linejoin="round">
+    <path d="M9 18V5.5l10-2V16"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/>
+    <path d="M3.5 3.5l17 17"/>
+  </symbol>
+  <symbol id="i-shake-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+    stroke-linecap="round" stroke-linejoin="round">
+    <rect x="8" y="3" width="8" height="18" rx="2"/><path d="M4.5 9v6M2 10.5v3M19.5 9v6M22 10.5v3"/>
+  </symbol>
+  <symbol id="i-shake-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+    stroke-linecap="round" stroke-linejoin="round">
+    <rect x="8" y="3" width="8" height="18" rx="2"/><path d="M3.5 3.5l17 17"/>
+  </symbol>
+  <symbol id="i-expand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+    stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>
+  </symbol>
+  <symbol id="i-shrink" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+    stroke-linecap="round" stroke-linejoin="round">
+    <path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/>
+  </symbol>
+  <symbol id="i-install" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+    stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 3v11"/><path d="m7.5 10 4.5 4.5L16.5 10"/><path d="M4 18.5h16"/>
+  </symbol>
+  <symbol id="i-update" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+    stroke-linecap="round" stroke-linejoin="round">
+    <path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 3.5V9h-5.5"/>
+  </symbol>
+  <symbol id="i-power" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+    stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 3.5v8"/><path d="M7 6.4a7.5 7.5 0 1 0 10 0"/>
+  </symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+    stroke-linecap="round" stroke-linejoin="round">
+    <rect x="4.5" y="10.5" width="15" height="10" rx="2.2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/>
+  </symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+    stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4.5 6.5h15M9.5 6.5V4.5h5v2M6.5 6.5l1 13h9l1-13"/><path d="M10.5 10v6M13.5 10v6"/>
+  </symbol>
+</svg>
+
 <div id="stage">
   <canvas id="game"></canvas>
 
@@ -36,8 +118,11 @@
       </div>
       <div class="hud-right">
         <div class="lvl-tag">MAP <b id="hudLevel">01</b></div>
-        <button id="btnMute" class="icon-btn">🔊</button>
-        <button id="btnPause" class="icon-btn">❚❚</button>
+        <button id="btnMute" class="icon-btn ic-swap" aria-label="Tắt/bật âm thanh">
+          <svg class="ic ic-on" aria-hidden="true"><use href="#i-sfx-on"/></svg>
+          <svg class="ic ic-off" aria-hidden="true"><use href="#i-sfx-off"/></svg>
+        </button>
+        <button id="btnPause" class="icon-btn" aria-label="Tạm dừng">❚❚</button>
       </div>
     </div>
 
@@ -74,32 +159,107 @@
     </div>
   </div>
 
-  <!-- ===== MENU ===== -->
+  <!-- ===== LOBBY =====
+       Bố cục 4 tầng: thanh trên (danh tính) · logo · thẻ xuất kích · 3 lối vào.
+       Nền để trong suốt cho parallax của canvas lộ ra — xem #scrMenu trong style.css. -->
   <div id="scrMenu" class="layer screen">
+
+    <div class="lobby-top">
+      <button class="portal-back hidden" id="btnPortal">‹ PORTAL</button>
+      <!-- Hồ sơ chơi trên máy này (tối đa 3), khác với đăng nhập Google -->
+      <button class="prof-chip" id="btnProfile"><span>🐔</span><b>PHI CÔNG 1</b><em>ĐỔI</em></button>
+      <button class="icon-btn" id="btnOptions" aria-label="Cài đặt">
+        <svg class="ic" aria-hidden="true"><use href="#i-gear"/></svg>
+      </button>
+    </div>
+
     <div class="logo">
       <span class="logo-sub">CHIẾN DỊCH</span>
       <h1>SKY<em>CHICKEN</em></h1>
-      <span class="logo-tag">100 MAPS · AUTO FIRE · AUTO LOOT</span>
+      <span class="logo-tag" id="logoTag">AUTO FIRE · AUTO LOOT</span>
     </div>
-    <div class="menu-btns">
+
+    <!-- Sân trống: máy bay của người chơi được vẽ TRÊN CANVAS đúng ô này
+         (xem ui-lobby-ship.js). Để rỗng nên không có gì che nó. -->
+    <div class="lobby-stage" id="shipStage"></div>
+
+    <div class="lobby-deploy">
+      <!-- Thẻ xuất kích: mọi số liệu do ui-menu-card.js bơm vào -->
       <div class="now-card" id="menuNow">
-        <span class="now-label" id="nowLabel">CHẶNG TIẾP THEO</span>
+        <div class="now-head">
+          <span class="now-label" id="nowLabel">CHẶNG TIẾP THEO</span>
+          <span class="now-chunk" id="nowChunk"></span>
+        </div>
         <b class="now-map" id="nowMap">MÀN 01</b>
-        <span class="now-biome" id="nowBiome">ĐỒNG QUÊ 1</span>
+        <span class="now-biome" id="nowBiome">ĐỒNG QUÊ · 1/6</span>
+        <span class="now-foe hidden" id="nowFoe"></span>
+
+        <div class="star-track">
+          <div class="star-bar"><i id="nowStarFill"></i></div>
+          <span class="star-num">★ <b id="nowStars">0</b>/<i id="nowStarMax">180</i></span>
+        </div>
+
         <div class="now-foot">
-          <span>★ <b id="nowStars">0</b>/<i id="nowStarMax">300</i></span>
-          <span class="gold">◈ <b id="menuCoin">0</b></span>
           <span class="pw">⚔ <b id="nowPower">0</b></span>
+          <span class="gold">◈ <b id="menuCoin">0</b></span>
+          <span class="upg">✦ <b id="nowUpg">0</b>/<i id="nowUpgMax">55</i></span>
         </div>
       </div>
-      <button class="btn primary" id="btnPlay">BẮT ĐẦU</button>
-      <button class="btn ghost" id="btnMaps">CHỌN MAP</button>
-      <button class="btn ghost" id="btnShop">⬆ NÂNG CẤP <em id="shopBadge"></em></button>
-      <button class="btn ghost" id="btnRank">🏆 BẢNG XẾP HẠNG</button>
 
-      <!-- Hồ sơ chơi trên máy này (tối đa 3), khác với đăng nhập Google -->
-      <button class="prof-chip" id="btnProfile"><span>🐔</span><b>PHI CÔNG 1</b><em>ĐỔI</em></button>
+      <button class="btn primary btn-deploy" id="btnPlay">XUẤT KÍCH</button>
+      <p class="lobby-hook hidden" id="lobbyHook"></p>
+    </div>
 
+    <div class="lobby-rail">
+      <button class="rail-btn" id="btnMaps">
+        <svg class="ic" aria-hidden="true"><use href="#i-map"/></svg><span>BẢN ĐỒ</span>
+      </button>
+      <button class="rail-btn" id="btnShop">
+        <svg class="ic" aria-hidden="true"><use href="#i-upgrade"/></svg><span>NÂNG CẤP</span>
+        <em id="shopBadge"></em>
+      </button>
+      <button class="rail-btn" id="btnRank">
+        <svg class="ic" aria-hidden="true"><use href="#i-trophy"/></svg><span>XẾP HẠNG</span>
+      </button>
+    </div>
+
+    <p class="hint" id="menuHint">Di chuyển bằng <b>chuột</b> · Tự bắn · Tự nhặt đồ · <b>P</b> hoặc <b>Space</b> để tạm dừng</p>
+  </div>
+
+  <!-- ===== CÀI ĐẶT (gom hết chrome của app ra khỏi lobby) ===== -->
+  <div id="scrOptions" class="layer screen hidden">
+    <div class="scr-head">
+      <button class="icon-btn back" id="btnOptionsBack" aria-label="Quay lại">‹</button>
+      <h2>CÀI ĐẶT</h2>
+    </div>
+    <div class="opt-scroll">
+      <span class="opt-lb">ÂM THANH &amp; PHẢN HỒI</span>
+      <div class="opt-row">
+        <button class="btn ghost small toggle ic-swap" id="btnSfx">
+          <svg class="ic ic-on" aria-hidden="true"><use href="#i-sfx-on"/></svg>
+          <svg class="ic ic-off" aria-hidden="true"><use href="#i-sfx-off"/></svg>
+          <span>HIỆU ỨNG</span>
+        </button>
+        <button class="btn ghost small toggle ic-swap" id="btnMus">
+          <svg class="ic ic-on" aria-hidden="true"><use href="#i-mus-on"/></svg>
+          <svg class="ic ic-off" aria-hidden="true"><use href="#i-mus-off"/></svg>
+          <span>NHẠC NỀN</span>
+        </button>
+        <button class="btn ghost small toggle ic-swap" id="btnShake">
+          <svg class="ic ic-on" aria-hidden="true"><use href="#i-shake-on"/></svg>
+          <svg class="ic ic-off" aria-hidden="true"><use href="#i-shake-off"/></svg>
+          <span>RUNG</span>
+        </button>
+      </div>
+
+      <span class="opt-lb">MÀN HÌNH</span>
+      <button class="btn ghost opt-wide ic-swap" id="btnFull">
+        <svg class="ic ic-on" aria-hidden="true"><use href="#i-expand"/></svg>
+        <svg class="ic ic-off" aria-hidden="true"><use href="#i-shrink"/></svg>
+        <span id="btnFullLabel">TOÀN MÀN HÌNH</span>
+      </button>
+
+      <span class="opt-lb">TÀI KHOẢN</span>
       <!-- Đăng nhập: không bắt buộc, chỉ cần khi muốn lên bảng & giữ tiến độ đổi máy -->
       <div class="auth-box" id="authBox">
         <button class="btn ghost small" id="btnLogin">ĐĂNG NHẬP GOOGLE</button>
@@ -107,24 +267,31 @@
           <img class="auth-av hidden" id="authAvatar" alt="">
           <b id="authName">Phi công</b>
           <span class="sync-dot" id="syncDot"></span>
-          <button class="icon-btn" id="btnLogout" title="Đăng xuất">⏻</button>
+          <button class="icon-btn" id="btnLogout" title="Đăng xuất" aria-label="Đăng xuất">
+            <svg class="ic" aria-hidden="true"><use href="#i-power"/></svg>
+          </button>
         </div>
       </div>
+      <p class="opt-note">Đăng nhập chỉ để sao lưu đám mây và lên bảng xếp hạng toàn cầu.
+        Không đăng nhập vẫn chơi đủ 100% nội dung.</p>
 
-      <button class="btn ghost hidden" id="btnInstall">⤓ CÀI VỀ MÁY</button>
-      <button class="btn primary hidden" id="btnUpdate">↻ CÓ BẢN MỚI — CẬP NHẬT</button>
-      <div class="menu-row">
-        <button class="btn ghost small toggle" id="btnSfx">🔊 HIỆU ỨNG</button>
-        <button class="btn ghost small toggle" id="btnMus">🎵 NHẠC NỀN</button>
-        <button class="btn ghost small toggle" id="btnShake">📳 RUNG</button>
-      </div>
-      <div class="menu-row">
-        <button class="btn ghost small" id="btnFull">TOÀN MÀN HÌNH</button>
-        <button class="btn ghost small" id="btnReset">XÓA TIẾN ĐỘ</button>
-      </div>
+      <span class="opt-lb danger-lb">VÙNG NGUY HIỂM</span>
+      <button class="btn ghost opt-wide danger" id="btnReset">
+        <svg class="ic" aria-hidden="true"><use href="#i-trash"/></svg>
+        <span>XÓA TIẾN ĐỘ HỒ SƠ NÀY</span>
+      </button>
+      <p class="opt-note">Xoá sạch sao, vàng và nâng cấp của hồ sơ đang mở. Không hoàn tác được.</p>
     </div>
-    <p class="hint" id="menuHint">Di chuyển bằng <b>chuột</b> · Tự bắn · Tự nhặt đồ · <b>P</b> hoặc <b>Space</b> để tạm dừng</p>
-    <button class="portal-back hidden" id="btnPortal">‹ PORTAL</button>
+  </div>
+
+  <!-- Băng thông báo PWA: trượt lên từ đáy, không chiếm chỗ cố định trong lobby -->
+  <div id="pwaBanner" class="pwa-banner hidden">
+    <button class="btn ghost small hidden" id="btnInstall">
+      <svg class="ic" aria-hidden="true"><use href="#i-install"/></svg><span>CÀI VỀ MÁY</span>
+    </button>
+    <button class="btn primary small hidden" id="btnUpdate">
+      <svg class="ic" aria-hidden="true"><use href="#i-update"/></svg><span>CÓ BẢN MỚI — CẬP NHẬT</span>
+    </button>
   </div>
 
   <!-- ===== MAP SELECT ===== -->
@@ -242,9 +409,21 @@
       <h3>TẠM DỪNG</h3>
       <button class="btn primary" id="btnResume">TIẾP TỤC</button>
       <div class="menu-row">
-        <button class="btn ghost small toggle" id="btnSfx2">🔊 HIỆU ỨNG</button>
-        <button class="btn ghost small toggle" id="btnMus2">🎵 NHẠC NỀN</button>
-        <button class="btn ghost small toggle" id="btnShake2">📳 RUNG</button>
+        <button class="btn ghost small toggle ic-swap" id="btnSfx2">
+          <svg class="ic ic-on" aria-hidden="true"><use href="#i-sfx-on"/></svg>
+          <svg class="ic ic-off" aria-hidden="true"><use href="#i-sfx-off"/></svg>
+          <span>HIỆU ỨNG</span>
+        </button>
+        <button class="btn ghost small toggle ic-swap" id="btnMus2">
+          <svg class="ic ic-on" aria-hidden="true"><use href="#i-mus-on"/></svg>
+          <svg class="ic ic-off" aria-hidden="true"><use href="#i-mus-off"/></svg>
+          <span>NHẠC NỀN</span>
+        </button>
+        <button class="btn ghost small toggle ic-swap" id="btnShake2">
+          <svg class="ic ic-on" aria-hidden="true"><use href="#i-shake-on"/></svg>
+          <svg class="ic ic-off" aria-hidden="true"><use href="#i-shake-off"/></svg>
+          <span>RUNG</span>
+        </button>
       </div>
       <button class="btn ghost" id="btnRestart">CHƠI LẠI</button>
       <button class="btn ghost" id="btnQuit">RA MENU</button>
@@ -283,6 +462,6 @@
     <p>Xoay dọc máy để chơi</p>
   </div>
 </div>
-<script src="assets/app-3e6c8d8e.js"></script>
+<script src="assets/app-2476f6a8.js"></script>
 </body>
 </html>
