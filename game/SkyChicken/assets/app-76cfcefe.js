@@ -250,10 +250,11 @@ SC.BIOMES = [
 
 ;
 /* ===== js/data-levels.js ===== */
-/* data-levels.js — 100 map: 10 vùng × 10 map, mỗi vùng có trùm riêng
+/* data-levels.js — 60 map: 10 vùng × 6 map, mỗi vùng có trùm riêng
  *
- * Trong mỗi vùng: map 5 gặp trùm nhỏ (hộ vệ), map 10 gặp trùm chính của vùng.
- * Nhờ vậy nhịp "cụm 5" vẫn giữ nguyên mà mỗi vùng vẫn có màn kết đáng nhớ. */
+ * Trong mỗi vùng: map 3 gặp elite (hộ vệ), map 6 gặp trùm chính của vùng — hai lần
+ * cao trào mỗi vùng nên nhịp dồn dập hơn hẳn bản 10 map/vùng trước đây.
+ * Vị trí hai trận đó suy ra từ levelsPerBiome, không chép cứng. */
 
 /* Đội hình xuất hiện của mỗi wave */
 SC.FORMATIONS = ['line', 'vee', 'arc', 'swarm', 'sides', 'rain'];
@@ -370,9 +371,11 @@ SC.ITEM_DEF = SC.bal('items', [
 /* ===== js/data-upgrades.js ===== */
 /* data-upgrades.js — bảng 7 dòng nâng cấp vĩnh viễn mua bằng vàng
  *
- * Trần và giá tính cho chiến dịch 100 map: một vòng chơi thu được ~14.900 vàng,
- * cả cây tốn ~30.000 nên phải đi khoảng 2 vòng mới max hết.
- * costs[i] = giá để lên cấp i+1, tăng ~1.55 lần mỗi cấp. */
+ * Trần và giá tính cho chiến dịch 60 map: một vòng chơi thu được ~27.600 vàng,
+ * cả cây tốn 34.616 nên một vòng mua tham chỉ tới 53/55 cấp — còn thiếu chút để
+ * người chơi có lý do đi vòng hai.
+ * costs[i] = giá để lên cấp i+1. Số liệu thật nằm trong balance/*.xlsx, ở đây chỉ
+ * là giá trị mặc định phòng khi thiếu tệp cân bằng. */
 
 SC.UPGRADES = [
   {
@@ -3289,7 +3292,7 @@ SC.Boss.prototype.render = function (ctx) {
 /* system-facing.js — máy bay tự quay đầu bắn ngược khi bay lên trên quái
  *
  * Trước đây súng luôn chĩa lên, nên lỡ lượn lên trên đám quái là mất hẳn hoả lực —
- * người chơi bị ép dính đáy màn hình suốt 100 map. Giờ bay lên trên là máy bay tự
+ * người chơi bị ép dính đáy màn hình suốt cả chiến dịch. Giờ bay lên trên là máy bay tự
  * lật, xả xuống. Áp dụng cho MỌI map, không phải tính năng riêng của map nào.
  *
  * Hai thứ phải cẩn thận, nếu không sẽ rất khó chịu:
@@ -4816,7 +4819,7 @@ SC.Cloud = {
       highestLevel: Math.min(SC.TOTAL_LEVELS, p.unlocked || 1),
       totalStars: SC.UI.totalStar(),
       cleared,
-      // chỉ tính "thời gian hoàn thành" khi đã qua đủ 100 màn, so kèo mới công bằng
+      // chỉ tính "thời gian hoàn thành" khi đã qua đủ cả chiến dịch, so kèo mới công bằng
       campaignTime: cleared >= SC.TOTAL_LEVELS ? Math.round(sum) : null
     };
   },
@@ -4909,7 +4912,7 @@ SC.Cloud = {
         setDoc(doc(fb.db, 'scores', u.uid), {
           name: u.name, avatar: u.avatar,
           highestLevel: s.highestLevel, totalStars: s.totalStars,
-          // chưa đi hết 100 màn thì XOÁ hẳn trường này -> không lọt vào bảng tốc độ
+          // chưa đi hết chiến dịch thì XOÁ hẳn trường này -> không lọt vào bảng tốc độ
           bestTime: s.campaignTime === null ? deleteField() : s.campaignTime,
           updatedAt: serverTimestamp()
         }, { merge: true })
@@ -4962,6 +4965,7 @@ SC.AuthPanel = {
       // Bấm vào thì mở bảng hướng dẫn từng bước, đừng chỉ nháy một dòng thông báo
       // rồi thôi — người bấm cần biết còn thiếu đúng những gì.
       on('btnLogin', () => SC.UI.showOverlay('setup'));
+      on('btnAuthQuick', () => SC.UI.showOverlay('setup'));
       on('btnSetupClose', () => SC.UI.hideOverlay('setup'));
       this.sync();
       return;
@@ -4969,6 +4973,9 @@ SC.AuthPanel = {
 
     on('btnLogin', () => SC.Auth.login());
     on('btnLogout', () => SC.Auth.logout());
+    // Icon ở thanh đầu: chưa đăng nhập thì đăng nhập luôn, đã đăng nhập thì mở
+    // màn cài đặt — nơi có tên tài khoản và nút đăng xuất.
+    on('btnAuthQuick', () => SC.Auth.user ? SC.UI.show('options') : SC.Auth.login());
 
     SC.Auth.onChange(() => this.sync());
     SC.Auth.init();
@@ -5010,6 +5017,35 @@ SC.AuthPanel = {
       dot.className = 'sync-dot ' + cls;
       dot.title = tip;
     }
+
+    this.syncQuick(u, busy);
+  },
+
+  /* Icon đăng nhập ở thanh đầu lobby: chữ G khi chưa vào, avatar khi đã vào */
+  syncQuick(u, busy) {
+    const btn = document.getElementById('btnAuthQuick');
+    if (!btn) return;
+    const g = btn.querySelector('.ic');
+    const av = document.getElementById('authQuickAv');
+    const dot = document.getElementById('authQuickDot');
+
+    const hasAvatar = !!(u && u.avatar);
+    if (g) g.classList.toggle('hidden', hasAvatar);
+    if (av) {
+      if (hasAvatar && av.src !== u.avatar) av.src = u.avatar;
+      av.classList.toggle('hidden', !hasAvatar);
+    }
+    if (dot) {
+      dot.classList.toggle('hidden', !u);
+      if (u) {
+        const cls = { pull: 'sync', ok: 'ok', wait: 'wait', err: 'err' }[SC.Cloud.state] || '';
+        dot.className = 'sync-dot ' + cls;
+      }
+    }
+    btn.classList.toggle('busy', !!busy);
+    btn.setAttribute('aria-label',
+      busy ? 'Đang đăng nhập' : u ? 'Tài khoản ' + u.name : 'Đăng nhập Google');
+    btn.title = btn.getAttribute('aria-label');
   },
 
   /* ---------- hộp thoại: giữ bản nào ---------- *
@@ -5053,10 +5089,12 @@ SC.Rank = {
     { k: 'stars', label: 'TỔNG SAO',     val: r => '★ ' + (r.totalStars || 0) }
   ],
 
+  /* Lấy số màn từ dữ liệu, đừng chép cứng — đổi levelsPerBiome trong Excel là
+     câu này sai ngay, mà nó lại là câu người chơi đọc nhiều nhất ở tab Tốc độ. */
   EMPTY: {
-    level: 'Chưa có ai trên bảng',
-    time: 'Chưa ai đi hết 100 màn',
-    stars: 'Chưa có ai trên bảng'
+    level: () => 'Chưa có ai trên bảng',
+    time: () => `Chưa ai đi hết ${SC.TOTAL_LEVELS} màn`,
+    stars: () => 'Chưa có ai trên bảng'
   },
 
   time(s) {
@@ -5092,7 +5130,7 @@ SC.Rank = {
       .map(p => ({
         uid: 'local:' + p.id, name: p.name, avatar: '', emoji: p.avatar, me: p.isMe,
         highestLevel: p.level, totalStars: p.stars,
-        // thời gian chiến dịch chỉ tính khi hồ sơ đó đã đi hết 100 màn
+        // thời gian chiến dịch chỉ tính khi hồ sơ đó đã đi hết mọi màn
         bestTime: p.cleared >= SC.TOTAL_LEVELS ? this._timeOf(p.id) : undefined
       }))
       .filter(r => r[field] !== undefined)
@@ -5136,7 +5174,7 @@ SC.Rank = {
       : '';
 
     if (!rows.length) {
-      wrap.innerHTML = banner + `<p class="rank-note">${this.EMPTY[this.tab]}</p>`;
+      wrap.innerHTML = banner + `<p class="rank-note">${this.EMPTY[this.tab]()}</p>`;
     } else {
       wrap.innerHTML = banner + rows.map(r => `
         <div class="rank-row${r.me || (me && r.uid === me.uid) ? ' me' : ''}">
@@ -5176,7 +5214,7 @@ SC.Rank = {
 
 ;
 /* ===== js/ui-map-select.js ===== */
-/* ui-map-select.js — bản đồ hành trình (saga): 10 vùng, mỗi vùng 10 chặng
+/* ui-map-select.js — bản đồ hành trình (saga): 10 vùng, mỗi vùng 6 chặng
  *
  * Các chặng nằm zigzag theo hình sin và được nối bằng một đường SVG, thay cho
  * lưới ô vuông cũ. Mỗi vùng là một khối riêng, đầu và cuối khối cùng toạ độ x
@@ -5212,7 +5250,7 @@ SC.MapSelect = {
     this.scrollToCurrent(wrap);
   },
 
-  /* Bản đồ 100 chặng dài hơn chục màn hình, nên mở ra là nhảy thẳng tới
+  /* Bản đồ 60 chặng dài hơn chục màn hình, nên mở ra là nhảy thẳng tới
      chặng đang chơi dở thay vì bắt cuộn từ đầu. */
   scrollToCurrent(wrap) {
     const node = wrap.querySelector('.saga-node.next')
@@ -5597,10 +5635,6 @@ SC.UI = {
     this.el.hud.classList.toggle('hidden', which !== 'game');
     if (this.el[which]) this.el[which].classList.remove('hidden');
 
-    // Băng PWA chỉ mời cài/cập nhật lúc đang ở lobby, không chen ngang màn chơi
-    const pwa = document.getElementById('pwaBanner');
-    if (pwa) pwa.classList.toggle('hidden', which !== 'menu' || !SC.PWA.anyOffer());
-
     // máy bay ở lobby cần biết ô sân nằm đâu, đo sau khi màn đã hiện
     if (which === 'menu' && SC.LobbyShip) SC.LobbyShip.layout();
   },
@@ -5793,10 +5827,8 @@ SC.PWA = {
   /* Băng thông báo trượt lên từ đáy: chỉ hiện ở lobby và chỉ khi có việc để mời.
      Trước đây hai nút này nằm cố định giữa menu, xuất hiện bất chợt là đẩy layout. */
   syncBanner() {
-    const bar = document.getElementById('pwaBanner');
-    if (!bar) return;
-    const atMenu = !SC.Game || SC.Game.state === 'menu';
-    bar.classList.toggle('hidden', !atMenu || !this.anyOffer());
+    // Không còn băng nổi ở đáy: hai nút giờ là icon nằm sẵn trong thanh đầu lobby,
+    // tự ẩn/hiện bằng class 'hidden' của chính chúng. Giữ hàm để chỗ gọi khỏi vỡ.
   },
 
   /* Bấm nút cài: bật lại hộp thoại đã chặn ở trên */

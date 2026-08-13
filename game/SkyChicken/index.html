@@ -7,11 +7,11 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>Sky Chicken — Bắn gà 100 màn</title>
+<title>Sky Chicken — Bắn gà 60 màn</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="icon" type="image/png" href="icons/icon-192.png">
-<link rel="stylesheet" href="assets/style-9a7c0cce.css">
+<link rel="stylesheet" href="assets/style-2625dd8f.css">
 </head>
 <body>
 
@@ -32,10 +32,19 @@
     <path d="M7 4h10v6a5 5 0 0 1-10 0V4Z"/><path d="M7 6H4v2a3 3 0 0 0 3 3M17 6h3v2a3 3 0 0 1-3 3"/>
     <path d="M10 20h4M12 15v5"/>
   </symbol>
+  <!-- Bánh răng CÓ RĂNG. Bản trước là vòng tròn + 8 tia thẳng nên nhìn ra mặt trời,
+       trùng ý với nút đổi sáng/tối. -->
   <symbol id="i-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
     stroke-linecap="round" stroke-linejoin="round">
-    <circle cx="12" cy="12" r="3.2"/>
-    <path d="M12 2.6v2.6M12 18.8v2.6M21.4 12h-2.6M5.2 12H2.6M18.6 5.4l-1.8 1.8M7.2 16.8l-1.8 1.8M18.6 18.6l-1.8-1.8M7.2 7.2 5.4 5.4"/>
+    <path d="M12.2 2h-.4a2 2 0 0 0-2 2v.2a2 2 0 0 1-1 1.7l-.4.3a2 2 0 0 1-2 0l-.2-.1a2 2 0 0 0-2.7.7l-.2.4a2 2 0 0 0 .7 2.7l.2.1a2 2 0 0 1 1 1.7v.5a2 2 0 0 1-1 1.8l-.2.1a2 2 0 0 0-.7 2.7l.2.4a2 2 0 0 0 2.7.7l.2-.1a2 2 0 0 1 2 0l.4.3a2 2 0 0 1 1 1.7v.2a2 2 0 0 0 2 2h.4a2 2 0 0 0 2-2v-.2a2 2 0 0 1 1-1.7l.4-.3a2 2 0 0 1 2 0l.2.1a2 2 0 0 0 2.7-.7l.2-.4a2 2 0 0 0-.7-2.7l-.2-.1a2 2 0 0 1-1-1.8v-.5a2 2 0 0 1 1-1.7l.2-.1a2 2 0 0 0 .7-2.7l-.2-.4a2 2 0 0 0-2.7-.7l-.2.1a2 2 0 0 1-2 0l-.4-.3a2 2 0 0 1-1-1.7V4a2 2 0 0 0-2-2Z"/>
+    <circle cx="12" cy="12" r="3"/>
+  </symbol>
+  <!-- Chữ G của Google: để dạng khối đặc, nét viền mảnh sẽ không ra được hình chữ -->
+  <symbol id="i-google" viewBox="0 0 24 24">
+    <path fill="currentColor" d="M21.6 12.2c0-.6-.05-1.2-.15-1.75H12v3.32h5.4a4.6 4.6 0 0 1-2 3.02v2.5h3.24c1.9-1.74 2.96-4.3 2.96-7.09Z"/>
+    <path fill="currentColor" d="M12 22c2.7 0 4.96-.9 6.62-2.42l-3.24-2.5c-.9.6-2.05.96-3.38.96-2.6 0-4.8-1.75-5.6-4.1H3.06v2.58A10 10 0 0 0 12 22Z" opacity=".75"/>
+    <path fill="currentColor" d="M6.4 13.94a5.98 5.98 0 0 1 0-3.84V7.52H3.06a10 10 0 0 0 0 8.96l3.34-2.54Z" opacity=".55"/>
+    <path fill="currentColor" d="M12 5.86c1.47 0 2.78.5 3.82 1.5l2.86-2.86C16.95 2.92 14.7 2 12 2A10 10 0 0 0 3.06 7.52L6.4 10.1c.8-2.35 3-4.24 5.6-4.24Z" opacity=".9"/>
   </symbol>
   <symbol id="i-sfx-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
     stroke-linecap="round" stroke-linejoin="round">
@@ -164,6 +173,24 @@
       <button class="portal-back hidden" id="btnPortal">‹ PORTAL</button>
       <!-- Hồ sơ chơi trên máy này (tối đa 3), khác với đăng nhập Google -->
       <button class="prof-chip" id="btnProfile"><span>🐔</span><b>PHI CÔNG 1</b><em>ĐỔI</em></button>
+
+      <!-- Đăng nhập Google: dạng icon cho gọn thanh trên. Đăng nhập rồi thì đổi
+           thành avatar kèm chấm trạng thái đồng bộ. -->
+      <button class="icon-btn auth-quick" id="btnAuthQuick" aria-label="Đăng nhập Google">
+        <svg class="ic" aria-hidden="true"><use href="#i-google"/></svg>
+        <img class="auth-quick-av hidden" id="authQuickAv" alt="">
+        <span class="sync-dot hidden" id="authQuickDot"></span>
+      </button>
+
+      <!-- Lời mời cài / cập nhật: để trên đây làm icon, KHÔNG làm băng nổi ở đáy nữa
+           vì băng đó đè lên hàng nút và dòng hướng dẫn. -->
+      <button class="icon-btn hidden" id="btnInstall" aria-label="Cài về máy" title="Cài về máy">
+        <svg class="ic" aria-hidden="true"><use href="#i-install"/></svg>
+      </button>
+      <button class="icon-btn hidden hot" id="btnUpdate" aria-label="Có bản mới" title="Có bản mới — cập nhật">
+        <svg class="ic" aria-hidden="true"><use href="#i-update"/></svg>
+      </button>
+
       <button class="icon-btn" id="btnOptions" aria-label="Cài đặt">
         <svg class="ic" aria-hidden="true"><use href="#i-gear"/></svg>
       </button>
@@ -280,22 +307,12 @@
     </div>
   </div>
 
-  <!-- Băng thông báo PWA: trượt lên từ đáy, không chiếm chỗ cố định trong lobby -->
-  <div id="pwaBanner" class="pwa-banner hidden">
-    <button class="btn ghost small hidden" id="btnInstall">
-      <svg class="ic" aria-hidden="true"><use href="#i-install"/></svg><span>CÀI VỀ MÁY</span>
-    </button>
-    <button class="btn primary small hidden" id="btnUpdate">
-      <svg class="ic" aria-hidden="true"><use href="#i-update"/></svg><span>CÓ BẢN MỚI — CẬP NHẬT</span>
-    </button>
-  </div>
-
   <!-- ===== MAP SELECT ===== -->
   <div id="scrMaps" class="layer screen hidden">
     <div class="scr-head">
       <button class="icon-btn back" id="btnMapsBack">‹</button>
       <h2>CHỌN CHIẾN TRƯỜNG</h2>
-      <span class="total-star">★ <b id="totalStars">0</b>/<i id="maxStars">300</i></span>
+      <span class="total-star">★ <b id="totalStars">0</b>/<i id="maxStars">180</i></span>
       <button class="icon-btn" id="btnShop2">⬆</button>
     </div>
     <div class="map-scroll" id="mapList"></div>
@@ -458,6 +475,6 @@
     <p>Xoay dọc máy để chơi</p>
   </div>
 </div>
-<script src="assets/app-7f00c9c6.js"></script>
+<script src="assets/app-76cfcefe.js"></script>
 </body>
 </html>
