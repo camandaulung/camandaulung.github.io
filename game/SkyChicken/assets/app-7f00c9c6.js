@@ -130,26 +130,32 @@ SC.addShake = (power, time) => {
 /* ===== js/config-firebase.js ===== */
 /* config-firebase.js — khai báo dự án Firebase
  *
- * ĐỂ TRỐNG = game chạy bình thường ở chế độ ẩn danh: không nút đăng nhập,
- * không bảng xếp hạng, tiến độ vẫn lưu trong máy như cũ. Không có gì vỡ.
+ * ĐỂ TRỐNG apiKey = game chạy bình thường ở chế độ ẩn danh: nút đăng nhập mở bảng
+ * hướng dẫn thay vì gọi Google, bảng xếp hạng rơi về bảng nội bộ 3 hồ sơ, tiến độ
+ * vẫn lưu trong máy. Không có gì vỡ.
  *
- * Điền vào để bật đăng nhập + xếp hạng:
- *   1. console.firebase.google.com -> tạo project -> thêm Web app
- *   2. Copy đúng 4 trường dưới đây từ đoạn cấu hình nó cho
- *   3. Authentication -> Sign-in method -> bật Google
- *   4. Authentication -> Settings -> Authorized domains -> thêm
- *      minhducdl87-code.github.io  (thiếu bước này sẽ lỗi unauthorized_domain)
- *   5. Firestore Database -> tạo (production mode) -> dán luật trong firestore.rules
+ * Dự án đang dùng: minigame-5d3ee (gói Spark, miễn phí)
  *
- * apiKey của Firebase là khoá công khai, để trong mã nguồn là đúng thiết kế —
+ * Đoạn Config của Firebase còn có storageBucket, messagingSenderId, measurementId —
+ * game không dùng tới (chỉ cần Auth + Firestore) nên không chép vào cho gọn.
+ *
+ * Ba việc phải làm trên Console trước khi đăng nhập chạy được:
+ *   1. Authentication > Sign-in method > bật Google
+ *   2. Authentication > Settings > Authorized domains > thêm camandaulung.github.io
+ *      (thiếu bước này sẽ lỗi auth/unauthorized-domain)
+ *   3. Firestore Database > tạo mới > Rules > dán nội dung firestore.rules
+ *      (thiếu bước này thì đăng nhập được nhưng không lưu/xếp hạng được)
+ *
+ * apiKey của Firebase là khoá CÔNG KHAI, để trong mã nguồn là đúng thiết kế —
  * chặn truy cập là việc của luật Firestore, không phải của việc giấu khoá.
  */
 
 SC.FB_CONFIG = {
-  apiKey: '',
-  authDomain: '',        // <project-id>.firebaseapp.com
-  projectId: '',
-  appId: ''
+  apiKey: 'AIzaSyB73g3D3zRgvfAFX4KCKkEjgVACM93YtbY',
+  projectId: 'minigame-5d3ee',
+  appId: '1:1098790709614:web:7758724fb27ca7cd80f97f',
+  // suy ra từ projectId, chỉ điền tay khi dùng tên miền tuỳ chỉnh
+  authDomain: 'minigame-5d3ee.firebaseapp.com'
 };
 
 ;

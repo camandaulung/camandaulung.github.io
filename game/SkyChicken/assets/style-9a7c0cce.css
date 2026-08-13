@@ -125,8 +125,8 @@ body.is-touch #game{cursor:auto}
 .lobby-deploy{display:flex;flex-direction:column;gap:12px;width:min(310px,74%);flex:none}
 .lobby-rail{display:flex;gap:8px;width:min(330px,80%);margin-top:14px;flex:none}
 
-.logo{text-align:center}
-.logo-sub{font-family:var(--font-display);font-size:12px;letter-spacing:.5em;color:var(--tint);
+.logo{text-align:center;flex:none}
+.logo-sub{display:block;font-family:var(--font-display);font-size:12px;letter-spacing:.5em;color:var(--tint);
   text-shadow:0 0 18px color-mix(in srgb,var(--tint) 60%,transparent)}
 .logo h1{font-family:var(--font-display);font-size:58px;line-height:.94;letter-spacing:-.02em;
   margin:6px 0;font-weight:700;
@@ -592,6 +592,7 @@ body.is-touch .btn{font-size:18px;padding:10px 26px;min-height:66px;
 body.is-touch .btn.small{font-size:14px;padding:10px 6px;min-height:62px}
 body.is-touch .btn.text{min-height:56px}
 body.is-touch .icon-btn{width:64px;height:64px;font-size:19px}
+body.is-touch .icon-btn .ic{width:27px;height:27px}
 body.is-touch .icon-btn.back{font-size:34px}
 body.is-touch .saga-node{width:76px;height:76px}
 body.is-touch .saga-node.boss{width:86px;height:86px}
