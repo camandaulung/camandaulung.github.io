@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="icon" type="image/png" href="icons/icon-192.png">
-<link rel="stylesheet" href="assets/style-bcce2a5a.css">
+<link rel="stylesheet" href="assets/style-0beae187.css">
 </head>
 <body>
 
@@ -313,7 +313,9 @@
       <button class="icon-btn back" id="btnMapsBack">‹</button>
       <h2>CHỌN CHIẾN TRƯỜNG</h2>
       <span class="total-star">★ <b id="totalStars">0</b>/<i id="maxStars">180</i></span>
-      <button class="icon-btn" id="btnShop2">⬆</button>
+      <button class="icon-btn" id="btnShop2" aria-label="Nâng cấp">
+        <svg class="ic" aria-hidden="true"><use href="#i-upgrade"/></svg>
+      </button>
     </div>
     <div class="map-scroll" id="mapList"></div>
   </div>
@@ -454,6 +456,9 @@
         <li><span>Điểm</span><b id="resScore">0</b></li>
         <li><span>Tiêu diệt</span><b id="resKill">0</b></li>
         <li><span>Chính xác</span><b id="resAcc">0%</b></li>
+        <!-- Bảng xếp hạng có hẳn một mục TỐC ĐỘ chạy bằng progress.times, nhưng
+             người chơi chưa bao giờ được thấy thời gian của chính mình sau mỗi màn -->
+        <li><span>Thời gian</span><b id="resTime">0s</b></li>
       </ul>
       <ul class="gold-rows" id="resGold"></ul>
       <div class="res-btns">
@@ -461,8 +466,10 @@
         <button class="btn primary" id="btnResNext">MAP TIẾP</button>
       </div>
       <div class="res-links">
-        <button class="btn text" id="btnResShop">⬆ Nâng cấp</button>
-        <button class="btn text" id="btnResMenu">Về lobby</button>
+        <button class="btn text" id="btnResShop">
+          <svg class="ic" aria-hidden="true"><use href="#i-upgrade"/></svg><span>NÂNG CẤP</span>
+        </button>
+        <button class="btn text" id="btnResMenu"><span>VỀ LOBBY</span></button>
       </div>
     </div>
   </div>
@@ -475,6 +482,6 @@
     <p>Xoay dọc máy để chơi</p>
   </div>
 </div>
-<script src="assets/app-a3b1fea7.js"></script>
+<script src="assets/app-4b76b32a.js"></script>
 </body>
 </html>

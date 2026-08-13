@@ -4404,6 +4404,18 @@ SC.Result = {
     id('resKill').textContent = r.kills;
     id('resAcc').textContent = r.acc + '%';
 
+    // Thời gian: chỉ khoe kỷ lục khi thật sự phá được mốc CŨ, không phải lần đầu qua màn
+    const t = id('resTime');
+    const beat = win && r.record && r.prevBest > 0;
+    t.parentElement.classList.toggle('record', beat);
+    t.innerHTML = beat
+      ? `${r.time}s <em>KỶ LỤC MỚI</em>`
+      : (win && r.prevBest && r.prevBest < r.time ? `${r.time}s <i>tốt nhất ${r.prevBest}s</i>` : r.time + 's');
+
+    // Nhuộm bảng theo vùng vừa đánh, cùng hệ màu với lobby và bản đồ hành trình
+    const panel = id('scrResult').querySelector('.panel');
+    if (panel) panel.style.setProperty('--tint', `hsl(${SC.BIOMES[lv.biome].hue},70%,62%)`);
+
     id('resGold').innerHTML = this._goldRows(win, r);
 
     ui.el.btnResNext.style.display = (win && SC.Game.levelId < SC.TOTAL_LEVELS) ? '' : 'none';
@@ -4628,6 +4640,8 @@ SC.ProfileUI = {
     SC.UI.load();
     SC.UI.buildMapList();
     SC.UI.syncMenu();
+    // Đổi hồ sơ là đổi cả TÊN lẫn tiến độ hiện trên bảng xếp hạng -> đẩy lại ngay
+    SC.Cloud.markDirty(0);
   }
 };
 
@@ -4805,6 +4819,8 @@ SC.Cloud = {
   state: 'off',        // off | pull | ok | wait | err   (UI đọc để hiện chấm trạng thái)
   _timer: 0,
   _dirty: false,
+  _hadDoc: false,      // bản ghi trên mây đã tồn tại chưa (quyết định có được dùng deleteField)
+  lastErr: '',
   _rank: {},           // đệm kết quả bảng xếp hạng: { tab: {t, rows} }
 
   /* ---------- số liệu rút ra từ tiến độ ---------- */
@@ -4851,6 +4867,7 @@ SC.Cloud = {
       const { doc, getDoc } = fb.fsM;
       const snap = await getDoc(doc(fb.db, 'users', SC.Auth.user.uid));
       const cloud = snap.exists() ? snap.data().progress : null;
+      this._hadDoc = snap.exists();
 
       if (!cloud) {                       // tài khoản mới -> lấy luôn tiến độ đang chơi
         this.state = 'ok'; this.markDirty(0);
@@ -4863,6 +4880,8 @@ SC.Cloud = {
 
       if (this._empty(local)) {           // máy mới -> lấy về luôn, chẳng có gì để mất
         this.adopt(cloud);
+        // vẫn phải đẩy: bản ghi ĐIỂM có thể chưa tồn tại dù tiến độ đã có
+        this.markDirty(0);
       } else if (wc > wl) {               // đám mây nhiều hơn -> HỎI, không bao giờ tự đè
         const pick = await SC.AuthPanel.askMerge(local, cloud);
         pick === 'cloud' ? this.adopt(cloud) : this.markDirty(0);
@@ -4896,6 +4915,14 @@ SC.Cloud = {
     this._timer = setTimeout(() => this.push(), delay === undefined ? 3000 : delay);
   },
 
+  /* Tên hiện trên bảng xếp hạng là TÊN PHI CÔNG của hồ sơ đang chơi, không phải tên
+     tài khoản Google. Một tài khoản có tới 3 hồ sơ, mỗi hồ sơ một hành trình riêng —
+     lấy tên Google thì cả ba đều hiện cùng một cái tên, chẳng phân biệt được. */
+  playerName() {
+    const p = SC.Profiles.cur();
+    return ((p && p.name) || (SC.Auth.user && SC.Auth.user.name) || 'Phi công').slice(0, 40);
+  },
+
   async push() {
     if (!this._dirty || !SC.Auth.user) return;
     const u = SC.Auth.user, s = this.stats();
@@ -4904,24 +4931,34 @@ SC.Cloud = {
       const { doc, setDoc, serverTimestamp, deleteField } = fb.fsM;
       this._dirty = false;
 
+      const score = {
+        name: this.playerName(), avatar: u.avatar,
+        highestLevel: s.highestLevel, totalStars: s.totalStars,
+        updatedAt: serverTimestamp()
+      };
+      // Chưa đi hết chiến dịch thì XOÁ hẳn trường này -> không lọt vào bảng tốc độ.
+      // Chỉ gọi deleteField khi bản ghi đã tồn tại: gọi lúc TẠO MỚI thì một số phiên
+      // bản SDK ném lỗi, mà lỗi đó nuốt luôn cả hai lệnh ghi trong Promise.all.
+      if (s.campaignTime !== null) score.bestTime = s.campaignTime;
+      else if (this._hadDoc) score.bestTime = deleteField();
+
       await Promise.all([
         setDoc(doc(fb.db, 'users', u.uid), {
           name: u.name, avatar: u.avatar,
           progress: SC.UI.progress, updatedAt: serverTimestamp()
         }, { merge: true }),
-        setDoc(doc(fb.db, 'scores', u.uid), {
-          name: u.name, avatar: u.avatar,
-          highestLevel: s.highestLevel, totalStars: s.totalStars,
-          // chưa đi hết chiến dịch thì XOÁ hẳn trường này -> không lọt vào bảng tốc độ
-          bestTime: s.campaignTime === null ? deleteField() : s.campaignTime,
-          updatedAt: serverTimestamp()
-        }, { merge: true })
+        setDoc(doc(fb.db, 'scores', u.uid), score, { merge: true })
       ]);
+      this._hadDoc = true;
       this.state = 'ok';
       this._rank = {};                    // điểm mình đổi rồi -> bỏ đệm bảng xếp hạng
     } catch (e) {
       this._dirty = true;                 // giữ cờ, có mạng lại thì đẩy tiếp
       this.state = 'wait';
+      this.lastErr = (e && (e.code || e.message)) || String(e);
+      // Trước đây lỗi này im lặng hoàn toàn: người chơi tưởng đã lưu, thật ra chưa.
+      SC.UI.toast('CHƯA LƯU ĐƯỢC: ' + SC.FB.err(e));
+      console.warn('[cloud] push lỗi:', e);
       window.addEventListener('online', () => this.markDirty(400), { once: true });
     }
     SC.AuthPanel.sync();
@@ -5200,8 +5237,9 @@ SC.Rank = {
       const s = SC.Cloud.stats();
       const mine = { highestLevel: s.highestLevel, totalStars: s.totalStars, bestTime: s.campaignTime };
       foot.className = 'rank-me';
+      // tên phi công của hồ sơ đang chơi, khớp với tên sẽ hiện trên bảng
       foot.innerHTML = `<span class="rank-pos">—</span>
-        <span class="rank-name">${this.esc(me.name)} (bạn)</span>
+        <span class="rank-name">${this.esc(SC.Cloud.playerName())} (bạn)</span>
         <b class="rank-val">${t.val(mine)}</b>`;
     }
   },
@@ -5261,9 +5299,13 @@ SC.MapSelect = {
       - wrap.clientHeight / 2);
   },
 
-  /* toạ độ x của chặng thứ k trong vùng (0..per-1) */
+  /* Toạ độ x của chặng thứ k trong vùng (0..per-1).
+     Chu kỳ 4 chặng: giữa -> phải -> giữa -> trái, nên đường đi luôn quét trọn bề
+     ngang bất kể vùng dài mấy chặng. Bản cũ dùng sin(k*0.72) tính cho vùng 10 chặng;
+     từ khi vùng rút còn 6 chặng nó chỉ đi hết hơn nửa chu kỳ, dồn cả 6 nút về nửa
+     phải và bỏ trống hẳn một phần ba bên trái. */
   _x(k) {
-    return 270 + Math.sin(k * 0.72) * this.AMP;
+    return 270 + Math.sin(k * Math.PI / 2) * this.AMP;
   },
 
   _region(ui, biome, bi, levels) {
@@ -6061,6 +6103,8 @@ SC.Game = {
     const acc = p.shots ? Math.round(p.hits / p.shots * 100) : 0;
     // sao = số nhiệm vụ phụ hoàn thành (chỉ tính khi thắng)
     const missions = SC.Missions.evaluate(this);
+    const sec = Math.round(this.stats.time);
+    let prevBest = 0, record = false;
     let stars = 0, bonus = 0;
     const mul = SC.Upg.goldMul();
     // thua vẫn giữ vàng nhặt được, nhưng không có thưởng và không nhân hệ số
@@ -6078,8 +6122,10 @@ SC.Game = {
 
       // giữ lần qua màn nhanh nhất -> cộng lại thành thời gian chiến dịch cho bảng xếp hạng
       if (!SC.UI.progress.times) SC.UI.progress.times = {};
-      const t = SC.UI.progress.times, sec = Math.round(this.stats.time);
-      if (!t[this.levelId] || sec < t[this.levelId]) t[this.levelId] = sec;
+      const t = SC.UI.progress.times;
+      // đọc kỷ lục CŨ trước khi ghi đè, để bảng kết quả còn khoe được "kỷ lục mới"
+      prevBest = t[this.levelId] || 0;
+      if (!prevBest || sec < prevBest) { t[this.levelId] = sec; record = true; }
 
       SC.UI.buildMapList();
     }
@@ -6089,7 +6135,8 @@ SC.Game = {
     SC.Cloud.markDirty();          // sao lưu đám mây nếu đã đăng nhập
     SC.UI.showResult(win, {
       stars, score: this.score, kills: this.kills, acc,
-      coin: this.coin, bonus, mul, gold, missions
+      coin: this.coin, bonus, mul, gold, missions,
+      time: sec, prevBest, record
     });
   },
 

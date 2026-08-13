@@ -186,7 +186,22 @@ body.is-touch .portal-back{font-size:13px;padding:13px 15px}
 .now-foot .pw{color:var(--dan)}
 .now-foot .pw b{color:#ff8a9c}
 .map-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;
-  padding:4px 16px calc(26px + var(--safe-bottom));scrollbar-width:thin}
+  padding:4px 16px calc(26px + var(--safe-bottom));
+  scrollbar-width:thin;scrollbar-color:rgba(140,190,255,.35) transparent}
+/* Chrome/Edge không nghe scrollbar-width, phải tự vẽ — bản mặc định là thanh xám
+   sáng, nổi bật hẳn trên nền tối và trông như lỗi hiển thị. */
+.map-scroll::-webkit-scrollbar,.shop-scroll::-webkit-scrollbar,
+.rank-scroll::-webkit-scrollbar,.prof-scroll::-webkit-scrollbar,
+.opt-scroll::-webkit-scrollbar{width:6px}
+.map-scroll::-webkit-scrollbar-track,.shop-scroll::-webkit-scrollbar-track,
+.rank-scroll::-webkit-scrollbar-track,.prof-scroll::-webkit-scrollbar-track,
+.opt-scroll::-webkit-scrollbar-track{background:transparent}
+.map-scroll::-webkit-scrollbar-thumb,.shop-scroll::-webkit-scrollbar-thumb,
+.rank-scroll::-webkit-scrollbar-thumb,.prof-scroll::-webkit-scrollbar-thumb,
+.opt-scroll::-webkit-scrollbar-thumb{border-radius:4px;background:rgba(140,190,255,.3)}
+.map-scroll::-webkit-scrollbar-thumb:hover,.shop-scroll::-webkit-scrollbar-thumb:hover,
+.rank-scroll::-webkit-scrollbar-thumb:hover,.prof-scroll::-webkit-scrollbar-thumb:hover,
+.opt-scroll::-webkit-scrollbar-thumb:hover{background:rgba(160,205,255,.55)}
 /* ---------- bản đồ hành trình (saga) ---------- */
 .saga-region{margin-bottom:6px;color:var(--tint)}
 /* dính đầu khung khi cuộn để luôn biết đang ở vùng nào */
@@ -194,14 +209,17 @@ body.is-touch .portal-back{font-size:13px;padding:13px 15px}
   display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:11px;
   background:linear-gradient(90deg,color-mix(in srgb,var(--tint) 26%,transparent),transparent);
   box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--tint) 40%,transparent)}
-.saga-head b{flex:1;font-size:12px;letter-spacing:.24em;color:#fff}
+.saga-head b{flex:1;font-family:var(--font-display);font-size:12px;letter-spacing:.22em;color:#fff}
 .saga-head span{font-size:11px;letter-spacing:.1em;color:var(--tint)}
 .saga-head.lock b,.saga-head.lock span{color:#5a6478}
 
 .saga-path{position:relative;margin:2px 0 10px;border-radius:14px;background:#080d19}
 /* dải nền lấy đúng màu trời của vùng — cuộn qua là thấy đổi cảnh */
+/* Đậm hơn bản cũ (.26): cuộn qua vùng mới mà thấy đổi cảnh chính là phần thưởng
+   thị giác của màn này, để nhạt quá thì 10 vùng nhìn na ná nhau. Lớp ::after phía
+   dưới vẫn kéo tối mép nên chữ trên nút không bị chìm. */
 .saga-path::before{content:'';position:absolute;inset:0;border-radius:14px;pointer-events:none;
-  background:linear-gradient(180deg,var(--sky0),var(--sky1),var(--sky2));opacity:.26}
+  background:linear-gradient(180deg,var(--sky0),var(--sky1),var(--sky2));opacity:.42}
 .saga-path::after{content:'';position:absolute;inset:0;border-radius:14px;pointer-events:none;
   background:radial-gradient(120% 60% at 50% 0%,transparent 40%,rgba(5,7,15,.55) 100%)}
 .saga-trail{position:absolute;inset:0;width:100%;height:100%;opacity:.55;pointer-events:none;z-index:1}
@@ -214,9 +232,11 @@ body.is-touch .portal-back{font-size:13px;padding:13px 15px}
   display:flex;flex-direction:column;align-items:center;justify-content:center;
   transition:transform .14s}
 .saga-node:hover{transform:translate(-50%,-50%) scale(1.09)}
-.sn-num{font:800 21px var(--font);line-height:1}
+.sn-num{font:700 22px var(--font-display);line-height:1}
+.sn-num .ic{width:20px;height:20px}
 .sn-star{font-size:9px;letter-spacing:1px;color:var(--acc);margin-top:2px}
-.sn-tag{position:absolute;top:-9px;font-size:7px;letter-spacing:.1em;padding:2px 6px;
+.sn-tag{position:absolute;top:-9px;font-family:var(--font-display);font-size:7px;
+  letter-spacing:.1em;padding:2px 6px;
   border-radius:6px;background:var(--dan);color:#fff;white-space:nowrap}
 
 .saga-node.done{box-shadow:inset 0 0 0 2px var(--acc),0 0 20px rgba(255,190,60,.28)}
@@ -308,7 +328,9 @@ body.is-touch .portal-back{font-size:13px;padding:13px 15px}
   box-shadow:inset 0 0 0 1px rgba(77,255,159,.28)}
 .mission-rows li b{margin-left:auto;font-size:14px}
 .mission-rows li.ok b{color:var(--ok)}
-.mission-rows li.no b{color:#54617a}
+/* Dấu trượt phải đọc được ngang với dấu đạt. Bản cũ #54617a trên nền tối gần như
+   chìm hẳn, thành ra nhiệm vụ hỏng nhìn như dòng trống. */
+.mission-rows li.no b{color:#ff8a9c}
 
 #toastZone{position:absolute;top:38%;left:0;right:0;text-align:center;pointer-events:none}
 .toast{font-size:13px;letter-spacing:.22em;color:var(--acc);text-shadow:0 2px 12px rgba(0,0,0,.9);
@@ -435,6 +457,12 @@ body.is-touch .portal-back{font-size:13px;padding:13px 15px}
   margin-left:5px;vertical-align:middle;box-shadow:0 0 8px var(--dan)}
 .gold-row b{color:var(--acc)!important}
 .res-links{display:flex;justify-content:center;gap:6px}
+.res-links .btn.text{letter-spacing:.1em;font-size:12px}
+.res-links .ic{width:15px;height:15px}
+/* Bảng kết quả nhuộm theo vùng vừa đánh — ui-result.js gán --tint cho .panel */
+.panel.result{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--tint) 40%,transparent),
+  0 24px 60px rgba(0,0,0,.6)}
+.panel.result .res-level{color:var(--tint)}
 /* đủ vàng mua nâng cấp -> nút sáng nhấp nháy mời đi tiêu */
 .btn.text.glow{color:var(--acc);animation:shopGlow 1.5s ease-in-out infinite}
 @keyframes shopGlow{
@@ -565,6 +593,12 @@ body.is-touch .prof-chip em{font-size:11px}
 .res-level{font-size:11px;letter-spacing:.18em;color:var(--cy);margin:-2px 0 6px}
 
 .res-rows{list-style:none;display:flex;flex-direction:column;gap:7px;margin:6px 0}
+/* dòng thời gian: kỷ lục mới thì đổi hẳn màu, còn không thì nhắc nhẹ mốc tốt nhất */
+.res-rows li.record{background:rgba(255,210,63,.12);box-shadow:inset 0 0 0 1px rgba(255,210,63,.4)}
+.res-rows li.record b{color:var(--acc)}
+.res-rows em{font-style:normal;font-family:var(--font-display);font-size:9px;
+  letter-spacing:.16em;color:var(--acc);margin-left:6px}
+.res-rows i{font-style:normal;font-size:11px;color:var(--dim);margin-left:6px}
 .res-rows li{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);
   padding:7px 12px;background:rgba(255,255,255,.04);border-radius:8px}
 .res-rows b{color:#fff}
