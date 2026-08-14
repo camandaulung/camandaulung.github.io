@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="icon" type="image/png" href="icons/icon-192.png">
-<link rel="stylesheet" href="assets/style-c5fec7c5.css">
+<link rel="stylesheet" href="assets/style-fefaba81.css">
 </head>
 <body>
 
@@ -90,6 +90,10 @@
   <symbol id="i-power" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
     stroke-linecap="round" stroke-linejoin="round">
     <path d="M12 3.5v8"/><path d="M7 6.4a7.5 7.5 0 1 0 10 0"/>
+  </symbol>
+  <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+    stroke-linecap="round" stroke-linejoin="round">
+    <path d="m4.5 12.5 5 5 10-11"/>
   </symbol>
   <symbol id="i-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
     stroke-linecap="round" stroke-linejoin="round">
@@ -174,25 +178,13 @@
       <!-- Hồ sơ chơi trên máy này (tối đa 3), khác với đăng nhập Google -->
       <button class="prof-chip" id="btnProfile"><span>🐔</span><b>PHI CÔNG 1</b><em>ĐỔI</em></button>
 
-      <!-- Đăng nhập Google: dạng icon cho gọn thanh trên. Đăng nhập rồi thì đổi
-           thành avatar kèm chấm trạng thái đồng bộ. -->
-      <button class="icon-btn auth-quick" id="btnAuthQuick" aria-label="Đăng nhập Google">
-        <svg class="ic" aria-hidden="true"><use href="#i-google"/></svg>
-        <img class="auth-quick-av hidden" id="authQuickAv" alt="">
-        <span class="sync-dot hidden" id="authQuickDot"></span>
-      </button>
-
-      <!-- Lời mời cài / cập nhật: để trên đây làm icon, KHÔNG làm băng nổi ở đáy nữa
-           vì băng đó đè lên hàng nút và dòng hướng dẫn. -->
-      <button class="icon-btn hidden" id="btnInstall" aria-label="Cài về máy" title="Cài về máy">
-        <svg class="ic" aria-hidden="true"><use href="#i-install"/></svg>
-      </button>
-      <button class="icon-btn hidden hot" id="btnUpdate" aria-label="Có bản mới" title="Có bản mới — cập nhật">
-        <svg class="ic" aria-hidden="true"><use href="#i-update"/></svg>
-      </button>
-
+      <!-- Đăng nhập Google KHÔNG còn nút riêng ở đây: nó là danh tính, đã gộp vào
+           thẻ hồ sơ bên trái (ảnh + chấm đồng bộ) và quản lý ở màn Hồ sơ.
+           Cài/cập nhật app cũng rời khỏi hàng này — chúng là chrome, không phải
+           danh tính; giờ nằm trong Cài đặt và báo bằng chấm đỏ trên bánh răng. -->
       <button class="icon-btn" id="btnOptions" aria-label="Cài đặt">
         <svg class="ic" aria-hidden="true"><use href="#i-gear"/></svg>
+        <i class="btn-dot hidden" id="optDot"></i>
       </button>
     </div>
 
@@ -282,21 +274,20 @@
         <span id="btnFullLabel">TOÀN MÀN HÌNH</span>
       </button>
 
+      <!-- Lời mời cài / cập nhật app. Nằm đây thay vì chen vào thanh trên lobby;
+           khi có việc thì bánh răng ngoài lobby nổi chấm đỏ để dẫn vào. -->
+      <span class="opt-lb" id="optAppLb">ỨNG DỤNG</span>
+      <button class="btn ghost opt-wide hidden" id="btnInstall">
+        <svg class="ic" aria-hidden="true"><use href="#i-install"/></svg><span>CÀI VỀ MÁY</span>
+      </button>
+      <button class="btn primary opt-wide hidden" id="btnUpdate">
+        <svg class="ic" aria-hidden="true"><use href="#i-update"/></svg><span>CÓ BẢN MỚI — CẬP NHẬT</span>
+      </button>
+      <p class="opt-note" id="optAppNote">Đang chạy bản mới nhất.</p>
+
       <span class="opt-lb">TÀI KHOẢN</span>
-      <!-- Đăng nhập: không bắt buộc, chỉ cần khi muốn lên bảng & giữ tiến độ đổi máy -->
-      <div class="auth-box" id="authBox">
-        <button class="btn ghost small" id="btnLogin">ĐĂNG NHẬP GOOGLE</button>
-        <div class="auth-user hidden" id="authUser">
-          <img class="auth-av hidden" id="authAvatar" alt="">
-          <b id="authName">Phi công</b>
-          <span class="sync-dot" id="syncDot"></span>
-          <button class="icon-btn" id="btnLogout" title="Đăng xuất" aria-label="Đăng xuất">
-            <svg class="ic" aria-hidden="true"><use href="#i-power"/></svg>
-          </button>
-        </div>
-      </div>
-      <p class="opt-note">Đăng nhập chỉ để sao lưu đám mây và lên bảng xếp hạng toàn cầu.
-        Không đăng nhập vẫn chơi đủ 100% nội dung.</p>
+      <p class="opt-note">Tài khoản và sao lưu đám mây nằm trong màn <b>Hồ sơ phi công</b> —
+        bấm thẻ tên ở góc trên lobby.</p>
 
       <span class="opt-lb danger-lb">VÙNG NGUY HIỂM</span>
       <button class="btn ghost opt-wide danger" id="btnReset">
@@ -372,6 +363,48 @@
       <h2>HỒ SƠ PHI CÔNG</h2>
     </div>
     <div class="prof-scroll">
+
+      <!-- ===== Tài khoản đám mây =====
+           Trước đây khối này nằm trong Cài đặt, lẫn với âm thanh và rung. Nó là
+           DANH TÍNH nên chỗ của nó là ở đây, cạnh các hồ sơ. -->
+      <span class="opt-lb">TÀI KHOẢN ĐÁM MÂY</span>
+      <div class="cloud-card" id="authBox">
+
+        <!-- chưa đăng nhập -->
+        <div class="cloud-out" id="cloudOut">
+          <p class="cloud-why">Đăng nhập để giữ tiến độ khi đổi máy và lên bảng xếp hạng
+            toàn cầu. Không đăng nhập vẫn chơi đủ 100% nội dung.</p>
+          <button class="btn ghost opt-wide" id="btnLogin">
+            <svg class="ic" aria-hidden="true"><use href="#i-google"/></svg>
+            <span>ĐĂNG NHẬP GOOGLE</span>
+          </button>
+        </div>
+
+        <!-- đã đăng nhập -->
+        <div class="auth-user hidden" id="authUser">
+          <div class="cloud-head">
+            <span id="authAvatar"></span>
+            <div class="cloud-txt">
+              <b id="authName">Phi công</b>
+              <span class="cloud-state"><i class="sync-dot" id="syncDot"></i>
+                <em id="syncTxt">đang kiểm tra…</em></span>
+            </div>
+            <button class="icon-btn" id="btnLogout" title="Đăng xuất" aria-label="Đăng xuất">
+              <svg class="ic" aria-hidden="true"><use href="#i-power"/></svg>
+            </button>
+          </div>
+          <!-- Điều luật này vốn chỉ nằm trong code: đăng nhập chỉ sao lưu hồ sơ ĐANG MỞ,
+               không phải cả 3. Không nói ra thì người chơi tưởng cả ba đều an toàn. -->
+          <p class="cloud-scope">Đang sao lưu hồ sơ: <b id="cloudScope">—</b></p>
+          <button class="btn ghost small opt-wide toggle ic-swap" id="btnUsePhoto">
+            <svg class="ic ic-on" aria-hidden="true"><use href="#i-check"/></svg>
+            <svg class="ic ic-off" aria-hidden="true"><use href="#i-google"/></svg>
+            <span id="usePhotoLb">DÙNG ẢNH GOOGLE CHO HỒ SƠ NÀY</span>
+          </button>
+        </div>
+      </div>
+
+      <span class="opt-lb">CHỌN HỒ SƠ</span>
       <div id="profList"></div>
 
       <div class="prof-new" id="profNewBox">
@@ -482,6 +515,6 @@
     <p>Xoay dọc máy để chơi</p>
   </div>
 </div>
-<script src="assets/app-20f0aeed.js"></script>
+<script src="assets/app-76594e6e.js"></script>
 </body>
 </html>

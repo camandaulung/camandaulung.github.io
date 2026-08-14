@@ -452,11 +452,35 @@ body.is-touch .m-txt i{font-size:12px}
 
 /* Nút đăng nhập Google trên thanh đầu. Chưa đăng nhập: chữ G.
    Đăng nhập rồi: avatar phủ kín nút + chấm trạng thái đồng bộ ở góc. */
-.auth-quick{position:relative;overflow:visible}
-.auth-quick-av{position:absolute;inset:3px;width:auto;height:auto;border-radius:8px;object-fit:cover}
-.auth-quick .sync-dot{position:absolute;right:-2px;bottom:-2px;width:9px;height:9px;
-  box-shadow:0 0 0 2px rgba(6,10,20,.95)}
+/* ---------- ảnh đại diện dùng chung ----------
+   BÀI HỌC: bản trước đặt <img> position:absolute + inset:3px + width:auto và ảnh
+   tràn ra 96px. Với PHẦN TỬ THAY THẾ, width:auto lấy KÍCH THƯỚC GỐC của ảnh chứ
+   không suy từ inset (CSS 2.1 §10.3.7), nên left/right thừa ràng buộc và right bị
+   bỏ. Từ giờ ảnh luôn có width/height tường minh, cộng max-* làm chốt chặn. */
+.ava{position:relative;display:grid;place-items:center;flex:none;
+  width:34px;height:34px;border-radius:50%;overflow:hidden;
+  background:rgba(0,0,0,.4);box-shadow:inset 0 0 0 1px rgba(150,205,255,.35)}
+.ava-emo{font-style:normal;font-size:19px;line-height:1}
+.ava-img{position:absolute;inset:0;width:100%;height:100%;
+  max-width:100%;max-height:100%;object-fit:cover;display:block}
+.ava.big{width:52px;height:52px}
+.ava.big .ava-emo{font-size:27px}
+/* ô tài khoản: dự phòng là CHỮ CÁI đầu của tên, không phải emoji hồ sơ */
+.ava.letter .ava-emo{font-family:var(--font-display);font-size:22px;font-weight:700;
+  letter-spacing:0;color:var(--ink)}
+/* nút bị khoá là state DUY NHẤT được phép giảm tương phản */
+.btn:disabled{opacity:.4;cursor:default;pointer-events:none}
 
+/* huy hiệu góc: cho biết đang chơi hồ sơ nào khi ô chính đã bị ảnh chiếm */
+.ava-wrap{position:relative;flex:none;display:block}
+.ava-badge{position:absolute;right:-3px;bottom:-3px;font-style:normal;
+  width:16px;height:16px;border-radius:50%;display:grid;place-items:center;
+  font-size:10px;line-height:1;background:#0b1220;box-shadow:0 0 0 1.5px #0b1220}
+.ava-badge.g{color:var(--ink)}
+.ava-badge .ic{width:10px;height:10px}
+body.is-touch .ava{width:40px;height:40px}
+body.is-touch .ava-emo{font-size:22px}
+body.is-touch .ava-badge{width:19px;height:19px;font-size:12px}
 .wallet{text-align:center;font-size:13px;letter-spacing:.14em;color:var(--acc);margin-bottom:4px}
 #shopBadge.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--dan);
   margin-left:5px;vertical-align:middle;box-shadow:0 0 8px var(--dan)}
@@ -475,15 +499,25 @@ body.is-touch .m-txt i{font-size:12px}
   50%{opacity:1;text-shadow:0 0 16px rgba(255,210,63,.95)}
 }
 
-/* ---------- đăng nhập ở menu ---------- */
-.auth-box{display:flex;justify-content:center}
-.auth-box .btn{flex:1}
-.auth-user{display:flex;align-items:center;gap:9px;width:100%;padding:8px 10px;border-radius:11px;
+/* ---------- khối tài khoản đám mây (nằm trong màn Hồ sơ) ---------- */
+.cloud-card{display:flex;flex-direction:column;gap:10px;padding:12px;border-radius:13px;
   background:rgba(255,255,255,.05);box-shadow:inset 0 0 0 1px rgba(140,190,255,.2)}
-.auth-av{width:28px;height:28px;flex:none;border-radius:50%;background:rgba(0,0,0,.4)}
-.auth-user b{flex:1;min-width:0;font-size:12px;letter-spacing:.06em;font-weight:600;
+.cloud-out{display:flex;flex-direction:column;gap:10px}
+.cloud-why{font-size:11.5px;line-height:1.6;color:var(--dim)}
+.auth-user{display:flex;flex-direction:column;gap:10px}
+.cloud-head{display:flex;align-items:center;gap:11px}
+.cloud-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.auth-user b{min-width:0;font-family:var(--font-display);font-size:14px;letter-spacing:.04em;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.auth-user .icon-btn{width:34px;height:34px;font-size:13px}
+/* trạng thái đồng bộ có CHỮ, không bắt người chơi đoán ý nghĩa của màu chấm */
+.cloud-state{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--dim)}
+.cloud-state em{font-style:normal}
+.cloud-scope{font-size:11px;color:var(--dim);padding-top:9px;
+  border-top:1px solid rgba(140,190,255,.14)}
+.cloud-scope b{color:var(--ink)}
+.auth-user .icon-btn{width:34px;height:34px;flex:none}
+body.is-touch .auth-user .icon-btn{width:52px;height:52px}
+body.is-touch .cloud-why,body.is-touch .cloud-scope,body.is-touch .cloud-state{font-size:13px}
 /* chấm trạng thái đồng bộ: xám = chưa rõ, xanh = đã lưu, vàng = chờ mạng, đỏ = lỗi */
 .sync-dot{width:8px;height:8px;flex:none;border-radius:50%;background:rgba(255,255,255,.25)}
 .sync-dot.ok{background:var(--ok);box-shadow:0 0 8px var(--ok)}
@@ -499,7 +533,9 @@ body.is-touch .m-txt i{font-size:12px}
 @media (hover:hover){
   .prof-chip:hover{background:rgba(16,26,48,.86);box-shadow:inset 0 0 0 1px rgba(160,205,255,.5)}
 }
-.prof-chip>span:first-child{font-size:19px;line-height:1;flex:none}
+/* chấm đồng bộ nằm ngay cạnh danh hiệu, trong cùng thẻ danh tính */
+.prof-chip .prof-rank .sync-dot{display:inline-block;width:6px;height:6px;
+  margin-right:5px;vertical-align:middle}
 /* tên + danh hiệu xếp dọc: danh hiệu lấy từ SC.Power.rank(), lên hạng là thấy ngay */
 .prof-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;text-align:left}
 .prof-chip b{font-family:var(--font-display);font-size:12px;letter-spacing:.08em;
@@ -519,14 +555,31 @@ body.is-touch .prof-chip em{font-size:11px}
 .prof-row{display:flex;align-items:center;gap:12px;padding:12px;border-radius:13px;cursor:pointer;
   background:rgba(255,255,255,.05);box-shadow:inset 0 0 0 1px rgba(150,190,255,.16)}
 .prof-row.me{background:rgba(77,255,159,.12);box-shadow:inset 0 0 0 1px rgba(77,255,159,.45)}
-.prof-ava{width:44px;height:44px;flex:none;border-radius:12px;display:grid;place-content:center;
-  font-size:24px;background:rgba(0,0,0,.35)}
+/* .prof-ava giờ chỉ là vỏ bọc, ruột là khối .ava dùng chung */
+.prof-ava{flex:none;display:block;width:auto;height:auto;background:none}
+.prof-ava .ava{width:44px;height:44px}
+.prof-ava .ava-emo{font-size:24px}
+body.is-touch .prof-ava .ava{width:50px;height:50px}
+body.is-touch .prof-ava .ava-emo{font-size:27px}
 .prof-mid{flex:1;min-width:0}
 .prof-mid b{display:block;font-size:13px;letter-spacing:.1em}
 .prof-mid b em{font-style:normal;font-size:9px;letter-spacing:.16em;color:var(--ok)}
 .prof-mid span{display:block;margin-top:4px;font-size:11px;color:var(--dim)}
-.prof-del{flex:none;width:36px;height:36px;border:0;cursor:pointer;border-radius:9px;font-size:15px;
+.prof-del{flex:none;width:36px;height:36px;border:0;cursor:pointer;border-radius:9px;
+  display:grid;place-items:center;
   background:rgba(255,59,92,.14);color:#ff8fa3;box-shadow:inset 0 0 0 1px rgba(255,90,120,.35)}
+.prof-del .ic{width:17px;height:17px}
+@media (hover:hover){
+  .prof-del:hover{background:rgba(255,59,92,.3);color:#fff;
+    box-shadow:inset 0 0 0 1px rgba(255,120,145,.6)}
+}
+body.is-touch .prof-del{width:52px;height:52px}
+body.is-touch .prof-del .ic{width:22px;height:22px}
+
+/* chấm đỏ trên nút bánh răng khi có lời mời cài / cập nhật đang chờ trong Cài đặt */
+.btn-dot{position:absolute;top:5px;right:5px;width:8px;height:8px;border-radius:50%;
+  background:var(--dan);box-shadow:0 0 0 2px #0b1220,0 0 8px var(--dan)}
+#btnOptions{position:relative}
 
 .prof-new{margin-top:16px;padding:14px;border-radius:13px;
   background:rgba(255,255,255,.04);box-shadow:inset 0 0 0 1px rgba(150,190,255,.16)}

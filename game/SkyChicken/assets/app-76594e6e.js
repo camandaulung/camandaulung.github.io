@@ -4603,7 +4603,10 @@ SC.Profiles = {
 
   AVATARS: ['🐔', '🦅', '🐧', '🦉', '🐤', '🦜', '🐦', '🦆'],
 
-  list: [],        // [{ id, name, avatar }]
+  // [{ id, name, avatar, photo? }]
+  //   avatar = emoji đã chọn, LUÔN có, là bản dự phòng khi ảnh không tải được
+  //   photo  = URL ảnh Google, chỉ có khi người chơi bật "dùng ảnh Google"
+  list: [],
   active: 0,       // vị trí trong list
 
   /* khoá localStorage chứa tiến độ của một hồ sơ */
@@ -4651,13 +4654,25 @@ SC.Profiles = {
     } catch (e) { return null; }
   },
 
+  /* Bật/tắt dùng ảnh Google làm ảnh đại diện của hồ sơ ĐANG MỞ.
+     Lưu hẳn URL vào hồ sơ chứ không đọc lại từ SC.Auth mỗi lần: nhờ vậy đăng xuất
+     rồi vẫn giữ được mặt mình, và mỗi hồ sơ trên máy giữ ảnh riêng của nó. */
+  setPhoto(url) {
+    const p = this.cur();
+    if (!p) return false;
+    if (url) p.photo = url; else delete p.photo;
+    this.save();
+    return true;
+  },
+
   /* tóm tắt mọi hồ sơ: chặng đang đứng, tổng sao, vàng */
   summaries() {
     return this.list.map((p, i) => {
       const pr = this.progressOf(p.id) || {};
       const stars = Object.values(pr.stars || {}).reduce((a, b) => a + b, 0);
       return {
-        idx: i, id: p.id, name: p.name, avatar: p.avatar, isMe: i === this.active,
+        idx: i, id: p.id, name: p.name, avatar: p.avatar, photo: p.photo || '',
+        isMe: i === this.active,
         level: Math.min(SC.TOTAL_LEVELS, pr.unlocked || 1),
         stars, coin: pr.coin || 0,
         cleared: Object.keys(pr.stars || {}).length
@@ -4727,14 +4742,18 @@ SC.ProfileUI = {
     const list = document.getElementById('profList');
     const rows = SC.Profiles.summaries();
 
+    // Khối tài khoản đám mây nằm ngay trên danh sách -> dựng lại cùng lúc,
+    // nếu không thì đổi hồ sơ xong dòng "đang sao lưu hồ sơ" vẫn tên cũ.
+    if (SC.AuthPanel) SC.AuthPanel.syncCloud();
+
     list.innerHTML = rows.map(p => `
       <div class="prof-row${p.isMe ? ' me' : ''}" data-idx="${p.idx}">
-        <span class="prof-ava">${p.avatar}</span>
+        <span class="prof-ava">${SC.Ava.ofProfile(p)}</span>
         <div class="prof-mid">
           <b>${SC.Rank.esc(p.name)}${p.isMe ? ' <em>đang chơi</em>' : ''}</b>
           <span>Màn ${p.level} · ★${p.stars} · ◈${p.coin}</span>
         </div>
-        ${rows.length > 1 ? '<button class="prof-del" title="Xoá hồ sơ">🗑</button>' : ''}
+        ${rows.length > 1 ? '<button class="prof-del icon-btn" title="Xoá hồ sơ" aria-label="Xoá hồ sơ"><svg class="ic" aria-hidden="true"><use href="#i-trash"/></svg></button>' : ''}
       </div>`).join('');
 
     // khu tạo hồ sơ mới chỉ hiện khi còn chỗ
@@ -5195,7 +5214,6 @@ SC.AuthPanel = {
       // Bấm vào thì mở bảng hướng dẫn từng bước, đừng chỉ nháy một dòng thông báo
       // rồi thôi — người bấm cần biết còn thiếu đúng những gì.
       on('btnLogin', () => SC.UI.showOverlay('setup'));
-      on('btnAuthQuick', () => SC.UI.showOverlay('setup'));
       on('btnSetupClose', () => SC.UI.hideOverlay('setup'));
       this.sync();
       return;
@@ -5203,9 +5221,7 @@ SC.AuthPanel = {
 
     on('btnLogin', () => SC.Auth.login());
     on('btnLogout', () => SC.Auth.logout());
-    // Icon ở thanh đầu: chưa đăng nhập thì đăng nhập luôn, đã đăng nhập thì mở
-    // màn cài đặt — nơi có tên tài khoản và nút đăng xuất.
-    on('btnAuthQuick', () => SC.Auth.user ? SC.UI.show('options') : SC.Auth.login());
+    on('btnUsePhoto', () => this.togglePhoto());
 
     // Kiểm Firestore một lần lúc khởi động. Nếu chưa tạo database thì mọi thao tác
     // lưu/xếp hạng sẽ treo im lặng — thà nói ngay còn hơn để người chơi tưởng đã lưu.
@@ -5219,71 +5235,95 @@ SC.AuthPanel = {
     SC.Auth.init();
   },
 
-  /* vẽ lại khối đăng nhập theo trạng thái hiện tại */
-  sync() {
-    const id = s => document.getElementById(s);
-    const login = id('btnLogin'), user = id('authUser');
-    if (!login || !user) return;
-
-    // thẻ hồ sơ đang chơi (danh tính cục bộ, luôn có kể cả chưa đăng nhập)
-    // Kèm danh hiệu theo lực chiến (SC.Power.rank) — nâng cấp xong quay ra lobby là
-    // thấy mình vừa lên hạng, thay vì chỉ thấy một con số nhích lên.
-    const cur = SC.Profiles.cur();
-    const chip = id('btnProfile');
-    if (chip && cur) chip.innerHTML =
-      `<span>${cur.avatar}</span>` +
-      `<span class="prof-txt"><b>${SC.Rank.esc(cur.name)}</b>` +
-      `<i class="prof-rank">${SC.Power.rank()}</i></span><em>ĐỔI</em>`;
-
-    const u = SC.Auth.user, busy = SC.Auth.busy;
-    login.classList.toggle('hidden', !!u);
-    user.classList.toggle('hidden', !u);
-    login.disabled = busy;
-    login.textContent = busy ? 'ĐANG XỬ LÝ…' : 'ĐĂNG NHẬP GOOGLE';
-
-    if (u) {
-      id('authName').textContent = u.name;
-      const av = id('authAvatar');
-      av.src = u.avatar || '';
-      av.classList.toggle('hidden', !u.avatar);
-
-      // chấm nhỏ cho biết tiến độ đã lên mây chưa
-      const dot = id('syncDot');
-      const S = { pull: ['đang tải…', 'sync'], ok: ['đã lưu đám mây', 'ok'],
-                  wait: ['chờ mạng', 'wait'], err: ['lỗi đồng bộ', 'err'] };
-      const [tip, cls] = S[SC.Cloud.state] || ['', ''];
-      dot.className = 'sync-dot ' + cls;
-      dot.title = tip;
-    }
-
-    this.syncQuick(u, busy);
+  /* Nhãn trạng thái đồng bộ. Trước chỉ có chấm màu 8px không chữ — người chơi phải
+     đoán màu nghĩa là gì. Giờ dùng chung cho cả chấm ở thẻ lobby lẫn dòng chữ ở
+     màn hồ sơ, nên hai chỗ không bao giờ nói khác nhau. */
+  SYNC: {
+    pull: ['đang tải…', 'sync'],
+    ok:   ['đã lưu đám mây', 'ok'],
+    wait: ['chờ mạng', 'wait'],
+    err:  ['lỗi đồng bộ', 'err']
   },
 
-  /* Icon đăng nhập ở thanh đầu lobby: chữ G khi chưa vào, avatar khi đã vào */
-  syncQuick(u, busy) {
-    const btn = document.getElementById('btnAuthQuick');
-    if (!btn) return;
-    const g = btn.querySelector('.ic');
-    const av = document.getElementById('authQuickAv');
-    const dot = document.getElementById('authQuickDot');
+  /* Vẽ lại toàn bộ phần danh tính: thẻ ở lobby + khối tài khoản ở màn hồ sơ */
+  sync() {
+    this.syncChip();
+    this.syncCloud();
+  },
 
-    const hasAvatar = !!(u && u.avatar);
-    if (g) g.classList.toggle('hidden', hasAvatar);
-    if (av) {
-      if (hasAvatar && av.src !== u.avatar) av.src = u.avatar;
-      av.classList.toggle('hidden', !hasAvatar);
+  /* ---------- thẻ danh tính ở thanh trên lobby ----------
+     Một thẻ duy nhất nói cả 3 việc: đang chơi hồ sơ nào, danh hiệu gì, đã sao lưu chưa.
+     Trước đây thẻ hồ sơ và nút Google đứng cạnh nhau, hai avatar nghĩa khác nhau
+     mà nhìn như nhau. */
+  syncChip() {
+    const chip = document.getElementById('btnProfile');
+    const cur = SC.Profiles.cur();
+    if (!chip || !cur) return;
+
+    const u = SC.Auth.user;
+    // Ảnh đang hiện là ẢNH thật -> emoji xuống huy hiệu góc để vẫn biết hồ sơ nào.
+    // Chưa đăng nhập -> huy hiệu là chữ G, thành lời mời đăng nhập luôn.
+    const hasPhoto = SC.Ava.lobbyHasPhoto(cur);
+    const badge = hasPhoto
+      ? `<i class="ava-badge">${cur.avatar}</i>`
+      : (u ? '' : '<i class="ava-badge g"><svg class="ic" aria-hidden="true"><use href="#i-google"/></svg></i>');
+
+    const [tip, cls] = u ? (this.SYNC[SC.Cloud.state] || ['', '']) : ['', ''];
+    const dot = u ? `<i class="sync-dot ${cls}" title="${tip}"></i>` : '';
+
+    chip.innerHTML =
+      `<span class="ava-wrap">${SC.Ava.ofLobby(cur)}${badge}</span>` +
+      `<span class="prof-txt"><b>${SC.Rank.esc(cur.name)}</b>` +
+      `<i class="prof-rank">${dot}${SC.Power.rank()}</i></span><em>ĐỔI</em>`;
+    chip.title = u ? `${cur.name} · ${SC.Power.rank()} · ${tip}` : `${cur.name} · ${SC.Power.rank()}`;
+  },
+
+  /* ---------- khối tài khoản ở màn hồ sơ ---------- */
+  syncCloud() {
+    const id = s => document.getElementById(s);
+    const out = id('cloudOut'), user = id('authUser'), login = id('btnLogin');
+    if (!out || !user || !login) return;
+
+    const u = SC.Auth.user, busy = SC.Auth.busy;
+    out.classList.toggle('hidden', !!u);
+    user.classList.toggle('hidden', !u);
+    login.disabled = busy;
+    const lb = login.querySelector('span');
+    if (lb) lb.textContent = busy ? 'ĐANG XỬ LÝ…' : 'ĐĂNG NHẬP GOOGLE';
+    if (!u) return;
+
+    id('authName').textContent = u.name;
+    // Ảnh tài khoản hỏng thì ngã về chữ cái đầu của tên, không phải con gà mặc định —
+    // đây là ô của TÀI KHOẢN, không phải của hồ sơ chơi.
+    const chu = SC.Rank.esc((u.name || '?').trim().charAt(0).toUpperCase());
+    id('authAvatar').innerHTML = SC.Ava.html(chu, SC.Ava.hi(u.avatar), 'big letter');
+
+    const [tip, cls] = this.SYNC[SC.Cloud.state] || ['', ''];
+    id('syncDot').className = 'sync-dot ' + cls;
+    id('syncTxt').textContent = tip;
+
+    const cur = SC.Profiles.cur();
+    id('cloudScope').textContent = cur ? cur.name : '—';
+
+    // nút bật/tắt dùng ảnh Google cho hồ sơ đang mở
+    const btn = id('btnUsePhoto');
+    if (btn) {
+      const on = !!(cur && cur.photo);
+      btn.classList.toggle('off', !on);
+      id('usePhotoLb').textContent = on ? 'ĐANG DÙNG ẢNH GOOGLE' : 'DÙNG ẢNH GOOGLE CHO HỒ SƠ NÀY';
+      btn.disabled = !u.avatar;
     }
-    if (dot) {
-      dot.classList.toggle('hidden', !u);
-      if (u) {
-        const cls = { pull: 'sync', ok: 'ok', wait: 'wait', err: 'err' }[SC.Cloud.state] || '';
-        dot.className = 'sync-dot ' + cls;
-      }
-    }
-    btn.classList.toggle('busy', !!busy);
-    btn.setAttribute('aria-label',
-      busy ? 'Đang đăng nhập' : u ? 'Tài khoản ' + u.name : 'Đăng nhập Google');
-    btn.title = btn.getAttribute('aria-label');
+  },
+
+  /* Bật/tắt ảnh Google cho hồ sơ đang mở. Lưu hẳn URL vào hồ sơ nên đăng xuất rồi
+     vẫn giữ được ảnh, và mỗi hồ sơ trên máy có ảnh riêng của nó. */
+  togglePhoto() {
+    const cur = SC.Profiles.cur(), u = SC.Auth.user;
+    if (!cur || !u || !u.avatar) return;
+    SC.Profiles.setPhoto(cur.photo ? '' : u.avatar);
+    this.sync();
+    if (SC.ProfileUI && document.getElementById('profList')) SC.ProfileUI.build();
+    SC.UI.toast(cur.photo ? 'ĐÃ DÙNG ẢNH GOOGLE' : 'ĐÃ VỀ ẢNH MẶC ĐỊNH');
   },
 
   /* ---------- hộp thoại: giữ bản nào ---------- *
@@ -5716,6 +5756,59 @@ SC.Shop = {
 };
 
 ;
+/* ===== js/ui-avatar.js ===== */
+/* ui-avatar.js — dựng ảnh đại diện dùng chung cho lobby, màn hồ sơ và khối tài khoản
+ *
+ * Vì sao tách riêng: có 4 chỗ cần vẽ avatar với cùng một luật ngã dự phòng, chép tay
+ * 4 lần là 4 cơ hội quên mất một nhánh.
+ *
+ * Luật xếp lớp: emoji nằm DƯỚI, ảnh đè LÊN. Ảnh hỏng (mất mạng, Google đổi URL,
+ * bản cài về máy chạy offline) thì thẻ <img> tự gỡ mình đi và emoji lộ ra — không
+ * cần bắt lỗi bằng JS, cũng không bao giờ ra ô trống.
+ */
+
+SC.Ava = {
+  /* Google trả photoURL đuôi "=s96-c". Trên màn hình DPI cao, 96px vẽ ở 34px vẫn
+     ổn nhưng ở màn hồ sơ (56px) thì bệt. Nâng lên 128.
+     CHỈ thay khi khớp đúng mẫu — nhà cung cấp khác có dạng URL riêng, ghép bừa
+     tham số vào là hỏng ảnh. */
+  hi(url) {
+    return /=s\d+-c$/.test(url || '') ? url.replace(/=s\d+-c$/, '=s128-c') : (url || '');
+  },
+
+  /* Một khối avatar: lớp nền (emoji hoặc chữ cái) + ảnh phủ lên nếu có.
+     URL đi qua SC.Rank.esc vì nó được lưu trong localStorage — cùng cách ui-rank.js
+     đang xử ảnh của bảng xếp hạng. */
+  html(fallback, photo, cls) {
+    const img = photo
+      ? `<img class="ava-img" src="${SC.Rank.esc(photo)}" alt=""` +
+        ` referrerpolicy="no-referrer" onerror="this.remove()">`
+      : '';
+    return `<span class="ava${cls ? ' ' + cls : ''}">` +
+      `<i class="ava-emo">${fallback || '🐔'}</i>${img}</span>`;
+  },
+
+  /* Ảnh của một hồ sơ: dùng ảnh Google nếu hồ sơ đã bật, không thì emoji đã chọn */
+  ofProfile(p) {
+    return this.html(p.avatar, p.photo ? this.hi(p.photo) : '');
+  },
+
+  /* Ảnh cho thẻ danh tính ở lobby.
+     Thứ tự ưu tiên: ảnh hồ sơ đã lưu > ảnh tài khoản đang đăng nhập > emoji.
+     Nhờ nhánh giữa mà đăng nhập xong là thấy mặt mình ngay, chưa cần bật gì thêm. */
+  ofLobby(p) {
+    const acc = SC.Auth && SC.Auth.user ? SC.Auth.user.avatar : '';
+    return this.html(p.avatar, this.hi(p.photo || acc));
+  },
+
+  /* Có đang hiện ẢNH (chứ không phải emoji) ở thẻ lobby không —
+     dùng để quyết định có cần huy hiệu góc nhắc đang chơi hồ sơ nào hay không. */
+  lobbyHasPhoto(p) {
+    return !!(p.photo || (SC.Auth && SC.Auth.user && SC.Auth.user.avatar));
+  }
+};
+
+;
 /* ===== js/ui-lobby-ship.js ===== */
 /* ui-lobby-ship.js — máy bay của người chơi đứng chờ ở lobby
  *
@@ -6078,8 +6171,15 @@ SC.PWA = {
   /* Băng thông báo trượt lên từ đáy: chỉ hiện ở lobby và chỉ khi có việc để mời.
      Trước đây hai nút này nằm cố định giữa menu, xuất hiện bất chợt là đẩy layout. */
   syncBanner() {
-    // Không còn băng nổi ở đáy: hai nút giờ là icon nằm sẵn trong thanh đầu lobby,
-    // tự ẩn/hiện bằng class 'hidden' của chính chúng. Giữ hàm để chỗ gọi khỏi vỡ.
+    // Hai nút cài/cập nhật giờ nằm trong màn Cài đặt, không chen vào thanh trên lobby
+    // nữa (thanh đó để dành cho danh tính). Có việc thì bánh răng ngoài lobby nổi
+    // chấm đỏ để dẫn người chơi vào — nếu không thì lời mời nằm im không ai thấy.
+    const offer = this.anyOffer();
+    const dot = document.getElementById('optDot');
+    if (dot) dot.classList.toggle('hidden', !offer);
+
+    const note = document.getElementById('optAppNote');
+    if (note) note.classList.toggle('hidden', offer);
   },
 
   /* Bấm nút cài: bật lại hộp thoại đã chặn ở trên */
