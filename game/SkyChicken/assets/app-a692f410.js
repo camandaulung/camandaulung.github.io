@@ -4679,7 +4679,24 @@ SC.FB = {
         import(`${this.SDK}/firebase-firestore.js`)
       ]);
       const app = appM.initializeApp(SC.FB_CONFIG);
-      return { app, authM, fsM, auth: authM.getAuth(app), db: fsM.getFirestore(app) };
+
+      /* Firestore mặc định nói chuyện bằng WebChannel (kênh streaming). Nhiều mạng
+         công ty, proxy và cả một số trình duyệt chặn kiểu kết nối này: biểu hiện là
+         request trả 400 rồi SDK cứ thử lại, câu truy vấn TREO vô hạn chứ không báo
+         lỗi. Đo được ở bản deploy: đọc collection treo quá 30 giây.
+
+         Bật tự dò để nó rơi về long-polling khi WebChannel không đi được. */
+      let db;
+      try {
+        db = fsM.initializeFirestore(app, {
+          experimentalAutoDetectLongPolling: true,
+          useFetchStreams: false
+        });
+      } catch (e) {
+        db = fsM.getFirestore(app);      // đã khởi tạo ở đâu đó rồi thì dùng lại
+      }
+
+      return { app, authM, fsM, auth: authM.getAuth(app), db };
     })();
 
     // hỏng (mất mạng, CDN chặn) thì xoá cache để lần sau còn thử lại được
@@ -4695,7 +4712,28 @@ SC.FB = {
     if (c.includes('unauthorized-domain')) return 'Tên miền chưa được cấp phép';
     if (c.includes('permission-denied')) return 'Không có quyền ghi dữ liệu';
     if (c.includes('unavailable')) return 'Máy chủ bận, thử lại sau';
+    // Hạn giờ của SC.Cloud._limit. Hay gặp nhất khi Firestore CHƯA ĐƯỢC TẠO trong
+    // dự án: SDK không báo lỗi mà cứ thử lại âm thầm, câu truy vấn treo vô hạn.
+    if (c === 'timeout') return 'Máy chủ không phản hồi';
     return 'Lỗi kết nối, thử lại sau';
+  },
+
+  /* Firestore có thật sự dùng được không — hỏi thẳng REST API.
+     SDK trả về kho đệm cục bộ khi không nối được máy chủ, nên "đọc thành công,
+     0 bản ghi" KHÔNG chứng minh được là Firestore đã tồn tại. Đường REST thì báo
+     thẳng: chưa bật API, chưa tạo database, hay bị luật chặn. */
+  async probe() {
+    const c = SC.FB_CONFIG;
+    if (!this.configured()) return { ok: false, why: 'Chưa khai báo Firebase' };
+    try {
+      const r = await fetch(`https://firestore.googleapis.com/v1/projects/${c.projectId}`
+        + `/databases/(default)/documents/scores?key=${c.apiKey}&pageSize=1`);
+      if (r.ok) return { ok: true };
+      const d = await r.json().catch(() => ({}));
+      return { ok: false, status: r.status, why: (d.error && d.error.message) || 'HTTP ' + r.status };
+    } catch (e) {
+      return { ok: false, why: e.message };
+    }
   }
 };
 
@@ -4821,6 +4859,20 @@ SC.Cloud = {
   _dirty: false,
   _hadDoc: false,      // bản ghi trên mây đã tồn tại chưa (quyết định có được dùng deleteField)
   lastErr: '',
+  TIMEOUT: 8000,       // ms — quá hạn thì coi như hỏng, KHÔNG chờ mãi
+
+  /* Bọc hạn giờ quanh mọi lệnh gọi mạng.
+     Firestore khi không đi được kênh streaming sẽ thử lại âm thầm và promise không
+     bao giờ resolve — người chơi thấy "Đang tải…" đứng im vĩnh viễn. Thà báo hỏng
+     sớm rồi rơi về bảng nội bộ còn hơn treo. */
+  _limit(p, what) {
+    return Promise.race([
+      p,
+      new Promise((_, rej) =>
+        setTimeout(() => rej(Object.assign(new Error('Quá hạn ' + what), { code: 'timeout' })),
+          this.TIMEOUT))
+    ]);
+  },
   _rank: {},           // đệm kết quả bảng xếp hạng: { tab: {t, rows} }
 
   /* ---------- số liệu rút ra từ tiến độ ---------- */
@@ -4865,7 +4917,7 @@ SC.Cloud = {
     try {
       const fb = await SC.FB.load();
       const { doc, getDoc } = fb.fsM;
-      const snap = await getDoc(doc(fb.db, 'users', SC.Auth.user.uid));
+      const snap = await this._limit(getDoc(doc(fb.db, 'users', SC.Auth.user.uid)), 'đọc tiến độ');
       const cloud = snap.exists() ? snap.data().progress : null;
       this._hadDoc = snap.exists();
 
@@ -4942,13 +4994,13 @@ SC.Cloud = {
       if (s.campaignTime !== null) score.bestTime = s.campaignTime;
       else if (this._hadDoc) score.bestTime = deleteField();
 
-      await Promise.all([
+      await this._limit(Promise.all([
         setDoc(doc(fb.db, 'users', u.uid), {
           name: u.name, avatar: u.avatar,
           progress: SC.UI.progress, updatedAt: serverTimestamp()
         }, { merge: true }),
         setDoc(doc(fb.db, 'scores', u.uid), score, { merge: true })
-      ]);
+      ]), 'lưu tiến độ');
       this._hadDoc = true;
       this.state = 'ok';
       this._rank = {};                    // điểm mình đổi rồi -> bỏ đệm bảng xếp hạng
@@ -4979,8 +5031,8 @@ SC.Cloud = {
     const fb = await SC.FB.load();
     const { collection, query, orderBy, limit, getDocs } = fb.fsM;
     const [field, dir] = this.ORDER[tab];
-    const snap = await getDocs(
-      query(collection(fb.db, 'scores'), orderBy(field, dir), limit(100)));
+    const snap = await this._limit(
+      getDocs(query(collection(fb.db, 'scores'), orderBy(field, dir), limit(100))), 'tải bảng');
 
     const rows = snap.docs.map((d, i) => Object.assign({ uid: d.id, pos: i + 1 }, d.data()));
     this._rank[tab] = { t: performance.now(), rows };
@@ -5013,6 +5065,14 @@ SC.AuthPanel = {
     // Icon ở thanh đầu: chưa đăng nhập thì đăng nhập luôn, đã đăng nhập thì mở
     // màn cài đặt — nơi có tên tài khoản và nút đăng xuất.
     on('btnAuthQuick', () => SC.Auth.user ? SC.UI.show('options') : SC.Auth.login());
+
+    // Kiểm Firestore một lần lúc khởi động. Nếu chưa tạo database thì mọi thao tác
+    // lưu/xếp hạng sẽ treo im lặng — thà nói ngay còn hơn để người chơi tưởng đã lưu.
+    SC.FB.probe().then(r => {
+      if (r.ok) return;
+      SC.Cloud.blocked = r.why;
+      console.warn('[firebase] Firestore chưa dùng được:', r.why);
+    });
 
     SC.Auth.onChange(() => this.sync());
     SC.Auth.init();
@@ -5183,31 +5243,37 @@ SC.Rank = {
     return Math.round(s);
   },
 
+  /* Vẽ NGAY bảng nội bộ rồi mới đi hỏi máy chủ, có kết quả thì thay vào.
+     Bản trước hiện "Đang tải…" và ngồi chờ — mà lần hỏi đầu phải nạp SDK rồi mở
+     kết nối tới Firestore, mất vài giây; gặp mạng chặn kênh streaming thì đứng
+     im vĩnh viễn. Cho xem bảng của máy trước thì màn hình không bao giờ trống. */
   async load() {
-    const wrap = document.getElementById('rankList');
     const tab = this.tab;
 
-    // chưa khai báo máy chủ -> bảng nội bộ, khỏi phải chờ mạng
-    if (!SC.FB.configured()) { this.render(this.localRows(), true); return; }
+    // Firestore chưa tạo -> khỏi gọi cho tốn 8 giây chờ hạn giờ
+    const chặn = SC.Cloud.blocked;
+    this.render(this.localRows(), true, chặn ? 'Máy chủ chưa sẵn sàng' : '',
+      SC.FB.configured() && !chặn);
+    if (!SC.FB.configured() || chặn) return;
 
-    wrap.innerHTML = '<p class="rank-note">Đang tải…</p>';
     try {
       const rows = await SC.Cloud.rank(tab);
       if (tab !== this.tab) return;                 // người chơi đã đổi tab
       this.render(rows);
     } catch (e) {
-      // mất mạng / máy chủ lỗi: vẫn còn bảng nội bộ để xem
       if (tab === this.tab) this.render(this.localRows(), true, SC.FB.err(e));
     }
   },
 
-  render(rows, isLocal, err) {
+  render(rows, isLocal, err, busy) {
     const wrap = document.getElementById('rankList');
     const t = this.TABS.find(x => x.k === this.tab);
     const me = SC.Auth.user;
 
     const banner = isLocal
-      ? `<p class="rank-note small">${err ? this.esc(err) + ' — ' : ''}Bảng của máy này (3 hồ sơ). Đăng nhập để đua toàn cầu.</p>`
+      ? `<p class="rank-note small">${err ? this.esc(err) + ' — ' : ''}Bảng của máy này (3 hồ sơ).${
+          busy ? ' <i class="rank-busy">đang tải bảng toàn cầu…</i>'
+               : ' Đăng nhập để đua toàn cầu.'}</p>`
       : '';
 
     if (!rows.length) {
