@@ -446,39 +446,54 @@ SC.CLEAR_BONUS = stars =>
 /* data-missions.js — kho nhiệm vụ phụ; mỗi map bốc 3 cái, hoàn thành bao nhiêu được bấy nhiêu sao
  *
  * `arg(id)` tính ngưỡng theo số thứ tự map nên map càng cao yêu cầu càng nặng.
- * `check(g, p, n)`: g = SC.Game, p = máy bay, n = ngưỡng. */
+ * `check(g, p, n)`: g = SC.Game, p = máy bay, n = ngưỡng.
+ *
+ * `got(g, p)` và `miss(got, n)` phục vụ bảng kết quả: trước đây nhiệm vụ trượt chỉ
+ * hiện một dấu ✗, người chơi thua sát nút mà không biết mình thiếu bao nhiêu nên
+ * chẳng có lý do gì để bấm chơi lại. `got` trả số ĐO ĐƯỢC, `miss` diễn đạt phần
+ * còn thiếu bằng đúng đơn vị của nhiệm vụ đó. */
 
 SC.MISSION_POOL = [
   {
     id: 'clear', ic: '✧',
     arg: () => 0,
     label: () => 'Không để con nào thoát',
-    check: g => g.stats.escaped === 0
+    check: g => g.stats.escaped === 0,
+    got: g => g.stats.escaped,
+    miss: got => `để thoát ${got} con`
   },
   {
     id: 'perfect', ic: '♥',
     arg: () => 0,
     label: () => 'Không trúng đòn nào',
-    check: (g, p) => p.damaged === 0
+    check: (g, p) => p.damaged === 0,
+    got: (g, p) => p.damaged,
+    miss: got => `trúng ${got} đòn`
   },
   {
     id: 'hp', ic: '✚',
     arg: id => id >= 50 ? 60 : 50,
     label: n => `Kết thúc còn trên ${n}% máu`,
-    check: (g, p, n) => p.hp >= p.hpMax * n / 100
+    check: (g, p, n) => p.hp >= p.hpMax * n / 100,
+    got: (g, p) => Math.round(p.hp / p.hpMax * 100),
+    miss: (got, n) => `mới có ${got}%, thiếu ${Math.max(1, n - got)}%`
   },
   {
     id: 'gold', ic: '◈',
     arg: id => 6 + Math.round(id * 0.62),
     label: n => `Nhặt ${n} vàng trong màn`,
-    check: (g, p, n) => g.coin >= n
+    check: (g, p, n) => g.coin >= n,
+    got: g => g.coin,
+    miss: (got, n) => `mới có ${got}, thiếu ${n - got} vàng`
   },
   {
     // combo tối đa của game là 8 nên ngưỡng phải nằm dưới mức đó
     id: 'combo', ic: '✷',
     arg: id => Math.min(SC.CFG.maxCombo - 1, 5 + Math.floor(id / 34)),
     label: n => `Đạt chuỗi combo x${n}`,
-    check: (g, p, n) => g.stats.maxCombo >= n
+    check: (g, p, n) => g.stats.maxCombo >= n,
+    got: g => g.stats.maxCombo,
+    miss: got => `chuỗi cao nhất mới x${got}`
   },
   {
     // Chính xác = tỉ lệ LOẠT bắn có ít nhất 1 viên trúng, chỉ tính những loạt
@@ -488,13 +503,19 @@ SC.MISSION_POOL = [
     id: 'acc', ic: '◎', min: 5,
     arg: id => 55 + Math.floor(id / 30) * 5 - ((id - 1) % 5 === 0 ? 10 : 0),
     label: n => `Độ chính xác từ ${n}%`,
-    check: (g, p, n) => p.shots && (p.hits / p.shots * 100) >= n
+    check: (g, p, n) => p.shots && (p.hits / p.shots * 100) >= n,
+    // Làm tròn GIỐNG dòng "Chính xác" ở bảng kết quả (main.js cũng dùng round).
+    // Lệch cách làm tròn thì bảng hiện 50% mà nhiệm vụ lại nói "mới có 49%".
+    got: (g, p) => p.shots ? Math.round(p.hits / p.shots * 100) : 0,
+    miss: (got, n) => `mới có ${got}%, thiếu ${Math.max(1, n - got)}%`
   },
   {
     id: 'rescue', ic: '☺',
     arg: id => 2 + Math.floor(id / 25),
     label: n => `Cứu ${n} phi công rơi`,
-    check: (g, p, n) => g.stats.rescued >= n
+    check: (g, p, n) => g.stats.rescued >= n,
+    got: g => g.stats.rescued,
+    miss: (got, n) => `mới cứu ${got}, thiếu ${n - got}`
   },
   {
     // Mốc bám theo thời gian dọn màn đo được (~25-48s). Map boss được cộng thêm
@@ -502,7 +523,11 @@ SC.MISSION_POOL = [
     id: 'fast', ic: '⏱',
     arg: id => 34 + Math.round(id * 0.22) + (id % 5 === 0 ? 14 : 0),
     label: n => `Hoàn thành dưới ${n} giây`,
-    check: (g, p, n) => g.stats.time <= n
+    check: (g, p, n) => g.stats.time <= n,
+    // Ngược chiều: số ĐO càng nhỏ càng tốt. Làm tròn giống dòng "Thời gian" ở bảng
+    // kết quả, còn phần chênh thì chặn sàn 1 để không ra "chậm 0s" khi lẻ giây.
+    got: g => Math.round(g.stats.time),
+    miss: (got, n) => `mất ${got}s, chậm ${Math.max(1, got - n)}s`
   }
 ];
 
@@ -704,14 +729,21 @@ SC.Missions = {
     return m ? m.n : 0;
   },
 
-  /* chấm từng nhiệm vụ, trả về danh sách kèm kết quả đạt/không */
+  /* Chấm từng nhiệm vụ. Ngoài cờ đạt/không còn kèm `miss` — câu nói rõ còn thiếu
+     bao nhiêu, để bảng kết quả không chỉ báo trượt mà còn cho biết trượt sát cỡ nào. */
   evaluate(g) {
-    return this.active.map(m => ({
-      def: m.def,
-      n: m.n,
-      text: m.def.label(m.n),
-      done: !!m.def.check(g, g.player, m.n)
-    }));
+    return this.active.map(m => {
+      const done = !!m.def.check(g, g.player, m.n);
+      const got = m.def.got ? m.def.got(g, g.player) : 0;
+      return {
+        def: m.def,
+        n: m.n,
+        text: m.def.label(m.n),
+        done,
+        got,
+        miss: (done || !m.def.miss) ? '' : m.def.miss(got, m.n)
+      };
+    });
   },
 
   /* số sao = số nhiệm vụ hoàn thành */
@@ -3341,6 +3373,96 @@ SC.Facing = {
 };
 
 ;
+/* ===== js/system-bank.js ===== */
+/* system-bank.js — nghiêng cánh khi lách đạn: hẹp thân lại, va chạm hẹp theo
+ *
+ * Ý tưởng: lượn ngang gấp thì máy bay xoay nghiêng, nhìn từ trên xuống chỉ còn thấy
+ * một vạch mỏng. Đó là lúc nó lách được qua khe giữa hai làn đạn.
+ *
+ * Điều quan trọng làm cho cơ chế này "thật": vùng va chạm phải hẹp ĐÚNG BẰNG phần
+ * thân đã hẹp lại. Nếu chỉ hẹp phần vẽ thì người chơi thấy mình lọt khe mà vẫn dính
+ * đạn — cảm giác bị ăn gian, tệ hơn là không có gì.
+ *
+ * Đổi lại, nghiêng thì mất lực nâng: máy bay tụt nhẹ xuống, nên lách liên tục là
+ * trôi dần về đáy màn hình. Người chơi phải chọn lúc mà lách.
+ */
+
+SC.Bank = {
+  NARROW: 0.68,     // nghiêng hết cỡ thì bề ngang còn 32%
+  RATE: 7.0,        // tốc độ nghiêng vào (đơn vị/giây)
+  BACK: 4.2,        // tốc độ trả về khi thôi lượn
+  VMAX: 620,        // tốc ngang (px/s) coi là nghiêng hết cỡ
+  SINK: 26,         // px/giây bị tụt xuống khi nghiêng hết cỡ
+
+  reset(p) { p.bank = 0; p.bankDir = 0; this.grazed = 0; },
+
+  /* Gọi mỗi khung SAU khi máy bay đã chạy xong chuyển động ngang */
+  update(dt, p, prevX) {
+    const vx = (p.x - prevX) / Math.max(dt, 1e-4);
+    // Chỉ tính tốc độ THỰC SỰ ngang. Bám con trỏ theo lerp nên lúc gần tới đích
+    // vx tụt nhanh, nghiêng cũng phải nhả ra theo — đó là cái làm nó có nhịp.
+    const want = SC.clamp(Math.abs(vx) / this.VMAX, 0, 1);
+    const k = want > p.bank ? this.RATE : this.BACK;
+    p.bank += SC.clamp(want - p.bank, -k * dt, k * dt);
+    if (Math.abs(vx) > 40) p.bankDir = vx > 0 ? 1 : -1;
+
+    // nghiêng thì mất lực nâng -> tụt nhẹ, khiến lách liên tục có cái giá của nó
+    if (p.bank > 0.15) p.y = SC.clamp(p.y + this.SINK * p.bank * dt, 40, SC.H - 24);
+
+    // vệt gió ở đầu cánh: chỉ hiện khi nghiêng sâu, để người chơi ĐỌC được trạng thái
+    if (p.bank > 0.55 && Math.random() < p.bank * 0.7) {
+      const wing = p.r * 1.1 * (1 - p.bank * this.NARROW);
+      SC.FX.trail(p.x + p.bankDir * wing, p.y + SC.rnd(-3, 3), '#bfe9ff');
+    }
+  },
+
+  /* Hệ số bề ngang hiện tại: 1 = thân đầy, nhỏ hơn = đã nghiêng.
+     Dùng chung cho cả phần VẼ lẫn phần VA CHẠM nên hai bên không bao giờ lệch nhau. */
+  squeeze(p) { return 1 - (p.bank || 0) * this.NARROW; },
+
+  /* Va chạm với máy bay: hình BẦU DỤC, hẹp dần theo độ nghiêng.
+     Nén trục x rồi so như hình tròn — rẻ, và đúng với hình đang vẽ trên màn. */
+  hitPlayer(p, o, mul) {
+    const rr = p.r * (mul || 1);
+    const dx = (o.x - p.x) / this.squeeze(p);      // nén ngang = thu hẹp bề ngang
+    const dy = o.y - p.y;
+    const reach = rr + o.r;
+    return dx * dx + dy * dy < reach * reach;
+  },
+
+  /* ---------- SƯỢT ĐẠN ----------
+     Viên đạn đáng lẽ đã trúng nếu không nghiêng cánh, nhưng đã trượt qua.
+     Đây mới là thứ tạo ra cảm giác né: người chơi cần THẤY khoảnh khắc mình vừa
+     lách được, chứ chỉ mất ít máu hơn thì không ai nhận ra. */
+  GRAZE_MIN: 0.3,          // phải nghiêng ít nhất ngần này mới tính
+  grazed: 0,
+
+  /* true nếu viên đạn này vừa sượt qua nhờ nghiêng cánh */
+  checkGraze(p, b, mul) {
+    if (p.bank < this.GRAZE_MIN || b._grz) return false;
+    // đã trúng thân đầy chưa? (tính như lúc KHÔNG nghiêng)
+    const rr = p.r * (mul || 1) + b.r;
+    const dx = b.x - p.x, dy = b.y - p.y;
+    if (dx * dx + dy * dy >= rr * rr) return false;
+    b._grz = 1;                                    // mỗi viên chỉ tính một lần
+    return true;
+  },
+
+  /* Phần thưởng cho pha lách: tia sáng ở đúng chỗ sượt + điểm nhỏ.
+     Cố ý KHÔNG cho máu hay vàng — thưởng vào tài nguyên thì người chơi sẽ lượn
+     liên tục để cày, mà lượn liên tục thì mất hẳn nhịp lên xuống của màn chơi. */
+  onGraze(g, p, b) {
+    this.grazed++;
+    g.score += 15;
+    SC.FX.burst(b.x, b.y, '#bfe9ff', 5, 190, 1.7);
+    if (this.grazed % 5 === 0) {                   // 5 pha liền mới kêu, đỡ ồn
+      SC.FX.text(p.x, p.y - p.r * 2.2, 'LÁCH ĐẸP!', '#bfe9ff');
+      SC.Audio.shield();
+    }
+  }
+};
+
+;
 /* ===== js/entity-player.js ===== */
 /* entity-player.js — máy bay bám con trỏ chuột, AUTO SHOOT theo cấp vũ khí */
 
@@ -3372,6 +3494,7 @@ SC.Player.prototype.reset = function (weapon) {
   this.volleyHit = new Set();      // những loạt đã ghi nhận trúng
   this.damaged = 0;                // số lần trúng đòn, dùng chấm nhiệm vụ "hoàn hảo"
   SC.Facing.reset(this);           // hướng súng: -1 chĩa lên, 1 chĩa xuống
+  SC.Bank.reset(this);             // độ nghiêng cánh: 0 thân đầy, 1 nghiêng hết cỡ
 };
 
 /* Con trỏ chuột chính là đích đến của máy bay */
@@ -3386,6 +3509,8 @@ SC.Player.prototype.update = function (dt) {
   this.x = SC.lerp(this.x, this.tx, 1 - Math.pow(1 - SC.CFG.playerFollow, dt * 60));
   this.y = SC.lerp(this.y, this.ty, 1 - Math.pow(1 - SC.CFG.playerFollow, dt * 60));
   this.tilt = SC.clamp((this.x - px) * 0.12, -1, 1);
+  // nghiêng cánh lách đạn — phải chạy SAU khi đã dịch chuyển xong mới đo được tốc ngang
+  SC.Bank.update(dt, this, px);
 
   if (this.inv > 0) this.inv -= dt;
 
@@ -3489,6 +3614,9 @@ SC.Player.prototype.render = function (ctx) {
   ctx.save();
   const fa = this.faceAnim === undefined ? -1 : this.faceAnim;
   ctx.rotate((fa + 1) / 2 * Math.PI);          // -1 -> 0 rad, 1 -> pi
+  // Nghiêng cánh: nén bề ngang đúng bằng hệ số mà va chạm đang dùng, nên cái người
+  // chơi NHÌN THẤY và cái game TÍNH là một. Lệch nhau là mất hết cảm giác lách.
+  ctx.scale(SC.Bank.squeeze(this), 1);
 
   // lửa động cơ
   const f = 1 + Math.sin(this.t * 30) * 0.22;
@@ -3940,7 +4068,13 @@ SC.Combat = {
     // đạn địch ↔ ta
     for (let i = SC.Bullets.foe.length - 1; i >= 0; i--) {
       const b = SC.Bullets.foe[i];
-      if (p.dead || !SC.hit(b, { x: p.x, y: p.y, r: p.r * 0.8 })) continue;
+      if (p.dead) continue;
+      // vùng va chạm hẹp lại theo độ nghiêng cánh — xem system-bank.js
+      if (!SC.Bank.hitPlayer(p, b, 0.8)) {
+        // trượt rồi, nhưng có phải nhờ nghiêng cánh không? -> thưởng pha lách
+        if (SC.Bank.checkGraze(p, b, 0.8)) SC.Bank.onGraze(g, p, b);
+        continue;
+      }
       SC.Bullets.foe.splice(i, 1);
       p.hurt(Math.round((b.kind === 'egg' ? 8 : 12) * SC.Power.dmg()));
     }
@@ -3948,7 +4082,7 @@ SC.Combat = {
     // thân quái ↔ ta
     for (const e of g.enemies) {
       if (e.dead || p.dead) continue;
-      if (SC.hit({ x: p.x, y: p.y, r: p.r * 0.85 }, e)) {
+      if (SC.Bank.hitPlayer(p, e, 0.85)) {
         p.hurt(Math.round((e.isBoss ? 22 : 14) * SC.Power.dmg()));
         if (!e.isBoss && e.hurt(9999)) this.killEnemy(g, e);
       }
@@ -4394,9 +4528,12 @@ SC.Result = {
 
     [...id('resStars').children].forEach((s, i) => s.classList.toggle('on', win && i < r.stars));
 
+    // Chỉ nói "còn thiếu bao nhiêu" khi THẮNG mà trượt nhiệm vụ — lúc thua thì lý do
+    // đã quá rõ (chết), thêm ba dòng thiếu hụt nữa chỉ thành ồn.
     id('resMissions').innerHTML = r.missions.map(m => `
       <li class="${win && m.done ? 'ok' : 'no'}">
-        <span class="m-ic">${m.def.ic}</span>${m.text}
+        <span class="m-ic">${m.def.ic}</span>
+        <span class="m-txt">${m.text}${win && !m.done && m.miss ? `<i>${m.miss}</i>` : ''}</span>
         <b>${win && m.done ? '✓' : '✗'}</b>
       </li>`).join('');
 
@@ -4418,7 +4555,11 @@ SC.Result = {
 
     id('resGold').innerHTML = this._goldRows(win, r);
 
-    ui.el.btnResNext.style.display = (win && SC.Game.levelId < SC.TOTAL_LEVELS) ? '' : 'none';
+    const hasNext = win && SC.Game.levelId < SC.TOTAL_LEVELS;
+    ui.el.btnResNext.style.display = hasNext ? '' : 'none';
+    // Đủ 3 sao rồi thì chơi lại không được thêm gì -> bớt một lối thoát cho đỡ rối.
+    // Vẫn giữ nút khi MAP TIẾP đang ẩn (màn cuối), không thì hàng nút trống trơn.
+    id('btnResRetry').style.display = (hasNext && r.stars === 3) ? 'none' : '';
     id('btnResShop').classList.toggle('glow', SC.Upg.anyAffordable());
 
     ui.syncMenu();

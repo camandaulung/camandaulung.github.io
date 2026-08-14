@@ -327,6 +327,11 @@ body.is-touch .portal-back{font-size:13px;padding:13px 15px}
 .mission-rows li.ok{color:var(--ink);background:rgba(77,255,159,.1);
   box-shadow:inset 0 0 0 1px rgba(77,255,159,.28)}
 .mission-rows li b{margin-left:auto;font-size:14px}
+.m-txt{flex:1;min-width:0}
+/* dòng "còn thiếu bao nhiêu" của nhiệm vụ trượt — nhỏ hơn nhãn nhưng vẫn đọc rõ */
+.m-txt i{display:block;font-style:normal;font-size:10px;letter-spacing:.02em;
+  color:#ff9aa8;margin-top:3px}
+body.is-touch .m-txt i{font-size:12px}
 .mission-rows li.ok b{color:var(--ok)}
 /* Dấu trượt phải đọc được ngang với dấu đạt. Bản cũ #54617a trên nền tối gần như
    chìm hẳn, thành ra nhiệm vụ hỏng nhìn như dòng trống. */
