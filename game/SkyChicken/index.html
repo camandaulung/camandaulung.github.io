@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="icon" type="image/png" href="icons/icon-192.png">
-<link rel="stylesheet" href="assets/style-fefaba81.css">
+<link rel="stylesheet" href="assets/style-10cd7040.css">
 </head>
 <body>
 
@@ -230,8 +230,11 @@
         <svg class="ic" aria-hidden="true"><use href="#i-map"/></svg><span>BẢN ĐỒ</span>
       </button>
       <button class="rail-btn" id="btnShop">
-        <svg class="ic" aria-hidden="true"><use href="#i-upgrade"/></svg><span>NÂNG CẤP</span>
+        <svg class="ic" aria-hidden="true"><use href="#i-upgrade"/></svg><span>KỸ NĂNG</span>
         <em id="shopBadge"></em>
+      </button>
+      <button class="rail-btn" id="btnCodex">
+        <svg class="ic" aria-hidden="true"><use href="#i-power"/></svg><span>SỔ TAY</span>
       </button>
       <button class="rail-btn" id="btnRank">
         <svg class="ic" aria-hidden="true"><use href="#i-trophy"/></svg><span>XẾP HẠNG</span>
@@ -298,6 +301,64 @@
     </div>
   </div>
 
+  <!-- ===== TỔNG KẾT CHIẾN DỊCH =====
+       Hiện một lần khi hồ sơ đã có sao ở đủ mọi màn. Nút chính dẫn vào tab TỐC ĐỘ
+       của bảng xếp hạng — bảng chỉ nhận người đã đi hết chiến dịch, tức thứ người
+       chơi vừa mới đủ điều kiện góp mặt. -->
+  <div id="scrVictory" class="layer screen hidden">
+    <div class="vic-scroll">
+      <div class="vic-crown">
+        <div class="stars"><i class="on"></i><i class="on"></i><i class="on"></i></div>
+        <span class="vic-kicker">CHIẾN DỊCH HOÀN TẤT</span>
+        <h1 class="vic-title">ĐÃ DỌN SẠCH<em>BẦU TRỜI</em></h1>
+        <p class="vic-sub"><b id="vicName">PHI CÔNG</b> · <span id="vicRank">TÂN BINH</span>
+          · đi hết <b id="vicMaps">60</b> màn</p>
+      </div>
+
+      <div class="vic-grid">
+        <div class="vic-tile wide">
+          <span class="vic-lb">TỔNG SAO</span>
+          <b class="vic-val"><i id="vicStars">0</i><small>/<span id="vicStarMax">180</span></small></b>
+        </div>
+        <div class="vic-tile wide">
+          <span class="vic-lb">THỜI GIAN CHIẾN DỊCH</span>
+          <b class="vic-val" id="vicTime">—</b>
+        </div>
+        <div class="vic-tile">
+          <span class="vic-lb">LỰC CHIẾN</span>
+          <b class="vic-val" id="vicPower">0</b>
+        </div>
+        <div class="vic-tile">
+          <span class="vic-lb">NÂNG CẤP</span>
+          <b class="vic-val" id="vicUpg">0/55</b>
+        </div>
+        <div class="vic-tile">
+          <span class="vic-lb">VÀNG</span>
+          <b class="vic-val gold" id="vicCoin">0</b>
+        </div>
+      </div>
+
+      <p class="vic-perfect" id="vicPerfect"></p>
+
+      <!-- Chưa đăng nhập thì kỷ lục chỉ nằm trong máy này -->
+      <div class="vic-login hidden" id="vicLoginBox">
+        <p>Kỷ lục này mới chỉ nằm trong máy. Đăng nhập để ghi tên lên bảng toàn cầu.</p>
+        <button class="btn ghost small" id="btnVicLogin">
+          <svg class="ic" aria-hidden="true"><use href="#i-google"/></svg>
+          <span>ĐĂNG NHẬP GOOGLE</span>
+        </button>
+      </div>
+
+      <div class="vic-btns">
+        <button class="btn primary" id="btnVicRank">
+          <svg class="ic" aria-hidden="true"><use href="#i-trophy"/></svg>
+          <span>XEM BẢNG XẾP HẠNG</span>
+        </button>
+        <button class="btn text" id="btnVicMenu">VỀ LOBBY</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ===== MAP SELECT ===== -->
   <div id="scrMaps" class="layer screen hidden">
     <div class="scr-head">
@@ -308,6 +369,9 @@
         <svg class="ic" aria-hidden="true"><use href="#i-upgrade"/></svg>
       </button>
     </div>
+    <!-- Dải chip nhảy vùng: 60 chặng trải ra ~8 màn hình cuộn, không có lối tắt thì
+         muốn quay lại cày sao ở vùng cũ là phải kéo tay rất lâu. -->
+    <div class="saga-jump" id="sagaJump"></div>
     <div class="map-scroll" id="mapList"></div>
   </div>
 
@@ -329,16 +393,49 @@
     </div>
   </div>
 
-  <!-- ===== SHOP (nâng cấp vĩnh viễn) ===== -->
-  <div id="scrShop" class="layer screen hidden">
+  <!-- ===== CÂY KỸ NĂNG (nâng cấp vĩnh viễn, rẽ nhánh loại trừ) ===== -->
+  <div id="scrTree" class="layer screen hidden">
     <div class="scr-head">
-      <button class="icon-btn back" id="btnShopBack">‹</button>
-      <h2>NÂNG CẤP</h2>
-      <span class="power-tag" id="shopPower">⚔ <b>0</b></span>
-      <span class="total-star gold">◈ <b id="shopCoin">0</b></span>
+      <button class="icon-btn back" id="btnTreeBack">‹</button>
+      <h2>CÂY KỸ NĂNG</h2>
+      <span class="power-tag" id="treePower">⚔ <b>0</b></span>
+      <span class="total-star gold">◈ <b id="treeCoin">0</b></span>
     </div>
-    <div class="shop-scroll" id="shopList"></div>
-    <p class="shop-note">Nâng cấp có hiệu lực vĩnh viễn ở mọi map</p>
+    <div class="shop-scroll" id="treeList"></div>
+    <p class="shop-note">Mỗi nhánh rẽ đôi ở cấp 2 — chọn một hướng, hướng kia khoá lại</p>
+  </div>
+
+  <!-- ===== SỔ TAY BIẾN THỂ ===== -->
+  <div id="scrCodex" class="layer screen hidden">
+    <div class="scr-head">
+      <button class="icon-btn back" id="btnCodexBack">‹</button>
+      <h2>SỔ TAY BIẾN THỂ</h2>
+      <span class="total-star gold">★ <b id="codexCount">0/8</b></span>
+    </div>
+    <div class="shop-scroll" id="codexList"></div>
+    <p class="shop-note">Mỗi tổ hợp VŨ KHÍ × PHI ĐỘI × KHIÊN cho một biến thể riêng</p>
+  </div>
+
+  <!-- ===== MÀN TIẾN HOÁ (diễn dạng cũ -> dạng mới) ===== -->
+  <div id="scrEvo" class="layer screen dim hidden">
+    <div class="evo-box">
+      <div class="evo-step" id="evoStep">TIẾN HOÁ 1</div>
+      <canvas id="evoCanvas" width="300" height="150"></canvas>
+      <h3 id="evoName">BÃO ĐẠN</h3>
+      <p class="evo-tag" id="evoTag"></p>
+      <ul class="evo-gain" id="evoGain"></ul>
+      <button class="btn" id="btnEvoOk">TIẾP TỤC</button>
+    </div>
+  </div>
+
+  <!-- ===== HỘP THOẠI RẼ NHÁNH ===== -->
+  <div id="scrFork" class="layer screen dim hidden">
+    <div class="fork-box">
+      <h3 id="forkTitle">CHỌN HƯỚNG</h3>
+      <p class="fork-warn" id="forkWarn"></p>
+      <div class="fork-opts" id="forkOpts"></div>
+      <button class="btn text" id="btnForkBack">QUAY LẠI</button>
+    </div>
   </div>
 
   <!-- ===== BẢNG XẾP HẠNG ===== -->
@@ -482,20 +579,30 @@
   <div id="scrResult" class="layer screen dim hidden">
     <div class="panel result">
       <h3 id="resTitle">HOÀN THÀNH</h3>
-      <div class="res-level" id="resLevel">MÀN 01 · ĐỒNG QUÊ 1</div>
+      <!-- Nhãn trùm tách RIÊNG khỏi dòng địa danh. Ghép chung bằng dấu · thì tên vùng
+           dài là gãy dòng, bỏ lại mỗi "TRÙM VÙNG" trơ trọi ở dòng dưới. -->
+      <div class="res-where">
+        <span class="res-level" id="resLevel">MÀN 01 · ĐỒNG QUÊ</span>
+        <span class="res-tag hidden" id="resTag">TRÙM VÙNG</span>
+      </div>
       <div class="stars" id="resStars"><i></i><i></i><i></i></div>
       <ul class="mission-rows" id="resMissions"></ul>
-      <ul class="res-rows">
-        <li><span>Điểm</span><b id="resScore">0</b></li>
-        <li><span>Tiêu diệt</span><b id="resKill">0</b></li>
-        <li><span>Chính xác</span><b id="resAcc">0%</b></li>
+      <!-- Lưới 2×2 thay cho 4 dòng full-width: nửa chiều cao, và đọc ra chất bảng
+           chỉ số của game thay vì bảng kê khai. -->
+      <div class="res-grid">
+        <div class="rs"><span class="rs-lb">ĐIỂM</span><b class="rs-v" id="resScore">0</b></div>
+        <div class="rs"><span class="rs-lb">TIÊU DIỆT</span><b class="rs-v" id="resKill">0</b></div>
+        <div class="rs"><span class="rs-lb">CHÍNH XÁC</span><b class="rs-v" id="resAcc">0%</b></div>
         <!-- Bảng xếp hạng có hẳn một mục TỐC ĐỘ chạy bằng progress.times, nhưng
              người chơi chưa bao giờ được thấy thời gian của chính mình sau mỗi màn -->
-        <li><span>Thời gian</span><b id="resTime">0s</b></li>
-      </ul>
+        <div class="rs" id="resTimeTile"><span class="rs-lb">THỜI GIAN</span><b class="rs-v" id="resTime">0s</b></div>
+      </div>
       <ul class="gold-rows" id="resGold"></ul>
+      <p class="res-advice hidden" id="resAdvice"></p>
       <div class="res-btns">
         <button class="btn ghost" id="btnResRetry">CHƠI LẠI</button>
+        <!-- Thay chỗ MAP TIẾP ở màn cuối cùng của chiến dịch -->
+        <button class="btn primary hidden" id="btnResFinale">TỔNG KẾT CHIẾN DỊCH</button>
         <button class="btn primary" id="btnResNext">MAP TIẾP</button>
       </div>
       <div class="res-links">
@@ -515,6 +622,8 @@
     <p>Xoay dọc máy để chơi</p>
   </div>
 </div>
-<script src="assets/app-76594e6e.js"></script>
+<!-- CHỈ CHẠY Ở MÁY DEV. build.mjs loại mọi js/dev-*.js khỏi bản phát hành,
+     và chính tệp này cũng tự thoát nếu không phải localhost. -->
+<script src="assets/app-416b1865.js"></script>
 </body>
 </html>
