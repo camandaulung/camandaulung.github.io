@@ -504,6 +504,21 @@ body.is-touch .m-txt i{font-size:12px}
   box-shadow:inset 0 0 0 1px rgba(122,224,255,.28)}
 .res-advice b{color:#7ae0ff}
 
+/* ---------- quà tân thủ ---------- */
+#scrGift{display:grid;place-content:center;padding:20px;z-index:14}
+.gift-box{width:min(360px,90vw);padding:26px 22px calc(20px + var(--safe-bottom));
+  border-radius:20px;text-align:center;
+  background:linear-gradient(180deg,#2a2412,#0b0d16);
+  box-shadow:0 24px 60px rgba(0,0,0,.7),inset 0 0 0 1px rgba(255,210,63,.35)}
+.gift-ic{font-size:46px;color:var(--acc);line-height:1;
+  animation:giftPop .5s cubic-bezier(.3,1.6,.5,1) both}
+@keyframes giftPop{from{transform:scale(.3) rotate(-25deg);opacity:0}}
+.gift-box h3{font-family:var(--font-display);font-size:15px;letter-spacing:.24em;
+  font-weight:700;margin-top:10px}
+.gift-amt{font-family:var(--font-display);font-size:30px;font-weight:700;
+  color:var(--acc);margin:8px 0 10px}
+.gift-note{font-size:11px;color:var(--dim);line-height:1.6;margin-bottom:16px}
+
 /* ---------- màn tiến hoá ---------- */
 #scrEvo{display:grid;place-content:center;padding:20px;z-index:13}
 .evo-box{width:min(400px,92vw);padding:18px 18px calc(16px + var(--safe-bottom));

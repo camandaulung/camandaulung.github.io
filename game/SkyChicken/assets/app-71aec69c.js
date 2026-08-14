@@ -9019,6 +9019,62 @@ SC.Evolution = {
 };
 
 ;
+/* ===== js/ui-gift.js ===== */
+/* ui-gift.js — quà tân thủ: 200 vàng tặng lần đầu mở game
+ *
+ * Vì sao cần: hồ sơ mới bắt đầu với 0 vàng, mà cấp rẻ nhất trong cây kỹ năng tốn 100.
+ * Nghĩa là người chơi mới phải đánh xong ít nhất một map rồi mới được chạm vào hệ
+ * thống nâng cấp — trong khi đó chính là thứ thú vị nhất của game. 200 vàng cho phép
+ * mua ngay hai cấp và gặp luôn hộp thoại rẽ nhánh ở cấp 2, tức là hiểu được ý đồ
+ * "chọn hướng đi" ngay trong vài phút đầu.
+ *
+ * Chỉ tặng cho hồ sơ THẬT SỰ mới (chưa qua map nào). Người đang chơi dở không nhận
+ * — quà rơi vào giữa hành trình thì vô nghĩa, và cũng làm lệch số liệu cân bằng.
+ */
+
+SC.Gift = {
+  AMOUNT: SC.bal('reward.newbieGift', 200),
+
+  init(on) {
+    on('btnGiftOk', () => this.claim());
+  },
+
+  /* Hồ sơ mới tinh: chưa nhận quà, chưa qua map nào */
+  eligible() {
+    const p = SC.UI.progress;
+    return !p.gift
+      && (p.unlocked | 0) <= 1
+      && Object.keys(p.stars || {}).length === 0;
+  },
+
+  /* Gọi sau khi lobby đã dựng xong. Chờ một nhịp để người chơi kịp thấy màn hình
+     chính trước, quà nổ ra ngay lúc trang vừa hiện thì trông như lỗi. */
+  check() {
+    if (!this.eligible()) return;
+    setTimeout(() => { if (this.eligible()) this.open(); }, 700);
+  },
+
+  open() {
+    document.getElementById('giftAmount').textContent = this.AMOUNT.toLocaleString('vi-VN');
+    SC.UI.showOverlay('gift');
+    SC.Audio.gem();
+  },
+
+  claim() {
+    const p = SC.UI.progress;
+    if (p.gift) return SC.UI.hideOverlay('gift');
+    p.gift = 1;                       // đánh dấu trước khi cộng: bấm nhanh hai lần không ăn hai lần
+    p.coin = (p.coin | 0) + this.AMOUNT;
+    SC.UI.save();
+    SC.Cloud.markDirty();
+    SC.UI.hideOverlay('gift');
+    SC.Audio.power();
+    SC.UI.syncMenu();
+    SC.UI.toast('NHẬN ◈' + this.AMOUNT.toLocaleString('vi-VN'), true);
+  }
+};
+
+;
 /* ===== js/ui-avatar.js ===== */
 /* ui-avatar.js — dựng ảnh đại diện dùng chung cho lobby, màn hồ sơ và khối tài khoản
  *
@@ -9324,7 +9380,7 @@ SC.UI = {
     this.el = {
       hud: id('hud'), menu: id('scrMenu'), maps: id('scrMaps'),
       pause: id('scrPause'), result: id('scrResult'), tree: id('scrTree'), brief: id('scrBrief'),
-      fork: id('scrFork'), codex: id('scrCodex'), evo: id('scrEvo'),
+      fork: id('scrFork'), codex: id('scrCodex'), evo: id('scrEvo'), gift: id('scrGift'),
       rank: id('scrRank'), merge: id('scrMerge'), profile: id('scrProfile'), setup: id('scrSetup'),
       options: id('scrOptions'), victory: id('scrVictory'),
       hpFill: id('hpFill'), shFill: id('shFill'),
@@ -9350,6 +9406,7 @@ SC.UI = {
     SC.TreeMigrate.run();    // hồ sơ cũ: hoàn vàng, dựng cây rỗng, cho chọn lại hướng
     this.buildMapList();
     this.bind();
+    SC.Gift.check();          // hồ sơ mới tinh -> mời nhận quà tân thủ
   },
 
   bind() {
@@ -9379,6 +9436,7 @@ SC.UI = {
     SC.TreeUI.init(on);
     SC.Codex.init(on);
     SC.Evolution.init(on);
+    SC.Gift.init(on);
     SC.Brief.init(on);
     SC.Rank.init(on);
     SC.Victory.init(on);
