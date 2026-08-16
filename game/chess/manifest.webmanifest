@@ -1,0 +1,17 @@
+{
+  "name": "Cờ vua với mèo",
+  "short_name": "Cờ mèo",
+  "description": "Đấu cờ vua với 7 con mèo, mỗi con một tính cách — từ 400 đến 1600 Elo, chơi được cả khi mất mạng",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#1b1510",
+  "theme_color": "#2b2118",
+  "lang": "vi",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
