@@ -644,6 +644,40 @@
 <script src="../../shared/portal-cloud.js"></script>
 <script src="../../shared/portal-rank.js"></script>
 <script src="../../shared/portal-player.js"></script>
-<script src="assets/app-824ca5b9.js"></script>
+<script src="assets/app-824ca5b9.js" onerror="window.__shellHong=1"></script>
+<script>
+/* LOP TU CUU KHI VO UNG DUNG HONG — dung xoa.
+ *
+ * The script tren dat `__shellHong` neu goi JS chinh khong tai duoc. Thuong la do
+ * cache giu mot ban index.html cu tro toi ten file da bi xoa.
+ *
+ * Khong co doan nay thi nguoi choi ket o trang trang vinh vien: nut "Tai lai" de
+ * chap nhan ban moi nam trong chinh goi JS vua hong, nen khong con duong nao ra.
+ * Da xay ra that ngay 17/08.
+ *
+ * Cach chua: xoa het cache (moi tra loi sau do buoc phai di ra mang), bao ban service
+ * worker dang cho chiem quyen, roi tai lai. `sessionStorage` chan lap vo tan — thu mot
+ * lan, khong duoc thi thoi, chu dung quay trang lien tuc truoc mat nguoi dung. */
+(function () {
+  if (!window.__shellHong) return;
+  try { if (sessionStorage.getItem('shell-da-cuu')) return; sessionStorage.setItem('shell-da-cuu', '1'); }
+  catch (e) { return; }
+
+  var xong = false;
+  function taiLai() { if (!xong) { xong = true; location.reload(); } }
+  setTimeout(taiLai, 2500);              // co gi treo thi van tai lai
+
+  var b = window.caches ? caches.keys().then(function (ks) {
+    return Promise.all(ks.map(function (k) { return caches.delete(k); }));
+  }) : Promise.resolve();
+
+  b.then(function () {
+    if (!('serviceWorker' in navigator)) return;
+    return navigator.serviceWorker.getRegistration().then(function (reg) {
+      if (reg && reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+    });
+  }).catch(function () {}).then(taiLai);
+})();
+</script>
 </body>
 </html>
