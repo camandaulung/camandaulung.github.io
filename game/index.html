@@ -1,4 +1,7 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
+<!-- Trang danh sach game cua cong. NGUON o repo nay: portal/index.html
+     CI chep no sang <repo-portal>/game/index.html. Dung sua thang ben repo portal —
+     lan deploy sau se ghi de. -->
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
@@ -275,9 +278,9 @@
     .card-status .dot {
       width: 5px; height: 5px; border-radius: 50%;
     }
-    .dot-coming { background: var(--accent); opacity: 0.7; }
-    .dot-dev { background: var(--faint); }
-    /* game da choi duoc: cham xanh nhap nhay + vien sang de noi bat giua cac the "sap ra mat" */
+    /* Cham xanh nhap nhay cho game da choi duoc.
+       Truoc day con co .dot-coming va .dot-dev cho cac the "sap ra mat" / "dang lam" —
+       da bo cung voi cac the do: chung la thong tin bia, khong co game that dang sau. */
     .dot-live { background: #4dffa1; animation: pulse-live 2s ease-in-out infinite; }
     @keyframes pulse-live {
       0%, 100% { box-shadow: 0 0 0 0 rgba(77, 255, 161, 0.55); }
@@ -492,82 +495,6 @@
           <div class="card-halo"></div>
         </article>
 
-        <!-- Card 1 -->
-        <article class="game-card" data-od-id="game-card-trivia">
-          <div class="card-thumb">
-            <svg viewBox="0 0 48 48">
-              <circle cx="24" cy="20" r="12"/>
-              <path d="M20 18c0-2.2 1.8-4 4-4s4 1.8 4 4c0 2-1.5 3-2.5 3.5-.6.3-1.5.8-1.5 1.5v1"/>
-              <circle cx="24" cy="28" r="0.8" fill="currentColor" stroke="none"/>
-              <path d="M16 36h16"/>
-            </svg>
-          </div>
-          <div class="card-body">
-            <span class="card-tag">Tri th&#7913;c</span>
-            <h3 class="card-title">&#272;&#7889; Vui Bu&#7893;i S&#225;ng</h3>
-            <p class="card-desc">5 c&#226;u h&#7887;i m&#7895;i s&#225;ng. T&#7915; tin t&#7913;c, l&#7883;ch s&#7917;, &#273;&#7871;n chuy&#7879;n v&#7863;t v&#227;nh &mdash; th&#7917; xem b&#7841;n bi&#7871;t &#273;&#432;&#7907;c bao nhi&#234;u.</p>
-            <div class="card-footer">
-              <span class="card-status"><span class="dot dot-coming"></span>S&#7855;p ra m&#7855;t</span>
-              <span class="card-play">
-                Ch&#417;&#768; &#273;&#7907;i
-                <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-              </span>
-            </div>
-          </div>
-          <div class="card-halo"></div>
-        </article>
-
-        <!-- Card 2 -->
-        <article class="game-card" data-od-id="game-card-memory">
-          <div class="card-thumb">
-            <svg viewBox="0 0 48 48">
-              <rect x="8" y="10" width="13" height="18" rx="2"/>
-              <rect x="27" y="10" width="13" height="18" rx="2"/>
-              <path d="M11 16h7M30 16h7M11 20h5M30 20h5"/>
-              <path d="M20 34l4 4 4-4"/>
-            </svg>
-          </div>
-          <div class="card-body">
-            <span class="card-tag">Tr&#237; nh&#7899;</span>
-            <h3 class="card-title">Tr&#237; Nh&#7899; C&#225;</h3>
-            <p class="card-desc">L&#7853;t th&#7867;, nh&#7899; h&#236;nh. Ng&#432;&#7901;i ta b&#7843;o c&#225; ch&#7881; nh&#7899; &#273;&#432;&#7907;c 3 gi&#226;y &mdash; c&#242;n b&#7841;n th&#236; sao?</p>
-            <div class="card-footer">
-              <span class="card-status"><span class="dot dot-dev"></span>&#272;ang l&#224;m</span>
-              <span class="card-play">
-                Ch&#417;&#768; &#273;&#7907;i
-                <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-              </span>
-            </div>
-          </div>
-          <div class="card-halo"></div>
-        </article>
-
-        <!-- Card 3 -->
-        <article class="game-card" data-od-id="game-card-word">
-          <div class="card-thumb">
-            <svg viewBox="0 0 48 48">
-              <rect x="10" y="14" width="8" height="8" rx="1.5"/>
-              <rect x="20" y="14" width="8" height="8" rx="1.5"/>
-              <rect x="30" y="14" width="8" height="8" rx="1.5"/>
-              <rect x="10" y="24" width="8" height="8" rx="1.5"/>
-              <rect x="20" y="24" width="8" height="8" rx="1.5"/>
-              <path d="M14 18v0M24 18v0M34 18v0M14 28v0M24 28v0" stroke-linecap="round" stroke-width="2.5"/>
-            </svg>
-          </div>
-          <div class="card-body">
-            <span class="card-tag">Ch&#7919;</span>
-            <h3 class="card-title">X&#7871;p Ch&#7919;</h3>
-            <p class="card-desc">T&#236;m t&#7915; &#7849;n trong l&#432;&#7899;i ch&#7919; c&#225;i. M&#7895;i ng&#224;y m&#7897;t b&#7897; m&#7899;i, m&#7895;i b&#7897; m&#7897;t ch&#7911; &#273;&#7873;.</p>
-            <div class="card-footer">
-              <span class="card-status"><span class="dot dot-dev"></span>Ý t&#432;&#7903;ng</span>
-              <span class="card-play">
-                Ch&#417;&#768; &#273;&#7907;i
-                <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-              </span>
-            </div>
-          </div>
-          <div class="card-halo"></div>
-        </article>
 
       </div>
     </section>
