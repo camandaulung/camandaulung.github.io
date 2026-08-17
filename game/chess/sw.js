@@ -9,7 +9,7 @@
  * trang van trong binh thuong. build.mjs co buoc kiem tra chan dung loi nay.
  */
 
-const VERSION = 'df3f56fa';
+const VERSION = '017f191c';
 const CACHE = 'cat-chess-' + VERSION;
 const SHELL = [
   "./",
@@ -38,7 +38,21 @@ self.addEventListener('install', ev => {
    * ban duoi chan. De no nam CHO (`waiting`) thi game moi kip hien dai bao
    * "co ban moi — Tai lai" va de nguoi choi tu quyet (ui-update-notice.js).
    */
-  ev.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)));
+  /* `cache: 'reload'` BAT BUOC — dung bo di.
+   *
+   * `c.addAll(SHELL)` thuong se lay qua HTTP cache cua trinh duyet. GitHub Pages tra
+   * index.html kem `max-age=600`, nen ban moi vua cai co the cache nham index.html CU
+   * — trong khi cac file assets/app-<hash>.js thi ten moi nen luon tai tuoi.
+   *
+   * Ket qua: cache moi = HTML cu + assets moi. HTML cu tro toi ten file da bi xoa ca
+   * o cache lan tren may chu -> 404 -> game chet han. DA XAY RA THAT tren ban phat
+   * hanh: bam "Tai lai" xong trang trang, va vi cache da nhiem nen tai lai bao nhieu
+   * lan cung the.
+   *
+   * `cache: 'reload'` buoc di thang ra mang, bo qua HTTP cache. */
+  ev.waitUntil(caches.open(CACHE).then(
+    c => c.addAll(SHELL.map(u => new Request(u, { cache: 'reload' })))
+  ));
 });
 
 self.addEventListener('activate', ev => {
@@ -58,6 +72,30 @@ self.addEventListener('fetch', ev => {
 
   const url = new URL(req.url);
   if (url.origin !== location.origin) return;   // khong dung vao yeu cau ben ngoai
+
+  /* TRANG (HTML) thi MANG TRUOC, cache chi de du phong khi mat mang.
+   *
+   * Cac file assets/*-<hash>.* thi cache-first la dung: ten da chua hash noi dung nen
+   * khong bao gio doi nghia. Nhung HTML thi ten co dinh, va no la cho DUY NHAT ghi ten
+   * cac file kia. Cache-first cho HTML nghia la: mot lan cache nham ban cu la ket vinh
+   * vien, vi ban cu tro toi ten file khong con ton tai.
+   *
+   * Doi lai: moi lan mo trang co mang thi ton mot yeu cau HTML (~4 KB). Re hon nhieu
+   * so voi rui ro tren, va offline van chay vi da nga ve cache. */
+  if (req.mode === 'navigate') {
+    ev.respondWith(
+      fetch(req)
+        .then(res => {
+          if (res && res.status === 200 && res.type === 'basic') {
+            const copy = res.clone();
+            caches.open(CACHE).then(c => c.put(req, copy));
+          }
+          return res;
+        })
+        .catch(() => caches.match(req).then(hit => hit || caches.match('./index.html')))
+    );
+    return;
+  }
 
   ev.respondWith(
     caches.match(req).then(hit => {

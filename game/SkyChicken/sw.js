@@ -6,7 +6,7 @@
  *     thay vì tự đổi bản giữa lúc đang chơi
  */
 
-const CACHE = 'sky-chicken-dcca8571';
+const CACHE = 'sky-chicken-d9f08ec3';
 
 const SHELL = [
   "./",
@@ -34,7 +34,16 @@ self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(CACHE)
       // nạp từng file để một file lỗi không làm hỏng cả mẻ
-      .then(c => Promise.all(SHELL.map(u => c.add(u).catch(() => null))))
+      //
+      // `cache: 'reload'` BẮT BUỘC — đừng bỏ đi. `c.add(u)` thường sẽ lấy qua HTTP
+      // cache của trình duyệt. GitHub Pages trả index.html kèm `max-age=600`, nên bản
+      // mới vừa cài có thể cache nhầm index.html CŨ — trong khi assets/app-<hash>.js
+      // tên mới nên luôn tải tươi. Cache mới = HTML cũ + assets mới, mà HTML cũ trỏ
+      // tới tên file đã bị xoá cả ở cache lẫn trên máy chủ → 404.
+      // Đã xảy ra thật trên bản phát hành của cờ vua.
+      .then(c => Promise.all(
+        SHELL.map(u => c.add(new Request(u, { cache: 'reload' })).catch(() => null))
+      ))
     // KHÔNG gọi skipWaiting ở đây: chờ người chơi bấm "tải lại" mới đổi bản
   );
 });
@@ -56,6 +65,22 @@ self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET') return;
   if (new URL(req.url).origin !== self.location.origin) return;
+
+  /* TRANG (HTML) thì MẠNG TRƯỚC, cache chỉ để dự phòng khi mất mạng.
+     Các file assets/*-<hash>.* thì stale-while-revalidate là đúng: tên đã chứa hash nội
+     dung nên không bao giờ đổi nghĩa. Nhưng HTML thì tên cố định, và nó là chỗ DUY NHẤT
+     ghi tên các file kia — trả bản cũ ra là trỏ tới tên file không còn tồn tại. */
+  if (req.mode === 'navigate') {
+    e.respondWith(
+      fetch(req)
+        .then(res => {
+          if (res && res.ok) caches.open(CACHE).then(c => c.put(req, res.clone()));
+          return res;
+        })
+        .catch(() => caches.match(req).then(hit => hit || caches.match('./index.html')))
+    );
+    return;
+  }
 
   // stale-while-revalidate: trả cache ngay cho nhanh, tải bản mới ở nền
   e.respondWith(
