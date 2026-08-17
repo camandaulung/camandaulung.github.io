@@ -1,7 +1,7 @@
 {
   "name": "Sky Chicken — Invader",
   "short_name": "Sky Chicken",
-  "description": "Game bắn gà 30 map: lái bằng chuột hoặc kéo cảm ứng, tự bắn, tự nhặt đồ.",
+  "description": "Game bắn gà vô tận: cây kỹ năng rẽ nhánh, 8 lối chơi, chiến dịch xong là mở vòng vô tận. Lái bằng chuột hoặc kéo cảm ứng, tự bắn, tự nhặt đồ.",
   "lang": "vi",
   "start_url": "./index.html",
   "scope": "./",

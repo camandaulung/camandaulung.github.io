@@ -1271,6 +1271,106 @@ SC.TreeMigrate = {
 };
 
 ;
+/* ===== js/system-tree-stats.js ===== */
+/* system-tree-stats.js — quy chỉ số của từng nhánh thành CON SỐ ĐỌC ĐƯỢC
+ *
+ * Vì sao cần: thẻ nhánh chỉ ghi mô tả kiểu "3 giáo xuyên 7 con · cộng thêm 1 bậc",
+ * trong khi giá lên cấp là 25.200 vàng. Người chơi bỏ chừng đó tiền mà không thấy
+ * chỉ số nào nhúc nhích thì không có cách nào biết mình mua đúng hay sai — nhất là
+ * ở cấp vô hạn, nơi mô tả không còn đổi nữa vì đã hết bảng.
+ *
+ * Ở đây trả về danh sách {tên, nay, sau} để giao diện vẽ "6.8 → 7.6". Số lấy THẲNG
+ * từ chính các bảng mà ván chơi đang dùng (SC.Gun, SC.Drones, SC.Shield, SC.Armor),
+ * nên không bao giờ có chuyện bảng nói một đằng trong trận một nẻo.
+ */
+
+SC.TreeStats = {
+  /* Sát thương mỗi giây của súng ở một cấp — giả định mọi tia đều trúng.
+     Dùng cấp vũ khí 1 (chưa nhặt gì trong màn) để so cho công bằng giữa hai mốc. */
+  _gunDps(lv) { return SC.Gun.dps(lv, SC.Tree.path('wpn') || 'A', 1); },
+
+  _droneOf(lv) {
+    const k = SC.Drones.kind();
+    const t = SC.Tree.tierOf(SC.Drones[k], Math.max(1, lv));
+    return { n: Math.min(SC.Drones.MAX_N, Math.round(t.n)), dmg: t.dmg, rate: t.rate };
+  },
+
+  /* Ba dòng chỉ số của một nhánh: [nhãn, giá trị cấp NAY, giá trị cấp SAU] */
+  of(key) {
+    const lv = SC.Tree.lv(key);
+    const now = Math.max(1, lv), next = lv + 1;
+    const r = (v, d) => +v.toFixed(d === undefined ? 1 : d);
+
+    if (key === 'wpn') {
+      const a = SC.Tree.tierOf(SC.Gun[SC.Tree.path('wpn') || 'A'], now);
+      const b = SC.Tree.tierOf(SC.Gun[SC.Tree.path('wpn') || 'A'], next);
+      const out = [
+        ['Sát thương/giây', Math.round(this._gunDps(now)), Math.round(this._gunDps(next))],
+        ['Số tia', Math.min(SC.Gun.MAX_N, Math.round(a.n)), Math.min(SC.Gun.MAX_N, Math.round(b.n))]
+      ];
+      if (SC.Tree.path('wpn') === 'B') out.push(['Xuyên', Math.round(a.pierce), Math.round(b.pierce)]);
+      else out.push(['Tầm đạn', Math.round(SC.Gun.rangeA() * 100) + '%',
+        Math.round(Math.min(SC.Gun.RANGE_MAX, SC.Gun.RANGE_A + Math.max(0, next - 6) * SC.Gun.RANGE_STEP) * 100) + '%']);
+      return out;
+    }
+
+    if (key === 'drone') {
+      const a = this._droneOf(now), b = this._droneOf(next);
+      return [
+        ['Sát thương/giây', Math.round(a.n * a.dmg / a.rate), Math.round(b.n * b.dmg / b.rate)],
+        ['Số chiếc', a.n, b.n],
+        ['Sát thương mỗi phát', Math.round(a.dmg), Math.round(b.dmg)]
+      ];
+    }
+
+    if (key === 'shield') {
+      const k = SC.Shield.kind();
+      const a = lv < 1 ? null : SC.Shield.tier();
+      const b = SC.Tree.tierOf(SC.Shield[k], next);
+      const cur = a || { dur: 0, rad: 0, dps: 0, mul: 0 };
+      const out = [['Độ bền', Math.round(cur.dur), Math.round(b.dur)]];
+      if (k === 'A') {
+        out.push(['Sát thương/giây', Math.round(cur.dps), Math.round(b.dps)]);
+        out.push(['Bán kính', r(cur.rad) + '×', r(Math.min(4.2, b.rad)) + '×']);
+      } else {
+        out.push(['Đạn bật lại', r(cur.mul) + '×', r(b.mul) + '×']);
+        // giá bật có sàn 1, khớp với sàn đang áp trong SC.Shield.tier()
+        out.push(['Giá mỗi lần bật', Math.max(1, Math.round(cur.cost || 0)),
+          Math.max(1, Math.round(b.cost))]);
+      }
+      return out;
+    }
+
+    // armor
+    const A = SC.Armor[SC.Tree.path('armor') || 'A'];
+    const a = lv < 1 ? { hp: 0, r: 1, inv: SC.CFG.iFrame, narrow: 0.68 } : SC.Armor.tier();
+    const b = SC.Tree.tierOf(A, next);
+    return [
+      ['Máu tối đa', SC.CFG.playerHP + Math.round(a.hp), SC.CFG.playerHP + Math.round(b.hp)],
+      ['Bất tử sau đòn', r(a.inv, 2) + 's', r(SC.clamp(b.inv, 0.55, 1.8), 2) + 's'],
+      ['Lách sâu nhất', Math.round(a.narrow * 100) + '%',
+        Math.round(SC.clamp(b.narrow, 0.4, 0.86) * 100) + '%']
+    ];
+  },
+
+  /* Số đầu tiên trong chuỗi, để so tăng hay giảm ("1.57s" -> 1.57, "50%" -> 50) */
+  _num(v) { const m = String(v).match(/-?[\d.]+/); return m ? +m[0] : NaN; },
+
+  /* Dựng HTML ba dòng "nhãn  nay → sau".
+     Tô xanh khi TĂNG, tô đỏ khi GIẢM — có chỉ số cố ý đi xuống (giáp hạng nặng càng
+     cấp cao càng lách kém), tô xanh hết thì người chơi tưởng cái gì cũng tốt lên. */
+  html(key) {
+    return '<div class="tree-stats">' + this.of(key).map(([ten, nay, sau]) => {
+      const doi = String(nay) !== String(sau);
+      const a = this._num(nay), b = this._num(sau);
+      const cls = !doi ? '' : (b < a ? ' down' : ' up');
+      return `<div class="ts${cls}"><span>${ten}</span>`
+        + `<b>${nay}${doi ? ` <i>→</i> ${sau}` : ''}</b></div>`;
+    }).join('') + '</div>';
+  }
+};
+
+;
 /* ===== js/system-variant.js ===== */
 /* system-variant.js — tra biến thể hiện tại và dựng khoảnh khắc TIẾN HOÁ
  *
@@ -1388,6 +1488,23 @@ SC.Power = {
 
   /* 0..1 — dùng nội bộ để nội suy các hệ số bên dưới */
   _t() { return SC.clamp(this.total() / 100, 0, 1); },
+
+  /* SỐ HIỂN THỊ cho người chơi, KHÔNG chốt ở 100.
+   *
+   * total() phải chốt vì nó là hệ số co giãn độ khó — cho nó chạy tiếp thì cấp vô hạn
+   * lại kéo quái mạnh theo, đúng cái bẫy đã gỡ ở system-endless.js. Nhưng chốt cứng thì
+   * người chơi đổ hàng trăm nghìn vàng vào cấp 7-20 mà con số trên màn hình đứng im ở
+   * 100, nhìn như tiền ném đi.
+   *
+   * Nên tách: total() lo cân bằng, show() lo phản hồi. Mỗi cấp vượt mốc 24 cộng 4 điểm
+   * — con số nhích lên thấy được ngay sau mỗi lần mua. */
+  PER_OVER: 4,
+
+  show() {
+    const core = this.CORE_LV * SC.TREE_KEYS.length;
+    const over = Math.max(0, SC.Tree.totalLevels() - core);
+    return this.total() + over * this.PER_OVER;
+  },
 
   /* hệ số riêng của biến thể đang chạy; chưa thành hình thì trung tính */
   _v(i) {
@@ -1539,12 +1656,24 @@ SC.View = {
     return { top: parseFloat(cs.paddingTop) || 0, bottom: parseFloat(cs.paddingBottom) || 0 };
   },
 
+  /* Số đo safe-area quy về đơn vị ảo, dành cho phía JS (xem SC.UI.moveBoss).
+     Phía CSS tự tính lấy bằng env() nên không phụ thuộc hàm này — xem #ui trong
+     style.css. Trừ phần khung sân khấu đã hụt sẵn do căn giữa. */
+  _syncSafe() {
+    const s = this._readSafe(), g = this._gap || 0;
+    this.safe.top = Math.max(0, s.top - g) / this.scale;
+    this.safe.bottom = Math.max(0, s.bottom - g) / this.scale;
+  },
+
   /* Kiểm tra kích thước cửa sổ mỗi khung hình — bắt được cả trường hợp
      khung xem bị ẩn lúc tải (innerWidth = 0) rồi mới hiện ra sau. */
   poll() {
     const vw = Math.round(window.innerWidth);
     const vh = Math.round(window.visualViewport ? window.visualViewport.height : window.innerHeight);
-    if (vw !== this._vw || vh !== this._vh) this.layout();
+    if (vw !== this._vw || vh !== this._vh) { this.layout(); return; }
+    // iOS báo safe-area MUỘN mà không kèm resize, nên soát lại đều đặn thay vì
+    // chỉ tin vào lần đo lúc dựng khung. 20 khung hình một lần là đủ nhạy mà không tốn.
+    if ((this._tick = (this._tick || 0) + 1) % 20 === 0) this._syncSafe();
   },
 
   layout() {
@@ -1592,11 +1721,12 @@ SC.View = {
     this.ui.style.height = SC.H + 'px';
     this.ui.style.transform = 'scale(' + this.scale + ')';
 
-    const s = this._readSafe();
-    this.safe.top = s.top / this.scale;
-    this.safe.bottom = s.bottom / this.scale;
-    this.ui.style.setProperty('--safe-top', this.safe.top + 'px');
-    this.ui.style.setProperty('--safe-bottom', this.safe.bottom + 'px');
+    // Khung sân khấu căn giữa nên phía trên đã hụt sẵn ngần này — CSS trừ đi để
+    // không né tai thỏ hai lần. Hai biến này là tất cả những gì CSS cần từ JS.
+    this._gap = Math.max(0, (vh - cssH) / 2);
+    this.ui.style.setProperty('--vscale', this.scale);
+    this.ui.style.setProperty('--stage-top', this._gap + 'px');
+    this._syncSafe();
 
     if (this.onResize) this.onResize();
   },
@@ -5368,8 +5498,13 @@ SC.Shield = {
     const lv = SC.Tree.lv('shield'), k = this.kind();
     if (lv < 1) return null;
     const t = SC.Tree.tierOf(this[k], lv);
-    // bán kính từ trường có trần: rộng quá thì chỉ cần bay ngang là dọn sạch màn
-    return Object.assign({}, t, { rad: Math.min(4.2, t.rad) });
+    return Object.assign({}, t, {
+      // bán kính từ trường có trần: rộng quá thì chỉ cần bay ngang là dọn sạch màn
+      rad: Math.min(4.2, t.rad),
+      // Giá bật đạn phải có SÀN 1. Bảng đi 9→8→7→6→5 nên nội suy tới cấp 11 là 0 và
+      // cấp 12 là ÂM — khiên tự hồi bền mỗi lần bật đạn, tức là bật vô hạn miễn phí.
+      cost: Math.max(1, t.cost || 0)
+    });
   },
 
   reset(p) {
@@ -7013,15 +7148,19 @@ SC.MenuCard = {
     const card = id('menuNow');
     if (card) card.classList.toggle('boss', !!lv.boss);
 
-    /* ---------- tiến độ sao ---------- */
+    /* ---------- tiến độ sao ----------
+       Đếm TẤT CẢ sao, kể cả kiếm ở vòng vô tận, và trần nới theo số màn đã mở
+       (xem SC.UI.starMax). Giữ trần 180 thì sang vòng vô tận thanh vượt 100% và
+       con số đọc lên thành "191/180". */
     const star = ui.totalStar();
+    const max = ui.starMax();
     set('nowStars', star);
-    set('nowStarMax', SC.TOTAL_STARS);
+    set('nowStarMax', max);
     const fill = id('nowStarFill');
-    if (fill) fill.style.width = (star / SC.TOTAL_STARS * 100).toFixed(1) + '%';
+    if (fill) fill.style.width = SC.clamp(star / max * 100, 0, 100).toFixed(1) + '%';
 
     /* ---------- ví + sức mạnh ---------- */
-    this._count('nowPower', SC.Power.total());
+    this._count('nowPower', SC.Power.show());
     this._count('menuCoin', ui.progress.coin);
     set('nowUpg', SC.Tree.totalLevels());
     set('nowUpgMax', SC.Tree.totalMax());
@@ -7033,7 +7172,11 @@ SC.MenuCard = {
       : SC.Tree.anyAffordable() ? 'dot' : '';
 
     // dòng phụ dưới logo: số map lấy từ dữ liệu, đổi levelsPerBiome trong Excel là tự đúng
-    set('logoTag', `${SC.TOTAL_LEVELS} MAPS · AUTO FIRE · AUTO LOOT`);
+    // Không quảng cáo số map nữa: hết chiến dịch là mở vòng vô tận, con số cố định
+    // vừa sai vừa bán hụt thứ hay nhất của game.
+    // Ngắn gọn có chủ ý: trên điện thoại dòng này chỉ rộng ~330px thật, chuỗi cũ
+    // 42 ký tự bị gãy dòng ngay dưới logo.
+    set('logoTag', 'CHIẾN DỊCH · VÔ TẬN · AUTO BẮN');
 
     this.hookLine(ui, lv, biome, per);
     SC.AuthPanel.sync();          // thẻ hồ sơ + danh hiệu + trạng thái đăng nhập
@@ -7246,12 +7389,22 @@ SC.Result = {
     const row = (ten, gt, lop) => `<li class="${lop || ''}"><span>${ten}</span><b>${gt}</b></li>`;
 
     if (!win) return row('Vàng nhặt được', '+' + r.gold, 'tong');
+    let out;
 
-    const out = [row('Vàng nhặt trong màn', '+' + r.coin)];
+    /* Ba khoản cộng dồn, phải tách ĐÚNG BA DÒNG.
+       Bản cũ gộp cả hệ số ĐỘ SÂU MAP vào dòng "Thu vàng" nên con số đọc lên vô lý:
+       nhặt 198 + thưởng 992 = 1.190, mà dòng "Thu vàng +120%" lại ghi +4.169 —
+       gấp hơn ba lần chứ không phải 120%. */
+    const depth = r.depth || 1;
+    const nhat = Math.round(r.coin * depth);
+    out = [row('Vàng nhặt trong màn', '+' + r.coin)];
+    if (depth > 1.005) {
+      out.push(row(`Map sâu ×${depth.toFixed(2)}`, '+' + (nhat - r.coin)));
+    }
     out.push(row(`Thưởng hoàn thành (${r.stars} sao)`, '+' + r.bonus));
 
-    // phần do dòng nâng cấp THU VÀNG sinh ra
-    const themDoNangCap = r.gold - r.coin - r.bonus;
+    // phần do dòng nâng cấp THU VÀNG sinh ra, tính trên tổng hai khoản trên
+    const themDoNangCap = r.gold - nhat - r.bonus;
     if (themDoNangCap > 0) {
       out.push(row(`Thu vàng +${Math.round((r.mul - 1) * 100)}%`, '+' + themDoNangCap));
     }
@@ -7348,9 +7501,11 @@ SC.Profiles = {
       return {
         idx: i, id: p.id, name: p.name, avatar: p.avatar, photo: p.photo || '',
         isMe: i === this.active,
-        level: Math.min(SC.TOTAL_LEVELS, pr.unlocked || 1),
+        // không chặn ở 60: vòng vô tận vẫn phải thấy được trên bảng và trên bản đồ
+        level: pr.unlocked || 1,
         stars, coin: pr.coin || 0,
-        cleared: Object.keys(pr.stars || {}).length
+        // "đã qua bao nhiêu màn chiến dịch" — chỉ đếm 1..60, dùng cho mốc tốc độ
+        cleared: Object.keys(pr.stars || {}).filter(k => k <= SC.TOTAL_LEVELS).length
       };
     });
   },
@@ -7719,8 +7874,10 @@ SC.Cloud = {
       if (times[i] > 0) { sum += times[i]; cleared++; }
     }
     return {
-      highestLevel: Math.min(SC.TOTAL_LEVELS, p.unlocked || 1),
-      totalStars: SC.UI.totalStar(),
+      // KHÔNG chặn ở màn 60 nữa: vòng vô tận là chỗ người chơi giỏi phân định hơn thua,
+      // chặn lại thì ai qua chiến dịch cũng hoà nhau ở đúng một con số.
+      highestLevel: p.unlocked || 1,
+      totalStars: SC.UI.totalStar(),       // tính cả sao kiếm ở vòng vô tận
       cleared,
       // chỉ tính "thời gian hoàn thành" khi đã qua đủ cả chiến dịch, so kèo mới công bằng
       campaignTime: cleared >= SC.TOTAL_LEVELS ? Math.round(sum) : null
@@ -8006,7 +8163,7 @@ SC.AuthPanel = {
   askMerge(local, cloud) {
     const id = s => document.getElementById(s);
     const sum = p => Object.values(p.stars || {}).reduce((a, b) => a + b, 0);
-    const line = p => `Màn ${Math.min(SC.TOTAL_LEVELS, p.unlocked || 1)} · ★${sum(p)} · ◈${p.coin || 0}`;
+    const line = p => `${SC.Endless.label(p.unlocked || 1)} · ★${sum(p)} · ◈${p.coin || 0}`;
 
     // đang có hộp thoại chờ (đăng nhập lại liên tục) -> chốt bản cũ, đừng bỏ lửng lời hứa
     if (this._resolve) this.pick('local');
@@ -8037,10 +8194,28 @@ SC.AuthPanel = {
 SC.Rank = {
   tab: 'level',
   TABS: [
-    { k: 'level', label: 'MÀN CAO NHẤT', val: r => 'Màn ' + (r.highestLevel || 1) },
+    { k: 'level', label: 'MÀN CAO NHẤT', val: r => SC.Rank.lv(r.highestLevel || 1) },
     { k: 'time',  label: 'TỐC ĐỘ',       val: r => SC.Rank.time(r.bestTime) },
     { k: 'stars', label: 'TỔNG SAO',     val: r => '★ ' + (r.totalStars || 0) }
   ],
+
+  /* Ba tab đo ba thứ khác nhau, và ranh giới giữa chúng cần nói rõ — nếu không
+     người chơi sẽ tưởng tab Tốc độ cũng tính cả vòng vô tận rồi thấy số của mình
+     đứng im mãi mà không hiểu vì sao. */
+  TIP: {
+    level: () => 'Tính cả vòng vô tận — qua màn ' + SC.TOTAL_LEVELS + ' là bắt đầu tính vòng.',
+    time: () => `Tổng thời gian nhanh nhất của ${SC.TOTAL_LEVELS} màn chiến dịch. `
+      + 'Phải qua đủ cả chiến dịch mới lên bảng; vòng vô tận không tính vào đây.',
+    stars: () => 'Tính cả sao kiếm được ở vòng vô tận.'
+  },
+
+  /* Nhãn màn cho bảng: trong chiến dịch thì "Màn 42", sang vòng vô tận thì
+     "Vòng 2 · Màn 5" — con số tuyệt đối vẫn là thứ dùng để xếp hạng. */
+  lv(n) {
+    return SC.Endless && SC.Endless.active(n)
+      ? `Vòng ${SC.Endless.cycle(n) + 1} · ${SC.Endless.baseId(n)}`
+      : 'Màn ' + n;
+  },
 
   /* Lấy số màn từ dữ liệu, đừng chép cứng — đổi levelsPerBiome trong Excel là
      câu này sai ngay, mà nó lại là câu người chơi đọc nhiều nhất ở tab Tốc độ. */
@@ -8126,11 +8301,14 @@ SC.Rank = {
     const t = this.TABS.find(x => x.k === this.tab);
     const me = SC.Auth.user;
 
-    const banner = isLocal
+    // Chú thích của tab luôn hiện, kể cả khi bảng trống — đó là lúc người chơi
+    // thắc mắc "sao mình không có tên" nhiều nhất.
+    const tip = `<p class="rank-tip">${this.TIP[this.tab]()}</p>`;
+    const banner = tip + (isLocal
       ? `<p class="rank-note small">${err ? this.esc(err) + ' — ' : ''}Bảng của máy này (3 hồ sơ).${
           busy ? ' <i class="rank-busy">đang tải bảng toàn cầu…</i>'
                : ' Đăng nhập để đua toàn cầu.'}</p>`
-      : '';
+      : '');
 
     if (!rows.length) {
       wrap.innerHTML = banner + `<p class="rank-note">${this.EMPTY[this.tab]()}</p>`;
@@ -8204,7 +8382,8 @@ SC.MapSelect = {
       wrap.appendChild(this._region(ui, b, bi, levels));
     });
 
-    ui.el.totalStars.textContent = ui.totalStar();
+    // bản đồ chỉ vẽ 60 chặng chiến dịch nên đếm sao theo đúng phạm vi đó
+    ui.el.totalStars.textContent = ui.campaignStar();
     const mx = document.getElementById('maxStars');
     if (mx) mx.textContent = SC.TOTAL_STARS;
 
@@ -8350,7 +8529,7 @@ SC.MapSelect = {
     el.innerHTML = `
       <span class="sn-num">${locked
         ? '<svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg>' : lv.stage}</span>
-      ${lv.boss ? `<span class="sn-tag">${lv.finalBoss ? 'TRÙM VÙNG' : 'ELITE'}</span>` : ''}
+      ${lv.boss ? `<span class="sn-tag">${lv.finalBoss ? 'TRÙM' : 'ELITE'}</span>` : ''}
       ${locked ? '' : `<span class="sn-star">${pips}</span>`}`;
 
     if (!locked) el.onclick = () => { SC.Audio.click(); SC.Brief.open(lv.id); };
@@ -8461,7 +8640,7 @@ SC.TreeUI = {
     document.getElementById('treeCoin').textContent = this.num(SC.UI.progress.coin);
     const pw = document.getElementById('treePower');
     if (pw) {
-      pw.querySelector('b').textContent = SC.Power.total();
+      pw.querySelector('b').textContent = SC.Power.show();
       pw.title = 'Lực chiến — ' + SC.Power.rank();
     }
   },
@@ -8513,6 +8692,7 @@ SC.TreeUI = {
             beyond ? ` <i class="tree-lv">Lv ${lv}</i>` : ''}</div>
           ${this._track(key, lv, path)}
           <div class="shop-desc">${SC.Rank.esc(desc)}</div>
+          ${needFork ? '' : SC.TreeStats.html(key)}
         </div>
         <button class="shop-buy${needFork ? ' fork' : afford ? '' : ' poor'}">${
           needFork ? 'CHỌN' : '◈ ' + this.num(cost)
@@ -9169,7 +9349,8 @@ SC.Victory = {
     const id = s => document.getElementById(s);
     const set = (s, v) => { const e = id(s); if (e) e.textContent = v; };
     const p = SC.UI.progress;
-    const star = SC.UI.totalStar();
+    // màn tổng kết chiến dịch -> đếm sao trong phạm vi chiến dịch, không lẫn vòng vô tận
+    const star = SC.UI.campaignStar();
     const cur = SC.Profiles.cur();
 
     set('vicName', cur ? cur.name : 'PHI CÔNG');
@@ -9177,7 +9358,7 @@ SC.Victory = {
     set('vicStars', star);
     set('vicStarMax', SC.TOTAL_STARS);
     set('vicTime', SC.Rank.time(this.totalTime()));
-    set('vicPower', SC.Power.total());
+    set('vicPower', SC.Power.show());
     set('vicCoin', p.coin || 0);
     set('vicUpg', SC.Tree.totalLevels() + '/' + SC.Tree.totalMax());
     set('vicMaps', SC.TOTAL_LEVELS);
@@ -9488,6 +9669,28 @@ SC.UI = {
   save() {
     try { localStorage.setItem(this.key(), JSON.stringify(this.progress)); } catch (e) {}
   },
+  /* Sao kiếm trong CHIẾN DỊCH (màn 1-60). Dùng cho mọi chỗ hiện dạng "x/180":
+     tổng sao thật có tính cả vòng vô tận nên để nguyên là thanh tiến độ vượt 100%
+     và con số đọc lên thành vô lý ("196/180"). */
+  campaignStar() {
+    let s = 0;
+    for (const k in this.progress.stars)
+      if (+k <= SC.TOTAL_LEVELS) s += this.progress.stars[k];
+    return s;
+  },
+
+  /* Sao kiếm ở vòng vô tận — phần dôi ra ngoài chiến dịch */
+  bonusStar() { return this.totalStar() - this.campaignStar(); },
+
+  /* Trần sao HIỆN CÓ: nới theo số màn đã mở, không đứng im ở 180.
+     Sang vòng vô tận mà giữ trần cũ thì thanh tiến độ vượt 100% và con số đọc lên
+     thành vô lý ("191/180"). Mỗi màn đã đi qua đều có 3 sao để lấy, nên trần đúng
+     là 3 lần số màn đã mở. */
+  starMax() {
+    const reached = Math.max(SC.TOTAL_LEVELS, (this.progress.unlocked | 0) - 1);
+    return reached * 3;
+  },
+
   totalStar() {
     return Object.values(this.progress.stars).reduce((a, b) => a + b, 0);
   },
@@ -9495,6 +9698,29 @@ SC.UI = {
   /* ---------- bản đồ hành trình ---------- */
   buildMapList() { SC.MapSelect.build(this); },
 
+
+  toast(msg, big) {
+    const d = document.createElement('div');
+    d.className = 'toast' + (big ? ' big' : '');
+    d.textContent = msg;
+    this.el.toastZone.appendChild(d);
+    setTimeout(() => d.remove(), 1150);
+  },
+
+  /* bảng kết quả — chi tiết trong ui-result.js */
+  showResult(win, r) { SC.Result.show(this, win, r); }
+};
+
+;
+/* ===== js/ui-hud.js ===== */
+/* ui-hud.js — cập nhật thanh trạng thái trong trận: máu, khiên, điểm, wave, trùm…
+ *
+ * Tách khỏi ui-screens.js vì tệp đó đã vượt trần 200 dòng. Ranh giới tự nhiên: bên
+ * kia lo ĐIỀU HƯỚNG MÀN HÌNH và lưu tiến độ, bên này lo những con số nhấp nháy mỗi
+ * khung hình. Vẫn gắn thẳng vào SC.UI nên mọi chỗ gọi SC.UI.setHP(...) không đổi.
+ */
+
+Object.assign(SC.UI, {
   /* ---------- cập nhật HUD ---------- */
   setHP(v, max, sh, shMax) {
     this.el.hpFill.style.width = (v / max * 100) + '%';
@@ -9529,8 +9755,11 @@ SC.UI = {
      vẫn đọc được chứ không trôi mất. */
   moveBoss(b) {
     const el = this.el.bossBar;
+    // Mốc kẹp phải cộng thêm safe-area: trùm bay sát đỉnh màn thì thanh máu đội
+    // thẳng lên tai thỏ, mà đó lại đúng lúc cần đọc máu nhất.
+    const sf = SC.View.safe;
     el.style.left = SC.clamp(b.x, 100, SC.W - 100) + 'px';
-    el.style.top = SC.clamp(b.y + b.r + 12, 60, SC.H - 120) + 'px';
+    el.style.top = SC.clamp(b.y + b.r + 12, 60 + sf.top, SC.H - 120 - sf.bottom) + 'px';
     // trùm đang dịch chuyển (warp) thì làm mờ đi cho khớp với thân đang biến mất
     el.style.opacity = b.warp !== undefined && b.warp < 1 ? 0.25 : 1;
   },
@@ -9569,18 +9798,7 @@ SC.UI = {
     // thả dư 1 dù nên cứu vượt yêu cầu là bình thường, chỉ hiển thị tối đa bằng chỉ tiêu
     if (need) el.querySelector('b').textContent = Math.min(done, need) + '/' + need;
   },
-
-  toast(msg, big) {
-    const d = document.createElement('div');
-    d.className = 'toast' + (big ? ' big' : '');
-    d.textContent = msg;
-    this.el.toastZone.appendChild(d);
-    setTimeout(() => d.remove(), 1150);
-  },
-
-  /* bảng kết quả — chi tiết trong ui-result.js */
-  showResult(win, r) { SC.Result.show(this, win, r); }
-};
+});
 
 ;
 /* ===== js/system-pwa.js ===== */
@@ -9771,7 +9989,7 @@ SC.Finish = {
     const missions = SC.Missions.evaluate(g);
     const sec = Math.round(g.stats.time);
     let prevBest = 0, record = false;
-    let stars = 0, bonus = 0;
+    let stars = 0, bonus = 0, depth = 1;
     const mul = SC.Tree.goldMul();
     // thua vẫn giữ vàng nhặt được, nhưng không có thưởng và không nhân hệ số
     let gold = g.coin;
@@ -9780,7 +9998,7 @@ SC.Finish = {
       stars = missions.filter(m => m.done).length;
       // map càng sâu trả càng nhiều — xem SC.GOLD_DEPTH. Vòng vô tận cũng ăn theo
       // độ khó của vòng, nếu không thì cày map 61 lại lỗ hơn cày map 60.
-      const depth = SC.GOLD_DEPTH(g.levelId) * (1 + (SC.Endless.mul(g.levelId) - 1) * 0.6);
+      depth = SC.GOLD_DEPTH(g.levelId) * (1 + (SC.Endless.mul(g.levelId) - 1) * 0.6);
       bonus = Math.round(SC.CLEAR_BONUS(stars) * depth);
       gold = Math.round((g.coin * depth + bonus) * mul);
 
@@ -9815,7 +10033,7 @@ SC.Finish = {
     SC.Cloud.markDirty();          // sao lưu đám mây nếu đã đăng nhập
     SC.UI.showResult(win, {
       stars, score: g.score, kills: g.kills, acc,
-      coin: g.coin, bonus, mul, gold, missions,
+      coin: g.coin, bonus, mul, gold, depth, missions,
       time: sec, prevBest, record, finale
     });
   }
