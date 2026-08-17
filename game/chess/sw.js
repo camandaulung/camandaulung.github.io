@@ -9,7 +9,7 @@
  * trang van trong binh thuong. build.mjs co buoc kiem tra chan dung loi nay.
  */
 
-const VERSION = '017f191c';
+const VERSION = '2f17dc7c';
 const CACHE = 'cat-chess-' + VERSION;
 const SHELL = [
   "./",
@@ -84,7 +84,13 @@ self.addEventListener('fetch', ev => {
    * so voi rui ro tren, va offline van chay vi da nga ve cache. */
   if (req.mode === 'navigate') {
     ev.respondWith(
-      fetch(req)
+      /* `cache: 'reload'` o day cung BAT BUOC, cung ly do voi buoc precache.
+       *
+       * `fetch(req)` thuong VAN di qua HTTP cache cua trinh duyet. GitHub Pages dat
+       * max-age=600 cho HTML, nen trong 10 phut sau khi phat hanh, "mang truoc" van
+       * co the nhan ve index.html CU — tro toi ten file da bi xoa khoi may chu. Dung
+       * y nguyen kich ban da gay su co, chi khac duong di. */
+      fetch(new Request(req.url, { cache: 'reload', credentials: 'same-origin' }))
         .then(res => {
           if (res && res.status === 200 && res.type === 'basic') {
             const copy = res.clone();

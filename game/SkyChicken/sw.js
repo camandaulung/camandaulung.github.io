@@ -6,7 +6,7 @@
  *     thay vì tự đổi bản giữa lúc đang chơi
  */
 
-const CACHE = 'sky-chicken-d9f08ec3';
+const CACHE = 'sky-chicken-bce7db38';
 
 const SHELL = [
   "./",
@@ -72,7 +72,11 @@ self.addEventListener('fetch', e => {
      ghi tên các file kia — trả bản cũ ra là trỏ tới tên file không còn tồn tại. */
   if (req.mode === 'navigate') {
     e.respondWith(
-      fetch(req)
+      /* `cache: 'reload'` ở đây cũng BẮT BUỘC, cùng lý do với bước precache. `fetch(req)`
+         thường VẪN đi qua HTTP cache của trình duyệt; GitHub Pages đặt max-age=600 cho
+         HTML nên trong 10 phút sau khi phát hành, "mạng trước" vẫn có thể nhận về
+         index.html CŨ — trỏ tới tên file đã bị xoá khỏi máy chủ. */
+      fetch(new Request(req.url, { cache: 'reload', credentials: 'same-origin' }))
         .then(res => {
           if (res && res.ok) caches.open(CACHE).then(c => c.put(req, res.clone()));
           return res;
