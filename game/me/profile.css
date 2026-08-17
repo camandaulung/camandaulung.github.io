@@ -1,0 +1,143 @@
+/* profile.css — trang hồ sơ người chơi
+ *
+ * Tông tối, giống hai game, để đi từ game sang hồ sơ không thấy như đổi trang web.
+ * Không dùng font tải về: trang này phải mở nhanh và chạy được cả khi mất mạng.
+ */
+
+:root {
+  --nen: #141821;
+  --the: #1c2130;
+  --vien: #2a3145;
+  --chu: #e8ecf5;
+  --mo: #8e97ad;
+  --nhan: #ffc857;
+  --ok: #5ddb8f;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 0 0 40px;
+  background: var(--nen);
+  color: var(--chu);
+  font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* máy có tai thỏ: chừa chỗ hai bên khi xoay ngang */
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+.wrap { max-width: 720px; margin: 0 auto; padding: 20px 16px; }
+
+/* ---------- đầu trang ---------- */
+.hero {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 18px;
+  background: var(--the);
+  border: 1px solid var(--vien);
+  border-radius: 14px;
+}
+
+.ava {
+  width: 64px; height: 64px;
+  flex: 0 0 64px;
+  border-radius: 50%;
+  background: #2b3247;
+  display: grid; place-items: center;
+  font-size: 26px; font-weight: 700;
+  overflow: hidden;
+}
+.ava img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.hero-txt { flex: 1 1 200px; min-width: 0; }
+.ten { margin: 0; font-size: 22px; overflow-wrap: anywhere; }
+.phu { margin: 2px 0 0; color: var(--mo); font-size: 14px; }
+
+.auth { flex: 0 0 auto; }
+
+/* ---------- thẻ game ---------- */
+.ds { display: grid; gap: 14px; margin-top: 18px; }
+
+.game {
+  padding: 16px;
+  background: var(--the);
+  border: 1px solid var(--vien);
+  border-radius: 14px;
+}
+/* Chưa chơi thì làm mờ đi, nhưng VẪN HIỆN — đó là lời mời chơi thử,
+   giấu game đi thì người chơi không biết cổng còn có gì. */
+.game.trong { opacity: .72; }
+
+.game-dau { display: flex; align-items: center; gap: 10px; }
+.game-icon { font-size: 24px; }
+.game-ten { margin: 0; font-size: 18px; }
+
+.chi-so {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin: 14px 0 10px;
+}
+
+.o {
+  padding: 10px 12px;
+  background: #171c28;
+  border: 1px solid var(--vien);
+  border-radius: 10px;
+}
+.o-nhan { display: block; color: var(--mo); font-size: 12.5px; }
+.o-val { display: block; font-size: 20px; margin-top: 2px; }
+
+/* Thứ hạng chỉ chiếm chỗ khi thật sự có số. Để nó luôn chiếm chỗ thì
+   ô tiêu chí chính cao hơn hai ô kia dù chưa đăng nhập, nhìn lệch. */
+.o-hang { display: none; font-size: 13px; color: var(--nhan); }
+.o-hang.co { display: block; margin-top: 2px; }
+
+.game-trong { margin: 12px 0; color: var(--mo); font-size: 14px; }
+.game-khi { margin: 0 0 12px; color: var(--mo); font-size: 12.5px; }
+
+/* ---------- nút ---------- */
+.btn {
+  display: inline-block;
+  padding: 9px 16px;
+  border: 1px solid var(--vien);
+  border-radius: 9px;
+  background: #232a3c;
+  color: var(--chu);
+  font: inherit; font-size: 15px;
+  text-decoration: none;
+  cursor: pointer;
+}
+.btn:hover { background: #2b3348; }
+.btn:disabled { opacity: .6; cursor: default; }
+.btn-nho { font-size: 14px; padding: 7px 12px; }
+.btn-chinh { background: var(--nhan); border-color: var(--nhan); color: #201a06; font-weight: 600; }
+.btn-chinh:hover { background: #ffd77a; }
+
+/* Vòng focus rõ ràng cho người dùng bàn phím — nền tối nên viền mảnh sẽ chìm */
+.btn:focus-visible, a:focus-visible {
+  outline: 2px solid var(--ok);
+  outline-offset: 2px;
+}
+
+.chan { margin-top: 22px; text-align: center; }
+.chan a { color: var(--mo); }
+
+/* ---------- thông báo ---------- */
+.toast {
+  position: fixed; left: 50%; bottom: 24px;
+  transform: translateX(-50%);
+  padding: 10px 16px;
+  background: #2b3348;
+  border: 1px solid var(--vien);
+  border-radius: 9px;
+  font-size: 14px;
+  max-width: min(92vw, 420px);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .btn { transition: background .15s ease; }
+}

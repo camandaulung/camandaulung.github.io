@@ -251,7 +251,7 @@ body.is-touch .portal-back{font-size:16px;padding:13px 15px}
 .sj:active{transform:translateY(2px)}
 body.is-touch .sj{padding:10px 13px}
 body.is-touch .sj b{font-size:16px}
-body.is-touch .sj em{font-size:15px}
+body.is-touch .sj em{font-size:17px}
 
 .saga-region{margin-bottom:6px;color:var(--tint)}
 /* dính đầu khung khi cuộn để luôn biết đang ở vùng nào */
@@ -429,7 +429,7 @@ body.is-touch .sn-star i{width:9px;height:9px}
 /* dòng "còn thiếu bao nhiêu" của nhiệm vụ trượt — nhỏ hơn nhãn nhưng vẫn đọc rõ */
 .m-txt i{display:block;font-style:normal;font-size:10px;letter-spacing:.02em;
   color:#ff9aa8;margin-top:3px}
-body.is-touch .m-txt i{font-size:15px}
+body.is-touch .m-txt i{font-size:17px}
 .mission-rows li.ok b{color:var(--ok)}
 /* Dấu trượt phải đọc được ngang với dấu đạt. Bản cũ #54617a trên nền tối gần như
    chìm hẳn, thành ra nhiệm vụ hỏng nhìn như dòng trống. */
@@ -707,7 +707,7 @@ body.is-touch .m-txt i{font-size:15px}
 
 body.is-touch .vic-kicker{font-size:16px}
 body.is-touch .vic-sub{font-size:16px}
-body.is-touch .vic-lb{font-size:15px}
+body.is-touch .vic-lb{font-size:17px}
 body.is-touch .vic-val{font-size:28px}
 body.is-touch .vic-perfect{font-size:16px}
 body.is-touch .vic-login p{font-size:16px}
@@ -815,6 +815,11 @@ body.is-touch .ava-badge{width:19px;height:19px;font-size:12px}
 .auth-user b{min-width:0;font-family:var(--font-display);font-size:14px;letter-spacing:.04em;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* trạng thái đồng bộ có CHỮ, không bắt người chơi đoán ý nghĩa của màu chấm */
+/* Đường sang trang hồ sơ cả cổng game. Vùng chạm cao 40px: là liên kết chứ không
+   phải nút, nhưng ngón tay thì không phân biệt hai thứ đó. */
+.link-hoso{display:block;min-height:40px;line-height:40px;font-family:var(--font-display);
+  font-size:11px;letter-spacing:.06em;color:var(--acc);text-decoration:none}
+.link-hoso:hover{text-decoration:underline}
 .cloud-state{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--dim)}
 .cloud-state em{font-style:normal}
 .cloud-scope{font-size:11px;color:var(--dim);padding-top:9px;
@@ -850,8 +855,8 @@ body.is-touch .cloud-why,body.is-touch .cloud-scope,body.is-touch .cloud-state{f
 .prof-chip em{font-style:normal;font-size:8.5px;letter-spacing:.18em;color:var(--cy);flex:none}
 .prof-chip:active{transform:translateY(2px)}
 body.is-touch .prof-chip b{font-size:17px}
-body.is-touch .prof-chip .prof-rank{font-size:15px}
-body.is-touch .prof-chip em{font-size:15px}
+body.is-touch .prof-chip .prof-rank{font-size:17px}
+body.is-touch .prof-chip em{font-size:17px}
 
 #scrProfile{background:radial-gradient(110% 70% at 50% 0%,#123a34,#05070f 70%)}
 .prof-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;
@@ -1017,8 +1022,11 @@ body.is-touch .prof-del .ic{width:22px;height:22px}
  * Bảng quy đổi nhanh:  14px → 9.7   15px → 10.4   16px → 11.1   17px → 11.8   19px → 13.2
  *
  * Đợt trước hiệu chỉnh bằng mắt trên trình duyệt máy tính, nơi khung ảo hiện 1:1,
- * nên mọi con số đều hụt đúng một lần chia 0.694. Mốc bây giờ: chữ phụ >= 16px,
- * chữ chính >= 17px, nhãn siêu nhỏ >= 14px. */
+ * nên mọi con số đều hụt đúng một lần chia 0.694.
+ *
+ * MỐC HIỆN TẠI — sàn tuyệt đối 16px (11.1px thật), không có ngoại lệ:
+ *   nhãn siêu nhỏ 17px · chữ phụ 16-17px · chữ chính 17-18px
+ * Nhãn nào phóng lên mà không đủ chỗ thì RÚT CHỮ, không hạ cỡ xuống lại. */
 body.is-touch .chip{font-size:17px}
 body.is-touch .lvl-tag{font-size:17px}
 body.is-touch .wave-wrap span{font-size:16px}
@@ -1027,19 +1035,23 @@ body.is-touch .boss-wrap span{font-size:16px}
 body.is-touch .biome-h{font-size:17px}
 body.is-touch .sn-num{font-size:26px}
 body.is-touch .sn-star{font-size:12px}
-body.is-touch .sn-tag{font-size:15px;top:-14px;padding:2px 8px}
+body.is-touch .sn-tag{font-size:17px;top:-14px;padding:2px 8px}
 body.is-touch .saga-head b{font-size:17px}
 body.is-touch .saga-head span{font-size:16px}
 body.is-touch .scr-head h2{font-size:19px}
 body.is-touch .total-star{font-size:17px}
 body.is-touch .power-tag{font-size:16px}
-body.is-touch .rs-lb{font-size:15px}
-body.is-touch .res-links .btn.text{font-size:16px}
+body.is-touch .rs-lb{font-size:17px;letter-spacing:.05em}
+/* Hai lối phụ dưới màn kết quả: giữ nguyên cỡ chữ, cắt đệm và giãn chữ để nhãn
+   nằm gọn một dòng thay vì gãy đôi ngay dưới cụm nút chính. */
+body.is-touch .res-links .btn.text{font-size:16px;letter-spacing:.02em;padding:10px 4px;
+  white-space:nowrap}
+body.is-touch .res-links .btn.text .ic{width:16px;height:16px}
 body.is-touch .rs-v{font-size:22px}
 body.is-touch .rs-v em{font-size:13px}
-body.is-touch .rs-v i{font-size:14px}
+body.is-touch .rs-v i{font-size:16px}
 body.is-touch .res-level{font-size:16px}
-body.is-touch .res-tag{font-size:15px}
+body.is-touch .res-tag{font-size:17px}
 body.is-touch .res-advice{font-size:16px}
 body.is-touch .gold-rows li{font-size:16px}
 body.is-touch .gold-rows li.tong{font-size:17px}
@@ -1053,8 +1065,9 @@ body.is-touch .btn{font-size:18px;padding:10px 26px;min-height:66px;
   display:flex;align-items:center;justify-content:center}
 /* Ba công tắc trên một hàng (màn tạm dừng): chữ to lên thì phải bớt giãn chữ và
    bớt đệm, không thì hàng dài 275 trên khung rộng 252 và nút bị cắt. */
-body.is-touch .btn.small{font-size:16px;padding:10px 4px;min-height:62px;letter-spacing:.03em}
-body.is-touch .menu-row{gap:7px}
+body.is-touch .btn.small{font-size:16px;padding:10px 2px;min-height:62px;letter-spacing:.02em}
+body.is-touch .btn.small .ic{width:16px;height:16px}
+body.is-touch .menu-row{gap:5px}
 body.is-touch .btn.text{min-height:56px}
 body.is-touch .icon-btn{width:64px;height:64px;font-size:19px}
 body.is-touch .icon-btn .ic{width:27px;height:27px}
@@ -1068,38 +1081,43 @@ body.is-touch .shop-ic{width:54px;height:54px;font-size:25px}
 body.is-touch .shop-buy{font-size:16px;min-height:62px;min-width:92px}
 body.is-touch .shop-note{font-size:16px}
 body.is-touch .wallet{font-size:17px}
-body.is-touch .now-label{font-size:15px}
-body.is-touch .now-chunk{font-size:15px}
+/* Nhãn phóng to thì phải bớt GIÃN CHỮ, không thì gãy đôi trong ô hẹp: giãn .28em ở
+   cỡ 17px tốn thêm gần 5px mỗi ký tự, riêng phần giãn đã ăn hết một phần ba chỗ. */
+body.is-touch .now-label{font-size:17px;letter-spacing:.1em}
+body.is-touch .now-chunk{font-size:17px;letter-spacing:.06em;white-space:nowrap}
 body.is-touch .now-map{font-size:26px}
 body.is-touch .now-biome{font-size:16px}
 body.is-touch .now-foe{font-size:17px}
 body.is-touch .now-foot{font-size:16px}
 body.is-touch .star-num{font-size:16px}
-body.is-touch .rail-btn{font-size:15px;padding:13px 4px}
+/* Dãy 4 lối vào: nới từ 80% lên 96% bề ngang thay vì ép nhỏ chữ lại. Ở cỡ 17px
+   nhãn "KỸ NĂNG" cần ~124 đơn vị ảo, mỗi nút cũ chỉ có 77. */
+body.is-touch .lobby-rail{width:96%;gap:6px}
+body.is-touch .rail-btn{font-size:16px;padding:13px 3px;letter-spacing:.01em}
 body.is-touch .rail-btn .ic{width:25px;height:25px}
 body.is-touch .lobby-hook{font-size:16px}
-body.is-touch .logo-sub{font-size:15px;letter-spacing:.4em}
-body.is-touch .logo-tag{font-size:15px;letter-spacing:.16em}
+body.is-touch .logo-sub{font-size:17px;letter-spacing:.4em}
+body.is-touch .logo-tag{font-size:17px;letter-spacing:.16em}
 
 /* ---------- CÂY KỸ NĂNG · SỔ TAY ---------- */
 body.is-touch .tv-name{font-size:18px}
 body.is-touch .tv-tag{font-size:16px}
-body.is-touch .tree-evo{font-size:15px}
+body.is-touch .tree-evo{font-size:17px}
 body.is-touch .tree-name{font-size:17px}
-body.is-touch .tree-name em{font-size:15px}
-body.is-touch .tree-name .tree-lv{font-size:14px}
-body.is-touch .tree-plus{font-size:15px}
-body.is-touch .tree-rebuild{font-size:15px}
-body.is-touch .ts{font-size:15px}
+body.is-touch .tree-name em{font-size:17px}
+body.is-touch .tree-name .tree-lv{font-size:16px}
+body.is-touch .tree-plus{font-size:17px}
+body.is-touch .tree-rebuild{font-size:17px}
+body.is-touch .ts{font-size:17px}
 body.is-touch .cx-head b{font-size:17px}
-body.is-touch .cx-head em{font-size:14px}
-body.is-touch .cx-tag,body.is-touch .cx-good,body.is-touch .cx-bad{font-size:15px}
-body.is-touch .cx-hint{font-size:15px}
-body.is-touch .cx-stats li{font-size:15px}
+body.is-touch .cx-head em{font-size:16px}
+body.is-touch .cx-tag,body.is-touch .cx-good,body.is-touch .cx-bad{font-size:17px}
+body.is-touch .cx-hint{font-size:17px}
+body.is-touch .cx-stats li{font-size:17px}
 
 /* ---------- TIẾN HOÁ · RẼ NHÁNH · QUÀ ---------- */
-body.is-touch .evo-step{font-size:15px}
-body.is-touch .evo-tag{font-size:15px}
+body.is-touch .evo-step{font-size:17px}
+body.is-touch .evo-tag{font-size:17px}
 body.is-touch .evo-gain li{font-size:16px}
 body.is-touch .fork-box h3{font-size:17px}
 body.is-touch .fork-warn{font-size:16px}
@@ -1110,26 +1128,26 @@ body.is-touch .gift-note{font-size:16px}
 
 /* ---------- BẢNG XẾP HẠNG ---------- */
 body.is-touch .rank-tabs button{font-size:16px}
-body.is-touch .rank-tip{font-size:15px}
+body.is-touch .rank-tip{font-size:17px}
 body.is-touch .rank-pos{font-size:17px}
 body.is-touch .rank-name,body.is-touch .rank-val{font-size:17px}
-body.is-touch .rank-note{font-size:15px}
-body.is-touch .rank-note.small,body.is-touch .rank-me.hint-row{font-size:15px}
+body.is-touch .rank-note{font-size:17px}
+body.is-touch .rank-note.small,body.is-touch .rank-me.hint-row{font-size:17px}
 
 /* ---------- HỒ SƠ · ĐÁM MÂY · TUỲ CHỌN ---------- */
-body.is-touch .opt-lb{font-size:15px}
-body.is-touch .opt-note{font-size:15px}
+body.is-touch .opt-lb{font-size:17px}
+body.is-touch .opt-note{font-size:17px}
 body.is-touch #profName,body.is-touch .prof-mid b{font-size:17px}
-body.is-touch .prof-mid span{font-size:15px}
-body.is-touch .prof-mid b em{font-size:14px}
-body.is-touch .prof-new-lb{font-size:15px}
-body.is-touch .prof-note{font-size:15px}
-body.is-touch .prof-full{font-size:15px}
+body.is-touch .prof-mid span{font-size:17px}
+body.is-touch .prof-mid b em{font-size:16px}
+body.is-touch .prof-new-lb{font-size:17px}
+body.is-touch .prof-note{font-size:17px}
+body.is-touch .prof-full{font-size:17px}
 body.is-touch .auth-user b{font-size:17px}
 body.is-touch .setup-lead,body.is-touch .setup-steps{font-size:16px}
-body.is-touch .setup-note{font-size:15px}
+body.is-touch .setup-note{font-size:17px}
 body.is-touch .merge-note,body.is-touch .merge-opt span{font-size:16px}
-body.is-touch .merge-opt em{font-size:15px}
+body.is-touch .merge-opt em{font-size:17px}
 
 body.is-touch .vic-val small{font-size:16px}
 /* Khung ngắn (máy bảng ~4:3, SC.H≈720): co lại cho vừa, KHÔNG để tràn khỏi khung ảo */
@@ -1143,7 +1161,7 @@ body.is-touch .vic-val small{font-size:16px}
   body.is-touch .btn.btn-deploy{min-height:60px}
   body.is-touch .rail-btn{padding:10px 4px}
   .hint{font-size:11px}
-  body.is-touch .hint{font-size:15px}
+  body.is-touch .hint{font-size:17px}
 }
 body.is-touch .mission-box li{font-size:16px}
 body.is-touch .mission-box h4{font-size:16px}

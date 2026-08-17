@@ -2207,132 +2207,6 @@ CC.CatProfiles = (function () {
 })();
 
 ;
-/* ===== js/config-firebase.js ===== */
-/* config-firebase.js — khai bao du an Firebase
- *
- * DUNG CHUNG du an voi Sky Chicken (da chot): `minigame-5d3ee`.
- * Hai game o hai ten mien khac nhau nen CA HAI phai co trong Authorized domains:
- *   - minhducdl87-code.github.io   (Sky Chicken)
- *   - camandaulung.github.io       (Co vua meo Leo)
- * Thieu ten mien nao thi game do bao loi auth/unauthorized-domain.
- *
- * DE TRONG apiKey = game chay binh thuong o che do an danh: nut dang nhap tu an,
- * bang xep hang tu an, thanh tich van luu trong may. Khong co gi vo.
- *
- * apiKey cua Firebase la khoa CONG KHAI, de trong ma nguon la dung thiet ke —
- * chan truy cap la viec cua luat Firestore, khong phai cua viec giau khoa.
- *
- * Ba viec phai lam tren Console truoc khi dang nhap chay duoc:
- *   1. Authentication > Sign-in method > bat Google  (da lam cho Sky Chicken)
- *   2. Authentication > Settings > Authorized domains > them camandaulung.github.io
- *   3. Firestore > Rules > dan them phan `chessScores` trong firestore.rules
- */
-
-CC.FB_CONFIG = {
-  apiKey: 'AIzaSyB73g3D3zRgvfAFX4KCKkEjgVACM93YtbY',
-  projectId: 'minigame-5d3ee',
-  appId: '1:1098790709614:web:7758724fb27ca7cd80f97f',
-  authDomain: 'minigame-5d3ee.firebaseapp.com'
-};
-
-;
-/* ===== js/system-firebase.js ===== */
-/* system-firebase.js — nạp SDK Firebase theo kiểu lười, dùng chung cho auth và cloud
- *
- * NGUỒN GỐC: chép từ games/sky-chicken-invader/js/system-firebase.js, chỉ đổi tên
- * biến toàn cục SC -> CC. Phần xử lý các bẫy bên dưới đã được kiểm chứng trên bản
- * deploy thật của Sky Chicken — đừng viết lại từ đầu.
- * Khi nào có dịp đụng lại cả hai game thì gộp vào một chỗ dùng chung.
- *
- * Vì sao nạp lười bằng import() động thay vì thẻ <script>:
- *   - Người chơi ẩn danh (đa số) không phải tải thêm ~200KB SDK nào cả.
- *   - Bộ nối file của build.mjs chạy ở chế độ sloppy với biến toàn cục CC; import()
- *     động vẫn dùng được trong script thường nên không phải đổi kiến trúc.
- *   - Mất mạng thì import() ném lỗi, bắt lại là xong — game vẫn chơi được offline.
- */
-
-CC.FB = {
-  SDK: 'https://www.gstatic.com/firebasejs/10.12.5',
-
-  /* đã khai báo dự án chưa — chưa thì toàn bộ tính năng đám mây tự ẩn đi */
-  configured() {
-    const c = CC.FB_CONFIG;
-    return !!(c && c.apiKey && c.projectId && c.appId);
-  },
-
-  _p: null,
-
-  /* Trả Promise gói {auth, db, authM, fsM}. Gọi bao nhiêu lần cũng chỉ nạp một lần. */
-  load() {
-    if (this._p) return this._p;
-    if (!this.configured()) return Promise.reject(new Error('Chưa cấu hình Firebase'));
-
-    this._p = (async () => {
-      const [appM, authM, fsM] = await Promise.all([
-        import(`${this.SDK}/firebase-app.js`),
-        import(`${this.SDK}/firebase-auth.js`),
-        import(`${this.SDK}/firebase-firestore.js`)
-      ]);
-      const app = appM.initializeApp(CC.FB_CONFIG);
-
-      /* Firestore mặc định nói chuyện bằng WebChannel (kênh streaming). Nhiều mạng
-         công ty, proxy và cả một số trình duyệt chặn kiểu kết nối này: biểu hiện là
-         request trả 400 rồi SDK cứ thử lại, câu truy vấn TREO vô hạn chứ không báo
-         lỗi. Đo được ở bản deploy: đọc collection treo quá 30 giây.
-
-         Bật tự dò để nó rơi về long-polling khi WebChannel không đi được. */
-      let db;
-      try {
-        db = fsM.initializeFirestore(app, {
-          experimentalAutoDetectLongPolling: true,
-          useFetchStreams: false
-        });
-      } catch (e) {
-        db = fsM.getFirestore(app);      // đã khởi tạo ở đâu đó rồi thì dùng lại
-      }
-
-      return { app, authM, fsM, auth: authM.getAuth(app), db };
-    })();
-
-    // hỏng (mất mạng, CDN chặn) thì xoá cache để lần sau còn thử lại được
-    this._p.catch(() => { this._p = null; });
-    return this._p;
-  },
-
-  /* Đổi mã lỗi Firebase thành câu tiếng Việt người chơi hiểu được */
-  err(e) {
-    const c = (e && e.code) || '';
-    if (c.includes('popup-closed') || c.includes('cancelled-popup')) return 'Đã huỷ đăng nhập';
-    if (c.includes('network')) return 'Mất kết nối mạng';
-    if (c.includes('unauthorized-domain')) return 'Tên miền chưa được cấp phép';
-    if (c.includes('permission-denied')) return 'Không có quyền ghi dữ liệu';
-    if (c.includes('unavailable')) return 'Máy chủ bận, thử lại sau';
-    // Hạn giờ của CC.Cloud._limit. Hay gặp nhất khi Firestore CHƯA ĐƯỢC TẠO trong
-    // dự án: SDK không báo lỗi mà cứ thử lại âm thầm, câu truy vấn treo vô hạn.
-    if (c === 'timeout') return 'Máy chủ không phản hồi';
-    return 'Lỗi kết nối, thử lại sau';
-  },
-
-  /* Firestore có thật sự dùng được không — hỏi thẳng REST API.
-     SDK trả về kho đệm cục bộ khi không nối được máy chủ, nên "đọc thành công,
-     0 bản ghi" KHÔNG chứng minh được là Firestore đã tồn tại. Đường REST thì báo
-     thẳng: chưa bật API, chưa tạo database, hay bị luật chặn. */
-  async probe() {
-    const c = CC.FB_CONFIG;
-    if (!this.configured()) return { ok: false, why: 'Chưa khai báo Firebase' };
-    try {
-      const r = await fetch(`https://firestore.googleapis.com/v1/projects/${c.projectId}`
-        + `/databases/(default)/documents/scores?key=${c.apiKey}&pageSize=1`);
-      if (r.ok) return { ok: true };
-      const d = await r.json().catch(() => ({}));
-      return { ok: false, status: r.status, why: (d.error && d.error.message) || 'HTTP ' + r.status };
-    } catch (e) {
-      return { ok: false, why: e.message };
-    }
-  }
-};
-
-;
 /* ===== js/rules-adapter.js ===== */
 /* rules-adapter.js — lop boc quanh chess.js
  *
@@ -4933,250 +4807,112 @@ CC.Scoring = (function () {
 })();
 
 ;
-/* ===== js/system-auth.js ===== */
-/* system-auth.js — dang nhap Google
+/* ===== js/cloud-adapter.js ===== */
+/* cloud-adapter.js — cờ vua nói cho mã dùng chung biết DỮ LIỆU CỦA NÓ hình dạng thế nào
  *
- * NGUON GOC: chep tu games/sky-chicken-invader/js/system-auth.js, doi SC -> CC.
- * Da kiem chung tren ban deploy that (ke ca nhanh redirect cho iOS Safari).
+ * Phần mạng (phiên, hạn giờ, gom lần ghi, hàng đợi khi mất mạng) do `shared/portal-cloud.js`
+ * lo. File này chỉ khai báo thứ thuộc riêng cờ vua.
  *
- * NGUYEN TAC: KHONG bat dang nhap moi choi duoc. Vao la danh co ngay; dang nhap
- * chi can khi muon len bang xep hang hoac giu thanh tich khi doi may.
- *
- * Meo tiet kiem: chi nap SDK khi nguoi choi TUNG dang nhap (co trong localStorage)
- * hoac khi bam nut. Nguoi choi an danh khong tai them byte nao.
+ * Trước đây cờ vua có bản sao riêng của cả ba file đăng nhập. Giờ chỉ còn file này —
+ * ~70 dòng thay vì ~340.
  */
 
-CC.Auth = {
-  FLAG: 'catchess.signedin',
-  user: null,          // { uid, name, avatar } hoac null
-  busy: false,
-  msg: '',             // thong bao loi gan nhat, de UI hien ra
-  _subs: [],
-  _attached: false,
-
-  available() { return CC.FB.configured(); },
-
-  /* UI dang ky o day; goi luon mot lan de ve trang thai ban dau */
-  onChange(fn) { this._subs.push(fn); fn(this.user); },
-  _emit() { for (const f of this._subs) f(this.user); },
-
-  /* Goi luc khoi dong. Chua tung dang nhap thi khong dung gi toi mang. */
-  async init() {
-    if (!this.available()) return;
-    if (!localStorage.getItem(this.FLAG)) return;
-    this.busy = true; this._emit();
-    try { await this._attach(); }
-    catch (e) { this.msg = CC.FB.err(e); }
-    finally { this.busy = false; this._emit(); }
-  },
-
-  /* Noi vao luong trang thai dang nhap cua Firebase (chi mot lan) */
-  async _attach() {
-    if (this._attached) return CC.FB.load();
-    const fb = await CC.FB.load();
-    this._attached = true;
-
-    // iOS Safari hay chan popup nen co nhanh redirect; ket qua roi ve day
-    await fb.authM.getRedirectResult(fb.auth).catch(() => {});
-
-    fb.authM.onAuthStateChanged(fb.auth, u => {
-      this.user = u ? {
-        uid: u.uid,
-        name: u.displayName || 'Kỳ thủ',
-        avatar: u.photoURL || ''
-      } : null;
-
-      if (this.user) localStorage.setItem(this.FLAG, '1');
-      else localStorage.removeItem(this.FLAG);
-
-      this.busy = false;
-      this._emit();
-      CC.Cloud.onUser(this.user);        // keo/day thanh tich
-    });
-    return fb;
-  },
-
-  async login() {
-    if (this.busy) return;
-    this.busy = true; this.msg = ''; this._emit();
-    try {
-      const fb = await this._attach();
-      const prov = new fb.authM.GoogleAuthProvider();
-      try {
-        await fb.authM.signInWithPopup(fb.auth, prov);
-      } catch (e) {
-        // popup bi chan (iOS, trinh duyet trong app) -> chuyen han sang redirect
-        const c = (e && e.code) || '';
-        if (c.includes('popup-blocked') || c.includes('operation-not-supported')) {
-          await fb.authM.signInWithRedirect(fb.auth, prov);
-          return;                        // trang se tu tai lai
-        }
-        throw e;
-      }
-    } catch (e) {
-      this.msg = CC.FB.err(e);
-      this.busy = false;
-      this._emit();
-      if (this.msg) CC.util.bus.emit('ui:toast', { text: this.msg });
-    }
-  },
-
-  async logout() {
-    if (this.busy || !this.user) return;
-    this.busy = true; this._emit();
-    try {
-      const fb = await CC.FB.load();
-      await fb.authM.signOut(fb.auth);
-      CC.util.bus.emit('ui:toast', { text: 'Đã đăng xuất' });
-    } catch (e) {
-      this.msg = CC.FB.err(e);
-      CC.util.bus.emit('ui:toast', { text: this.msg });
-    } finally {
-      this.busy = false;
-      this._emit();
-    }
-  }
-};
-
-;
-/* ===== js/system-cloud-save.js ===== */
-/* system-cloud-save.js — dong bo thanh tich len Firestore
- *
- * NGUYEN TAC BAT DI BAT DICH: localStorage la GOC, dam may chi la BAN SAO LUU.
- * Mat mang van choi binh thuong. Dong bo hong khong duoc lam mat du lieu cuc bo.
- *
- * KHI NAO GHI: chi khi KET THUC MOT VAN DAU VOI LEO. Khong ghi theo tung nuoc —
- * vua ton han muc mien phi vua vo nghia.
- *
- * VAN 2 NGUOI CHUNG MAY KHONG BAO GIO GHI — scoring-cat-points.js da chan o tren,
- * day chi la lop thu hai.
- *
- * Cau truc du lieu (dung tien to `chess` de khong dam voi Sky Chicken cung du an):
- *   chessUsers/{uid}   name, avatar, record{elo:{w,l,d}}, prefs, updatedAt
- *   chessScores/{uid}  name, avatar, bestEloBeaten, catPoints, bestStreak, totalGames
- */
-
-CC.Cloud = (function () {
-  const LIMIT_MS = 12000;     // han gio moi thao tac, xem ghi chu ben duoi
-  let user = null;
-  let queued = false;         // co thay doi cho day len khi co mang lai
-
-  /* Firestore co the TREO VO HAN thay vi bao loi (hay gap nhat khi database chua
-   * duoc tao trong du an). Boc han gio de con bao duoc cho nguoi dung. */
-  function limit(p) {
-    return Promise.race([
-      p,
-      new Promise((_, rej) => setTimeout(() => {
-        const e = new Error('timeout'); e.code = 'timeout'; rej(e);
-      }, LIMIT_MS))
-    ]);
+CC.CloudAdapter = (function () {
+  /* Điểm để so hai bản tiến độ. `catPoints` chỉ tăng nên bản cao hơn là bản mới hơn. */
+  function weight(p) {
+    if (!p || !p.score) return -1;
+    return (p.score.catPoints || 0);
   }
 
-  async function pushNow() {
-    if (!user || !CC.FB.configured()) return false;
-    try {
-      const fb = await CC.FB.load();
-      const s = CC.Store.score();
-      const rec = CC.Store.record();
-
-      await limit(fb.fsM.setDoc(fb.fsM.doc(fb.db, 'chessUsers', user.uid), {
-        name: user.name, avatar: user.avatar,
-        record: rec, prefs: CC.Store.prefs(),
-        updatedAt: Date.now()
-      }, { merge: true }));
-
-      await limit(fb.fsM.setDoc(fb.fsM.doc(fb.db, 'chessScores', user.uid), {
-        name: user.name, avatar: user.avatar,
-        bestEloBeaten: s.bestEloBeaten || 0,
-        catPoints: s.catPoints || 0,
-        bestStreak: s.bestStreak || 0,
-        totalGames: s.totalGames || 0,
-        updatedAt: Date.now()
-      }, { merge: true }));
-
-      queued = false;
-      return true;
-    } catch (e) {
-      // Mat mang -> xep hang, co mang lai thi day. Khong bao loi om som.
-      queued = true;
-      console.warn('[cloud] đẩy thất bại:', CC.FB.err(e));
-      return false;
-    }
-  }
-
-  /* Keo tu dam may ve. Xung dot thi CHON BAN NHIEU DIEM HON, khong ghi de bua. */
-  async function pull() {
-    if (!user || !CC.FB.configured()) return;
-    try {
-      const fb = await CC.FB.load();
-      const snap = await limit(fb.fsM.getDoc(fb.fsM.doc(fb.db, 'chessScores', user.uid)));
-      if (!snap.exists()) { await pushNow(); return; }   // lan dau: day ban cuc bo len
-
-      const cloud = snap.data();
-      const local = CC.Store.score();
-
-      // Diem tich luy chi tang, nen ban cao hon la ban moi hon
-      if ((cloud.catPoints || 0) > (local.catPoints || 0)) {
-        CC.Store.setScore({
-          bestEloBeaten: Math.max(cloud.bestEloBeaten || 0, local.bestEloBeaten || 0),
-          catPoints: cloud.catPoints || 0,
-          bestStreak: Math.max(cloud.bestStreak || 0, local.bestStreak || 0),
-          streak: local.streak || 0,
-          totalGames: Math.max(cloud.totalGames || 0, local.totalGames || 0)
-        });
-
-        const u = await limit(fb.fsM.getDoc(fb.fsM.doc(fb.db, 'chessUsers', user.uid)));
-        if (u.exists() && u.data().record) {
-          // Gop thanh tich theo muc: lay so lon hon o moi o
-          const cRec = u.data().record, lRec = CC.Store.record();
-          const merged = Object.assign({}, lRec);
-          Object.keys(cRec).forEach(k => {
-            const c = cRec[k], l = lRec[k] || { w: 0, l: 0, d: 0 };
-            merged[k] = { w: Math.max(c.w, l.w), l: Math.max(c.l, l.l), d: Math.max(c.d, l.d) };
-          });
-          try { localStorage.setItem(CC.cfg.LS.RECORD, JSON.stringify(merged)); } catch (e) { /* khong sao */ }
-        }
-        CC.util.bus.emit('cloud:pulled', {});
-      } else {
-        await pushNow();
-      }
-    } catch (e) {
-      console.warn('[cloud] kéo thất bại:', CC.FB.err(e));
-    }
+  /* Máy này chưa chơi ván nào.
+   * Phải xét riêng chứ không dựa vào `weight`: hồ sơ mới tinh vẫn có catPoints = 0,
+   * mà 0 cũng là điểm hợp lệ của người đã chơi mà chưa thắng ván nào. */
+  function isEmpty(p) {
+    return !p || !p.score || !(p.score.totalGames > 0);
   }
 
   return {
-    available: () => CC.FB.configured(),
-    isSignedIn: () => !!user,
-
-    /* CC.Auth goi vao day moi khi trang thai dang nhap doi */
-    onUser(u) {
-      user = u;
-      if (u) pull();
-    },
-
-    /* Ghi sau moi van dau voi Leo */
-    push: pushNow,
-
-    /* Lay bang xep hang. field: 'bestEloBeaten' | 'catPoints' | 'bestStreak' */
-    async top(field, n) {
-      if (!CC.FB.configured()) return [];
-      const fb = await CC.FB.load();
-      const q = fb.fsM.query(
-        fb.fsM.collection(fb.db, 'chessScores'),
-        fb.fsM.orderBy(field, 'desc'),
-        fb.fsM.limit(n || 100)
-      );
-      const snap = await limit(fb.fsM.getDocs(q));
-      return snap.docs.map((d, i) => Object.assign({ uid: d.id, rank: i + 1 }, d.data()));
-    },
-
-    hasQueued: () => queued,
-
     init() {
-      // Co mang lai thi day phan con no
-      window.addEventListener('online', () => { if (queued) pushNow(); });
-      CC.util.bus.on('score:changed', () => { if (user) pushNow(); });
+      /* Nối thông báo của mã chung vào kiểu thông báo của game.
+       * Gán TRƯỚC init: `adopt` bên dưới gọi Portal.toast, mà mã chung có thể
+       * chạy adopt ngay khi biết phiên đăng nhập cũ. */
+      Portal.toast = text => CC.util.bus.emit('ui:toast', { text });
+
+      Portal.Cloud.init({
+        game: 'chess',
+        userDoc: 'chessUsers',
+        scoreDoc: 'chessScores',
+
+        /* Tiến độ đầy đủ — ghi vào chessUsers */
+        progress: () => ({
+          score: CC.Store.score(),
+          record: CC.Store.record(),
+          prefs: CC.Store.prefs()
+        }),
+
+        /* Các trường dùng để xếp hạng — ghi vào chessScores.
+         * Chỉ những trường này mới lên bảng công khai. */
+        score: () => {
+          const s = CC.Store.score();
+          return {
+            bestEloBeaten: s.bestEloBeaten || 0,
+            catPoints: s.catPoints || 0,
+            bestStreak: s.bestStreak || 0,
+            totalGames: s.totalGames || 0
+          };
+        },
+
+        /* Cờ vua chỉ có một hồ sơ mỗi tài khoản nên lấy thẳng tên Google.
+         * (Sky Chicken khác: một tài khoản có 3 hồ sơ phi công, xem adapter bên đó.) */
+        playerName: () => (Portal.Auth.user && Portal.Auth.user.name) || 'Kỳ thủ',
+
+        weight,
+        isEmpty,
+
+        /* Nhận tiến độ từ đám mây về máy */
+        adopt(cloud) {
+          if (cloud.score) CC.Store.setScore(cloud.score);
+          if (cloud.record) {
+            try { localStorage.setItem(CC.cfg.LS.RECORD, JSON.stringify(cloud.record)); }
+            catch (e) { /* localStorage bị tắt — không sao, vẫn chơi được */ }
+          }
+          CC.util.bus.emit('cloud:pulled', {});
+          Portal.toast('Đã tải thành tích về');
+        },
+
+        /* Xung đột thì HỎI, không tự ghi đè.
+         * Người chơi cày ở máy khác rồi về máy này — tự đè là mất thành tích của họ. */
+        askMerge(local, cloud) {
+          const l = (local.score && local.score.catPoints) || 0;
+          const c = (cloud.score && cloud.score.catPoints) || 0;
+          return new Promise(resolve => {
+            const ok = confirm(
+              'Tài khoản của Anh có thành tích cao hơn ở máy khác:\n\n' +
+              '  Trên máy này: ' + l.toLocaleString('vi-VN') + ' điểm mèo\n' +
+              '  Trên tài khoản: ' + c.toLocaleString('vi-VN') + ' điểm mèo\n\n' +
+              'Lấy thành tích trên tài khoản về máy này?');
+            resolve(ok ? 'cloud' : 'local');
+          });
+        }
+      });
+
+      /* Ghi lên đám mây khi KẾT THÚC MỘT VÁN, không ghi theo từng nước —
+       * vừa tốn hạn mức vừa vô nghĩa.
+       *
+       * VÁN 2 NGƯỜI CHUNG MÁY KHÔNG BAO GIỜ ĐƯỢC GHI. `scoring-cat-points.js` đã
+       * chặn ở trên (không cộng điểm nên không phát `score:changed`), đây là lớp
+       * thứ hai. Bản cũ có ghi trong chú thích rằng nó là "lớp thứ hai" nhưng mã
+       * thì không kiểm gì cả — chỉ cần một chỗ nào đó lỡ phát `score:changed`
+       * giữa ván hotseat là điểm đánh với người ngồi cạnh lên bảng xếp hạng. */
+      CC.util.bus.on('score:changed', () => {
+        if (CC.Game.state && CC.Game.state.mode === 'hotseat') return;
+        Portal.Cloud.markDirty();
+      });
+
+      /* Hạ ngay một bản tóm tắt cho trang hồ sơ `/game/me/`. Không có dòng này thì
+       * người đã chơi từ trước bản cập nhật phải chơi thêm một ván nữa mới thấy hồ sơ. */
+      Portal.Cloud.snapshotLocal();
+
       return this;
     }
   };
@@ -8814,7 +8550,7 @@ CC.RankPanel = (function () {
   const cache = {};   // key -> {at, rows}
 
   function myRow(rows) {
-    const me = CC.Auth.user;
+    const me = Portal.Auth.user;
     if (!me) return null;
     return rows.find(r => r.uid === me.uid) || null;
   }
@@ -8831,7 +8567,7 @@ CC.RankPanel = (function () {
       return;
     }
 
-    const meUid = CC.Auth.user ? CC.Auth.user.uid : null;
+    const meUid = Portal.Auth.user ? Portal.Auth.user.uid : null;
     rows.slice(0, 100).forEach(r => {
       listBox.appendChild(CC.util.el('div', {
         class: 'rank-row' + (r.uid === meUid ? ' me' : '')
@@ -8854,14 +8590,14 @@ CC.RankPanel = (function () {
     listBox.appendChild(CC.util.el('p', { class: 'rank-empty', text: 'Đang tải…' }));
 
     try {
-      const rows = await CC.Cloud.top(key, 100);
+      const rows = await Portal.Rank.top('chessScores', key, { limit: 100 });
       cache[key] = { at: Date.now(), rows };
       renderRows(rows, key);
     } catch (e) {
       listBox.textContent = '';
       listBox.appendChild(CC.util.el('p', {
         class: 'rank-empty err',
-        text: 'Không tải được bảng xếp hạng: ' + CC.FB.err(e)
+        text: 'Không tải được bảng xếp hạng: ' + Portal.FB.err(e)
       }));
     }
   }
@@ -8905,7 +8641,7 @@ CC.RankPanel = (function () {
       const authBox = CC.util.el('div', { class: 'auth-box' });
       host.appendChild(authBox);
 
-      if (!CC.Auth.available()) {
+      if (!Portal.Auth.available()) {
         authBox.appendChild(CC.util.el('p', {
           class: 'rank-note',
           text: 'Bảng xếp hạng chưa bật. Thành tích vẫn được lưu trong máy.'
@@ -8913,13 +8649,13 @@ CC.RankPanel = (function () {
         return this;
       }
 
-      CC.Auth.onChange(u => {
+      Portal.Auth.onChange(u => {
         authBox.textContent = '';
         if (u) {
           authBox.appendChild(CC.util.el('span', { class: 'auth-name', text: 'Xin chào, ' + u.name }));
           authBox.appendChild(CC.util.el('button', {
             class: 'btn btn-sm', type: 'button', text: 'Đăng xuất',
-            onclick: () => CC.Auth.logout()
+            onclick: () => Portal.Auth.logout()
           }));
         } else {
           authBox.appendChild(CC.util.el('p', {
@@ -8927,12 +8663,22 @@ CC.RankPanel = (function () {
           }));
           authBox.appendChild(CC.util.el('button', {
             class: 'btn btn-primary', type: 'button',
-            text: CC.Auth.busy ? 'Đang xử lý…' : 'Đăng nhập Google',
-            disabled: CC.Auth.busy || undefined,
-            onclick: () => CC.Auth.login()
+            text: Portal.Auth.busy ? 'Đang xử lý…' : 'Đăng nhập Google',
+            disabled: Portal.Auth.busy || undefined,
+            onclick: () => Portal.Auth.login()
           }));
         }
       });
+
+      /* Đường sang trang hồ sơ chung — nơi xem thành tích cả cổng game.
+         Tự ẩn khi không có portal (chạy ở gốc localhost, mở bằng file://): nút dẫn
+         tới trang 404 còn tệ hơn không có nút. */
+      const hoSo = Portal.duongDanHoSo && Portal.duongDanHoSo();
+      if (hoSo) {
+        host.appendChild(CC.util.el('a', {
+          class: 'rank-hoso', href: hoSo, text: 'Xem hồ sơ cả cổng game →'
+        }));
+      }
 
       const tabRow = CC.util.el('div', { class: 'rank-tabs' });
       TABS.forEach(t => {
@@ -8953,7 +8699,7 @@ CC.RankPanel = (function () {
     refresh() {
       const mine = CC.util.$('.rank-mine', host);
       if (mine) renderMine(mine);
-      if (listBox && CC.Auth.available()) loadTab(tab);
+      if (listBox && Portal.Auth.available()) loadTab(tab);
     },
 
     myRow
@@ -9255,9 +9001,11 @@ CC.UpdateNotice = (function () {
     /* Bao "co ban moi" — chi hoat dong o ban dong goi (co service worker) */
     CC.UpdateNotice.init();
 
-    /* --- dam may: tu an han neu chua khai bao Firebase --- */
-    CC.Cloud.init();
-    CC.Auth.init();
+    /* --- dam may: tu an han neu chua khai bao Firebase ---
+     * Adapter noi truoc, roi moi khoi dong dang nhap: Portal.Auth se goi
+     * Portal.Cloud.onUser() ngay khi biet phien, luc do adapter phai co san. */
+    CC.CloudAdapter.init();
+    Portal.Auth.init();
     CC.RankPanel.mount($('#rank-body'));
 
     wireButtons();

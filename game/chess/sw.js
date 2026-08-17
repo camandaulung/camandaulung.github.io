@@ -9,19 +9,26 @@
  * trang van trong binh thuong. build.mjs co buoc kiem tra chan dung loi nay.
  */
 
-const VERSION = 'ac0995e1';
+const VERSION = '42326219';
 const CACHE = 'cat-chess-' + VERSION;
 const SHELL = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
-  "./assets/style-17d316d6.css",
-  "./assets/app-68af7983.js",
+  "./assets/style-5348ec4a.css",
+  "./assets/app-5b52c257.js",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./icons/icon-maskable-512.png",
   "./vendor/stockfish/stockfish-nnue-16-single.js",
-  "./vendor/stockfish/stockfish-nnue-16-single.wasm"
+  "./vendor/stockfish/stockfish-nnue-16-single.wasm",
+  "../../shared/portal-config.js",
+  "../../shared/portal-games.js",
+  "../../shared/portal-firebase.js",
+  "../../shared/portal-auth.js",
+  "../../shared/portal-cloud.js",
+  "../../shared/portal-rank.js",
+  "../../shared/portal-player.js"
 ];
 
 self.addEventListener('install', ev => {

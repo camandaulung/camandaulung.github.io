@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="vi">
 <head>
 <meta charset="UTF-8">
@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="icon" type="image/png" href="icons/icon-192.png">
-<link rel="stylesheet" href="assets/style-6c3ad09d.css">
+<link rel="stylesheet" href="assets/style-be05b917.css">
 </head>
 <body>
 
@@ -202,7 +202,7 @@
       <!-- Thẻ xuất kích: mọi số liệu do ui-menu-card.js bơm vào -->
       <div class="now-card" id="menuNow">
         <div class="now-head">
-          <span class="now-label" id="nowLabel">CHẶNG TIẾP THEO</span>
+          <span class="now-label" id="nowLabel">TIẾP THEO</span>
           <span class="now-chunk" id="nowChunk"></span>
         </div>
         <b class="now-map" id="nowMap">MÀN 01</b>
@@ -237,7 +237,7 @@
         <svg class="ic" aria-hidden="true"><use href="#i-power"/></svg><span>SỔ TAY</span>
       </button>
       <button class="rail-btn" id="btnRank">
-        <svg class="ic" aria-hidden="true"><use href="#i-trophy"/></svg><span>XẾP HẠNG</span>
+        <svg class="ic" aria-hidden="true"><use href="#i-trophy"/></svg><span>BXH</span>
       </button>
     </div>
 
@@ -256,12 +256,12 @@
         <button class="btn ghost small toggle ic-swap" id="btnSfx">
           <svg class="ic ic-on" aria-hidden="true"><use href="#i-sfx-on"/></svg>
           <svg class="ic ic-off" aria-hidden="true"><use href="#i-sfx-off"/></svg>
-          <span>HIỆU ỨNG</span>
+          <span>TIẾNG</span>
         </button>
         <button class="btn ghost small toggle ic-swap" id="btnMus">
           <svg class="ic ic-on" aria-hidden="true"><use href="#i-mus-on"/></svg>
           <svg class="ic ic-off" aria-hidden="true"><use href="#i-mus-off"/></svg>
-          <span>NHẠC NỀN</span>
+          <span>NHẠC</span>
         </button>
         <button class="btn ghost small toggle ic-swap" id="btnShake">
           <svg class="ic ic-on" aria-hidden="true"><use href="#i-shake-on"/></svg>
@@ -568,12 +568,12 @@
         <button class="btn ghost small toggle ic-swap" id="btnSfx2">
           <svg class="ic ic-on" aria-hidden="true"><use href="#i-sfx-on"/></svg>
           <svg class="ic ic-off" aria-hidden="true"><use href="#i-sfx-off"/></svg>
-          <span>HIỆU ỨNG</span>
+          <span>TIẾNG</span>
         </button>
         <button class="btn ghost small toggle ic-swap" id="btnMus2">
           <svg class="ic ic-on" aria-hidden="true"><use href="#i-mus-on"/></svg>
           <svg class="ic ic-off" aria-hidden="true"><use href="#i-mus-off"/></svg>
-          <span>NHẠC NỀN</span>
+          <span>NHẠC</span>
         </button>
         <button class="btn ghost small toggle ic-swap" id="btnShake2">
           <svg class="ic ic-on" aria-hidden="true"><use href="#i-shake-on"/></svg>
@@ -602,11 +602,11 @@
            chỉ số của game thay vì bảng kê khai. -->
       <div class="res-grid">
         <div class="rs"><span class="rs-lb">ĐIỂM</span><b class="rs-v" id="resScore">0</b></div>
-        <div class="rs"><span class="rs-lb">TIÊU DIỆT</span><b class="rs-v" id="resKill">0</b></div>
-        <div class="rs"><span class="rs-lb">CHÍNH XÁC</span><b class="rs-v" id="resAcc">0%</b></div>
+        <div class="rs"><span class="rs-lb">DIỆT</span><b class="rs-v" id="resKill">0</b></div>
+        <div class="rs"><span class="rs-lb">TRÚNG</span><b class="rs-v" id="resAcc">0%</b></div>
         <!-- Bảng xếp hạng có hẳn một mục TỐC ĐỘ chạy bằng progress.times, nhưng
              người chơi chưa bao giờ được thấy thời gian của chính mình sau mỗi màn -->
-        <div class="rs" id="resTimeTile"><span class="rs-lb">THỜI GIAN</span><b class="rs-v" id="resTime">0s</b></div>
+        <div class="rs" id="resTimeTile"><span class="rs-lb">GIỜ</span><b class="rs-v" id="resTime">0s</b></div>
       </div>
       <ul class="gold-rows" id="resGold"></ul>
       <p class="res-advice hidden" id="resAdvice"></p>
@@ -618,9 +618,9 @@
       </div>
       <div class="res-links">
         <button class="btn text" id="btnResShop">
-          <svg class="ic" aria-hidden="true"><use href="#i-upgrade"/></svg><span>NÂNG CẤP</span>
+          <svg class="ic" aria-hidden="true"><use href="#i-upgrade"/></svg><span>KỸ NĂNG</span>
         </button>
-        <button class="btn text" id="btnResMenu"><span>VỀ LOBBY</span></button>
+        <button class="btn text" id="btnResMenu"><span>LOBBY</span></button>
       </div>
     </div>
   </div>
@@ -633,8 +633,17 @@
     <p>Xoay dọc máy để chơi</p>
   </div>
 </div>
+<!-- Ma dung chung ca cong game. Duong dan TUONG DOI de chay duoc o sub-path.
+     Xem shared/README.md truoc khi sua. -->
 <!-- CHỈ CHẠY Ở MÁY DEV. build.mjs loại mọi js/dev-*.js khỏi bản phát hành,
      và chính tệp này cũng tự thoát nếu không phải localhost. -->
-<script src="assets/app-f5e0da96.js"></script>
+<script src="../../shared/portal-config.js"></script>
+<script src="../../shared/portal-games.js"></script>
+<script src="../../shared/portal-firebase.js"></script>
+<script src="../../shared/portal-auth.js"></script>
+<script src="../../shared/portal-cloud.js"></script>
+<script src="../../shared/portal-rank.js"></script>
+<script src="../../shared/portal-player.js"></script>
+<script src="assets/app-ae156b38.js"></script>
 </body>
 </html>

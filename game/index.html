@@ -133,6 +133,9 @@
       color: var(--ink); border-color: rgba(255, 255, 255, 0.25);
     }
     .back-link svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.8; }
+    /* `.topline` la space-between: them lien ket thu ba vao thang se dan deu ra
+       ba goc va lam lech thuong hieu. Boc hai lien ket ben phai lai voi nhau. */
+    .topline-right { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
     /* ── Hero ─────────────────────────────────────────────────── */
     .hero {
@@ -403,10 +406,16 @@
         <span class="brand-fish">🐟</span>
         <span class="brand-name">Cá <em>Mặn</em></span>
       </a>
-      <a href="https://camandaulung.github.io/" class="back-link">
-        <svg viewBox="0 0 24 24"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
-        Trang ch&#237;nh
-      </a>
+      <div class="topline-right">
+        <a href="./me/" class="back-link">
+          <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          H&#7891; s&#417;
+        </a>
+        <a href="https://camandaulung.github.io/" class="back-link">
+          <svg viewBox="0 0 24 24"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+          Trang ch&#237;nh
+        </a>
+      </div>
     </nav>
 
     <!-- ── Hero ─────────────────────────────────────────────── -->

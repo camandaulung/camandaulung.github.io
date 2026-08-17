@@ -598,6 +598,15 @@ body.mode-hotseat #btn-resign { display: none; }
 .rank-empty.err { color: var(--danger-text); }
 .rank-note { font-size: 12px; color: var(--text-dim); margin: 0; }
 
+/* Đường sang trang hồ sơ cả cổng game. Vùng chạm cao 40px: đây là liên kết chứ
+   không phải nút, nhưng ngón tay thì không phân biệt hai thứ đó. */
+.rank-hoso {
+  display: block; min-height: 40px; line-height: 40px;
+  font-size: 13px; color: var(--accent-text, var(--accent));
+  text-decoration: none;
+}
+.rank-hoso:hover { text-decoration: underline; }
+
 
 /* ---------- thanh xem lai nuoc di ---------- */
 .nav-host { display: flex; justify-content: center; }

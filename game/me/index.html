@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#141821">
+<meta name="description" content="Hồ sơ người chơi — thành tích mọi game trong cổng, gom về một chỗ">
+<title>Hồ sơ của tôi</title>
+<!-- Favicon nhúng thẳng, không phải file rời: trang này không có thư mục icon riêng,
+     mà thiếu favicon thì trình duyệt tự gọi /favicon.ico rồi ghi một dòng 404 đỏ vào
+     console — người sau mở console sẽ đi tìm lỗi không có thật. -->
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🎮</text></svg>">
+<link rel="stylesheet" href="profile.css">
+</head>
+<body>
+
+<main id="app" class="wrap">
+  <header class="hero">
+    <div id="ava" class="ava" aria-hidden="true">?</div>
+    <div class="hero-txt">
+      <h1 id="ten" class="ten">Khách</h1>
+      <p id="phu" class="phu">Đang xem thành tích lưu trong máy này</p>
+    </div>
+    <div id="auth" class="auth"></div>
+  </header>
+
+  <!-- Danh sách game dựng từ Portal.GAMES, không viết cứng ở đây -->
+  <section id="ds" class="ds" aria-live="polite"></section>
+
+  <p class="chan">
+    <a href="../../">← Về trang chủ</a>
+  </p>
+</main>
+
+<!-- Mã dùng chung ở gốc portal. Đường dẫn TƯƠNG ĐỐI để chạy được ở sub-path:
+     từ /game/me/ ra đúng /shared/. Xem shared/README.md trước khi sửa.
+     KHÔNG nạp portal-cloud.js: trang này chỉ ĐỌC, không đồng bộ tiến độ của ai cả. -->
+<script src="../../shared/portal-config.js"></script>
+<script src="../../shared/portal-games.js"></script>
+<script src="../../shared/portal-firebase.js"></script>
+<script src="../../shared/portal-auth.js"></script>
+<script src="../../shared/portal-rank.js"></script>
+<script src="../../shared/portal-player.js"></script>
+<script src="me.js"></script>
+
+</body>
+</html>

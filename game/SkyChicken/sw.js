@@ -6,21 +6,28 @@
  *     thay vì tự đổi bản giữa lúc đang chơi
  */
 
-const CACHE = 'sky-chicken-cdcb3829';
+const CACHE = 'sky-chicken-2f243b95';
 
 const SHELL = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
-  "./assets/style-6c3ad09d.css",
-  "./assets/app-f5e0da96.js",
+  "./assets/style-be05b917.css",
+  "./assets/app-ae156b38.js",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./icons/icon-maskable-512.png",
   "./assets/fonts/chakra-petch-600-latin.woff2",
   "./assets/fonts/chakra-petch-600-viet.woff2",
   "./assets/fonts/chakra-petch-700-latin.woff2",
-  "./assets/fonts/chakra-petch-700-viet.woff2"
+  "./assets/fonts/chakra-petch-700-viet.woff2",
+  "../../shared/portal-config.js",
+  "../../shared/portal-games.js",
+  "../../shared/portal-firebase.js",
+  "../../shared/portal-auth.js",
+  "../../shared/portal-cloud.js",
+  "../../shared/portal-rank.js",
+  "../../shared/portal-player.js"
 ];
 
 self.addEventListener('install', e => {

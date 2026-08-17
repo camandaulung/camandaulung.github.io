@@ -160,38 +160,6 @@ SC.addShake = (power, time) => {
 };
 
 ;
-/* ===== js/config-firebase.js ===== */
-/* config-firebase.js — khai báo dự án Firebase
- *
- * ĐỂ TRỐNG apiKey = game chạy bình thường ở chế độ ẩn danh: nút đăng nhập mở bảng
- * hướng dẫn thay vì gọi Google, bảng xếp hạng rơi về bảng nội bộ 3 hồ sơ, tiến độ
- * vẫn lưu trong máy. Không có gì vỡ.
- *
- * Dự án đang dùng: minigame-5d3ee (gói Spark, miễn phí)
- *
- * Đoạn Config của Firebase còn có storageBucket, messagingSenderId, measurementId —
- * game không dùng tới (chỉ cần Auth + Firestore) nên không chép vào cho gọn.
- *
- * Ba việc phải làm trên Console trước khi đăng nhập chạy được:
- *   1. Authentication > Sign-in method > bật Google
- *   2. Authentication > Settings > Authorized domains > thêm camandaulung.github.io
- *      (thiếu bước này sẽ lỗi auth/unauthorized-domain)
- *   3. Firestore Database > tạo mới > Rules > dán nội dung firestore.rules
- *      (thiếu bước này thì đăng nhập được nhưng không lưu/xếp hạng được)
- *
- * apiKey của Firebase là khoá CÔNG KHAI, để trong mã nguồn là đúng thiết kế —
- * chặn truy cập là việc của luật Firestore, không phải của việc giấu khoá.
- */
-
-SC.FB_CONFIG = {
-  apiKey: 'AIzaSyB73g3D3zRgvfAFX4KCKkEjgVACM93YtbY',
-  projectId: 'minigame-5d3ee',
-  appId: '1:1098790709614:web:7758724fb27ca7cd80f97f',
-  // suy ra từ projectId, chỉ điền tay khi dùng tên miền tuỳ chỉnh
-  authDomain: 'minigame-5d3ee.firebaseapp.com'
-};
-
-;
 /* ===== js/data-biomes.js ===== */
 /* data-biomes.js — 10 vùng chiến, mỗi vùng 10 map và một trùm riêng
  *
@@ -7126,7 +7094,9 @@ SC.MenuCard = {
     const done = Object.prototype.hasOwnProperty.call(ui.progress.stars, lv.id);
     const endless = SC.Endless.active(lv.id);
     set('nowLabel', endless ? `VÒNG VÔ TẬN ${SC.Endless.cycle(lv.id) + 1}`
-      : done ? 'CHƠI TIẾP' : next === 1 ? 'BẮT ĐẦU HÀNH TRÌNH' : 'CHẶNG TIẾP THEO');
+      // Nhãn ngắn có chủ ý: ô này chỉ rộng ~198 đơn vị ảo và phải chia chỗ với
+      // chip độ khó bên cạnh. "BẮT ĐẦU HÀNH TRÌNH" ở cỡ chữ mới cần 376 -> gãy đôi.
+      : done ? 'CHƠI TIẾP' : next === 1 ? 'BẮT ĐẦU' : 'TIẾP THEO');
     set('nowMap', 'MÀN ' + String(lv.id).padStart(2, '0'));
     set('nowBiome', endless
       ? `${biome.name} · khó ×${SC.Endless.mul(lv.id).toFixed(1)}`
@@ -7483,7 +7453,7 @@ SC.Profiles = {
   },
 
   /* Bật/tắt dùng ảnh Google làm ảnh đại diện của hồ sơ ĐANG MỞ.
-     Lưu hẳn URL vào hồ sơ chứ không đọc lại từ SC.Auth mỗi lần: nhờ vậy đăng xuất
+     Lưu hẳn URL vào hồ sơ chứ không đọc lại từ Portal.Auth mỗi lần: nhờ vậy đăng xuất
      rồi vẫn giữ được mặt mình, và mỗi hồ sơ trên máy giữ ảnh riêng của nó. */
   setPhoto(url) {
     const p = this.cur();
@@ -7636,234 +7606,38 @@ SC.ProfileUI = {
 };
 
 ;
-/* ===== js/system-firebase.js ===== */
-/* system-firebase.js — nạp SDK Firebase theo kiểu lười, dùng chung cho auth và cloud
+/* ===== js/cloud-adapter.js ===== */
+/* cloud-adapter.js — Sky Chicken nói cho mã dùng chung biết DỮ LIỆU CỦA NÓ hình dạng thế nào
  *
- * Vì sao nạp lười bằng import() động thay vì thẻ <script>:
- *   - Người chơi ẩn danh (đa số) không phải tải thêm ~200KB SDK nào cả.
- *   - Bộ nối file của build.mjs chạy ở chế độ sloppy với biến toàn cục SC; import()
- *     động vẫn dùng được trong script thường nên không phải đổi kiến trúc.
- *   - Mất mạng thì import() ném lỗi, bắt lại là xong — game vẫn chơi được offline.
- */
-
-SC.FB = {
-  SDK: 'https://www.gstatic.com/firebasejs/10.12.5',
-
-  /* đã khai báo dự án chưa — chưa thì toàn bộ tính năng đám mây tự ẩn đi */
-  configured() {
-    const c = SC.FB_CONFIG;
-    return !!(c && c.apiKey && c.projectId && c.appId);
-  },
-
-  _p: null,
-
-  /* Trả Promise gói {auth, db, authM, fsM}. Gọi bao nhiêu lần cũng chỉ nạp một lần. */
-  load() {
-    if (this._p) return this._p;
-    if (!this.configured()) return Promise.reject(new Error('Chưa cấu hình Firebase'));
-
-    this._p = (async () => {
-      const [appM, authM, fsM] = await Promise.all([
-        import(`${this.SDK}/firebase-app.js`),
-        import(`${this.SDK}/firebase-auth.js`),
-        import(`${this.SDK}/firebase-firestore.js`)
-      ]);
-      const app = appM.initializeApp(SC.FB_CONFIG);
-
-      /* Firestore mặc định nói chuyện bằng WebChannel (kênh streaming). Nhiều mạng
-         công ty, proxy và cả một số trình duyệt chặn kiểu kết nối này: biểu hiện là
-         request trả 400 rồi SDK cứ thử lại, câu truy vấn TREO vô hạn chứ không báo
-         lỗi. Đo được ở bản deploy: đọc collection treo quá 30 giây.
-
-         Bật tự dò để nó rơi về long-polling khi WebChannel không đi được. */
-      let db;
-      try {
-        db = fsM.initializeFirestore(app, {
-          experimentalAutoDetectLongPolling: true,
-          useFetchStreams: false
-        });
-      } catch (e) {
-        db = fsM.getFirestore(app);      // đã khởi tạo ở đâu đó rồi thì dùng lại
-      }
-
-      return { app, authM, fsM, auth: authM.getAuth(app), db };
-    })();
-
-    // hỏng (mất mạng, CDN chặn) thì xoá cache để lần sau còn thử lại được
-    this._p.catch(() => { this._p = null; });
-    return this._p;
-  },
-
-  /* Đổi mã lỗi Firebase thành câu tiếng Việt người chơi hiểu được */
-  err(e) {
-    const c = (e && e.code) || '';
-    if (c.includes('popup-closed') || c.includes('cancelled-popup')) return 'Đã huỷ đăng nhập';
-    if (c.includes('network')) return 'Mất kết nối mạng';
-    if (c.includes('unauthorized-domain')) return 'Tên miền chưa được cấp phép';
-    if (c.includes('permission-denied')) return 'Không có quyền ghi dữ liệu';
-    if (c.includes('unavailable')) return 'Máy chủ bận, thử lại sau';
-    // Hạn giờ của SC.Cloud._limit. Hay gặp nhất khi Firestore CHƯA ĐƯỢC TẠO trong
-    // dự án: SDK không báo lỗi mà cứ thử lại âm thầm, câu truy vấn treo vô hạn.
-    if (c === 'timeout') return 'Máy chủ không phản hồi';
-    return 'Lỗi kết nối, thử lại sau';
-  },
-
-  /* Firestore có thật sự dùng được không — hỏi thẳng REST API.
-     SDK trả về kho đệm cục bộ khi không nối được máy chủ, nên "đọc thành công,
-     0 bản ghi" KHÔNG chứng minh được là Firestore đã tồn tại. Đường REST thì báo
-     thẳng: chưa bật API, chưa tạo database, hay bị luật chặn. */
-  async probe() {
-    const c = SC.FB_CONFIG;
-    if (!this.configured()) return { ok: false, why: 'Chưa khai báo Firebase' };
-    try {
-      const r = await fetch(`https://firestore.googleapis.com/v1/projects/${c.projectId}`
-        + `/databases/(default)/documents/scores?key=${c.apiKey}&pageSize=1`);
-      if (r.ok) return { ok: true };
-      const d = await r.json().catch(() => ({}));
-      return { ok: false, status: r.status, why: (d.error && d.error.message) || 'HTTP ' + r.status };
-    } catch (e) {
-      return { ok: false, why: e.message };
-    }
-  }
-};
-
-;
-/* ===== js/system-auth.js ===== */
-/* system-auth.js — đăng nhập Google, tách riêng khỏi UI
+ * Phần mạng (phiên, hạn giờ, gom lần ghi, hàng đợi khi mất mạng, quy tắc xử lý xung đột)
+ * do `shared/portal-cloud.js` lo. File này chỉ khai báo thứ thuộc riêng Sky Chicken.
  *
- * Nguyên tắc: KHÔNG bắt đăng nhập mới chơi được. Vào là chơi ngay, đăng nhập chỉ
- * cần khi muốn lên bảng xếp hạng hoặc giữ tiến độ khi đổi máy.
+ * VÌ SAO VẪN GIỮ TÊN `SC.Cloud`: bảy file khác đang gọi `SC.Cloud.markDirty()`, và
+ * `ui-rank.js` gọi `SC.Cloud.stats()` / `.playerName()` / `.ORDER`. Mấy thứ sau là của
+ * riêng Sky Chicken, không có chỗ trên `Portal.Cloud`. Giữ `SC.Cloud` làm mặt tiền thì
+ * phần riêng có chỗ ở đúng của nó, còn phần mạng vẫn đi qua mã chung — thay vì rải
+ * `Portal.Cloud.markDirty()` khắp nơi rồi bỏ lại `SC.Cloud.stats()` lửng lơ.
  *
- * Mẹo tiết kiệm: chỉ nạp SDK khi người chơi từng đăng nhập (cờ trong localStorage)
- * hoặc khi bấm nút. Người chơi ẩn danh không tải thêm byte nào.
- */
-
-SC.Auth = {
-  FLAG: 'skychicken.signedin',
-  user: null,          // { uid, name, avatar } hoặc null
-  busy: false,
-  msg: '',             // thông báo lỗi gần nhất, để UI hiện ra
-  _subs: [],
-  _attached: false,
-
-  available() { return SC.FB.configured(); },
-
-  /* UI đăng ký ở đây; gọi luôn một lần để vẽ trạng thái ban đầu */
-  onChange(fn) { this._subs.push(fn); fn(this.user); },
-  _emit() { for (const f of this._subs) f(this.user); },
-
-  /* Gọi lúc khởi động. Chưa từng đăng nhập thì không đụng gì tới mạng. */
-  async init() {
-    if (!this.available()) return;
-    if (!localStorage.getItem(this.FLAG)) return;
-    this.busy = true; this._emit();
-    try { await this._attach(); }
-    catch (e) { this.msg = SC.FB.err(e); }
-    finally { this.busy = false; this._emit(); }
-  },
-
-  /* Nối vào luồng trạng thái đăng nhập của Firebase (chỉ một lần) */
-  async _attach() {
-    if (this._attached) return SC.FB.load();
-    const fb = await SC.FB.load();
-    this._attached = true;
-
-    // iOS Safari hay chặn popup nên có nhánh redirect; kết quả rơi về đây
-    await fb.authM.getRedirectResult(fb.auth).catch(() => {});
-
-    fb.authM.onAuthStateChanged(fb.auth, u => {
-      this.user = u ? {
-        uid: u.uid,
-        name: u.displayName || 'Phi công',
-        avatar: u.photoURL || ''
-      } : null;
-
-      if (this.user) localStorage.setItem(this.FLAG, '1');
-      else localStorage.removeItem(this.FLAG);
-
-      this.busy = false;
-      this._emit();
-      SC.Cloud.onUser(this.user);        // kéo/đẩy tiến độ
-    });
-    return fb;
-  },
-
-  async login() {
-    if (this.busy) return;
-    this.busy = true; this.msg = ''; this._emit();
-    try {
-      const fb = await this._attach();
-      const prov = new fb.authM.GoogleAuthProvider();
-      try {
-        await fb.authM.signInWithPopup(fb.auth, prov);
-      } catch (e) {
-        // popup bị chặn (iOS, trình duyệt trong app) -> chuyển hẳn sang redirect
-        const c = (e && e.code) || '';
-        if (c.includes('popup-blocked') || c.includes('operation-not-supported')) {
-          await fb.authM.signInWithRedirect(fb.auth, prov);
-          return;                        // trang sẽ tự tải lại
-        }
-        throw e;
-      }
-    } catch (e) {
-      this.msg = SC.FB.err(e);
-      this.busy = false;
-      this._emit();
-      if (this.msg) SC.UI.toast(this.msg);
-    }
-  },
-
-  async logout() {
-    if (this.busy || !this.user) return;
-    this.busy = true; this._emit();
-    try {
-      const fb = await SC.FB.load();
-      await fb.authM.signOut(fb.auth);
-      SC.UI.toast('ĐÃ ĐĂNG XUẤT');
-    } catch (e) {
-      this.msg = SC.FB.err(e);
-      SC.UI.toast(this.msg);
-    } finally {
-      this.busy = false;
-      this._emit();
-    }
-  }
-};
-
-;
-/* ===== js/system-cloud-save.js ===== */
-/* system-cloud-save.js — sao lưu tiến độ và nộp điểm xếp hạng
- *
- * QUY TẮC VÀNG: localStorage luôn là bản gốc. Đám mây chỉ là bản sao lưu.
- * Mất mạng, Firebase hỏng, chưa đăng nhập — game vẫn chơi trọn vẹn như cũ.
- * Không bao giờ tự ghi đè tiến độ trong máy khi hai bên lệch nhau: hỏi người chơi.
- *
- * Ghi lên đám mây chỉ ở hai thời điểm (đỡ tốn hạn mức miễn phí):
- *   - kết thúc một màn
- *   - mua nâng cấp
+ * Thay cho `system-firebase.js` + `system-auth.js` + `system-cloud-save.js` (388 dòng).
  */
 
 SC.Cloud = {
-  state: 'off',        // off | pull | ok | wait | err   (UI đọc để hiện chấm trạng thái)
-  _timer: 0,
-  _dirty: false,
-  _hadDoc: false,      // bản ghi trên mây đã tồn tại chưa (quyết định có được dùng deleteField)
-  lastErr: '',
-  TIMEOUT: 8000,       // ms — quá hạn thì coi như hỏng, KHÔNG chờ mãi
+  /* Firestore chưa dùng được (chưa tạo database, luật chặn…). `ui-auth-panel.js` dò
+     một lần lúc khởi động rồi ghi vào đây; `ui-rank.js` đọc để khỏi ngồi chờ hết
+     8 giây hạn giờ mới biết là hỏng. */
+  blocked: '',
 
-  /* Bọc hạn giờ quanh mọi lệnh gọi mạng.
-     Firestore khi không đi được kênh streaming sẽ thử lại âm thầm và promise không
-     bao giờ resolve — người chơi thấy "Đang tải…" đứng im vĩnh viễn. Thà báo hỏng
-     sớm rồi rơi về bảng nội bộ còn hơn treo. */
-  _limit(p, what) {
-    return Promise.race([
-      p,
-      new Promise((_, rej) =>
-        setTimeout(() => rej(Object.assign(new Error('Quá hạn ' + what), { code: 'timeout' })),
-          this.TIMEOUT))
-    ]);
+  /* Trạng thái đồng bộ cho chấm màu ở lobby. Đọc như thuộc tính vì `ui-auth-panel.js`
+     tra `this.SYNC[SC.Cloud.state]` — đổi thành hàm là hỏng chỗ đó. */
+  get state() { return Portal.Cloud.state(); },
+
+  /* Bảng sắp xếp của 3 tab. `ui-rank.js` dùng cả cho bảng nội bộ 3 hồ sơ nên phải
+     nằm ở đây, không đẩy vào mã chung được. */
+  ORDER: {
+    level: ['highestLevel', 'desc'],
+    time: ['bestTime', 'asc'],
+    stars: ['totalStars', 'desc']
   },
-  _rank: {},           // đệm kết quả bảng xếp hạng: { tab: {t, rows} }
 
   /* ---------- số liệu rút ra từ tiến độ ---------- */
   stats() {
@@ -7874,7 +7648,7 @@ SC.Cloud = {
       if (times[i] > 0) { sum += times[i]; cleared++; }
     }
     return {
-      // KHÔNG chặn ở màn 60 nữa: vòng vô tận là chỗ người chơi giỏi phân định hơn thua,
+      // KHÔNG chặn ở màn 60: vòng vô tận là chỗ người chơi giỏi phân định hơn thua,
       // chặn lại thì ai qua chiến dịch cũng hoà nhau ở đúng một con số.
       highestLevel: p.unlocked || 1,
       totalStars: SC.UI.totalStar(),       // tính cả sao kiếm ở vòng vô tận
@@ -7884,59 +7658,35 @@ SC.Cloud = {
     };
   },
 
-  /* điểm để so hai bản tiến độ — sao trước, rồi màn, rồi vàng */
+  /* Tên hiện trên bảng xếp hạng là TÊN PHI CÔNG của hồ sơ đang chơi, không phải tên
+     tài khoản Google. Một tài khoản có tới 3 hồ sơ, mỗi hồ sơ một hành trình riêng —
+     lấy tên Google thì cả ba đều hiện cùng một cái tên, chẳng phân biệt được. */
+  playerName() {
+    const p = SC.Profiles.cur();
+    return ((p && p.name) || (Portal.Auth.user && Portal.Auth.user.name) || 'Phi công').slice(0, 40);
+  },
+
+  /* ---------- uỷ quyền sang mã chung ---------- */
+  markDirty(delay) { Portal.Cloud.markDirty(delay); },
+
+  /* Bảng xếp hạng toàn cầu. Đệm 60 giây nằm trong `Portal.Rank`. */
+  rank(tab) {
+    const [field, dir] = this.ORDER[tab];
+    return Portal.Rank.top('scores', field, { dir, limit: 100 });
+  },
+
+  /* ---------- điểm để so hai bản tiến độ ---------- */
+  /* sao trước, rồi màn, rồi vàng */
   _weight(p) {
     if (!p) return -1;
     const st = Object.values(p.stars || {}).reduce((a, b) => a + b, 0);
     return st * 1e6 + (p.unlocked || 1) * 1e3 + Math.min(999, (p.coin || 0) / 100);
   },
 
-  /* Máy chưa chơi gì. Phải xét riêng chứ không dựa vào _weight: tiến độ mới tinh
+  /* Máy chưa chơi gì. Phải xét riêng chứ không dựa vào `_weight`: tiến độ mới tinh
      vẫn có unlocked = 1 nên điểm khác 0, dễ bị hiểu nhầm là "có tiến độ". */
   _empty(p) {
     return !p || ((p.unlocked || 1) <= 1 && !Object.keys(p.stars || {}).length);
-  },
-
-  /* ---------- vòng đời ---------- */
-  onUser(user) {
-    clearTimeout(this._timer);
-    if (!user) { this.state = 'off'; SC.AuthPanel.sync(); return; }
-    this.pull();
-  },
-
-  async pull() {
-    this.state = 'pull'; SC.AuthPanel.sync();
-    try {
-      const fb = await SC.FB.load();
-      const { doc, getDoc } = fb.fsM;
-      const snap = await this._limit(getDoc(doc(fb.db, 'users', SC.Auth.user.uid)), 'đọc tiến độ');
-      const cloud = snap.exists() ? snap.data().progress : null;
-      this._hadDoc = snap.exists();
-
-      if (!cloud) {                       // tài khoản mới -> lấy luôn tiến độ đang chơi
-        this.state = 'ok'; this.markDirty(0);
-        SC.UI.toast('ĐÃ LIÊN KẾT TÀI KHOẢN');
-        return;
-      }
-
-      const local = SC.UI.progress;
-      const wc = this._weight(cloud), wl = this._weight(local);
-
-      if (this._empty(local)) {           // máy mới -> lấy về luôn, chẳng có gì để mất
-        this.adopt(cloud);
-        // vẫn phải đẩy: bản ghi ĐIỂM có thể chưa tồn tại dù tiến độ đã có
-        this.markDirty(0);
-      } else if (wc > wl) {               // đám mây nhiều hơn -> HỎI, không bao giờ tự đè
-        const pick = await SC.AuthPanel.askMerge(local, cloud);
-        pick === 'cloud' ? this.adopt(cloud) : this.markDirty(0);
-      } else {
-        this.markDirty(0);                // máy này bằng hoặc nhiều hơn -> đẩy lên
-      }
-      this.state = 'ok'; SC.AuthPanel.sync();
-    } catch (e) {
-      this.state = 'err'; SC.AuthPanel.sync();
-      SC.UI.toast(SC.FB.err(e));
-    }
   },
 
   /* nhận tiến độ từ đám mây về máy */
@@ -7949,86 +7699,50 @@ SC.Cloud = {
     SC.UI.toast('ĐÃ TẢI TIẾN ĐỘ VỀ');
   },
 
-  /* ---------- đẩy lên ---------- */
+  /* ---------- lắp vào mã chung ---------- */
+  init() {
+    /* Mã chung báo cho người chơi qua `Portal.toast`; Sky Chicken có kiểu thông báo
+       riêng. Gán TRƯỚC init: `adopt` bên dưới có thể chạy ngay khi biết phiên cũ. */
+    Portal.toast = text => SC.UI.toast(String(text).toUpperCase());
 
-  /* gọi sau khi hết màn / mua nâng cấp; gộp nhiều lần gọi liền nhau làm một */
-  markDirty(delay) {
-    if (!SC.Auth.user || !SC.FB.configured()) return;
-    this._dirty = true;
-    clearTimeout(this._timer);
-    this._timer = setTimeout(() => this.push(), delay === undefined ? 3000 : delay);
-  },
+    Portal.Cloud.init({
+      game: 'skychicken',
+      userDoc: 'users',
+      scoreDoc: 'scores',
 
-  /* Tên hiện trên bảng xếp hạng là TÊN PHI CÔNG của hồ sơ đang chơi, không phải tên
-     tài khoản Google. Một tài khoản có tới 3 hồ sơ, mỗi hồ sơ một hành trình riêng —
-     lấy tên Google thì cả ba đều hiện cùng một cái tên, chẳng phân biệt được. */
-  playerName() {
-    const p = SC.Profiles.cur();
-    return ((p && p.name) || (SC.Auth.user && SC.Auth.user.name) || 'Phi công').slice(0, 40);
-  },
+      progress: () => SC.UI.progress,
 
-  async push() {
-    if (!this._dirty || !SC.Auth.user) return;
-    const u = SC.Auth.user, s = this.stats();
-    try {
-      const fb = await SC.FB.load();
-      const { doc, setDoc, serverTimestamp, deleteField } = fb.fsM;
-      this._dirty = false;
+      /* Các trường lên bảng xếp hạng.
+       *
+       * `hadDoc` và `fsM` do mã chung truyền vào: chưa đi hết chiến dịch thì XOÁ HẲN
+       * `bestTime` để không lọt vào bảng tốc độ. Chỉ gọi `deleteField()` khi bản ghi
+       * ĐÃ TỒN TẠI — gọi lúc tạo mới thì một số phiên bản SDK ném lỗi, mà lỗi đó nuốt
+       * luôn cả hai lệnh ghi trong `Promise.all`. */
+      score: (hadDoc, fsM) => {
+        const s = SC.Cloud.stats();
+        const out = { highestLevel: s.highestLevel, totalStars: s.totalStars };
+        if (s.campaignTime !== null) out.bestTime = s.campaignTime;
+        else if (hadDoc) out.bestTime = fsM.deleteField();
+        return out;
+      },
 
-      const score = {
-        name: this.playerName(), avatar: u.avatar,
-        highestLevel: s.highestLevel, totalStars: s.totalStars,
-        updatedAt: serverTimestamp()
-      };
-      // Chưa đi hết chiến dịch thì XOÁ hẳn trường này -> không lọt vào bảng tốc độ.
-      // Chỉ gọi deleteField khi bản ghi đã tồn tại: gọi lúc TẠO MỚI thì một số phiên
-      // bản SDK ném lỗi, mà lỗi đó nuốt luôn cả hai lệnh ghi trong Promise.all.
-      if (s.campaignTime !== null) score.bestTime = s.campaignTime;
-      else if (this._hadDoc) score.bestTime = deleteField();
+      playerName: () => SC.Cloud.playerName(),
+      weight: p => SC.Cloud._weight(p),
+      isEmpty: p => SC.Cloud._empty(p),
+      adopt: cloud => SC.Cloud.adopt(cloud),
 
-      await this._limit(Promise.all([
-        setDoc(doc(fb.db, 'users', u.uid), {
-          name: u.name, avatar: u.avatar,
-          progress: SC.UI.progress, updatedAt: serverTimestamp()
-        }, { merge: true }),
-        setDoc(doc(fb.db, 'scores', u.uid), score, { merge: true })
-      ]), 'lưu tiến độ');
-      this._hadDoc = true;
-      this.state = 'ok';
-      this._rank = {};                    // điểm mình đổi rồi -> bỏ đệm bảng xếp hạng
-    } catch (e) {
-      this._dirty = true;                 // giữ cờ, có mạng lại thì đẩy tiếp
-      this.state = 'wait';
-      this.lastErr = (e && (e.code || e.message)) || String(e);
-      // Trước đây lỗi này im lặng hoàn toàn: người chơi tưởng đã lưu, thật ra chưa.
-      SC.UI.toast('CHƯA LƯU ĐƯỢC: ' + SC.FB.err(e));
-      console.warn('[cloud] push lỗi:', e);
-      window.addEventListener('online', () => this.markDirty(400), { once: true });
-    }
-    SC.AuthPanel.sync();
-  },
+      /* Xung đột thì HỎI, không tự ghi đè — hộp thoại đã có sẵn ở `ui-auth-panel.js` */
+      askMerge: (local, cloud) => SC.AuthPanel.askMerge(local, cloud)
+    });
 
-  /* ---------- bảng xếp hạng ---------- */
-  ORDER: {
-    level: ['highestLevel', 'desc'],
-    time: ['bestTime', 'asc'],
-    stars: ['totalStars', 'desc']
-  },
+    /* Đổi trạng thái đồng bộ thì vẽ lại chấm màu ở lobby và khối tài khoản */
+    Portal.Cloud.onState(() => SC.AuthPanel.sync());
 
-  /* Đệm 60 giây cho mỗi tab: người chơi bấm qua lại không tốn thêm lượt đọc */
-  async rank(tab) {
-    const c = this._rank[tab];
-    if (c && performance.now() - c.t < 60000) return c.rows;
+    /* Hạ ngay một bản tóm tắt cho trang hồ sơ `/game/me/`. Không có dòng này thì người
+       đã chơi từ trước bản cập nhật phải qua thêm một màn nữa mới thấy hồ sơ. */
+    Portal.Cloud.snapshotLocal();
 
-    const fb = await SC.FB.load();
-    const { collection, query, orderBy, limit, getDocs } = fb.fsM;
-    const [field, dir] = this.ORDER[tab];
-    const snap = await this._limit(
-      getDocs(query(collection(fb.db, 'scores'), orderBy(field, dir), limit(100))), 'tải bảng');
-
-    const rows = snap.docs.map((d, i) => Object.assign({ uid: d.id, pos: i + 1 }, d.data()));
-    this._rank[tab] = { t: performance.now(), rows };
-    return rows;
+    return this;
   }
 };
 
@@ -8040,9 +7754,14 @@ SC.AuthPanel = {
   _resolve: null,
 
   init(on) {
+    /* Nối adapter TRƯỚC mọi nhánh: nó còn lo cả việc hạ bản tóm tắt xuống máy cho
+       trang hồ sơ `/game/me/`, mà việc đó không dính gì tới Firebase. Để sau nhánh
+       thoát sớm bên dưới thì cấu hình trống là hồ sơ trắng trơn. */
+    SC.Cloud.init();
+
     // Chưa khai báo Firebase thì vẫn hiện nút, chỉ đổi nhãn và nói rõ còn thiếu gì.
     // Giấu đi thì người dựng game không biết tính năng có tồn tại hay không.
-    if (!SC.FB.configured()) {
+    if (!Portal.FB.configured()) {
       // Bấm vào thì mở bảng hướng dẫn từng bước, đừng chỉ nháy một dòng thông báo
       // rồi thôi — người bấm cần biết còn thiếu đúng những gì.
       on('btnLogin', () => SC.UI.showOverlay('setup'));
@@ -8051,20 +7770,22 @@ SC.AuthPanel = {
       return;
     }
 
-    on('btnLogin', () => SC.Auth.login());
-    on('btnLogout', () => SC.Auth.logout());
+    on('btnLogin', () => Portal.Auth.login());
+    on('btnLogout', () => Portal.Auth.logout());
     on('btnUsePhoto', () => this.togglePhoto());
 
     // Kiểm Firestore một lần lúc khởi động. Nếu chưa tạo database thì mọi thao tác
     // lưu/xếp hạng sẽ treo im lặng — thà nói ngay còn hơn để người chơi tưởng đã lưu.
-    SC.FB.probe().then(r => {
+    Portal.FB.probe().then(r => {
       if (r.ok) return;
       SC.Cloud.blocked = r.why;
       console.warn('[firebase] Firestore chưa dùng được:', r.why);
     });
 
-    SC.Auth.onChange(() => this.sync());
-    SC.Auth.init();
+    /* Adapter đã nối ở đầu hàm — phải xong TRƯỚC `Portal.Auth.init()`, vì Auth gọi
+       `Portal.Cloud.onUser()` ngay khi nhận ra phiên cũ, lúc đó adapter phải có sẵn. */
+    Portal.Auth.onChange(() => this.sync());
+    Portal.Auth.init();
   },
 
   /* Nhãn trạng thái đồng bộ. Trước chỉ có chấm màu 8px không chữ — người chơi phải
@@ -8092,7 +7813,7 @@ SC.AuthPanel = {
     const cur = SC.Profiles.cur();
     if (!chip || !cur) return;
 
-    const u = SC.Auth.user;
+    const u = Portal.Auth.user;
     // Ảnh đang hiện là ẢNH thật -> emoji xuống huy hiệu góc để vẫn biết hồ sơ nào.
     // Chưa đăng nhập -> huy hiệu là chữ G, thành lời mời đăng nhập luôn.
     const hasPhoto = SC.Ava.lobbyHasPhoto(cur);
@@ -8116,7 +7837,7 @@ SC.AuthPanel = {
     const out = id('cloudOut'), user = id('authUser'), login = id('btnLogin');
     if (!out || !user || !login) return;
 
-    const u = SC.Auth.user, busy = SC.Auth.busy;
+    const u = Portal.Auth.user, busy = Portal.Auth.busy;
     out.classList.toggle('hidden', !!u);
     user.classList.toggle('hidden', !u);
     login.disabled = busy;
@@ -8137,6 +7858,8 @@ SC.AuthPanel = {
     const cur = SC.Profiles.cur();
     id('cloudScope').textContent = cur ? cur.name : '—';
 
+    this.syncHoSo();
+
     // nút bật/tắt dùng ảnh Google cho hồ sơ đang mở
     const btn = id('btnUsePhoto');
     if (btn) {
@@ -8147,10 +7870,28 @@ SC.AuthPanel = {
     }
   },
 
+  /* Đường sang trang hồ sơ chung — nơi xem thành tích cả cổng game.
+     Chèn một lần rồi thôi; tự ẩn khi không có portal (chạy ở gốc localhost, mở bằng
+     file://) vì lúc đó liên kết sẽ dẫn tới trang 404. */
+  syncHoSo() {
+    if (document.getElementById('linkHoSo')) return;
+    const duong = Portal.duongDanHoSo && Portal.duongDanHoSo();
+    if (!duong) return;
+    const khoi = document.getElementById('authUser');
+    if (!khoi) return;
+
+    const a = document.createElement('a');
+    a.id = 'linkHoSo';
+    a.className = 'link-hoso';
+    a.href = duong;
+    a.textContent = 'XEM HỒ SƠ CẢ CỔNG GAME →';
+    khoi.appendChild(a);
+  },
+
   /* Bật/tắt ảnh Google cho hồ sơ đang mở. Lưu hẳn URL vào hồ sơ nên đăng xuất rồi
      vẫn giữ được ảnh, và mỗi hồ sơ trên máy có ảnh riêng của nó. */
   togglePhoto() {
-    const cur = SC.Profiles.cur(), u = SC.Auth.user;
+    const cur = SC.Profiles.cur(), u = Portal.Auth.user;
     if (!cur || !u || !u.avatar) return;
     SC.Profiles.setPhoto(cur.photo ? '' : u.avatar);
     this.sync();
@@ -8284,22 +8025,22 @@ SC.Rank = {
     // Firestore chưa tạo -> khỏi gọi cho tốn 8 giây chờ hạn giờ
     const chặn = SC.Cloud.blocked;
     this.render(this.localRows(), true, chặn ? 'Máy chủ chưa sẵn sàng' : '',
-      SC.FB.configured() && !chặn);
-    if (!SC.FB.configured() || chặn) return;
+      Portal.FB.configured() && !chặn);
+    if (!Portal.FB.configured() || chặn) return;
 
     try {
       const rows = await SC.Cloud.rank(tab);
       if (tab !== this.tab) return;                 // người chơi đã đổi tab
       this.render(rows);
     } catch (e) {
-      if (tab === this.tab) this.render(this.localRows(), true, SC.FB.err(e));
+      if (tab === this.tab) this.render(this.localRows(), true, Portal.FB.err(e));
     }
   },
 
   render(rows, isLocal, err, busy) {
     const wrap = document.getElementById('rankList');
     const t = this.TABS.find(x => x.k === this.tab);
-    const me = SC.Auth.user;
+    const me = Portal.Auth.user;
 
     // Chú thích của tab luôn hiện, kể cả khi bảng trống — đó là lúc người chơi
     // thắc mắc "sao mình không có tên" nhiều nhất.
@@ -9296,14 +9037,14 @@ SC.Ava = {
      Thứ tự ưu tiên: ảnh hồ sơ đã lưu > ảnh tài khoản đang đăng nhập > emoji.
      Nhờ nhánh giữa mà đăng nhập xong là thấy mặt mình ngay, chưa cần bật gì thêm. */
   ofLobby(p) {
-    const acc = SC.Auth && SC.Auth.user ? SC.Auth.user.avatar : '';
+    const acc = Portal.Auth && Portal.Auth.user ? Portal.Auth.user.avatar : '';
     return this.html(p.avatar, this.hi(p.photo || acc));
   },
 
   /* Có đang hiện ẢNH (chứ không phải emoji) ở thẻ lobby không —
      dùng để quyết định có cần huy hiệu góc nhắc đang chơi hồ sơ nào hay không. */
   lobbyHasPhoto(p) {
-    return !!(p.photo || (SC.Auth && SC.Auth.user && SC.Auth.user.avatar));
+    return !!(p.photo || (Portal.Auth && Portal.Auth.user && Portal.Auth.user.avatar));
   }
 };
 
@@ -9333,7 +9074,7 @@ SC.Victory = {
       SC.Rank.open('time');
     });
     on('btnVicMenu', () => { SC.UI.show('menu'); SC.UI.syncMenu(); });
-    on('btnVicLogin', () => SC.Auth.login());
+    on('btnVicLogin', () => Portal.Auth.login());
   },
 
   /* Tổng thời gian chiến dịch = cộng lần nhanh nhất của từng màn.
@@ -9375,7 +9116,7 @@ SC.Victory = {
 
     // Chưa đăng nhập thì kỷ lục này chỉ nằm trong máy, nói thẳng ra kẻo phí công.
     const box = id('vicLoginBox');
-    if (box) box.classList.toggle('hidden', !!(SC.Auth && SC.Auth.user));
+    if (box) box.classList.toggle('hidden', !!(Portal.Auth && Portal.Auth.user));
 
     SC.UI.show('victory');
   }
