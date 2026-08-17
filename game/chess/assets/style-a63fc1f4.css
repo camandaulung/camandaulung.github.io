@@ -591,7 +591,10 @@ body.mode-hotseat #btn-resign { display: none; }
   font-size: 14px;
 }
 .rank-row.me { background: var(--panel); border: 1px solid var(--accent); }
-.rank-no { width: 40px; color: var(--text-dim); font-weight: 700; }
+/* `flex: 0 0 40px` chu khong phai `width: 40px` don thuan: la o trong flex nen no van
+   co lai duoc, va chu dai hon o thi tran ra de len ten ben canh. Da gap that — bang
+   hien "#undefined" thi de chong len ten nguoi choi, doc ra thanh mot mo chu dinh nhau. */
+.rank-no { flex: 0 0 40px; overflow: hidden; color: var(--text-dim); font-weight: 700; }
 .rank-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rank-val { font-weight: 700; color: var(--accent-text); }
 .rank-empty { color: var(--text-dim); font-size: 14px; text-align: center; padding: 16px; }

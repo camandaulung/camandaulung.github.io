@@ -8572,7 +8572,10 @@ CC.RankPanel = (function () {
       listBox.appendChild(CC.util.el('div', {
         class: 'rank-row' + (r.uid === meUid ? ' me' : '')
       }, [
-        CC.util.el('span', { class: 'rank-no', text: '#' + r.rank }),
+        /* `pos`, KHONG phai `rank`. Ban truy van cu (CC.Cloud.top) dat ten truong la
+         * `rank`; mã dùng chung `Portal.Rank.top()` dat la `pos` — giong Sky Chicken.
+         * Doi mã chung ma quen sua cho nay, nen bang hien "#undefined" de len ten. */
+        CC.util.el('span', { class: 'rank-no', text: '#' + r.pos }),
         CC.util.el('span', { class: 'rank-name', text: r.name || 'Kỳ thủ' }),
         CC.util.el('span', { class: 'rank-val', text: t.fmt(r[key]) })
       ]));
