@@ -1,11 +1,11 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <!-- Game portal Phase 1-4: CSS overhaul + Pixel art backgrounds + Polish + Dashboard + Theming + i18n -->
 <html lang="vi" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Cá Mặn · Arcade</title>
-  <meta name="description" content="Vài minigame nhỏ của Cá Mặn, chạy thẳng trên trình duyệt.">
+  <meta name="description" content="Vài minigame của Cá Mặn, chạy thẳng trên trình duyệt.">
   <meta name="theme-color" content="#071613">
   <style>
     /* Phase 4: Theme system - dark (default) + light variants */
@@ -363,6 +363,26 @@
     .game-card.live .card-thumb { display: grid; place-items: center; text-decoration: none; }
     .game-card.live .card-thumb svg { stroke: #4dffa1; opacity: 0.75; }
 
+    /* ---- Icon that cua tung game ----
+       Truoc day la SVG vien manh 48px nam giua vung anh ~350x200 — nho xiu va khong
+       cho biet game nao. Nay dung chinh icon PWA 512px cua game: co mau, ve rieng, va
+       TRUNG voi icon hien tren man hinh chinh khi nguoi choi cai game ve may.
+
+       Bo `image-rendering: pixelated` ma `.card-thumb` dat san: no lam icon ve mem bi
+       rang cua khi thu nho. */
+    .card-icon {
+      width: clamp(84px, 42%, 124px); height: auto; aspect-ratio: 1;
+      border-radius: 22%;                 /* bo goc kieu icon ung dung */
+      image-rendering: auto;
+      box-shadow: 0 12px 30px -10px rgba(0, 0, 0, 0.6);
+      transition: transform 0.4s cubic-bezier(0.2, 0.7, 0.2, 1);
+    }
+    .game-card:hover .card-icon { transform: scale(1.06) translateY(-2px); }
+    @media (prefers-reduced-motion: reduce) {
+      .card-icon { transition: none; }
+      .game-card:hover .card-icon { transform: none; }
+    }
+
     .card-play {
       font-family: var(--font-mono); font-size: 11px; font-weight: 500;
       letter-spacing: 0.08em; text-transform: uppercase;
@@ -378,6 +398,39 @@
       background: rgba(255, 255, 255, 0.08);
     }
     .game-card:hover .card-play { color: var(--muted); } /* not accent — reduce overuse */
+
+    /* ---- Chạm đâu trên thẻ cũng vào chơi ----
+       Liên kết "Chơi ngay" trải rộng phủ kín thẻ bằng `::after`. Không bọc cả thẻ
+       trong <a> vì làm vậy thì đoạn mô tả trở thành một phần TÊN liên kết (trình đọc
+       màn hình đọc nguyên cả đoạn), và chữ không bôi đen để copy được nữa. */
+    .game-card.live { cursor: pointer; }
+    .game-card.live .card-play::after {
+      content: ''; position: absolute; inset: 0; z-index: 1;
+      /* iOS/Android: bỏ ô sáng xanh mặc định khi chạm, thẻ đã có hiệu ứng riêng */
+      -webkit-tap-highlight-color: transparent;
+    }
+    /* CẢ thẻ là vùng chạm, kể cả trên chữ.
+       Cân nhắc đã bỏ: ban đầu em cho chữ nổi lên trên vùng chạm để bôi đen copy được,
+       nhưng như vậy chạm đúng vào đoạn mô tả lại không vào chơi — trái với ý "cả vùng
+       card đều touch to play". Trên thẻ game, chạm để chơi mới là việc chính; bôi đen
+       đoạn mô tả gần như không ai làm. */
+
+    /* Bàn phím: Tab tới liên kết thì viền sáng quanh CẢ thẻ, không phải quanh mỗi chữ
+       "Chơi ngay" — vì vùng bấm bây giờ là cả thẻ.
+
+       BỌC TRONG @supports LÀ BẮT BUỘC: hai dòng này đi liền nhau, dòng dưới tắt viền
+       mặc định của liên kết. Trình duyệt không hiểu :has() sẽ bỏ qua dòng trên nhưng
+       VẪN ÁP DỤNG dòng dưới — người dùng bàn phím mất sạch dấu focus mà không ai biết.
+       Có @supports thì nơi nào không hỗ trợ sẽ giữ nguyên viền mặc định. */
+    @supports selector(:has(a)) {
+      .game-card.live:has(.card-play:focus-visible) {
+        outline: 2px solid var(--accent); outline-offset: 3px;
+      }
+      .game-card.live .card-play:focus-visible { outline: none; }
+    }
+
+    /* Chạm giữ: phản hồi ngay, đừng để người dùng tưởng bấm hụt */
+    .game-card.live:active { transform: translateY(-2px); }
     .card-play svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2; }
 
     /* Phase 3: Dashboard sync - progress bars */
@@ -524,8 +577,8 @@
 
     <!-- ── Hero (compact — push games up) ───────────────────── -->
     <section class="hero" data-od-id="hero">
-      <div class="hero-eyebrow">Game Portal</div>
-      <h1 data-i18n-html="hero-title">Mấy trò chơi nhỏ<br>làm <span class="highlight">cho vui</span></h1>
+      <div class="hero-eyebrow" data-i18n="eyebrow">Góc minigame</div>
+      <h1 data-i18n-html="hero-title">Vài minigame<br>làm <span class="highlight">cho vui</span></h1>
       <p class="hero-sub" data-i18n="hero-sub">
         Mở trình duyệt là chơi, không cần cài.
         Chơi ẩn danh cũng được — đăng nhập thì giữ được tiến độ khi đổi máy.
@@ -549,17 +602,17 @@
 
         <!-- Sky Chicken -->
         <article class="game-card live" data-od-id="game-card-skychicken">
-          <a class="card-thumb" href="./SkyChicken/" data-i18n-aria="aria-play-sky" aria-label="Chơi Sky Chicken">
-            <svg viewBox="0 0 48 48" aria-hidden="true">
-              <path d="M24 8l4 10 10 2-7 7 2 10-9-5-9 5 2-10-7-7 10-2z"/>
-              <path d="M24 30v8M20 38h8"/>
-            </svg>
-          </a>
+          <div class="card-thumb" aria-hidden="true">
+            <img class="card-icon" alt="" decoding="async" width="512" height="512"
+                 src="./SkyChicken/icons/icon-192.png"
+                 srcset="./SkyChicken/icons/icon-192.png 192w, ./SkyChicken/icons/icon-512.png 512w"
+                 sizes="124px">
+          </div>
           <div class="card-body">
             <span class="card-tag" data-i18n="tag-shooter">Bắn gà</span>
             <h3 class="card-title">Sky Chicken</h3>
             <p class="card-desc" data-i18n="desc-skychicken">60 màn chiến dịch, 10 vùng, 20 trùm riêng — hết rồi vào vòng vô tận,
-              map cũ nhưng khó dần. Di chuyển bằng chuột hoặc chạm kéo, tự bắn, tự nhặt đồ. Cài về máy chơi offline được.</p>
+              màn cũ nhưng khó dần. Di chuyển bằng chuột hoặc chạm kéo, tự bắn, tự nhặt đồ. Cài về máy chơi offline được.</p>
             <div class="card-progress" data-game="skychicken">
               <div class="progress-label">
                 <span data-i18n="progress-level">Màn cao nhất</span>
@@ -569,7 +622,7 @@
             </div>
             <div class="card-footer">
               <span class="card-status"><span class="dot dot-live"></span><span data-i18n="status-play">Chơi được</span></span>
-              <a class="card-play" href="./SkyChicken/">
+              <a class="card-play" href="./SkyChicken/" data-i18n-aria="aria-play-sky" aria-label="Chơi Sky Chicken">
                 <span data-i18n="cta-play">Chơi ngay</span>
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
               </a>
@@ -580,13 +633,12 @@
 
         <!-- Cờ vua với mèo -->
         <article class="game-card live" data-od-id="game-card-catchess">
-          <a class="card-thumb" href="./chess/" data-i18n-aria="aria-play-chess" aria-label="Chơi Cờ vua với mèo">
-            <svg viewBox="0 0 48 48" aria-hidden="true">
-              <path d="M18 38h12l1-6H17z"/>
-              <path d="M20 32c0-4 1-6 3-8l-2-3 2-2-1-5 3 2 2-4 2 4 3-2-1 5 2 2-2 3c2 2 3 4 3 8"/>
-              <path d="M16 42h16"/>
-            </svg>
-          </a>
+          <div class="card-thumb" aria-hidden="true">
+            <img class="card-icon" alt="" decoding="async" width="512" height="512"
+                 src="./chess/icons/icon-192.png"
+                 srcset="./chess/icons/icon-192.png 192w, ./chess/icons/icon-512.png 512w"
+                 sizes="124px">
+          </div>
           <div class="card-body">
             <span class="card-tag" data-i18n="tag-chess">Cờ vua</span>
             <h3 class="card-title" data-i18n="title-chess">Cờ vua với mèo</h3>
@@ -601,7 +653,7 @@
             </div>
             <div class="card-footer">
               <span class="card-status"><span class="dot dot-live"></span><span data-i18n="status-play">Chơi được</span></span>
-              <a class="card-play" href="./chess/">
+              <a class="card-play" href="./chess/" data-i18n-aria="aria-play-chess" aria-label="Chơi Cờ vua với mèo">
                 <span data-i18n="cta-play">Chơi ngay</span>
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
               </a>
@@ -618,7 +670,7 @@
       <div class="about-text">
         <h2 data-i18n="about-title">Làm cho vui thôi</h2>
         <p data-i18n="about-p1">
-          Cá Mặn Arcade là chỗ để mấy game tự làm. Mở trình duyệt là chơi,
+          Cá Mặn Arcade là nơi gom các minigame tự làm. Mở trình duyệt là chơi,
           không cần cài gì.
         </p>
         <p data-i18n="about-p2">
@@ -629,7 +681,7 @@
       <div class="about-stats">
         <div class="stat-card" data-od-id="stat-games">
           <div class="stat-value">2</div>
-          <div class="stat-label" data-i18n="stat-games">Game chơi được</div>
+          <div class="stat-label" data-i18n="stat-games">Minigame chơi được</div>
         </div>
         <div class="stat-card" data-od-id="stat-levels">
           <div class="stat-value">60+</div>
@@ -673,16 +725,17 @@
       // ---- i18n dictionary ----
       const LANG = {
         vi: {
+          'eyebrow': 'Góc minigame',
           'profile': 'Hồ sơ',
           'home': 'Trang chính',
-          'hero-title': 'Mấy trò chơi nhỏ<br>làm <span class="highlight">cho vui</span>',
+          'hero-title': 'Vài minigame<br>làm <span class="highlight">cho vui</span>',
           'hero-sub': 'Mở trình duyệt là chơi, không cần cài. Chơi ẩn danh cũng được — đăng nhập thì giữ được tiến độ khi đổi máy.',
           'cta-try': 'Thử ngay',
           'status-dev': 'Đang phát triển',
           'tag-shooter': 'Bắn gà',
           'tag-chess': 'Cờ vua',
           'title-chess': 'Cờ vua với mèo',
-          'desc-skychicken': '60 màn chiến dịch, 10 vùng, 20 trùm riêng — hết rồi vào vòng vô tận, map cũ nhưng khó dần. Di chuyển bằng chuột hoặc chạm kéo, tự bắn, tự nhặt đồ. Cài về máy chơi offline được.',
+          'desc-skychicken': '60 màn chiến dịch, 10 vùng, 20 trùm riêng — hết rồi vào vòng vô tận, màn cũ nhưng khó dần. Di chuyển bằng chuột hoặc chạm kéo, tự bắn, tự nhặt đồ. Cài về máy chơi offline được.',
           'desc-chess': 'Bảy con mèo, mỗi con một tính cách và một trình độ — từ Sữa mới biết luật đến Đại Ka. Mèo còn nói chuyện trong lúc đánh. Chơi được cả khi mất mạng.',
           'progress-level': 'Màn cao nhất',
           'progress-points': 'Điểm mèo',
@@ -690,9 +743,9 @@
           'cta-play': 'Chơi ngay',
           'section-playable': 'Chơi được ngay',
           'about-title': 'Làm cho vui thôi',
-          'about-p1': 'Cá Mặn Arcade là chỗ để mấy game tự làm. Mở trình duyệt là chơi, không cần cài gì.',
+          'about-p1': 'Cá Mặn Arcade là nơi gom các minigame tự làm. Mở trình duyệt là chơi, không cần cài gì.',
           'about-p2': 'Chơi ẩn danh vẫn đủ. Đăng nhập thì tiến độ theo tài khoản, đổi máy vẫn còn.',
-          'stat-games': 'Game chơi được',
+          'stat-games': 'Minigame chơi được',
           'stat-levels-label': 'Màn rồi vòng vô tận',
           'stat-cats': 'Mèo cờ vua',
           'stat-offline': 'Mất mạng vẫn chơi',
@@ -702,19 +755,20 @@
           'btn-lang': 'Đổi ngôn ngữ',
           'aria-play-sky': 'Chơi Sky Chicken',
           'aria-play-chess': 'Chơi Cờ vua với mèo',
-          'meta-desc': 'Vài minigame nhỏ của Cá Mặn, chạy thẳng trên trình duyệt.'
+          'meta-desc': 'Vài minigame của Cá Mặn, chạy thẳng trên trình duyệt.'
         },
         en: {
+          'eyebrow': 'Minigames',
           'profile': 'Profile',
           'home': 'Home',
-          'hero-title': 'A few small games<br>made <span class="highlight">for fun</span>',
+          'hero-title': 'A few minigames<br>made <span class="highlight">for fun</span>',
           'hero-sub': 'Open the browser and play — no install. Play anonymously, or sign in to keep progress across devices.',
           'cta-try': 'Try now',
           'status-dev': 'In development',
           'tag-shooter': 'Shooter',
           'tag-chess': 'Chess',
           'title-chess': 'Chess with Cats',
-          'desc-skychicken': '60 campaign levels, 10 zones, 20 unique bosses — then endless cycles: same maps, harder every round. Move with mouse or touch drag, auto-shoot, auto-collect. Play offline.',
+          'desc-skychicken': '60 campaign levels, 10 zones, 20 unique bosses — then endless cycles: same levels, harder every round. Move with mouse or touch drag, auto-shoot, auto-collect. Play offline.',
           'desc-chess': 'Seven cats, each with unique personality and skill — from Sua (beginner) to Dai Ka. Cats chat while playing. Works offline.',
           'progress-level': 'Highest level',
           'progress-points': 'Cat points',
@@ -722,9 +776,9 @@
           'cta-play': 'Play now',
           'section-playable': 'Playable now',
           'about-title': 'Just for fun',
-          'about-p1': 'Cá Mặn Arcade is where my own small games live. Open the browser and play — nothing to install.',
+          'about-p1': 'Cá Mặn Arcade collects the minigames I build myself. Open the browser and play — nothing to install.',
           'about-p2': 'Playing anonymously is fine. Sign in and your progress follows the account across devices.',
-          'stat-games': 'Playable games',
+          'stat-games': 'Playable minigames',
           'stat-levels-label': 'Levels, then endless',
           'stat-cats': 'Chess cats',
           'stat-offline': 'Works offline',
