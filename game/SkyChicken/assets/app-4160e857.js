@@ -4465,6 +4465,117 @@ SC.BossMove = {
 };
 
 ;
+/* ===== js/entity-boss-splats.js ===== */
+/* entity-boss-splats.js — vệt mực của chiêu 'BÓNG TỐI' là ĐỊA HÌNH, không phải hình vẽ
+ *
+ * Bản cũ chỉ vẽ vệt đen che tầm nhìn rồi thôi: người chơi bay xuyên qua thoải mái nên
+ * chiêu chỉ gây khó chịu cho mắt chứ không đổi cách đứng. Giờ mỗi vệt là một vùng CẤM
+ * trong vài giây — bịt đường lui, ép người chơi phải chọn chỗ đứng trước khi trùm thả.
+ *
+ * Tách khỏi entity-boss-skills.js vì tệp đó đã 165 dòng và đây là thứ có vòng đời
+ * riêng: sống tiếp cả khi trùm đã chết, tự tan, tự va chạm.
+ *
+ * Toạ độ dùng chung hệ ảo với người chơi (SC.W/SC.H) nên so va chạm thẳng, khỏi quy đổi.
+ */
+
+SC.Splats = {
+  list: [],
+
+  /* Vệt tan dần ở cuối đời. Chặn đường bằng thứ đã gần trong suốt thì người chơi
+     không hiểu vì sao mình không đi được -> hết SOLID là cho bay qua, dù còn thấy mờ. */
+  SOLID: 0.86,
+  SQUASH: 0.82,        // vệt hơi bẹp theo chiều dọc, khớp với hình đang vẽ
+  DMG: 16,             // sát thương khi vệt rơi trúng chỗ đang đứng
+
+  /* Bán kính vệt. Bản đầu để 70-130, phủ tới ~24% khung hình — hồi vệt chỉ là hình vẽ
+     che mắt thì không sao, nhưng từ khi nó CHẶN ĐƯỜNG thì chừng đó là bịt lối, chơi
+     rất bí. Thu còn khoảng 45% diện tích cũ: vẫn rõ là chướng ngại phải vòng tránh,
+     mà không nuốt mất nửa sân. */
+  R_MIN: 46, R_MAX: 86,
+
+  clear() { this.list.length = 0; },
+
+  /* Bán kính hiện tại — phần vẽ và phần va chạm PHẢI gọi chung hàm này, để hình
+     nhìn thấy với vùng cấm không bao giờ lệch nhau. */
+  radiusOf(s) {
+    const k = s.t / s.life;
+    return s.r * (0.55 + Math.min(1, k * 3) * 0.45);
+  },
+
+  solid(s) { return s.t / s.life < this.SOLID; },
+
+  spawn(n, rage, player) {
+    for (let i = 0; i < n; i++) {
+      const s = {
+        x: SC.rnd(40, SC.W - 40), y: SC.rnd(SC.H * 0.25, SC.H * 0.9),
+        r: SC.rnd(this.R_MIN, this.R_MAX), t: 0, life: 2.6 + rage * 0.5, seed: SC.rnd(0, 6.28)
+      };
+      this.list.push(s);
+      if (player && !player.dead) this._dropOn(s, player);
+    }
+  },
+
+  /* Đẩy người chơi ra khỏi một vệt. margin 1 = sát mép, lớn hơn = hất ra xa thêm.
+     Trả về true nếu vừa nãy còn nằm trong.
+     Dùng chung cho cả lúc vệt rơi trúng đầu lẫn lúc tì vào tường, để hai đường không
+     bao giờ tính lệch nhau. */
+  _eject(s, p, margin) {
+    const rx = this.radiusOf(s) + p.r, ry = rx * this.SQUASH;
+    let dx = (p.x - s.x) / rx, dy = (p.y - s.y) / ry;
+    let d = Math.hypot(dx, dy);
+    if (d >= 1) return false;
+    if (d < 1e-4) { dx = 0; dy = 1; d = 1; }        // đúng tâm: hất thẳng xuống
+    const k = margin / d;
+    let nx = SC.clamp(s.x + dx * rx * k, 18, SC.W - 18);
+    let ny = SC.clamp(s.y + dy * ry * k, 40, SC.H - 24);
+
+    // Vệt nằm đè lên mép màn thì lối thoát ngang bị kẹp mất, đẩy xong vẫn còn ở trong
+    // — người chơi bị nuốt hẳn vào cục mực đục và không ra được. Đổi sang thoát theo
+    // TRỤC DỌC: khung chơi cao gấp mấy lần bán kính vệt nên hướng này luôn còn chỗ.
+    if (Math.hypot((nx - s.x) / rx, (ny - s.y) / ry) < 1) {
+      // Chọn hướng CÒN CHỖ chứ không phải hướng gần hơn: vệt nằm ở đáy màn thì hướng
+      // gần là đi xuống, mà xuống lại đụng mép — đẩy xong vẫn kẹt nguyên trong vệt.
+      const len = ry * margin;
+      const gan = p.y < s.y ? s.y - len : s.y + len;
+      const xa = p.y < s.y ? s.y + len : s.y - len;
+      nx = SC.clamp(p.x, 18, SC.W - 18);
+      ny = SC.clamp(gan >= 40 && gan <= SC.H - 24 ? gan : xa, 40, SC.H - 24);
+    }
+    p.x = nx; p.y = ny;
+    return true;
+  },
+
+  /* Vệt rơi trúng đầu: ăn đòn rồi bị hất văng ra.
+     Không cho đứng yên trong vệt — nếu chỉ chặn mà không hất thì người đã ở sẵn bên
+     trong lại thành bất khả xâm phạm, ngược hẳn ý đồ.
+     Hất dư 12% ra ngoài mép để khung sau không bị hút lại vào ngay. */
+  _dropOn(s, player) {
+    if (!this._eject(s, player, 1.12)) return;
+    if (player.hurt(Math.round(this.DMG * SC.Power.dmg()))) SC.addShake(16, 0.34);
+    SC.FX.burst(player.x, player.y, '#7a6bff', 16, 260, 2.4);
+    SC.Audio.shield();
+  },
+
+  update(dt) {
+    for (let i = this.list.length - 1; i >= 0; i--) {
+      const s = this.list[i];
+      s.t += dt;
+      if (s.t >= s.life) this.list.splice(i, 1);
+    }
+  },
+
+  /* Đẩy người chơi ra khỏi mọi vệt đang đặc.
+   *
+   * Chỉ nắn VỊ TRÍ, không đụng tới đích bay: đẩy ra theo phương xuyên tâm giữ nguyên
+   * thành phần tiếp tuyến, nên người chơi trượt dọc mép vệt thay vì dính cứng — cảm
+   * giác đúng như tì vào tường. Sửa cả đích thì máy bay giật về chỗ khác với ngón tay. */
+  collide(player) {
+    if (!this.list.length || player.dead) return;
+    for (const s of this.list) if (this.solid(s)) this._eject(s, player, 1);
+  }
+};
+
+;
 /* ===== js/entity-boss-skills.js ===== */
 /* entity-boss-skills.js — 6 chiêu "có kịch bản" của trùm và elite
  *
@@ -4482,10 +4593,22 @@ SC.BossSkills = {
     charge: 'GỒNG NỘ — LAO TỚI!', rocket: 'HOẢ TIỄN!', boomerang: 'TÁCH THÂN!',
     blind: 'BÓNG TỐI!', blink: 'DỊCH CHUYỂN!', punch: 'THIẾT QUYỀN!'
   },
-  splats: [],                                     // vệt mực che màn của chiêu 'blind'
+  /* Số dây của chiêu TÁCH THÂN tính theo MÀN, không theo máu trùm.
+     2 dây ở trùm đầu game né quá dễ — đứng giữa là xong. Càng về cuối chiến dịch càng
+     thành rèm phải luồn lách. Trần 10 kể cả vòng vô tận: dày hơn nữa thì không còn khe
+     nào để lách, hoá ra ép ăn đòn chứ không phải thử tay lái. */
+  DAY_MIN: 2, DAY_MAX: 10,
+  MAN_DAU: 3, MAN_CUOI: 60,                       // trùm đầu tiên và trùm cuối chiến dịch
 
   has(kind) { return this.LIST.indexOf(kind) >= 0; },
-  clear() { this.splats.length = 0; },
+  clear() { SC.Splats.clear(); },
+
+  soDay(b) {
+    const id = (b.lv && b.lv.id) || 1;
+    const u = (id - this.MAN_DAU) / (this.MAN_CUOI - this.MAN_DAU);
+    return SC.clamp(Math.round(this.DAY_MIN + u * (this.DAY_MAX - this.DAY_MIN)),
+      this.DAY_MIN, this.DAY_MAX);
+  },
 
   start(b, kind, player) {
     const rage = b.phase;                          // giai đoạn càng cao càng dữ
@@ -4499,15 +4622,30 @@ SC.BossSkills = {
       a.dur = 1.5; a.left = 2 + rage; a.gap = 0.26;
     } else if (kind === 'boomerang') {
       a.dur = 1.9;
-      a.parts = [{ side: -1 }, { side: 1 }].map(p => ({ side: p.side, x: 0, y: 0, rot: 0 }));
-    } else if (kind === 'blind') {
-      a.dur = 0.7;
-      for (let i = 0; i < 3 + rage; i++) {
-        this.splats.push({
-          x: SC.rnd(40, SC.W - 40), y: SC.rnd(SC.H * 0.25, SC.H * 0.9),
-          r: SC.rnd(70, 130), t: 0, life: 2.6 + rage * 0.5, seed: SC.rnd(0, 6.28)
+      // Toả đều nửa dưới: 0.15π (chếch phải) tới 0.85π (chếch trái). Một dây thì cho
+      // rơi thẳng giữa, khỏi lệch hẳn về một bên.
+      const n = this.soDay(b);
+      // Độ mở quạt GIÃN THEO SỐ DÂY, không cố định. Để cố định thì 2 dây nằm tít hai
+      // bên, đo được 0% dải người chơi bị cấm — dễ hơn cả bản cũ. Ít dây thì chụm lại
+      // bổ thẳng xuống, nhiều dây mới xoè hết thành rèm.
+      const nua = Math.min(0.35, 0.06 * n) * Math.PI;
+      // SO LE TẦM VỚI giữ cho chiêu còn né được khi đông: đo ở 10 dây cùng tầm, khe
+      // giữa hai mảnh kề chỉ còn 33px trong khi lách qua cần hơn 76px — thành đòn ép
+      // ăn chứ không phải thử tay lái. Ít dây thì KHÔNG so le, cần cả hai cùng bổ sâu.
+      const soLe = n >= 4;
+      a.parts = [];
+      for (let i = 0; i < n; i++) {
+        const u = n > 1 ? i / (n - 1) : 0.5;
+        a.parts.push({
+          ang0: Math.PI * 0.5 + (u - 0.5) * 2 * nua,
+          reach: (soLe && i % 2) ? 0.70 : 1,
+          side: i % 2 ? 1 : -1, x: 0, y: 0, rot: 0
         });
       }
+      a.swing = 0.30;                              // biên đảo qua lại của cả nan quạt
+    } else if (kind === 'blind') {
+      a.dur = 0.7;
+      SC.Splats.spawn(3 + rage, rage, player);
     } else if (kind === 'blink') {
       a.dur = 0.42 * (2 + rage); a.hops = 2 + rage; a.hop = 0.42;
     } else if (kind === 'punch') {
@@ -4526,14 +4664,6 @@ SC.BossSkills = {
     this['_' + a.kind](b, a, dt, player);
     if (a.t >= a.dur) { b.act = null; return false; }
     return true;
-  },
-
-  updateSplats(dt) {
-    for (let i = this.splats.length - 1; i >= 0; i--) {
-      const s = this.splats[i];
-      s.t += dt;
-      if (s.t >= s.life) this.splats.splice(i, 1);
-    }
   },
 
   /* ---------- gồng nộ rồi lao thẳng vào người chơi ---------- */
@@ -4567,18 +4697,29 @@ SC.BossSkills = {
     }
   },
 
-  /* ---------- tách hai mảnh thân quăng ra rồi hút về ---------- */
+  /* ---------- tách thân quăng ra thành nan quạt rồi hút về ----------
+   *
+   * Bản cũ chỉ có 2 mảnh và đặt vị trí bằng hai hàm sin lệch pha, trong đó THÀNH PHẦN
+   * DỌC DÙNG CHUNG cho mọi mảnh — thêm mảnh thứ ba vào là nó nằm đè lên mảnh cũ. Muốn
+   * lên tới 10 dây thì phải đổi cách đặt: mỗi mảnh giữ một GÓC riêng, cả nan quạt cùng
+   * vươn ra rồi cùng thu về, và đảo qua lại quanh trục.
+   *
+   * Đảo qua lại là phần bắt buộc: nan quạt đứng yên thì người chơi chỉ cần đứng lọt vào
+   * một khe là an toàn tuyệt đối suốt chiêu, càng nhiều dây càng dễ vì khe nào cũng như
+   * nhau. Có đảo thì khe trôi, buộc phải bám theo. */
   _boomerang(b, a, dt, player) {
     const k = a.t / a.dur;
-    // đi ra rồi về: sin(pi*k) cho quãng 0 -> xa nhất -> 0, khỏi phải chia nhánh
+    const e = Math.sin(Math.PI * k);              // 0 -> vươn xa nhất -> 0, khỏi chia nhánh
+    const sweep = Math.sin(6.283 * k) * a.swing;
     const spin = a.t * 7;
     for (const p of a.parts) {
       p.rot = spin * p.side;
-      // Ngang lệch pha với dọc: mảnh văng ra hai bên, xuống sâu nhất thì CHẬP vào
-      // giữa rồi mới vòng về. Nếu hai trục cùng pha thì hai mảnh đi chéo song song,
-      // người chơi đứng giữa không bao giờ bị chạm — chiêu thành ra chỉ để ngắm.
-      p.x = p.side * Math.sin(6.283 * k) * SC.W * 0.34;
-      p.y = Math.sin(Math.PI * k) * SC.H * 0.70 + Math.sin(a.t * 5) * 14;
+      const ang = p.ang0 + sweep;
+      // Bán kính ngang KHÁC dọc: quạt hình elip nên mảnh ở góc chếch sát mép vẫn nằm
+      // trong khung. Để tròn đều thì mấy mảnh ngoài cùng bay hẳn ra ngoài màn hình.
+      const q = e * p.reach;
+      p.x = Math.cos(ang) * SC.W * 0.40 * q;
+      p.y = Math.sin(ang) * SC.H * 0.70 * q;
       const wx = b.x + p.x, wy = b.y + p.y;
       if (SC.dist2(wx, wy, player.x, player.y) < (26 + player.r) ** 2) this._hit(player, 18);
       if (Math.random() < 0.4) SC.FX.trail(wx, wy, '#ffb45c');
@@ -4770,14 +4911,16 @@ SC.BossSkillArt = {
 
   /* ---------- vệt mực che màn: vẽ ở hệ toạ độ màn hình ---------- */
   screen(ctx) {
-    const list = SC.BossSkills.splats;
+    const list = SC.Splats.list;
     if (!list.length) return;
     ctx.save();
     for (const s of list) {
       const k = s.t / s.life;
       // bám vào rất nhanh rồi loang ra và tan dần
       const a = k < 0.08 ? k / 0.08 : 1 - (k - 0.08) / 0.92;
-      const r = s.r * (0.55 + Math.min(1, k * 3) * 0.45);
+      // Bán kính lấy từ SC.Splats: vùng cấm và hình vẽ phải là một, lệch nhau thì
+      // người chơi đâm vào tường vô hình hoặc bay xuyên chỗ nhìn thấy rõ là đặc.
+      const r = SC.Splats.radiusOf(s);
       ctx.globalAlpha = a * 0.93;
       ctx.fillStyle = '#0a0d18';
       ctx.beginPath();
@@ -5883,6 +6026,10 @@ SC.Player.prototype.update = function (dt) {
   const k = 1 - Math.pow(1 - SC.clamp(this.follow, 0.05, 0.9), dt * 60);
   this.x = SC.lerp(this.x, this.tx, k);
   this.y = SC.lerp(this.y, this.ty, k);
+  // Vệt mực của trùm là vùng cấm: nắn lại vị trí NGAY SAU khi bám con trỏ, trước khi
+  // đo độ nghiêng cánh — nghiêng phải tính trên quãng thật sự đi được, không thì máy
+  // bay nghiêng hẳn sang một bên trong lúc đang tì vào mép vệt mà không nhúc nhích.
+  SC.Splats.collide(this);
   this.tilt = SC.clamp((this.x - px) * 0.12, -1, 1);
   // nghiêng cánh lách đạn — phải chạy SAU khi đã dịch chuyển xong mới đo được tốc ngang
   SC.Bank.update(dt, this, px);
@@ -9910,7 +10057,7 @@ SC.Game = {
     SC.Rescue.update(dt, p, (x, y) => SC.Combat.rescue(this, x, y));
     SC.FX.update(dt);
     SC.ScreenFX.update(dt);
-    SC.BossSkills.updateSplats(dt);   // vệt mực tan dần kể cả khi trùm đã chết
+    SC.Splats.update(dt);             // vệt mực tan dần kể cả khi trùm đã chết
     SC.Combat.collide(this);
 
     // hết combo theo thời gian
