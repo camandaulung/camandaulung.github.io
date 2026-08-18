@@ -558,12 +558,12 @@
           <div class="card-body">
             <span class="card-tag" data-i18n="tag-shooter">Bắn gà</span>
             <h3 class="card-title">Sky Chicken</h3>
-            <p class="card-desc" data-i18n="desc-skychicken">60 màn, 10 vùng, 20 trùm riêng. Di chuyển bằng chuột hoặc chạm kéo —
-              tự bắn, tự nhặt đồ. Cài về máy chơi offline được.</p>
+            <p class="card-desc" data-i18n="desc-skychicken">60 màn chiến dịch, 10 vùng, 20 trùm riêng — hết rồi vào vòng vô tận,
+              map cũ nhưng khó dần. Di chuyển bằng chuột hoặc chạm kéo, tự bắn, tự nhặt đồ. Cài về máy chơi offline được.</p>
             <div class="card-progress" data-game="skychicken">
               <div class="progress-label">
                 <span data-i18n="progress-level">Màn cao nhất</span>
-                <span class="progress-value"><span class="progress-current">0</span>/60</span>
+                <span class="progress-value"><span class="progress-current">0</span><span class="progress-total">/60</span></span>
               </div>
               <div class="progress-bar"><div class="progress-fill" style="width: 0%"></div></div>
             </div>
@@ -632,8 +632,8 @@
           <div class="stat-label">Game chơi được</div>
         </div>
         <div class="stat-card" data-od-id="stat-levels">
-          <div class="stat-value">60</div>
-          <div class="stat-label">Màn Sky Chicken</div>
+          <div class="stat-value">60+</div>
+          <div class="stat-label">Màn rồi vòng vô tận</div>
         </div>
         <div class="stat-card" data-od-id="stat-cats">
           <div class="stat-value">7</div>
@@ -682,7 +682,7 @@
           'tag-shooter': 'Bắn gà',
           'tag-chess': 'Cờ vua',
           'title-chess': 'Cờ vua với mèo',
-          'desc-skychicken': '60 màn, 10 vùng, 20 trùm riêng. Di chuyển bằng chuột hoặc chạm kéo — tự bắn, tự nhặt đồ. Cài về máy chơi offline được.',
+          'desc-skychicken': '60 màn chiến dịch, 10 vùng, 20 trùm riêng — hết rồi vào vòng vô tận, map cũ nhưng khó dần. Di chuyển bằng chuột hoặc chạm kéo, tự bắn, tự nhặt đồ. Cài về máy chơi offline được.',
           'desc-chess': 'Bảy con mèo, mỗi con một tính cách và một trình độ — từ Sữa mới biết luật đến Đại Ka. Mèo còn nói chuyện trong lúc đánh. Chơi được cả khi mất mạng.',
           'progress-level': 'Màn cao nhất',
           'progress-points': 'Điểm mèo',
@@ -699,7 +699,7 @@
           'tag-shooter': 'Shooter',
           'tag-chess': 'Chess',
           'title-chess': 'Chess with Cats',
-          'desc-skychicken': '60 levels, 10 zones, 20 unique bosses. Move with mouse or touch drag — auto-shoot, auto-collect. Play offline.',
+          'desc-skychicken': '60 campaign levels, 10 zones, 20 unique bosses — then endless cycles: same maps, harder every round. Move with mouse or touch drag, auto-shoot, auto-collect. Play offline.',
           'desc-chess': 'Seven cats, each with unique personality and skill — from Sua (beginner) to Dai Ka. Cats chat while playing. Works offline.',
           'progress-level': 'Highest level',
           'progress-points': 'Cat points',
@@ -798,17 +798,25 @@
             return;
           }
 
-          // Sky Chicken progress
+          /* Sky Chicken — 60 man chien dich, HET ROI VAO VONG VO TAN.
+             Map 61 chinh la map 1 o do kho cao hon va cu the khong co tran
+             (xem games/sky-chicken-invader/js/system-endless.js).
+
+             Nen qua 60 thi bo mau so di: hien "87" chu khong phai "87/60", va thanh
+             day 100%. De nguyen "/60" thi con so doc len thanh vo nghia. */
           if (profile.games.skychicken) {
             const sky = profile.games.skychicken;
             const level = sky.highestLevel || 0;
-            const maxLevel = 60;
-            const percent = Math.min(100, (level / maxLevel) * 100);
+            const CHIEN_DICH = 60;
+            const voTan = level > CHIEN_DICH;
+            const percent = voTan ? 100 : Math.min(100, (level / CHIEN_DICH) * 100);
 
             const skyProgress = document.querySelector('.card-progress[data-game="skychicken"]');
             if (skyProgress) {
               skyProgress.classList.add('loaded');
               skyProgress.querySelector('.progress-current').textContent = level;
+              const tong = skyProgress.querySelector('.progress-total');
+              if (tong) tong.textContent = voTan ? ' · vòng ' + (Math.floor((level - 1) / CHIEN_DICH) + 1) : '/' + CHIEN_DICH;
               skyProgress.querySelector('.progress-fill').style.width = percent + '%';
             }
           }
