@@ -1,24 +1,20 @@
-﻿<!DOCTYPE html>
-<!-- Trang danh sach game cua cong. NGUON o repo nay: portal/index.html
-     CI chep no sang <repo-portal>/game/index.html. Dung sua thang ben repo portal —
-     lan deploy sau se ghi de. -->
-<html lang="vi">
+<!DOCTYPE html>
+<!-- Game portal Phase 1-4: CSS overhaul + Pixel art backgrounds + Polish + Dashboard + Theming + i18n -->
+<html lang="vi" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Cá Mặn · Arcade</title>
   <meta name="description" content="Góc giải trí nhẹ nhàng của Cá Mặn — minigame cho người lớn bận rộn.">
   <meta name="theme-color" content="#071613">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=Newsreader:opsz,wght@6..72,500;6..72,600;6..72,700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
-    :root {
+    /* Phase 4: Theme system - dark (default) + light variants */
+    :root, [data-theme="dark"] {
       --bg: #071613;
       --bg-2: #0a201b;
       --ink: #eaf6f0;
       --muted: #9db8ad;
-      --faint: #6f8c81;
+      --faint: #8ca69c;
       --accent: #ff9d6c;
       --accent-deep: #c8623a;
       --accent-glow: rgba(255, 157, 108, 0.18);
@@ -26,9 +22,26 @@
       --card-hover: rgba(255, 255, 255, 0.055);
       --card-line: rgba(255, 255, 255, 0.09);
       --card-line-hover: rgba(255, 157, 108, 0.45);
-      --font-body: 'DM Sans', system-ui, sans-serif;
-      --font-display: 'Newsreader', Georgia, serif;
+      --success: #4dffa1;
+      --font-body: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --font-display: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --font-display-brand: 'Newsreader', Georgia, serif;
       --font-mono: 'JetBrains Mono', 'Consolas', monospace;
+    }
+    [data-theme="light"] {
+      --bg: #f8faf9;
+      --bg-2: #edf2f0;
+      --ink: #0c1210;
+      --muted: #546b60;
+      --faint: #6f8c81;
+      --accent: #d85a32;
+      --accent-deep: #a8432a;
+      --accent-glow: rgba(216, 90, 50, 0.12);
+      --card: rgba(0, 0, 0, 0.025);
+      --card-hover: rgba(0, 0, 0, 0.045);
+      --card-line: rgba(0, 0, 0, 0.08);
+      --card-line-hover: rgba(216, 90, 50, 0.4);
+      --success: #17a34a;
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -46,7 +59,7 @@
       flex-direction: column;
     }
 
-    /* ── Ambient: orange-shifted aurora ────────────────────────── */
+    /* ── Ambient layers (keep existing aurora/bubbles/grain) ──── */
     .aurora {
       position: fixed; inset: -20% -10% auto -10%;
       height: 90vh; z-index: 0; pointer-events: none;
@@ -62,7 +75,6 @@
       to   { transform: translate3d(3%, 2%, 0) scale(1.08); }
     }
 
-    /* ── Bubbles ──────────────────────────────────────────────── */
     .bubbles { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
     .bubbles span {
       position: absolute; bottom: -8vh; border-radius: 50%;
@@ -76,14 +88,12 @@
       100% { transform: translateY(-118vh) translateX(var(--sway, 20px)); opacity: 0; }
     }
 
-    /* ── Grain ────────────────────────────────────────────────── */
     .grain {
       position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: 0.025;
       background-image: radial-gradient(rgba(255,255,255,0.7) 0.5px, transparent 0.6px);
       background-size: 3px 3px;
     }
 
-    /* ── CRT scanline — the one bold move ─────────────────────── */
     .scanline {
       position: fixed; inset: 0; z-index: 2; pointer-events: none;
       background: repeating-linear-gradient(
@@ -95,7 +105,7 @@
       );
     }
 
-    /* ── Shell ────────────────────────────────────────────────── */
+    /* ── Shell ──────────────────────────────────────────────── */
     .wrap {
       position: relative; z-index: 1;
       width: 100%; max-width: 1080px;
@@ -104,7 +114,7 @@
       flex: 1; display: flex; flex-direction: column;
     }
 
-    /* ── Nav ──────────────────────────────────────────────────── */
+    /* ── Nav ────────────────────────────────────────────────── */
     .topline {
       display: flex; align-items: center; justify-content: space-between; gap: 16px;
     }
@@ -122,60 +132,86 @@
     .brand-name {
       font-family: var(--font-display); font-weight: 700; font-size: 20px; letter-spacing: 0.01em;
     }
-    .brand-name em { color: var(--accent); font-style: normal; }
+    .brand-name em { color: var(--ink); font-style: normal; } /* not accent — reduce overuse */
 
     .back-link {
       display: inline-flex; align-items: center; gap: 8px;
       font-family: var(--font-mono); font-size: 12px; font-weight: 500;
       color: var(--faint); text-decoration: none;
       letter-spacing: 0.08em; text-transform: uppercase;
-      border: 1px solid var(--card-line); border-radius: 999px; padding: 10px 18px;
+      border: 1px solid var(--card-line); border-radius: 999px; padding: 12px 20px;
       transition: color 0.3s, border-color 0.3s;
     }
     .back-link:hover, .back-link:focus-visible {
       color: var(--ink); border-color: rgba(255, 255, 255, 0.25);
     }
+    .back-link:active {
+      background: rgba(255, 255, 255, 0.05);
+    }
     .back-link svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.8; }
-    /* `.topline` la space-between: them lien ket thu ba vao thang se dan deu ra
-       ba goc va lam lech thuong hieu. Boc hai lien ket ben phai lai voi nhau. */
+
+    /* Phase 4: Theme + Lang toggle buttons */
+    .icon-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 36px; height: 36px;
+      background: transparent; color: var(--faint);
+      border: 1px solid var(--card-line); border-radius: 8px;
+      cursor: pointer; padding: 0;
+      transition: color 0.3s, border-color 0.3s, background 0.3s;
+    }
+    .icon-btn:hover, .icon-btn:focus-visible {
+      color: var(--ink); border-color: rgba(255, 255, 255, 0.25);
+      background: rgba(255, 255, 255, 0.04);
+    }
+    .icon-btn:active {
+      background: rgba(255, 255, 255, 0.08);
+    }
+    .icon-btn svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.8; }
+    /* Theme toggle visibility */
+    [data-theme="dark"] .theme-icon-light { display: none; }
+    [data-theme="light"] .theme-icon-dark { display: none; }
+    [data-theme="light"] .icon-btn svg { fill: currentColor; }
+    /* Lang toggle */
+    .icon-btn span { font-family: var(--font-mono); font-size: 10px; font-weight: 600; letter-spacing: 0.08em; }
+    [lang="vi"] .lang-en { display: none; }
+    [lang="en"] .lang-vi { display: none; }
+
     .topline-right { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
-    /* ── Hero ─────────────────────────────────────────────────── */
+    /* ── Hero (shrink ~250px — audit finding) ──────────────── */
     .hero {
-      margin-top: clamp(56px, 12vw, 120px);
+      margin-top: clamp(32px, 6vw, 64px); /* was 56–120px, now 32–64px */
       max-width: 740px;
     }
     .hero-eyebrow {
       display: inline-flex; align-items: center; gap: 10px;
       font-family: var(--font-mono); font-size: 12px; font-weight: 500;
-      letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted);
-      margin-bottom: 22px;
+      letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); /* Accent use #1 */
+      margin-bottom: 18px;
     }
     .hero-eyebrow::before {
-      content: ''; width: 28px; height: 1px; background: var(--muted); opacity: 0.6;
+      content: ''; width: 28px; height: 1px; background: var(--accent); opacity: 0.6;
     }
     .hero h1 {
-      font-family: var(--font-display); font-weight: 600;
-      font-size: clamp(40px, 7.5vw, 72px);
-      line-height: 1.1; letter-spacing: -0.02em;
+      font-family: var(--font-display); font-weight: 700; /* was 600 */
+      font-size: clamp(36px, 6.5vw, 56px); /* was 40–72px, smaller for compact hero */
+      line-height: 1.35; letter-spacing: 0; /* Vietnamese CJK: no negative tracking, taller leading */
     }
-    .hero h1 .glow {
-      background: linear-gradient(105deg, var(--accent) 10%, #ffc89e 50%, var(--accent-deep) 95%);
-      -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
-    }
+    /* Remove gradient glow on hero h1 — accent overuse */
+    .hero h1 .highlight { color: var(--accent); }
     .hero-sub {
-      margin-top: 22px; font-size: clamp(15px, 2vw, 18px); color: var(--muted);
+      margin-top: 18px; font-size: clamp(15px, 2vw, 17px); color: var(--muted);
       max-width: 52ch; line-height: 1.6;
     }
 
     .hero-actions {
-      margin-top: 36px; display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+      margin-top: 28px; display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
     }
     .btn-primary {
       display: inline-flex; align-items: center; gap: 10px;
       font-family: var(--font-mono); font-size: 13px; font-weight: 500;
       letter-spacing: 0.08em; text-transform: uppercase;
-      color: var(--bg); background: var(--accent);
+      color: var(--bg); background: var(--accent); /* Accent use #2 — primary CTA only */
       border: none; border-radius: 10px; padding: 14px 28px;
       cursor: pointer; text-decoration: none;
       transition: transform 0.25s, box-shadow 0.25s;
@@ -184,6 +220,10 @@
       transform: translateY(-2px);
       box-shadow: 0 12px 36px -10px rgba(255, 157, 108, 0.5);
     }
+    .btn-primary:active {
+      transform: translateY(0);
+      box-shadow: 0 4px 12px -6px rgba(255, 157, 108, 0.4);
+    }
     .btn-primary svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; }
 
     .hero-status {
@@ -191,21 +231,18 @@
       letter-spacing: 0.06em; text-transform: uppercase;
       display: inline-flex; align-items: center; gap: 8px;
     }
+    /* Remove pulse dot — no longer accent, just muted */
     .pulse {
       width: 7px; height: 7px; border-radius: 50%;
-      background: var(--accent); animation: pulse-glow 2s ease-in-out infinite;
-    }
-    @keyframes pulse-glow {
-      0%, 100% { box-shadow: 0 0 0 0 rgba(255, 157, 108, 0.5); }
-      50% { box-shadow: 0 0 0 6px rgba(255, 157, 108, 0); }
+      background: var(--muted); /* was var(--accent) */
     }
 
-    /* ── Games grid ───────────────────────────────────────────── */
-    .games-section { margin-top: clamp(64px, 10vw, 100px); }
+    /* ── Games grid (push up ~400px desktop, ~300px mobile) ── */
+    .games-section { margin-top: clamp(32px, 5vw, 48px); } /* was 64–100px */
     .section-label {
       font-family: var(--font-mono); font-size: 11.5px; font-weight: 500;
       letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint);
-      margin-bottom: 28px;
+      margin-bottom: 24px;
       display: flex; align-items: center; gap: 14px;
     }
     .section-label::after {
@@ -214,8 +251,8 @@
 
     .games-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: clamp(16px, 2.5vw, 22px);
+      grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr));
+      gap: clamp(18px, 2.5vw, 24px);
     }
 
     .game-card {
@@ -239,29 +276,64 @@
       background: var(--accent); transition: opacity 0.4s, transform 0.5s;
     }
 
+    /* Thumb enlarge 160→240px (audit finding) */
     .card-thumb {
-      width: 100%; aspect-ratio: 16 / 10;
+      width: 100%; aspect-ratio: 16 / 9; /* was 16/10, now wider */
       background: linear-gradient(135deg, var(--bg-2) 0%, rgba(255, 157, 108, 0.06) 100%);
       display: grid; place-items: center; position: relative;
       border-bottom: 1px solid var(--card-line);
+      image-rendering: pixelated;
+      overflow: hidden;
     }
     .card-thumb svg {
-      width: 40px; height: 40px; stroke: var(--faint); fill: none;
+      width: 48px; height: 48px; stroke: var(--faint); fill: none;
       stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; opacity: 0.5;
     }
+    /* Phase 2: Stylized pixel-art-inspired CSS backgrounds */
+    .game-card:nth-child(1) .card-thumb {
+      background:
+        /* Noise grain overlay */
+        repeating-conic-gradient(rgba(255, 255, 255, 0.012) 0% 25%, transparent 0% 50%) 50% / 4px 4px,
+        /* Pixel grid hint */
+        repeating-linear-gradient(90deg, rgba(135, 206, 235, 0.04) 0px, transparent 1px, transparent 16px),
+        repeating-linear-gradient(0deg, rgba(135, 206, 235, 0.04) 0px, transparent 1px, transparent 16px),
+        /* Sky gradient layers */
+        radial-gradient(ellipse at 20% 30%, rgba(255, 215, 0, 0.24) 0%, transparent 45%),
+        radial-gradient(circle at 78% 48%, rgba(135, 206, 235, 0.28) 0%, transparent 58%),
+        radial-gradient(ellipse at 50% 85%, rgba(255, 255, 255, 0.08) 0%, transparent 65%),
+        linear-gradient(180deg, rgba(135, 206, 235, 0.16) 0%, rgba(255, 215, 0, 0.1) 100%),
+        var(--bg-2);
+      box-shadow: inset 0 0 0 1px rgba(135, 206, 235, 0.08);
+    }
+    .game-card:nth-child(2) .card-thumb {
+      background:
+        /* Noise grain overlay */
+        repeating-conic-gradient(rgba(255, 140, 0, 0.015) 0% 25%, transparent 0% 50%) 50% / 4px 4px,
+        /* Checkerboard hint */
+        repeating-linear-gradient(45deg, rgba(139, 69, 19, 0.05) 0px, rgba(139, 69, 19, 0.05) 10px, transparent 10px, transparent 20px),
+        repeating-linear-gradient(-45deg, rgba(255, 140, 0, 0.03) 0px, rgba(255, 140, 0, 0.03) 10px, transparent 10px, transparent 20px),
+        /* Wood/chess gradient layers */
+        radial-gradient(ellipse at 38% 35%, rgba(255, 140, 0, 0.22) 0%, transparent 42%),
+        radial-gradient(circle at 68% 58%, rgba(139, 69, 19, 0.18) 0%, transparent 52%),
+        radial-gradient(ellipse at 15% 75%, rgba(255, 140, 0, 0.12) 0%, transparent 48%),
+        linear-gradient(135deg, rgba(139, 69, 19, 0.14) 0%, rgba(255, 140, 0, 0.1) 100%),
+        var(--bg-2);
+      box-shadow: inset 0 0 0 1px rgba(139, 69, 19, 0.12);
+    }
 
-    .card-body { padding: 20px 22px 22px; flex: 1; display: flex; flex-direction: column; }
+    .card-body { padding: 22px 24px 24px; flex: 1; display: flex; flex-direction: column; } /* was 20/22 */
     .card-tag {
       display: inline-flex; align-self: flex-start;
       font-family: var(--font-mono); font-size: 10px; font-weight: 500;
       letter-spacing: 0.12em; text-transform: uppercase;
-      color: var(--accent); padding: 4px 10px;
-      border: 1px solid rgba(255, 157, 108, 0.25); border-radius: 6px;
+      color: var(--muted); /* was var(--accent) — reduce accent use */
+      padding: 4px 10px;
+      border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 6px;
       margin-bottom: 12px;
     }
     .card-title {
-      font-family: var(--font-display); font-weight: 600; font-size: 22px;
-      letter-spacing: -0.01em; line-height: 1.2; margin-bottom: 8px;
+      font-family: var(--font-display); font-weight: 600; font-size: 24px; /* was 22px */
+      letter-spacing: -0.012em; line-height: 1.2; margin-bottom: 10px;
     }
     .card-desc {
       font-size: 14px; color: var(--muted); line-height: 1.55; flex: 1;
@@ -278,9 +350,6 @@
     .card-status .dot {
       width: 5px; height: 5px; border-radius: 50%;
     }
-    /* Cham xanh nhap nhay cho game da choi duoc.
-       Truoc day con co .dot-coming va .dot-dev cho cac the "sap ra mat" / "dang lam" —
-       da bo cung voi cac the do: chung la thong tin bia, khong co game that dang sau. */
     .dot-live { background: #4dffa1; animation: pulse-live 2s ease-in-out infinite; }
     @keyframes pulse-live {
       0%, 100% { box-shadow: 0 0 0 0 rgba(77, 255, 161, 0.55); }
@@ -299,16 +368,38 @@
       letter-spacing: 0.08em; text-transform: uppercase;
       color: var(--faint); text-decoration: none;
       display: inline-flex; align-items: center; gap: 6px;
-      padding: 6px 10px; border-radius: 6px;
+      padding: 8px 12px; border-radius: 6px;
       transition: color 0.3s, background 0.3s;
     }
     .card-play:hover, .card-play:focus-visible {
       background: rgba(255, 255, 255, 0.04);
     }
-    .game-card:hover .card-play { color: var(--accent); }
+    .card-play:active {
+      background: rgba(255, 255, 255, 0.08);
+    }
+    .game-card:hover .card-play { color: var(--muted); } /* not accent — reduce overuse */
     .card-play svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2; }
 
-    /* ── About section ────────────────────────────────────────── */
+    /* Phase 3: Dashboard sync - progress bars */
+    .card-progress {
+      margin-top: 14px; padding: 10px 0; display: none; /* hidden until player data loads */
+    }
+    .card-progress.loaded { display: block; }
+    .progress-label {
+      font-family: var(--font-mono); font-size: 10px; font-weight: 500;
+      letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint);
+      display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;
+    }
+    .progress-value { color: var(--muted); }
+    .progress-bar {
+      width: 100%; height: 4px; background: var(--card-line); border-radius: 999px; overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%; background: var(--accent); border-radius: 999px;
+      transition: width 0.6s cubic-bezier(0.2, 0.7, 0.2, 1);
+    }
+
+    /* ── About section (keep Newsreader for brand voice) ────── */
     .about {
       margin-top: clamp(64px, 10vw, 100px);
       display: grid; grid-template-columns: 1fr 1fr; gap: 40px;
@@ -317,7 +408,7 @@
     @media (max-width: 720px) { .about { grid-template-columns: 1fr; gap: 28px; } }
 
     .about-text h2 {
-      font-family: var(--font-display); font-weight: 600;
+      font-family: var(--font-display-brand); font-weight: 600; /* Newsreader for brand section */
       font-size: clamp(24px, 4vw, 34px); letter-spacing: -0.015em;
       line-height: 1.15; margin-bottom: 16px;
     }
@@ -343,7 +434,7 @@
       color: var(--faint); margin-top: 8px;
     }
 
-    /* ── Footer ───────────────────────────────────────────────── */
+    /* ── Footer ─────────────────────────────────────────────── */
     .footer {
       margin-top: clamp(64px, 10vw, 100px);
       padding: 28px 0; border-top: 1px solid var(--card-line);
@@ -359,13 +450,13 @@
       letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint);
     }
 
-    /* ── Focus ring ───────────────────────────────────────────── */
+    /* ── Focus ring ─────────────────────────────────────────── */
     *:focus-visible {
       outline: 2px solid var(--accent);
       outline-offset: 3px;
     }
 
-    /* ── Reduced motion ───────────────────────────────────────── */
+    /* ── Reduced motion ─────────────────────────────────────── */
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after {
         animation-duration: 0.01ms !important;
@@ -375,10 +466,12 @@
       .aurora, .bubbles, .scanline { display: none; }
     }
 
-    /* ── Mobile ───────────────────────────────────────────────── */
+    /* ── Mobile (responsive <400px push grid ~300px) ────────── */
     @media (max-width: 480px) {
       .topline { flex-direction: column; align-items: flex-start; gap: 12px; }
-      .hero h1 { font-size: clamp(32px, 9vw, 42px); }
+      .hero { margin-top: 28px; } /* was 32px, now 28px — push grid up */
+      .hero h1 { font-size: clamp(28px, 8vw, 36px); }
+      .games-section { margin-top: 28px; } /* was 32px, now 28px */
       .games-grid { grid-template-columns: 1fr; }
       .about-stats { grid-template-columns: 1fr; }
       .footer { flex-direction: column; align-items: flex-start; }
@@ -410,135 +503,333 @@
         <span class="brand-name">Cá <em>Mặn</em></span>
       </a>
       <div class="topline-right">
+        <button type="button" id="theme-toggle" class="icon-btn" aria-label="Toggle theme" title="Đổi giao diện">
+          <svg viewBox="0 0 24 24" class="theme-icon-dark" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <svg viewBox="0 0 24 24" class="theme-icon-light" aria-hidden="true"><circle cx="12" cy="12" r="5"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+        </button>
+        <button type="button" id="lang-toggle" class="icon-btn" aria-label="Toggle language" title="Đổi ngôn ngữ">
+          <span class="lang-vi">VI</span>
+          <span class="lang-en">EN</span>
+        </button>
         <a href="./me/" class="back-link">
-          <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-          H&#7891; s&#417;
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <span data-i18n="profile">Hồ sơ</span>
         </a>
         <a href="https://camandaulung.github.io/" class="back-link">
-          <svg viewBox="0 0 24 24"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
-          Trang ch&#237;nh
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+          <span data-i18n="home">Trang chính</span>
         </a>
       </div>
     </nav>
 
-    <!-- ── Hero ─────────────────────────────────────────────── -->
+    <!-- ── Hero (compact — push games up) ───────────────────── -->
     <section class="hero" data-od-id="hero">
       <div class="hero-eyebrow">Game Portal</div>
-      <h1>Gi&#7843;i tr&#237; 5 ph&#250;t<br>cho ng&#432;&#7901;i <span class="glow">kh&#244;ng r&#7843;nh</span></h1>
-      <p class="hero-sub">
-        Minigame nh&#7865; nh&#224;ng cho ng&#432;&#7901;i l&#7899;n b&#7853;n r&#7897;n.
-        Kh&#244;ng qu&#7843;ng c&#225;o, kh&#244;ng pay-to-win &mdash; ch&#7881; c&#7847;n 5 ph&#250;t r&#7843;nh.
+      <h1 data-i18n-html="hero-title">Giải trí 5 phút<br>cho người <span class="highlight">không rảnh</span></h1>
+      <p class="hero-sub" data-i18n="hero-sub">
+        Minigame nhẹ nhàng cho người lớn bận rộn.
+        Không quảng cáo, không pay-to-win — chỉ cần 5 phút rảnh.
       </p>
       <div class="hero-actions">
         <a href="#games" class="btn-primary">
-          Th&#7917; ngay
-          <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+          <span data-i18n="cta-try">Thử ngay</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
         </a>
         <span class="hero-status">
           <span class="pulse"></span>
-          &#272;ang ph&#225;t tri&#7875;n
+          <span data-i18n="status-dev">Đang phát triển</span>
         </span>
       </div>
     </section>
 
-    <!-- ── Games grid ───────────────────────────────────────── -->
+    <!-- ── Games grid (visible earlier) ─────────────────────── -->
     <section class="games-section" id="games" data-od-id="games-section">
-      <div class="section-label">Ch&#417;i &#273;&#432;&#7907;c ngay</div>
+      <div class="section-label">Chơi được ngay</div>
       <div class="games-grid">
 
-        <!-- Sky Chicken — game duy nhat da choi duoc -->
+        <!-- Sky Chicken -->
         <article class="game-card live" data-od-id="game-card-skychicken">
-          <a class="card-thumb" href="./SkyChicken/" aria-label="Ch&#417;i Sky Chicken">
-            <svg viewBox="0 0 48 48">
+          <a class="card-thumb" href="./SkyChicken/" aria-label="Chơi Sky Chicken">
+            <svg viewBox="0 0 48 48" aria-hidden="true">
               <path d="M24 8l4 10 10 2-7 7 2 10-9-5-9 5 2-10-7-7 10-2z"/>
               <path d="M24 30v8M20 38h8"/>
             </svg>
           </a>
           <div class="card-body">
-            <span class="card-tag">B&#7855;n g&#224;</span>
+            <span class="card-tag" data-i18n="tag-shooter">Bắn gà</span>
             <h3 class="card-title">Sky Chicken</h3>
-            <p class="card-desc">60 m&#224;n, 10 v&#249;ng, 20 tr&#249;m ri&#234;ng. Di chu&#7875;n b&#7857;ng chu&#7897;t ho&#7863;c ch&#7841;m k&#233;o &mdash;
-              t&#7921; b&#7855;n, t&#7921; nh&#7863;t &#273;&#7891;. C&#224;i v&#7873; m&#225;y ch&#417;i offline &#273;&#432;&#7907;c.</p>
+            <p class="card-desc" data-i18n="desc-skychicken">60 màn, 10 vùng, 20 trùm riêng. Di chuẩn bằng chuột hoặc chạm kéo —
+              tự bắn, tự nhặt đồ. Cài về máy chơi offline được.</p>
+            <div class="card-progress" data-game="skychicken">
+              <div class="progress-label">
+                <span data-i18n="progress-level">Màn cao nhất</span>
+                <span class="progress-value"><span class="progress-current">0</span>/60</span>
+              </div>
+              <div class="progress-bar"><div class="progress-fill" style="width: 0%"></div></div>
+            </div>
             <div class="card-footer">
-              <span class="card-status"><span class="dot dot-live"></span>Ch&#417;i &#273;&#432;&#7907;c</span>
+              <span class="card-status"><span class="dot dot-live"></span><span data-i18n="status-play">Chơi được</span></span>
               <a class="card-play" href="./SkyChicken/">
-                Ch&#417;i ngay
-                <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                <span data-i18n="cta-play">Chơi ngay</span>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
               </a>
             </div>
           </div>
           <div class="card-halo"></div>
         </article>
 
-        <!-- Co vua voi meo -->
+        <!-- Cờ vua với mèo -->
         <article class="game-card live" data-od-id="game-card-catchess">
           <a class="card-thumb" href="./chess/" aria-label="Chơi Cờ vua với mèo">
-            <svg viewBox="0 0 48 48">
+            <svg viewBox="0 0 48 48" aria-hidden="true">
               <path d="M18 38h12l1-6H17z"/>
               <path d="M20 32c0-4 1-6 3-8l-2-3 2-2-1-5 3 2 2-4 2 4 3-2-1 5 2 2-2 3c2 2 3 4 3 8"/>
               <path d="M16 42h16"/>
             </svg>
           </a>
           <div class="card-body">
-            <span class="card-tag">Cờ vua</span>
-            <h3 class="card-title">Cờ vua với mèo</h3>
-            <p class="card-desc">Bảy con mèo, mỗi con một tính cách và một trình độ — từ Sữa mới biết luật
+            <span class="card-tag" data-i18n="tag-chess">Cờ vua</span>
+            <h3 class="card-title" data-i18n="title-chess">Cờ vua với mèo</h3>
+            <p class="card-desc" data-i18n="desc-chess">Bảy con mèo, mỗi con một tính cách và một trình độ — từ Sữa mới biết luật
               đến Đại Ka. Mèo còn nói chuyện trong lúc đánh. Chơi được cả khi mất mạng.</p>
+            <div class="card-progress" data-game="chess">
+              <div class="progress-label">
+                <span data-i18n="progress-points">Điểm mèo</span>
+                <span class="progress-value"><span class="progress-current">0</span> pts</span>
+              </div>
+              <div class="progress-bar"><div class="progress-fill" style="width: 0%"></div></div>
+            </div>
             <div class="card-footer">
-              <span class="card-status"><span class="dot dot-live"></span>Chơi được</span>
+              <span class="card-status"><span class="dot dot-live"></span><span data-i18n="status-play">Chơi được</span></span>
               <a class="card-play" href="./chess/">
-                Chơi ngay
-                <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                <span data-i18n="cta-play">Chơi ngay</span>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
               </a>
             </div>
           </div>
           <div class="card-halo"></div>
         </article>
 
-
       </div>
     </section>
 
-    <!-- ── About ────────────────────────────────────────────── -->
+    <!-- ── About (Newsreader for brand voice) ───────────────── -->
     <section class="about" data-od-id="about">
       <div class="about-text">
-        <h2>Ch&#417;i &#273;&#7875; ngh&#7881; &#273;&#7847;u,<br>kh&#244;ng &#273;&#7875; m&#7845;t th&#7901;i gian</h2>
+        <h2>Chơi để nghỉ đầu,<br>không để mất thời gian</h2>
         <p>
-          C&#225; M&#7863;n Arcade l&#224; g&#243;c gi&#7843;i tr&#237; nh&#7887; b&#234;n c&#7841;nh b&#7843;n tin m&#7895;i s&#225;ng.
-          M&#7895;i game thi&#7871;t k&#7871; cho 5&ndash;10 ph&#250;t, kh&#244;ng c&#7847;n t&#7843;i app,
-          kh&#244;ng c&#7847;n &#273;&#259;ng k&#253;.
+          Cá Mặn Arcade là góc giải trí nhỏ bên cạnh bản tin mỗi sáng.
+          Mỗi game thiết kế cho 5&ndash;10 phút, không cần tải app,
+          không cần đăng ký.
         </p>
         <p>
-          M&#7903; tr&#236;nh duy&#7879;t, ch&#417;i v&#224;i v&#225;n, r&#7891;i quay l&#7841;i vi&#7879;c.
-          &#272;&#417;n gi&#7843;n v&#7853;y th&#244;i.
+          Mở trình duyệt, chơi vài ván, rồi quay lại việc.
+          Đơn giản vậy thôi.
         </p>
       </div>
       <div class="about-stats">
         <div class="stat-card" data-od-id="stat-duration">
           <div class="stat-value">5 ph</div>
-          <div class="stat-label">M&#7895;i l&#432;&#7907;t ch&#417;i</div>
+          <div class="stat-label">Mỗi lượt chơi</div>
         </div>
         <div class="stat-card" data-od-id="stat-cost">
-          <div class="stat-value">0 &#273;</div>
-          <div class="stat-label">Ho&#224;n to&#224;n mi&#7877;n ph&#237;</div>
+          <div class="stat-value">0 đ</div>
+          <div class="stat-label">Hoàn toàn miễn phí</div>
         </div>
         <div class="stat-card" data-od-id="stat-ads">
           <div class="stat-value">0</div>
-          <div class="stat-label">Qu&#7843;ng c&#225;o</div>
+          <div class="stat-label">Quảng cáo</div>
         </div>
         <div class="stat-card" data-od-id="stat-games">
           <div class="stat-value">2</div>
-          <div class="stat-label">Game ch&#417;i &#273;&#432;&#7907;c</div>
+          <div class="stat-label">Game chơi được</div>
         </div>
       </div>
     </section>
 
     <!-- ── Footer ───────────────────────────────────────────── -->
     <footer class="footer" data-od-id="footer">
-      <span class="footer-brand">🐟 C&#225; M&#7863;n &middot; Arcade</span>
-      <span class="footer-tagline">&#272;au L&#432;ng &middot; Gi&#7843;i tr&#237; nh&#7865; nh&#224;ng</span>
+      <span class="footer-brand">🐟 Cá Mặn &middot; Arcade</span>
+      <span class="footer-tagline">Đau Lưng &middot; Giải trí nhẹ nhàng</span>
     </footer>
 
   </div>
+
+  <!-- Phase 3: Load Portal scripts (player, rank, games tracking) -->
+  <script src="../shared/portal-firebase.js" defer></script>
+  <script src="../shared/portal-auth.js" defer></script>
+  <script src="../shared/portal-cloud.js" defer></script>
+  <script src="../shared/portal-player.js" defer></script>
+  <script src="../shared/portal-rank.js" defer></script>
+  <script src="../shared/portal-games.js" defer></script>
+
+  <!-- Phase 4: Theme + Language + Dashboard Sync -->
+  <script>
+    (function() {
+      'use strict';
+
+      // ---- i18n dictionary ----
+      const LANG = {
+        vi: {
+          'profile': 'Hồ sơ',
+          'home': 'Trang chính',
+          'hero-title': 'Giải trí 5 phút<br>cho người <span class="highlight">không rảnh</span>',
+          'hero-sub': 'Minigame nhẹ nhàng cho người lớn bận rộn. Không quảng cáo, không pay-to-win — chỉ cần 5 phút rảnh.',
+          'cta-try': 'Thử ngay',
+          'status-dev': 'Đang phát triển',
+          'tag-shooter': 'Bắn gà',
+          'tag-chess': 'Cờ vua',
+          'title-chess': 'Cờ vua với mèo',
+          'desc-skychicken': '60 màn, 10 vùng, 20 trùm riêng. Di chuẩn bằng chuột hoặc chạm kéo — tự bắn, tự nhặt đồ. Cài về máy chơi offline được.',
+          'desc-chess': 'Bảy con mèo, mỗi con một tính cách và một trình độ — từ Sữa mới biết luật đến Đại Ka. Mèo còn nói chuyện trong lúc đánh. Chơi được cả khi mất mạng.',
+          'progress-level': 'Màn cao nhất',
+          'progress-points': 'Điểm mèo',
+          'status-play': 'Chơi được',
+          'cta-play': 'Chơi ngay'
+        },
+        en: {
+          'profile': 'Profile',
+          'home': 'Home',
+          'hero-title': '5-minute fun<br>for <span class="highlight">busy people</span>',
+          'hero-sub': 'Light minigames for busy adults. No ads, no pay-to-win — just 5 minutes of fun.',
+          'cta-try': 'Try now',
+          'status-dev': 'In development',
+          'tag-shooter': 'Shooter',
+          'tag-chess': 'Chess',
+          'title-chess': 'Chess with Cats',
+          'desc-skychicken': '60 levels, 10 zones, 20 unique bosses. Move with mouse or touch drag — auto-shoot, auto-collect. Play offline.',
+          'desc-chess': 'Seven cats, each with unique personality and skill — from Sua (beginner) to Dai Ka. Cats chat while playing. Works offline.',
+          'progress-level': 'Highest level',
+          'progress-points': 'Cat points',
+          'status-play': 'Available',
+          'cta-play': 'Play now'
+        }
+      };
+
+      // ---- Preferences (localStorage) ----
+      const PREFS = {
+        theme: localStorage.getItem('portal:theme') || 'dark',
+        lang: localStorage.getItem('portal:lang') || 'vi'
+      };
+
+      // ---- Apply theme ----
+      function setTheme(theme) {
+        PREFS.theme = theme;
+        document.documentElement.setAttribute('data-theme', theme);
+        localStorage.setItem('portal:theme', theme);
+      }
+
+      // ---- Apply language ----
+      function setLang(lang) {
+        PREFS.lang = lang;
+        document.documentElement.setAttribute('lang', lang);
+        localStorage.setItem('portal:lang', lang);
+
+        // Update all i18n elements
+        document.querySelectorAll('[data-i18n]').forEach(el => {
+          const key = el.getAttribute('data-i18n');
+          if (LANG[lang] && LANG[lang][key]) {
+            el.textContent = LANG[lang][key];
+          }
+        });
+        document.querySelectorAll('[data-i18n-html]').forEach(el => {
+          const key = el.getAttribute('data-i18n-html');
+          if (LANG[lang] && LANG[lang][key]) {
+            el.innerHTML = LANG[lang][key];
+          }
+        });
+      }
+
+      // ---- Initialize preferences on load ----
+      setTheme(PREFS.theme);
+      setLang(PREFS.lang);
+
+      // ---- Toggle buttons ----
+      document.addEventListener('DOMContentLoaded', function() {
+        const themeBtn = document.getElementById('theme-toggle');
+        const langBtn = document.getElementById('lang-toggle');
+
+        if (themeBtn) {
+          themeBtn.addEventListener('click', function() {
+            setTheme(PREFS.theme === 'dark' ? 'light' : 'dark');
+          });
+        }
+
+        if (langBtn) {
+          langBtn.addEventListener('click', function() {
+            setLang(PREFS.lang === 'vi' ? 'en' : 'vi');
+          });
+        }
+
+        // ---- Phase 3: Dashboard sync (load player progress) ----
+        if (window.Portal && Portal.Player && Portal.Auth) {
+          loadPlayerProgress();
+        } else {
+          // Portal scripts not loaded or auth not ready — hide progress bars
+          console.log('[portal] Dashboard sync skipped — Portal scripts not available');
+        }
+      });
+
+      // ---- Load player progress from Firebase ----
+      async function loadPlayerProgress() {
+        try {
+          // Wait for auth to be ready
+          await new Promise(resolve => {
+            if (Portal.Auth.user) return resolve();
+            const check = setInterval(() => {
+              if (Portal.Auth.user) {
+                clearInterval(check);
+                resolve();
+              }
+            }, 100);
+            setTimeout(() => { clearInterval(check); resolve(); }, 3000); // 3s timeout
+          });
+
+          if (!Portal.Auth.user) {
+            console.log('[portal] No user signed in — progress hidden');
+            return;
+          }
+
+          const profile = await Portal.Player.get();
+          if (!profile || !profile.games) {
+            console.log('[portal] No player profile found');
+            return;
+          }
+
+          // Sky Chicken progress
+          if (profile.games.skychicken) {
+            const sky = profile.games.skychicken;
+            const level = sky.highestLevel || 0;
+            const maxLevel = 60;
+            const percent = Math.min(100, (level / maxLevel) * 100);
+
+            const skyProgress = document.querySelector('.card-progress[data-game="skychicken"]');
+            if (skyProgress) {
+              skyProgress.classList.add('loaded');
+              skyProgress.querySelector('.progress-current').textContent = level;
+              skyProgress.querySelector('.progress-fill').style.width = percent + '%';
+            }
+          }
+
+          // Chess progress
+          if (profile.games.chess) {
+            const chess = profile.games.chess;
+            const points = chess.catPoints || 0;
+            const maxPoints = 1000; // Assume max 1000 points for progress bar
+            const percent = Math.min(100, (points / maxPoints) * 100);
+
+            const chessProgress = document.querySelector('.card-progress[data-game="chess"]');
+            if (chessProgress) {
+              chessProgress.classList.add('loaded');
+              chessProgress.querySelector('.progress-current').textContent = points;
+              chessProgress.querySelector('.progress-fill').style.width = percent + '%';
+            }
+          }
+        } catch (e) {
+          console.warn('[portal] Failed to load player progress:', e);
+        }
+      }
+    })();
+  </script>
 </body>
 </html>
