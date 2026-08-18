@@ -183,15 +183,6 @@
       margin-top: clamp(32px, 6vw, 64px); /* was 56–120px, now 32–64px */
       max-width: 740px;
     }
-    .hero-eyebrow {
-      display: inline-flex; align-items: center; gap: 10px;
-      font-family: var(--font-mono); font-size: 12px; font-weight: 500;
-      letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); /* Accent use #1 */
-      margin-bottom: 18px;
-    }
-    .hero-eyebrow::before {
-      content: ''; width: 28px; height: 1px; background: var(--accent); opacity: 0.6;
-    }
     .hero h1 {
       font-family: var(--font-display); font-weight: 700; /* was 600 */
       font-size: clamp(36px, 6.5vw, 56px); /* was 40–72px, smaller for compact hero */
@@ -340,25 +331,14 @@
     }
     .card-footer {
       margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--card-line);
-      display: flex; align-items: center; justify-content: space-between;
-    }
-    .card-status {
-      font-family: var(--font-mono); font-size: 11px; font-weight: 500;
-      letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint);
-      display: inline-flex; align-items: center; gap: 6px;
-    }
-    .card-status .dot {
-      width: 5px; height: 5px; border-radius: 50%;
-    }
-    .dot-live { background: #4dffa1; animation: pulse-live 2s ease-in-out infinite; }
-    @keyframes pulse-live {
-      0%, 100% { box-shadow: 0 0 0 0 rgba(77, 255, 161, 0.55); }
-      50% { box-shadow: 0 0 0 5px rgba(77, 255, 161, 0); }
+      /* Truoc day hang nay co hai thu: badge "Choi duoc" ben trai va "Choi ngay" ben
+         phai, nen dung space-between. Da bo badge (moi the deu choi duoc nen no khong
+         phan biet gi), gio chi con mot thu -> day sang phai. */
+      display: flex; align-items: center; justify-content: flex-end;
     }
     .game-card.live { border-color: rgba(77, 255, 161, 0.34); }
     .game-card.live:hover { border-color: rgba(77, 255, 161, 0.6); box-shadow: 0 20px 50px -24px rgba(77, 255, 161, 0.4); }
     .game-card.live .card-halo { background: #4dffa1; }
-    .game-card.live .card-status { color: #4dffa1; }
     .game-card.live .card-play { color: #4dffa1; }
     .game-card.live .card-thumb { display: grid; place-items: center; text-decoration: none; }
     .game-card.live .card-thumb svg { stroke: #4dffa1; opacity: 0.75; }
@@ -453,39 +433,9 @@
     }
 
     /* ── About section (keep Newsreader for brand voice) ────── */
-    .about {
-      margin-top: clamp(64px, 10vw, 100px);
-      display: grid; grid-template-columns: 1fr 1fr; gap: 40px;
-      align-items: start;
-    }
     @media (max-width: 720px) { .about { grid-template-columns: 1fr; gap: 28px; } }
 
-    .about-text h2 {
-      font-family: var(--font-display-brand); font-weight: 600; /* Newsreader for brand section */
-      font-size: clamp(24px, 4vw, 34px); letter-spacing: -0.015em;
-      line-height: 1.15; margin-bottom: 16px;
-    }
-    .about-text p {
-      font-size: 15px; color: var(--muted); line-height: 1.6; max-width: 48ch;
-    }
-    .about-text p + p { margin-top: 12px; }
 
-    .about-stats {
-      display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
-    }
-    .stat-card {
-      padding: 20px; border: 1px solid var(--card-line); border-radius: 14px;
-      background: var(--card);
-    }
-    .stat-value {
-      font-family: var(--font-display); font-weight: 700;
-      font-size: 28px; letter-spacing: -0.02em; line-height: 1;
-    }
-    .stat-label {
-      font-family: var(--font-mono); font-size: 11px; font-weight: 500;
-      letter-spacing: 0.1em; text-transform: uppercase;
-      color: var(--faint); margin-top: 8px;
-    }
 
     /* ── Footer ─────────────────────────────────────────────── */
     .footer {
@@ -526,7 +476,6 @@
       .hero h1 { font-size: clamp(28px, 8vw, 36px); }
       .games-section { margin-top: 28px; } /* was 32px, now 28px */
       .games-grid { grid-template-columns: 1fr; }
-      .about-stats { grid-template-columns: 1fr; }
       .footer { flex-direction: column; align-items: flex-start; }
     }
   </style>
@@ -577,7 +526,6 @@
 
     <!-- ── Hero (compact — push games up) ───────────────────── -->
     <section class="hero" data-od-id="hero">
-      <div class="hero-eyebrow" data-i18n="eyebrow">Góc minigame</div>
       <h1 data-i18n-html="hero-title">Vài minigame<br>làm <span class="highlight">cho vui</span></h1>
       <p class="hero-sub" data-i18n="hero-sub">
         Mở trình duyệt là chơi, không cần cài.
@@ -621,7 +569,6 @@
               <div class="progress-bar"><div class="progress-fill" style="width: 0%"></div></div>
             </div>
             <div class="card-footer">
-              <span class="card-status"><span class="dot dot-live"></span><span data-i18n="status-play">Chơi được</span></span>
               <a class="card-play" href="./SkyChicken/" data-i18n-aria="aria-play-sky" aria-label="Chơi Sky Chicken">
                 <span data-i18n="cta-play">Chơi ngay</span>
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
@@ -652,7 +599,6 @@
               <div class="progress-bar"><div class="progress-fill" style="width: 0%"></div></div>
             </div>
             <div class="card-footer">
-              <span class="card-status"><span class="dot dot-live"></span><span data-i18n="status-play">Chơi được</span></span>
               <a class="card-play" href="./chess/" data-i18n-aria="aria-play-chess" aria-label="Chơi Cờ vua với mèo">
                 <span data-i18n="cta-play">Chơi ngay</span>
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
@@ -666,42 +612,10 @@
     </section>
 
     <!-- ── About (Newsreader for brand voice) ───────────────── -->
-    <section class="about" data-od-id="about">
-      <div class="about-text">
-        <h2 data-i18n="about-title">Làm cho vui thôi</h2>
-        <p data-i18n="about-p1">
-          Cá Mặn Arcade là nơi gom các minigame tự làm. Mở trình duyệt là chơi,
-          không cần cài gì.
-        </p>
-        <p data-i18n="about-p2">
-          Chơi ẩn danh vẫn đủ. Đăng nhập thì tiến độ theo tài khoản,
-          đổi máy vẫn còn.
-        </p>
-      </div>
-      <div class="about-stats">
-        <div class="stat-card" data-od-id="stat-games">
-          <div class="stat-value">2</div>
-          <div class="stat-label" data-i18n="stat-games">Minigame chơi được</div>
-        </div>
-        <div class="stat-card" data-od-id="stat-levels">
-          <div class="stat-value">60+</div>
-          <div class="stat-label" data-i18n="stat-levels-label">Màn rồi vòng vô tận</div>
-        </div>
-        <div class="stat-card" data-od-id="stat-cats">
-          <div class="stat-value">7</div>
-          <div class="stat-label" data-i18n="stat-cats">Mèo cờ vua</div>
-        </div>
-        <div class="stat-card" data-od-id="stat-offline">
-          <div class="stat-value">Offline</div>
-          <div class="stat-label" data-i18n="stat-offline">Mất mạng vẫn chơi</div>
-        </div>
-      </div>
-    </section>
-
     <!-- ── Footer ───────────────────────────────────────────── -->
     <footer class="footer" data-od-id="footer">
       <span class="footer-brand">🐟 Cá Mặn &middot; Arcade</span>
-      <span class="footer-tagline" data-i18n-html="footer-tagline">Đau Lưng &middot; Giải trí nhẹ nhàng</span>
+      <span class="footer-tagline">Đau Lưng</span>
     </footer>
 
   </div>
@@ -725,7 +639,6 @@
       // ---- i18n dictionary ----
       const LANG = {
         vi: {
-          'eyebrow': 'Góc minigame',
           'profile': 'Hồ sơ',
           'home': 'Trang chính',
           'hero-title': 'Vài minigame<br>làm <span class="highlight">cho vui</span>',
@@ -739,17 +652,8 @@
           'desc-chess': 'Bảy con mèo, mỗi con một tính cách và một trình độ — từ Sữa mới biết luật đến Đại Ka. Mèo còn nói chuyện trong lúc đánh. Chơi được cả khi mất mạng.',
           'progress-level': 'Màn cao nhất',
           'progress-points': 'Điểm mèo',
-          'status-play': 'Chơi được',
           'cta-play': 'Chơi ngay',
           'section-playable': 'Chơi được ngay',
-          'about-title': 'Làm cho vui thôi',
-          'about-p1': 'Cá Mặn Arcade là nơi gom các minigame tự làm. Mở trình duyệt là chơi, không cần cài gì.',
-          'about-p2': 'Chơi ẩn danh vẫn đủ. Đăng nhập thì tiến độ theo tài khoản, đổi máy vẫn còn.',
-          'stat-games': 'Minigame chơi được',
-          'stat-levels-label': 'Màn rồi vòng vô tận',
-          'stat-cats': 'Mèo cờ vua',
-          'stat-offline': 'Mất mạng vẫn chơi',
-          'footer-tagline': 'Đau Lưng &middot; Giải trí nhẹ nhàng',
           'unit-points': ' điểm',
           'btn-theme': 'Đổi giao diện',
           'btn-lang': 'Đổi ngôn ngữ',
@@ -758,7 +662,6 @@
           'meta-desc': 'Vài minigame của Cá Mặn, chạy thẳng trên trình duyệt.'
         },
         en: {
-          'eyebrow': 'Minigames',
           'profile': 'Profile',
           'home': 'Home',
           'hero-title': 'A few minigames<br>made <span class="highlight">for fun</span>',
@@ -772,17 +675,8 @@
           'desc-chess': 'Seven cats, each with unique personality and skill — from Sua (beginner) to Dai Ka. Cats chat while playing. Works offline.',
           'progress-level': 'Highest level',
           'progress-points': 'Cat points',
-          'status-play': 'Available',
           'cta-play': 'Play now',
           'section-playable': 'Playable now',
-          'about-title': 'Just for fun',
-          'about-p1': 'Cá Mặn Arcade collects the minigames I build myself. Open the browser and play — nothing to install.',
-          'about-p2': 'Playing anonymously is fine. Sign in and your progress follows the account across devices.',
-          'stat-games': 'Playable minigames',
-          'stat-levels-label': 'Levels, then endless',
-          'stat-cats': 'Chess cats',
-          'stat-offline': 'Works offline',
-          'footer-tagline': 'Đau Lưng &middot; Small games',
           'unit-points': ' pts',
           'btn-theme': 'Toggle theme',
           'btn-lang': 'Toggle language',
