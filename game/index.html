@@ -503,11 +503,11 @@
         <span class="brand-name">Cá <em>Mặn</em></span>
       </a>
       <div class="topline-right">
-        <button type="button" id="theme-toggle" class="icon-btn" aria-label="Toggle theme" title="Đổi giao diện">
+        <button type="button" id="theme-toggle" class="icon-btn" aria-label="Toggle theme" data-i18n-title="btn-theme" title="Đổi giao diện">
           <svg viewBox="0 0 24 24" class="theme-icon-dark" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
           <svg viewBox="0 0 24 24" class="theme-icon-light" aria-hidden="true"><circle cx="12" cy="12" r="5"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
         </button>
-        <button type="button" id="lang-toggle" class="icon-btn" aria-label="Toggle language" title="Đổi ngôn ngữ">
+        <button type="button" id="lang-toggle" class="icon-btn" aria-label="Toggle language" data-i18n-title="btn-lang" title="Đổi ngôn ngữ">
           <span class="lang-vi">VI</span>
           <span class="lang-en">EN</span>
         </button>
@@ -544,12 +544,12 @@
 
     <!-- ── Games grid (visible earlier) ─────────────────────── -->
     <section class="games-section" id="games" data-od-id="games-section">
-      <div class="section-label">Chơi được ngay</div>
+      <div class="section-label" data-i18n="section-playable">Chơi được ngay</div>
       <div class="games-grid">
 
         <!-- Sky Chicken -->
         <article class="game-card live" data-od-id="game-card-skychicken">
-          <a class="card-thumb" href="./SkyChicken/" aria-label="Chơi Sky Chicken">
+          <a class="card-thumb" href="./SkyChicken/" data-i18n-aria="aria-play-sky" aria-label="Chơi Sky Chicken">
             <svg viewBox="0 0 48 48" aria-hidden="true">
               <path d="M24 8l4 10 10 2-7 7 2 10-9-5-9 5 2-10-7-7 10-2z"/>
               <path d="M24 30v8M20 38h8"/>
@@ -580,7 +580,7 @@
 
         <!-- Cờ vua với mèo -->
         <article class="game-card live" data-od-id="game-card-catchess">
-          <a class="card-thumb" href="./chess/" aria-label="Chơi Cờ vua với mèo">
+          <a class="card-thumb" href="./chess/" data-i18n-aria="aria-play-chess" aria-label="Chơi Cờ vua với mèo">
             <svg viewBox="0 0 48 48" aria-hidden="true">
               <path d="M18 38h12l1-6H17z"/>
               <path d="M20 32c0-4 1-6 3-8l-2-3 2-2-1-5 3 2 2-4 2 4 3-2-1 5 2 2-2 3c2 2 3 4 3 8"/>
@@ -595,7 +595,7 @@
             <div class="card-progress" data-game="chess">
               <div class="progress-label">
                 <span data-i18n="progress-points">Điểm mèo</span>
-                <span class="progress-value"><span class="progress-current">0</span> pts</span>
+                <span class="progress-value"><span class="progress-current">0</span><span class="progress-total" data-i18n="unit-points"> điểm</span></span>
               </div>
               <div class="progress-bar"><div class="progress-fill" style="width: 0%"></div></div>
             </div>
@@ -616,12 +616,12 @@
     <!-- ── About (Newsreader for brand voice) ───────────────── -->
     <section class="about" data-od-id="about">
       <div class="about-text">
-        <h2>Làm cho vui thôi</h2>
-        <p>
+        <h2 data-i18n="about-title">Làm cho vui thôi</h2>
+        <p data-i18n="about-p1">
           Cá Mặn Arcade là chỗ để mấy game tự làm. Mở trình duyệt là chơi,
           không cần cài gì.
         </p>
-        <p>
+        <p data-i18n="about-p2">
           Chơi ẩn danh vẫn đủ. Đăng nhập thì tiến độ theo tài khoản,
           đổi máy vẫn còn.
         </p>
@@ -629,19 +629,19 @@
       <div class="about-stats">
         <div class="stat-card" data-od-id="stat-games">
           <div class="stat-value">2</div>
-          <div class="stat-label">Game chơi được</div>
+          <div class="stat-label" data-i18n="stat-games">Game chơi được</div>
         </div>
         <div class="stat-card" data-od-id="stat-levels">
           <div class="stat-value">60+</div>
-          <div class="stat-label">Màn rồi vòng vô tận</div>
+          <div class="stat-label" data-i18n="stat-levels-label">Màn rồi vòng vô tận</div>
         </div>
         <div class="stat-card" data-od-id="stat-cats">
           <div class="stat-value">7</div>
-          <div class="stat-label">Mèo cờ vua</div>
+          <div class="stat-label" data-i18n="stat-cats">Mèo cờ vua</div>
         </div>
         <div class="stat-card" data-od-id="stat-offline">
           <div class="stat-value">Offline</div>
-          <div class="stat-label">Mất mạng vẫn chơi</div>
+          <div class="stat-label" data-i18n="stat-offline">Mất mạng vẫn chơi</div>
         </div>
       </div>
     </section>
@@ -649,7 +649,7 @@
     <!-- ── Footer ───────────────────────────────────────────── -->
     <footer class="footer" data-od-id="footer">
       <span class="footer-brand">🐟 Cá Mặn &middot; Arcade</span>
-      <span class="footer-tagline">Đau Lưng &middot; Giải trí nhẹ nhàng</span>
+      <span class="footer-tagline" data-i18n-html="footer-tagline">Đau Lưng &middot; Giải trí nhẹ nhàng</span>
     </footer>
 
   </div>
@@ -687,7 +687,22 @@
           'progress-level': 'Màn cao nhất',
           'progress-points': 'Điểm mèo',
           'status-play': 'Chơi được',
-          'cta-play': 'Chơi ngay'
+          'cta-play': 'Chơi ngay',
+          'section-playable': 'Chơi được ngay',
+          'about-title': 'Làm cho vui thôi',
+          'about-p1': 'Cá Mặn Arcade là chỗ để mấy game tự làm. Mở trình duyệt là chơi, không cần cài gì.',
+          'about-p2': 'Chơi ẩn danh vẫn đủ. Đăng nhập thì tiến độ theo tài khoản, đổi máy vẫn còn.',
+          'stat-games': 'Game chơi được',
+          'stat-levels-label': 'Màn rồi vòng vô tận',
+          'stat-cats': 'Mèo cờ vua',
+          'stat-offline': 'Mất mạng vẫn chơi',
+          'footer-tagline': 'Đau Lưng &middot; Giải trí nhẹ nhàng',
+          'unit-points': ' điểm',
+          'btn-theme': 'Đổi giao diện',
+          'btn-lang': 'Đổi ngôn ngữ',
+          'aria-play-sky': 'Chơi Sky Chicken',
+          'aria-play-chess': 'Chơi Cờ vua với mèo',
+          'meta-desc': 'Vài minigame nhỏ của Cá Mặn, chạy thẳng trên trình duyệt.'
         },
         en: {
           'profile': 'Profile',
@@ -704,7 +719,22 @@
           'progress-level': 'Highest level',
           'progress-points': 'Cat points',
           'status-play': 'Available',
-          'cta-play': 'Play now'
+          'cta-play': 'Play now',
+          'section-playable': 'Playable now',
+          'about-title': 'Just for fun',
+          'about-p1': 'Cá Mặn Arcade is where my own small games live. Open the browser and play — nothing to install.',
+          'about-p2': 'Playing anonymously is fine. Sign in and your progress follows the account across devices.',
+          'stat-games': 'Playable games',
+          'stat-levels-label': 'Levels, then endless',
+          'stat-cats': 'Chess cats',
+          'stat-offline': 'Works offline',
+          'footer-tagline': 'Đau Lưng &middot; Small games',
+          'unit-points': ' pts',
+          'btn-theme': 'Toggle theme',
+          'btn-lang': 'Toggle language',
+          'aria-play-sky': 'Play Sky Chicken',
+          'aria-play-chess': 'Play Chess with Cats',
+          'meta-desc': 'A few small games by Cá Mặn, running right in the browser.'
         }
       };
 
@@ -740,6 +770,23 @@
             el.innerHTML = LANG[lang][key];
           }
         });
+
+        /* Thuoc tinh — co che cu chi doi duoc noi dung the, nen `title` va `aria-label`
+           van la tieng Viet khi bam sang EN. Nguoi dung tro chuot vao nut hoac dung
+           trinh doc man hinh se thay ngon ngu lan lon. */
+        document.querySelectorAll('[data-i18n-title]').forEach(el => {
+          const key = el.getAttribute('data-i18n-title');
+          if (LANG[lang] && LANG[lang][key]) el.title = LANG[lang][key];
+        });
+        document.querySelectorAll('[data-i18n-aria]').forEach(el => {
+          const key = el.getAttribute('data-i18n-aria');
+          if (LANG[lang] && LANG[lang][key]) el.setAttribute('aria-label', LANG[lang][key]);
+        });
+
+        /* Mo ta trang. Bo tim kiem doc luc chua chay JS nen doi o day khong giup gi cho
+           SEO — chi de trang khong tu mau thuan khi ai do xem ma nguon. */
+        const moTa = document.querySelector('meta[name="description"]');
+        if (moTa && LANG[lang] && LANG[lang]['meta-desc']) moTa.content = LANG[lang]['meta-desc'];
       }
 
       // ---- Initialize preferences on load ----
