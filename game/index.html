@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Cá Mặn · Arcade</title>
-  <meta name="description" content="Góc giải trí nhẹ nhàng của Cá Mặn — minigame cho người lớn bận rộn.">
+  <meta name="description" content="Vài minigame nhỏ của Cá Mặn, chạy thẳng trên trình duyệt.">
   <meta name="theme-color" content="#071613">
   <style>
     /* Phase 4: Theme system - dark (default) + light variants */
@@ -525,10 +525,10 @@
     <!-- ── Hero (compact — push games up) ───────────────────── -->
     <section class="hero" data-od-id="hero">
       <div class="hero-eyebrow">Game Portal</div>
-      <h1 data-i18n-html="hero-title">Giải trí 5 phút<br>cho người <span class="highlight">không rảnh</span></h1>
+      <h1 data-i18n-html="hero-title">Mấy trò chơi nhỏ<br>làm <span class="highlight">cho vui</span></h1>
       <p class="hero-sub" data-i18n="hero-sub">
-        Minigame nhẹ nhàng cho người lớn bận rộn.
-        Không quảng cáo, không pay-to-win — chỉ cần 5 phút rảnh.
+        Mở trình duyệt là chơi, không cần cài.
+        Chơi ẩn danh cũng được — đăng nhập thì giữ được tiến độ khi đổi máy.
       </p>
       <div class="hero-actions">
         <a href="#games" class="btn-primary">
@@ -558,7 +558,7 @@
           <div class="card-body">
             <span class="card-tag" data-i18n="tag-shooter">Bắn gà</span>
             <h3 class="card-title">Sky Chicken</h3>
-            <p class="card-desc" data-i18n="desc-skychicken">60 màn, 10 vùng, 20 trùm riêng. Di chuẩn bằng chuột hoặc chạm kéo —
+            <p class="card-desc" data-i18n="desc-skychicken">60 màn, 10 vùng, 20 trùm riêng. Di chuyển bằng chuột hoặc chạm kéo —
               tự bắn, tự nhặt đồ. Cài về máy chơi offline được.</p>
             <div class="card-progress" data-game="skychicken">
               <div class="progress-label">
@@ -616,33 +616,32 @@
     <!-- ── About (Newsreader for brand voice) ───────────────── -->
     <section class="about" data-od-id="about">
       <div class="about-text">
-        <h2>Chơi để nghỉ đầu,<br>không để mất thời gian</h2>
+        <h2>Làm cho vui thôi</h2>
         <p>
-          Cá Mặn Arcade là góc giải trí nhỏ bên cạnh bản tin mỗi sáng.
-          Mỗi game thiết kế cho 5&ndash;10 phút, không cần tải app,
-          không cần đăng ký.
+          Cá Mặn Arcade là chỗ để mấy game tự làm. Mở trình duyệt là chơi,
+          không cần cài gì.
         </p>
         <p>
-          Mở trình duyệt, chơi vài ván, rồi quay lại việc.
-          Đơn giản vậy thôi.
+          Chơi ẩn danh vẫn đủ. Đăng nhập thì tiến độ theo tài khoản,
+          đổi máy vẫn còn.
         </p>
       </div>
       <div class="about-stats">
-        <div class="stat-card" data-od-id="stat-duration">
-          <div class="stat-value">5 ph</div>
-          <div class="stat-label">Mỗi lượt chơi</div>
-        </div>
-        <div class="stat-card" data-od-id="stat-cost">
-          <div class="stat-value">0 đ</div>
-          <div class="stat-label">Hoàn toàn miễn phí</div>
-        </div>
-        <div class="stat-card" data-od-id="stat-ads">
-          <div class="stat-value">0</div>
-          <div class="stat-label">Quảng cáo</div>
-        </div>
         <div class="stat-card" data-od-id="stat-games">
           <div class="stat-value">2</div>
           <div class="stat-label">Game chơi được</div>
+        </div>
+        <div class="stat-card" data-od-id="stat-levels">
+          <div class="stat-value">60</div>
+          <div class="stat-label">Màn Sky Chicken</div>
+        </div>
+        <div class="stat-card" data-od-id="stat-cats">
+          <div class="stat-value">7</div>
+          <div class="stat-label">Mèo cờ vua</div>
+        </div>
+        <div class="stat-card" data-od-id="stat-offline">
+          <div class="stat-value">Offline</div>
+          <div class="stat-label">Mất mạng vẫn chơi</div>
         </div>
       </div>
     </section>
@@ -656,6 +655,9 @@
   </div>
 
   <!-- Phase 3: Load Portal scripts (player, rank, games tracking) -->
+  <!-- portal-config.js PHAI dung dau: cac file sau doc Portal.CONFIG.
+       Thieu no thi Portal.FB.configured() tra false va bang tien do im lang khong chay. -->
+  <script src="../shared/portal-config.js" defer></script>
   <script src="../shared/portal-firebase.js" defer></script>
   <script src="../shared/portal-auth.js" defer></script>
   <script src="../shared/portal-cloud.js" defer></script>
@@ -673,14 +675,14 @@
         vi: {
           'profile': 'Hồ sơ',
           'home': 'Trang chính',
-          'hero-title': 'Giải trí 5 phút<br>cho người <span class="highlight">không rảnh</span>',
-          'hero-sub': 'Minigame nhẹ nhàng cho người lớn bận rộn. Không quảng cáo, không pay-to-win — chỉ cần 5 phút rảnh.',
+          'hero-title': 'Mấy trò chơi nhỏ<br>làm <span class="highlight">cho vui</span>',
+          'hero-sub': 'Mở trình duyệt là chơi, không cần cài. Chơi ẩn danh cũng được — đăng nhập thì giữ được tiến độ khi đổi máy.',
           'cta-try': 'Thử ngay',
           'status-dev': 'Đang phát triển',
           'tag-shooter': 'Bắn gà',
           'tag-chess': 'Cờ vua',
           'title-chess': 'Cờ vua với mèo',
-          'desc-skychicken': '60 màn, 10 vùng, 20 trùm riêng. Di chuẩn bằng chuột hoặc chạm kéo — tự bắn, tự nhặt đồ. Cài về máy chơi offline được.',
+          'desc-skychicken': '60 màn, 10 vùng, 20 trùm riêng. Di chuyển bằng chuột hoặc chạm kéo — tự bắn, tự nhặt đồ. Cài về máy chơi offline được.',
           'desc-chess': 'Bảy con mèo, mỗi con một tính cách và một trình độ — từ Sữa mới biết luật đến Đại Ka. Mèo còn nói chuyện trong lúc đánh. Chơi được cả khi mất mạng.',
           'progress-level': 'Màn cao nhất',
           'progress-points': 'Điểm mèo',
@@ -690,8 +692,8 @@
         en: {
           'profile': 'Profile',
           'home': 'Home',
-          'hero-title': '5-minute fun<br>for <span class="highlight">busy people</span>',
-          'hero-sub': 'Light minigames for busy adults. No ads, no pay-to-win — just 5 minutes of fun.',
+          'hero-title': 'A few small games<br>made <span class="highlight">for fun</span>',
+          'hero-sub': 'Open the browser and play — no install. Play anonymously, or sign in to keep progress across devices.',
           'cta-try': 'Try now',
           'status-dev': 'In development',
           'tag-shooter': 'Shooter',
