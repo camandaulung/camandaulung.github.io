@@ -226,7 +226,18 @@ main { flex: 1; display: flex; flex-direction: column; }
 .elo-num { font-size: 11px; color: var(--text-dim); }
 .elo-stats { font-size: 11px; color: var(--text-dim); }
 .elo-stats.has-win { color: var(--ok-text); }
-.elo-stars { font-size: 11px; color: var(--accent-text); letter-spacing: 1px; }
+/* Day sao chap nhan NUA sao: moi o la mot sao rong, de len tren mot sao dac bi
+   cat bot be ngang. Lam vay de khong phu thuoc ky tu nua-sao — nhieu font khong
+   co no, va cac font co thi be ngang lai lech han so voi sao thuong. */
+.elo-stars { display: inline-flex; gap: 1px; font-size: 11px; color: var(--text-dim); }
+.elo-stars .st { position: relative; line-height: 1; }
+.elo-stars .st::before { content: "☆"; }
+.elo-stars .st > i {
+  position: absolute; left: 0; top: 0;
+  overflow: hidden; white-space: nowrap;
+  font-style: normal; color: var(--accent-text);
+}
+.elo-stars .st > i::before { content: "★"; }
 
 .menu-summary {
   margin-top: 14px; padding: 10px;

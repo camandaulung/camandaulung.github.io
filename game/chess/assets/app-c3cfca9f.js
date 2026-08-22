@@ -2091,7 +2091,7 @@ CC.cfg.fmt = function (tpl, vars) {
 
 ;
 /* ===== js/data-cat-profiles.js ===== */
-/* data-cat-profiles.js — bay con meo, moi con mot tinh cach
+/* data-cat-profiles.js — tam con meo, moi con mot tinh cach
  *
  * Truoc day ca bay muc dung CHUNG mot con meo ten Leo, chi khac giong noi theo ba
  * tang. Nguoi choi leo muc khong thay gi moi ngoai con so Elo.
@@ -2100,11 +2100,11 @@ CC.cfg.fmt = function (tpl, vars) {
  * cau thoai rieng o nhung khoanh khac de nho nhat.
  *
  * VI SAO KHONG VIET HAN BAY BANK CAU THOAI RIENG:
- * Bay bank day du la ~1.300 dong lap lai gan het noi dung — vua phinh goi, vua kho
+ * Tam bank day du la ~1.500 dong lap lai gan het noi dung — vua phinh goi, vua kho
  * sua (doi mot cau phai sua bay cho). Cach lam o day:
  *   - `voice`  chon mot trong ba bank NEN da co (kitten / adult / master)
  *   - `lines`  ghi de rieng o nam su kien dinh hinh tinh cach nhat
- * Bank nen lo phan chung, phan ghi de lo phan ca tinh. DRY ma van ra bay nhan vat.
+ * Bank nen lo phan chung, phan ghi de lo phan ca tinh. DRY ma van ra tam nhan vat.
  *
  * Ten meo deu la ten meo Viet quen thuoc — nghe la biet ngay la meo nha.
  */
@@ -2112,7 +2112,7 @@ CC.cfg.fmt = function (tpl, vars) {
 CC.CatProfiles = (function () {
   const LIST = [
     {
-      elo: 400, id: 'sua', name: 'Sữa',
+      elo: 400, id: 'trang', name: 'Trắng',
       tag: 'Mèo sơ sinh · chưa biết gì',
       about: 'Mới mở mắt, luật còn chưa thuộc. Hỏi lại nhiều hơn là đi cờ.',
       voice: 'kitten',
@@ -2158,6 +2158,14 @@ CC.CatProfiles = (function () {
       voice: 'master',
       fur: '#9aa2a8', furDark: '#7b848b', belly: '#e6ebee', pink: '#e8a2ae', ink: '#2e343a',
       mark: 'glasses'
+    },
+    {
+      elo: 1400, id: 'bao', name: 'Báo',
+      tag: 'Mèo đi săn · nhanh và sắc',
+      about: 'Ép sát ngay từ nước đầu. Chậm một nhịp là mất quân.',
+      voice: 'master',
+      fur: '#cf9350', furDark: '#a9713a', belly: '#f6e3c6', pink: '#ef94a4', ink: '#3a2716',
+      mark: 'rosette'
     },
     {
       elo: 1600, id: 'daika', name: 'Đại Ka',
@@ -4198,7 +4206,7 @@ CC.EngineBridge = (function () {
 
 ;
 /* ===== js/engine-elo-profiles.js ===== */
-/* engine-elo-profiles.js — bang 9 muc suc manh cua meo
+/* engine-elo-profiles.js — bang 8 muc suc manh cua meo
  *
  * VI SAO PHAI TU VIET LOP LAM YEU:
  * Stockfish co san UCI_LimitStrength + UCI_Elo, nhung UCI_Elo TOI THIEU LA 1320,
@@ -4250,7 +4258,24 @@ CC.EngineBridge = (function () {
  *   d2·t200·b28 =  755      d4·t90·b11 = 1344       d6·t40·b03 = 1893
  *
  * CHOT CHAN DANG GIA ~74 Elo — do chenh giua co va khong co. Dung ha nguong
- * kich hoat cua chung neu khong muon thang bi xe dich.
+ * kich hoat cua chung neu khong muon thang bi xe dich. *
+ * BAY THU HAI — MULTIPV QUYET DINH NHIET DO CO TAC DUNG HAY KHONG (do 22/08/2026):
+ *   Nhiet do boc nuoc bang softmax TREN DANH SACH MultiPV. Danh sach HEP thi khong
+ *   con nuoc kem de boc, va nhiet do gan nhu mat tac dung:
+ *
+ *     d4·mpv4·t84·b14  -> 1492        d4·mpv4·t60·b06 -> 1492    (TRUNG KHIT)
+ *     d4·mpv5·t110·b14 -> 1271        (chi noi mpv 4->5, tut 221 Elo)
+ *
+ *   Lan them muc 1350 da dinh dung bay nay: dat mpv 4 giong het Dai Ka nen hai muc
+ *   manh y nhau, do ra cung 70/96 diem. Muon lam yeu thi NOI RONG mpv TRUOC roi moi
+ *   tang nhiet. Vi vay tu day moi moc phai ghi kem mpv — bang moc phia tren thieu no.
+ *
+ * MOC DO PHU THUOC MAY — dung so sanh so tuyet doi giua hai lan do khac nhau:
+ *   Doi thu moc chay theo THOI GIAN (UCI_Elo 1320, 250ms) con ca thang chay theo DO
+ *   SAU co dinh. May nhanh hon -> moc manh hon -> ca thang tut xuong. Do lai ngay
+ *   22/08 tren may khac: d4·mpv4·t60·b06 ra 1492 chu khong phai 1643 (lech 151 Elo),
+ *   va ca thang lech theo. So tuong doi TRONG CUNG mot lan do thi van dung.
+ *   => Muc moi phai neo theo HAI HANG XOM do CUNG LAN, khong lay so cu ra so.
  * ============================================================================ */
 
 CC.EloProfiles = (function () {
@@ -4261,7 +4286,7 @@ CC.EloProfiles = (function () {
    * 56-68 Elo, va muc "1600" thuc chat chi khoang 1444. No khong voi toi dinh thang
    * ma Anh dat ra, trong khi che do tu viet thi voi toi thoai mai.
    */
-  /* BAY MUC, khong phai chin — va do la ket qua cua phep do, khong phai lua chon.
+  /* TAM MUC — va moi muc deu la ket qua cua phep do, khong phai lua chon.
    *
    * Vong 2 (1.575 van) do duoc vi tri tuong doi cua 9 cau hinh:
    *   0 · 116 · 307 · 536 · 727 · 776 · 883 · 1169 · 1211  (Elo, tinh tu muc thap nhat)
@@ -4284,6 +4309,18 @@ CC.EloProfiles = (function () {
    *   d3·t100·b12         1250     1250       1250
    *   d4·t60·b06            —      1643       1600   (ghi thap hon so do, cho chac)
    *
+   * Muc 1350 them sau (22/08/2026), do o LAN KHAC nen phai doc theo cach khac:
+   *
+   *   Cau hinh            Do lan 22/08   Nhan chot
+   *   d3·mpv5·t100·b12        1187         1250   <- But, moc duoi
+   *   d4·mpv5·t110·b14        1271         1350   <- Bao
+   *   d4·mpv4·t60·b06         1492         1600   <- Dai Ka, moc tren
+   *
+   * Nhan 1350 KHONG phai so do thang, ma la noi suy tuyen tinh giua hai hang xom
+   * do cung lan: 1250 + (1271-1187)*(1600-1250)/(1492-1187) = 1346, lam tron 1350.
+   * Phai lam vay vi moc do phu thuoc may (xem dau file). Sai so mau 64 van la
+   * +/-44 Elo, nen dung coi 1350 la con so chinh xac — giao dien van ghi "khoang".
+   *
    * Hai cach khop nhau ro nhat o hai dau: muc 1250 trung khit, va cau hinh
    * d4·t63·b065 cho 1578 (chuoi) so voi 1573 (neo). Do la kiem chung cheo that su.
    */
@@ -4294,6 +4331,7 @@ CC.EloProfiles = (function () {
     { elo: 900,  name: 'Mèo hàng xóm', mode: 'custom', depth: 2, multipv: 6, temp: 180, blunder: 0.25 },
     { elo: 1050, name: 'Mèo tinh ranh',mode: 'custom', depth: 2, multipv: 5, temp: 150, blunder: 0.20 },
     { elo: 1250, name: 'Mèo lão luyện',mode: 'custom', depth: 3, multipv: 5, temp: 100, blunder: 0.12 },
+    { elo: 1350, name: 'Mèo đi săn',   mode: 'custom', depth: 4, multipv: 5, temp: 110, blunder: 0.14 },
     { elo: 1600, name: 'Mèo đại sư',   mode: 'custom', depth: 4, multipv: 4, temp: 60,  blunder: 0.06 }
   ];
 
@@ -5551,6 +5589,39 @@ CC.CatMarks = (function () {
           }));
         });
         g.appendChild(s('path', { d: 'M97 74 L103 74', stroke: C().ink, 'stroke-width': 4, fill: 'none' }));
+        return g;
+      }
+    },
+
+    /* Bao — hoa mai: vong ho + cham giua, ne mat va bung */
+    rosette: {
+      onHead: true,
+      build: () => {
+        const g = s('g');
+        const dark = '#4a3018';
+        /* Vong CO Y de ho mot doan. Hoa mai that cua bao cung ho, va o co 54px
+         * cua anh dai dien thi vong lien net trong nhu cai nhan chu khong ra dom. */
+        const spot = (cx, cy, r) => {
+          const k = s('g');
+          k.appendChild(s('circle', {
+            cx, cy, r, fill: 'none', stroke: dark, 'stroke-width': 3.2,
+            'stroke-dasharray': (r * 1.5) + ' ' + (r * 0.9), 'stroke-linecap': 'round'
+          }));
+          k.appendChild(s('circle', { cx, cy, r: r * 0.34, fill: dark }));
+          return k;
+        };
+        /* Tren dau chi dat o hai ben thai duong va hai ben ma. Giua tran da co ba vet
+         * soc cua bo khung dung chung — chong len la roi net ca hai.
+         * Cap o ma phai nam TREN y=86: do la noi bat dau chum RAU, keo suot be
+         * ngang dau. Da dinh dung loi nay mot lan khi de o y=92. */
+        [[68, 52, 7], [132, 52, 7], [60, 74, 7], [140, 74, 7]].forEach(a => g.appendChild(spot(...a)));
+        /* Tren than chi hai ben suon: giua la mang bung sang, dat dom len la mat
+         * do tuong phan. Hai chan nam o y>170 nen phai dung tren do.
+         *
+         * MEP TREN phai tu y=134 tro xuong: anh dai dien cat theo viewBox
+         * "40 10 120 116" va CHI ve phan dau. Dom nao thoi len tren y=126 se
+         * lo lung duoi cam trong anh dai dien vi khong co than do lam nen. */
+        [[64, 136, 8], [136, 136, 8], [62, 162, 7], [138, 162, 7]].forEach(a => g.appendChild(spot(...a)));
         return g;
       }
     },
@@ -6913,7 +6984,7 @@ CC.ChatLines.master = {
  * Chi ghi de o NAM su kien dinh hinh tinh cach nhat. Phan con lai dung bank nen
  * theo `voice` cua ho so (kitten / adult / master).
  *
- * Vi sao chi nam su kien: bay bank day du la ~1.300 dong lap lai gan het noi dung,
+ * Vi sao chi nam su kien: tam bank day du la ~1.500 dong lap lai gan het noi dung,
  * vua phinh goi vua kho sua. Nam su kien nay la nam khoanh khac nguoi choi NHO NHAT:
  *   game_start     cau chao — an tuong dau tien
  *   game_win       meo thang — luc lo tinh cach nhat
@@ -6927,41 +6998,41 @@ CC.ChatLines.master = {
 CC.ChatLines = CC.ChatLines || {};
 CC.ChatLines.personal = {
 
-  /* --- Sữa (400) — mới mở mắt, luật còn chưa thuộc --- */
-  sua: {
+  /* --- Trắng (400) — mới mở mắt, luật còn chưa thuộc --- */
+  trang: {
     game_start: [
       'Anh ơi… con ngựa đi chéo hay đi thẳng ạ?',
-      'Sữa mới học hôm qua thôi. Anh chỉ Sữa với nha!',
-      'Mình bắt đầu rồi hả Anh? Sữa chưa kịp chuẩn bị…',
-      'Sữa đi cái nào cũng được đúng không ạ?',
+      'Trắng mới học hôm qua thôi. Anh chỉ Trắng với nha!',
+      'Mình bắt đầu rồi hả Anh? Trắng chưa kịp chuẩn bị…',
+      'Trắng đi cái nào cũng được đúng không ạ?',
       'Con này là con Xe hay con Tượng vậy Anh?'
     ],
     game_win: [
-      'Ơ?! Sữa thắng á? Thắng là sao ạ?',
-      'Anh ơi hết rồi hả? Sữa thắng thật hả Anh?',
-      'Sữa không hiểu gì hết mà Sữa thắng rồi!',
+      'Ơ?! Trắng thắng á? Thắng là sao ạ?',
+      'Anh ơi hết rồi hả? Trắng thắng thật hả Anh?',
+      'Trắng không hiểu gì hết mà Trắng thắng rồi!',
       'Mẹ ơi con thắng rồi nè! …ơ, mẹ đâu rồi.',
-      'Sữa đi lung tung mà thắng luôn á?'
+      'Trắng đi lung tung mà thắng luôn á?'
     ],
     game_loss: [
-      'Sữa thua rồi hả Anh? Sữa chưa kịp hiểu gì cả…',
-      'Ơ, Vua Sữa đâu mất rồi ạ?',
-      'Anh giỏi ghê… Sữa còn chưa thuộc luật nữa.',
-      'Sữa buồn xíu thôi. Mai Sữa học lại!',
+      'Trắng thua rồi hả Anh? Trắng chưa kịp hiểu gì cả…',
+      'Ơ, con Vua của em đâu mất rồi ạ?',
+      'Anh giỏi ghê… Trắng còn chưa thuộc luật nữa.',
+      'Trắng buồn xíu thôi. Mai Trắng học lại!',
       'Thua là sao ạ? Là mình hết đi được hả Anh?'
     ],
     player_blunder: [
       'Anh ơi con đó Anh để quên hả?',
-      'Sữa lấy được không ạ? Sữa hỏi thật đó.',
-      'Ơ… cái này Sữa lấy có bị la không Anh?',
-      'Anh cho Sữa hả? Sữa cảm ơn Anh nhiều!',
-      'Sữa không chắc nhưng Sữa thấy trống trống…'
+      'Trắng lấy được không ạ? Trắng hỏi thật đó.',
+      'Ơ… cái này Trắng lấy có bị la không Anh?',
+      'Anh cho Trắng hả? Trắng cảm ơn Anh nhiều!',
+      'Trắng không chắc nhưng Trắng thấy trống trống…'
     ],
     ask_name: [
-      'Sữa ạ! Vì Sữa trắng như ly sữa đó Anh.',
-      'Dạ Sữa. Anh gọi Sữa là Sữa nha!',
-      'Sữa! Tên đẹp không Anh?',
-      'Em tên Sữa. Còn Anh tên gì ạ?'
+      'Trắng ạ! Vì em trắng như cục bông đó Anh.',
+      'Dạ Trắng. Anh gọi em là Trắng nha!',
+      'Trắng! Tên đẹp không Anh?',
+      'Em tên Trắng. Còn Anh tên gì ạ?'
     ]
   },
 
@@ -7152,6 +7223,44 @@ CC.ChatLines.personal = {
       'Bụt. Chỉ một chữ thôi.',
       'Em tên Bụt. Anh gọi sao cũng được.',
       'Bụt ạ. Tên do bà cụ hàng xóm đặt.'
+    ]
+  },
+
+  /* --- Báo (1400) — đi săn, ép nhịp, nói gọn và sắc --- */
+  bao: {
+    game_start: [
+      'Chào Anh. Em không chờ lâu được đâu ạ.',
+      'Vào việc thôi. Em thích ván nhanh.',
+      'Em ngắm Anh từ nãy rồi đó.',
+      'Mời Anh. Nhưng đừng đi chậm quá ạ.',
+      'Đi săn thì phải im. Bắt đầu.'
+    ],
+    game_win: [
+      'Em vồ trúng rồi. Nhanh quá phải không ạ?',
+      'Xong. Anh hở đúng một nhịp thôi đó.',
+      'Em không cần nhiều. Một sơ hở là đủ.',
+      'Ván này em đuổi từ nước mười lăm.',
+      'Anh chạy tốt. Nhưng em nhanh hơn.'
+    ],
+    game_loss: [
+      'Anh thoát được. Em ghi nhận ạ.',
+      'Em vồ hụt. Hiếm lắm đó Anh.',
+      'Hôm nay Anh nhanh hơn em. Em chịu.',
+      'Em đuổi tới cùng mà vẫn thua. Anh giỏi thật.',
+      'Lần sau em không chừa khoảng trống đó nữa.'
+    ],
+    player_blunder: [
+      'Hở rồi Anh ơi. Em vào đây.',
+      'Đúng khoảnh khắc em chờ.',
+      'Anh vừa chậm nửa nhịp. Đủ cho em rồi.',
+      'Em thấy từ ba nước trước, giờ mới lấy thôi.',
+      'Con đó đứng một mình lâu quá rồi ạ.'
+    ],
+    ask_name: [
+      'Báo ạ. Vì em chạy nhanh nhất nhà.',
+      'Em tên Báo. Lông có hoa mai đó Anh.',
+      'Báo. Ngắn thôi, cho kịp.',
+      'Dạ Báo. Anh nhớ nhiêu đó là được rồi ạ.'
     ]
   },
 
@@ -7976,7 +8085,32 @@ CC.EloPicker = (function () {
   let host = null;
   let selected = null;
 
-  function levelCard(lv) {
+  /* Day sao — chi bao NHANH vi tri trong thang, khong phai quy doi tu Elo.
+   *
+   * Cong thuc cu: Math.round((elo - 400) / (1600 - 400) * 4) + 1. Hai cai sai:
+   *   - CHEP CUNG hai dau 400/1600. Them mot muc hay doi nhan Elo deu phai nho
+   *     sua tay o day, ma khong co gi nhac. Dung kieu bay da dinh o Sky Chicken:
+   *     sua tran nang cap ma quen mot cho tieu thu.
+   *   - Elo phan bo KHONG DEU (1250 va 1400 sat nhau) nen lam tron ve so nguyen
+   *     cho ra trung nhau — hai muc khac han lai cung 4 sao.
+   *
+   * Gio chia theo THU HANG trong thang va lam tron toi NUA sao: tam muc ra tam
+   * gia tri khac nhau, va them/bot muc khong phai dong vao cong thuc nua.
+   */
+  function starRow(rank, span) {
+    const val = Math.round((1 + rank / span * 4) * 2) / 2;   // 1 .. 5, buoc 0.5
+    const row = CC.util.el('div', { class: 'elo-stars', 'aria-label': val + ' tren 5 sao' });
+    for (let i = 1; i <= 5; i++) {
+      /* Moi o la mot sao RONG, phu len tren mot sao DAC bi cat bot be ngang.
+       * Nho vay nua sao khong can ky tu la nao — font nao cung ve dung. */
+      const w = Math.max(0, Math.min(1, val - i + 1)) * 100;
+      row.appendChild(CC.util.el('span', { class: 'st' },
+        w > 0 ? CC.util.el('i', { style: 'width:' + w + '%' }) : null));
+    }
+    return row;
+  }
+
+  function levelCard(lv, rank) {
     const cat = CC.CatProfiles.byElo(lv.elo);
     const rec = CC.Store.record()[String(lv.elo)] || { w: 0, l: 0, d: 0 };
     const played = rec.w + rec.l + rec.d;
@@ -7984,8 +8118,6 @@ CC.EloPicker = (function () {
     const stats = played
       ? rec.w + ' thắng · ' + rec.l + ' thua' + (rec.d ? ' · ' + rec.d + ' hoà' : '')
       : 'Chưa chơi';
-
-    const stars = Math.round((lv.elo - 400) / (1600 - 400) * 4) + 1;
 
     /* Anh dai dien la KHUON MAT that cua con meo do, khong phai bieu tuong chung.
      * Nguoi choi nhan ra doi thu ngay tu man chon, truoc khi vao van. */
@@ -7996,7 +8128,7 @@ CC.EloPicker = (function () {
       CC.util.el('div', { class: 'elo-name', text: cat.name }),
       CC.util.el('div', { class: 'elo-tag', text: cat.tag }),
       CC.util.el('div', { class: 'elo-num', text: 'khoảng ' + lv.elo + ' Elo' }),
-      CC.util.el('div', { class: 'elo-stars', text: '★'.repeat(stars) + '☆'.repeat(5 - stars) }),
+      starRow(rank, CC.EloProfiles.LEVELS.length - 1),
       CC.util.el('div', { class: 'elo-stats' + (rec.w ? ' has-win' : ''), text: stats })
     ]);
 
@@ -8022,7 +8154,7 @@ CC.EloPicker = (function () {
     render() {
       if (!host) return;
       host.textContent = '';
-      CC.EloProfiles.LEVELS.forEach(lv => host.appendChild(levelCard(lv)));
+      CC.EloProfiles.LEVELS.forEach((lv, i) => host.appendChild(levelCard(lv, i)));
     },
 
     select(elo) {
