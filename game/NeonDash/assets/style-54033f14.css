@@ -1,0 +1,317 @@
+/* ===== css/style.css ===== */
+/* style.css — khung trang, HUD và hai màn hình
+ *
+ * `touch-action: none` trên canvas là BẮT BUỘC, không phải tuỳ chọn: thiếu nó thì mỗi
+ * cú vuốt lên để nhảy sẽ kéo trang trên di động, và cú vuốt xuống để cúi sẽ kích hoạt
+ * "kéo để tải lại" của trình duyệt. Game vẫn nhận lệnh, nhưng trang nhảy loạn.
+ * (`ui-input-bind.js` lo phần `preventDefault` cho bàn phím.)
+ */
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #05060f;
+  color: #cfe3ff;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  /* Chặn menu chọn chữ khi bấm giữ để cúi */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#stage {
+  position: fixed;
+  inset: 0;
+  /* `dvh` theo chiều cao thật của khung nhìn — trên di động thanh địa chỉ trượt lên
+     xuống làm `100vh` sai vài chục điểm ảnh, đủ để canvas bị cắt mất mép dưới. */
+  height: 100dvh;
+}
+
+#game {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+/* Lớp giao diện nằm trên canvas. `pointer-events: none` để canvas vẫn nhận vuốt;
+   từng nút con bên trong tự bật lại `pointer-events: auto`. */
+#ui {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+#boot-msg {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  letter-spacing: 0.08em;
+  color: #4d6fa8;
+}
+
+/* ==================== HUD ====================
+   Đặt trong vùng an toàn của máy có tai thỏ bằng `env(safe-area-inset-*)`. Thiếu thì số
+   mét chui vào dưới tai thỏ ở iPhone ngang, và đó là con số quan trọng nhất màn hình. */
+#hud {
+  position: absolute;
+  inset: 0;
+  padding: calc(env(safe-area-inset-top, 0px) + 14px) calc(env(safe-area-inset-right, 0px) + 16px)
+           0 calc(env(safe-area-inset-left, 0px) + 16px);
+}
+
+/* Chừa lề hai bên cho số mét.
+ *
+ * Nó căn giữa nên theo bản năng sẽ cho trải hết bề ngang — nhưng như vậy ở màn 375 px
+ * với số năm chữ số ("98 765 m") thì đuôi số chạy thẳng xuống dưới ô đếm ngọc ở góc phải.
+ * Lề đối xứng 72 px giữ chữ vẫn căn giữa màn hình mà không bao giờ chạm hai góc. */
+.hud-met {
+  text-align: center;
+  padding: 0 72px;
+  font-size: clamp(30px, 8vw, 54px);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #eaf6ff;
+  /* Bóng đổ chứ không phải viền: số nằm trên nền lúc tối lúc sáng (lề neon trôi qua),
+     bóng giữ cho nó đọc được ở cả hai mà không làm chữ dày lên. */
+  text-shadow: 0 0 18px rgba(0, 229, 255, 0.55), 0 2px 6px rgba(0, 0, 0, 0.8);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Chữ số cùng bề rộng (`tabular-nums`) — không có nó thì số mét nhảy liên tục làm cả
+   dòng co giãn tới lui, đọc rất mệt. */
+.hud-thuong {
+  text-align: center;
+  padding: 0 72px;
+  margin-top: 2px;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  color: #ff9ad2;
+  font-variant-numeric: tabular-nums;
+  min-height: 16px;
+}
+
+.hud-boost {
+  margin: 12px auto 0;
+  width: min(260px, 60vw);
+  opacity: 0;
+  transition: opacity 0.18s;
+}
+.hud-boost.hien { opacity: 1; }
+
+.hud-boost-ten {
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  margin-bottom: 4px;
+}
+
+.hud-boost-track {
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.13);
+  overflow: hidden;
+}
+
+.hud-boost-bar {
+  height: 100%;
+  width: 100%;
+  border-radius: 3px;
+  /* KHÔNG có transition ở đây: thanh này tụt liên tục mỗi khung hình, thêm chuyển động
+     mềm là nó luôn trễ so với thời gian thật và người chơi canh sai lúc hết booster. */
+}
+
+.hud-ngoc {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0px) + 16px);
+  right: calc(env(safe-area-inset-right, 0px) + 16px);
+  font-size: 15px;
+  font-weight: 600;
+  color: #7de3ff;
+  text-shadow: 0 0 12px rgba(125, 227, 255, 0.5);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ==================== MÀN CHỜ / MÀN CHẾT ==================== */
+#man {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  /* Nền tối mờ chứ không đục hẳn: cảnh vẫn trôi phía sau, người chơi thấy ngay game
+     trông thế nào trước khi bấm — bán hàng tốt hơn mọi ảnh chụp màn hình. */
+  background: radial-gradient(ellipse at center, rgba(5, 6, 15, 0.72), rgba(5, 6, 15, 0.93));
+  backdrop-filter: blur(2px);
+}
+
+.man-hop {
+  text-align: center;
+  padding: 0 24px;
+  max-width: 460px;
+}
+
+.man-tieude {
+  font-size: clamp(22px, 6vw, 34px);
+  font-weight: 700;
+  letter-spacing: 0.26em;
+  color: #eaf6ff;
+  text-shadow: 0 0 24px rgba(0, 229, 255, 0.6);
+}
+
+.man-so {
+  margin-top: 10px;
+  font-size: clamp(34px, 11vw, 64px);
+  font-weight: 700;
+  color: #00e5ff;
+  text-shadow: 0 0 26px rgba(0, 229, 255, 0.55);
+  font-variant-numeric: tabular-nums;
+}
+
+.man-phu {
+  margin-top: 10px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: #7f9dc9;
+}
+
+.man-nut {
+  margin-top: 26px;
+  padding: 13px 42px;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: #05060f;
+  background: #00e5ff;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: 0 0 28px rgba(0, 229, 255, 0.45);
+  /* `touch-action: manipulation` bỏ độ trễ 300 ms chờ xem có phải chạm đúp không. */
+  touch-action: manipulation;
+}
+.man-nut:active { transform: translateY(1px); }
+
+#slot-xephang { margin-top: 18px; }   /* PHASE-06 đổ bảng xếp hạng vào đây */
+
+/* ==================== CHỌN SKIN ====================
+   Skin chưa mở vẫn HIỆN chứ không ẩn: người chơi cần thấy còn gì phía trước để có lý do
+   nhặt ngọc. Ẩn đi thì ngọc thành thứ vô nghĩa cho tới lúc bất ngờ có cái mới hiện ra. */
+.skin-hang {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 22px;
+}
+
+.skin-o {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 13px;
+  font: inherit;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: #9fb8d8;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.skin-o.chon { border-color: #00e5ff; color: #eaf6ff; background: rgba(0, 229, 255, 0.12); }
+.skin-o.khoa { opacity: 0.5; }
+
+.skin-cham {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  /* Bóng lấy chính màu nền của chấm nên nó trông như đang phát sáng, khớp với vật liệu
+     neon của nhân vật thật thay vì là một nốt màu phẳng. */
+  box-shadow: 0 0 9px currentColor;
+}
+
+/* ==================== BẢNG XẾP HẠNG ==================== */
+.rank { margin-top: 20px; }
+
+.rank-tabs { display: flex; gap: 6px; justify-content: center; margin-bottom: 10px; }
+
+.rank-tab {
+  padding: 6px 16px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: #6d87ab;
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.rank-tab.chon { color: #00e5ff; border-bottom-color: #00e5ff; }
+
+.rank-body {
+  /* Chặn chiều cao rồi cho cuộn TRONG bảng: bảng hai mươi dòng mà để tự do thì nút CHẠY
+     bị đẩy khỏi màn hình trên điện thoại, và người chơi phải cuộn mới chơi được. */
+  max-height: 32vh;
+  overflow-y: auto;
+  text-align: left;
+}
+
+.rank-dong {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 5px 10px;
+  font-size: 13px;
+  border-radius: 6px;
+}
+.rank-dong.minh { background: rgba(0, 229, 255, 0.11); color: #eaf6ff; }
+
+.rank-pos { width: 34px; color: #6d87ab; font-variant-numeric: tabular-nums; }
+
+.rank-ten {
+  flex: 1;
+  color: #b9cde6;
+  /* Tên do người khác đặt nên dài bao nhiêu cũng có thể — cắt bằng dấu ba chấm thay vì
+     để nó đẩy cột điểm ra khỏi khung. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rank-so { color: #00e5ff; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.rank-nhan { padding: 14px 6px; font-size: 12px; color: #6d87ab; text-align: center; }
+
+/* ==================== TOAST ====================
+   Dùng chung cho cả thông báo của mã portal (Portal.toast) lẫn của game. */
+.toast {
+  position: absolute;
+  left: 50%;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 26px);
+  transform: translateX(-50%) translateY(10px);
+  padding: 9px 18px;
+  font-size: 13px;
+  color: #eaf6ff;
+  background: rgba(10, 14, 28, 0.92);
+  border: 1px solid rgba(0, 229, 255, 0.35);
+  border-radius: 999px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s, transform 0.2s;
+  /* Nằm trên cả màn chờ lẫn HUD — thông báo đăng nhập phải thấy được ở mọi lúc. */
+  z-index: 10;
+}
+.toast.hien { opacity: 1; transform: translateX(-50%) translateY(0); }

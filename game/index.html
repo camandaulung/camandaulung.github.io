@@ -608,6 +608,36 @@
           <div class="card-halo"></div>
         </article>
 
+        <!-- Neon Dash -->
+        <article class="game-card live" data-od-id="game-card-neondash">
+          <div class="card-thumb" aria-hidden="true">
+            <img class="card-icon" alt="" decoding="async" width="512" height="512"
+                 src="./NeonDash/icons/icon-192.png"
+                 srcset="./NeonDash/icons/icon-192.png 192w, ./NeonDash/icons/icon-512.png 512w"
+                 sizes="124px">
+          </div>
+          <div class="card-body">
+            <span class="card-tag" data-i18n="tag-runner">Chạy vô tận</span>
+            <h3 class="card-title">Neon Dash</h3>
+            <p class="card-desc" data-i18n="desc-neondash">Chạy trên phố đêm neon, né tường, nhảy qua rào, cúi chui dầm.
+              Nhặt booster để bay, tăng tốc hoặc phá thẳng qua chướng ngại. Đo bằng mét — chạy càng xa càng cao điểm.</p>
+            <div class="card-progress" data-game="dash">
+              <div class="progress-label">
+                <span data-i18n="progress-meters">Xa nhất</span>
+                <span class="progress-value"><span class="progress-current">0</span><span class="progress-total"> m</span></span>
+              </div>
+              <div class="progress-bar"><div class="progress-fill" style="width: 0%"></div></div>
+            </div>
+            <div class="card-footer">
+              <a class="card-play" href="./NeonDash/" data-i18n-aria="aria-play-dash" aria-label="Chơi Neon Dash">
+                <span data-i18n="cta-play">Chơi ngay</span>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+              </a>
+            </div>
+          </div>
+          <div class="card-halo"></div>
+        </article>
+
       </div>
     </section>
 
@@ -659,6 +689,10 @@
           'btn-lang': 'Đổi ngôn ngữ',
           'aria-play-sky': 'Chơi Sky Chicken',
           'aria-play-chess': 'Chơi Cờ vua với mèo',
+          'tag-runner': 'Chạy vô tận',
+          'desc-neondash': 'Chạy trên phố đêm neon, né tường, nhảy qua rào, cúi chui dầm. Nhặt booster để bay, tăng tốc hoặc phá thẳng qua chướng ngại. Đo bằng mét — chạy càng xa càng cao điểm.',
+          'progress-meters': 'Xa nhất',
+          'aria-play-dash': 'Chơi Neon Dash',
           'meta-desc': 'Vài minigame của Cá Mặn, chạy thẳng trên trình duyệt.'
         },
         en: {
@@ -682,6 +716,10 @@
           'btn-lang': 'Toggle language',
           'aria-play-sky': 'Play Sky Chicken',
           'aria-play-chess': 'Play Chess with Cats',
+          'tag-runner': 'Endless runner',
+          'desc-neondash': 'Run through a neon night city — dodge walls, jump hurdles, duck under beams. Grab boosters to fly, dash, or smash straight through. Scored in metres: the further you run, the higher you rank.',
+          'progress-meters': 'Best distance',
+          'aria-play-dash': 'Play Neon Dash',
           'meta-desc': 'A few small games by Cá Mặn, running right in the browser.'
         }
       };
@@ -828,6 +866,26 @@
               chessProgress.classList.add('loaded');
               chessProgress.querySelector('.progress-current').textContent = points;
               chessProgress.querySelector('.progress-fill').style.width = percent + '%';
+            }
+          }
+
+          /* Neon Dash — do bang MET, khong co cot moc "hoan thanh" nao ca.
+           *
+           * Lay 3000 m lam moc day thanh, khong phai vi do la dich den ma vi phai chon
+           * MOT so de thanh tien do co nghia. Bot do o phase 07A: trung vi 474 m, p90
+           * 1255 m, ky luc 4824 m — nen 3000 m la "choi rat kha", va thanh day gan het
+           * la mot thanh tich that. Doi con so nay thi phai doi ca o day. */
+          if (profile.games.dash) {
+            const dash = profile.games.dash;
+            const met = dash.bestMeters || 0;
+            const MOC = 3000;
+            const percent = Math.min(100, (met / MOC) * 100);
+
+            const dashProgress = document.querySelector('.card-progress[data-game="dash"]');
+            if (dashProgress) {
+              dashProgress.classList.add('loaded');
+              dashProgress.querySelector('.progress-current').textContent = met;
+              dashProgress.querySelector('.progress-fill').style.width = percent + '%';
             }
           }
         } catch (e) {

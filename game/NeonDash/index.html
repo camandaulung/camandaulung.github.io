@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#05060f">
+<title>Neon Dash</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="stylesheet" href="assets/style-54033f14.css">
+</head>
+<body>
+<div id="stage">
+  <canvas id="game"></canvas>
+  <div id="ui"></div>
+  <div id="boot-msg">Đang tải…</div>
+</div>
+
+<!-- Thứ tự thẻ script ở đây là NGUỒN SỰ THẬT DUY NHẤT cho cả `build.mjs` (nối file)
+     lẫn `tools/load-headless.mjs` (nạp vào Node). Thêm file mới thì chỉ sửa ở đây.
+     Lớp luật (core-/data-/state-/rules-) phải đứng trước lớp hiển thị (view-/ui-). -->
+<!-- Mã dùng chung của cả cổng game. ĐƯỜNG DẪN TƯƠNG ĐỐI, không phải /shared/ tuyệt đối —
+     cả dự án chạy được ở sub-path là nhờ không có đường dẫn tuyệt đối nào.
+     Thứ tự bảy dòng này theo `shared/README.md` bước 1, đừng đảo. -->
+
+<!-- ================== CẦU NỐI THREE.JS — ĐỌC TRƯỚC KHI SỬA ==================
+
+     Three.js chỉ còn bản ES module. Thẻ `type="module"` LUÔN hoãn tới sau khi phân
+     tích xong tài liệu, nên khối này chạy SAU tất cả thẻ script ở trên — kể cả nếu
+     đem nó lên đầu <head>. Đó là lý do `main.js` không tự khởi động mà đăng ký chờ
+     qua `ND.Bootstrap.whenReady`. Giải thích đầy đủ ở đầu `js/view-bootstrap.js`.
+
+     Đặt CỜ trước rồi mới phát SỰ KIỆN: ai đăng ký muộn hơn lúc phát vẫn đọc được cờ.
+
+     `build.mjs` không đụng tới khối này — nó chỉ gom và thay các thẻ có thuộc tính
+     `src`. Đường dẫn third-party giữ nguyên ở bản dựng vì thư mục được chép nguyên vẹn.
+
+     Đổi phiên bản Three thì đổi LUÔN TÊN THƯ MỤC (three-r180 -> three-r181). Giữ
+     nguyên tên là cách chắc chắn để cache cũ sống mãi ở máy người chơi.
+================================================================================ -->
+<script type="module">
+  import * as THREE from './third-party/three-r180/three.module.min.js';
+  globalThis.THREE = THREE;
+  globalThis.__NDThreeReady = true;
+  globalThis.dispatchEvent(new Event('nd:three-ready'));
+</script>
+<script>window.ND_SW="sw.js";</script>
+<script src="../../shared/portal-config.js"></script>
+<script src="../../shared/portal-games.js"></script>
+<script src="../../shared/portal-firebase.js"></script>
+<script src="../../shared/portal-auth.js"></script>
+<script src="../../shared/portal-cloud.js"></script>
+<script src="../../shared/portal-rank.js"></script>
+<script src="../../shared/portal-player.js"></script>
+<script src="assets/app-3bf690ba.js" onerror="window.__shellHong=1"></script>
+<script>
+/* LỚP TỰ CỨU KHI VỎ ỨNG DỤNG HỎNG — đừng xoá.
+ *
+ * Thẻ script trên đặt `__shellHong` nếu gói JS chính không tải được. Thường là do
+ * cache giữ một bản index.html cũ trỏ tới tên file đã bị xoá.
+ *
+ * Không có đoạn này thì người chơi kẹt ở trang trắng vĩnh viễn: nút "Tải lại" để chấp
+ * nhận bản mới nằm trong chính gói JS vừa hỏng, nên không còn đường nào ra.
+ *
+ * Cách chữa: xoá hết cache, báo bản service worker đang chờ chiếm quyền, rồi tải lại.
+ * `sessionStorage` chặn lặp vô tận — thử một lần, không được thì thôi, chứ đừng quay
+ * trang liên tục trước mặt người dùng. */
+(function () {
+  if (!window.__shellHong) return;
+  try { if (sessionStorage.getItem('shell-da-cuu')) return; sessionStorage.setItem('shell-da-cuu', '1'); }
+  catch (e) { return; }
+
+  var xong = false;
+  function taiLai() { if (!xong) { xong = true; location.reload(); } }
+  setTimeout(taiLai, 2500);
+
+  var b = window.caches ? caches.keys().then(function (ks) {
+    return Promise.all(ks.map(function (k) { return caches.delete(k); }));
+  }) : Promise.resolve();
+
+  b.then(function () {
+    if (!('serviceWorker' in navigator)) return;
+    return navigator.serviceWorker.getRegistration().then(function (reg) {
+      if (reg && reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+    });
+  }).catch(function () {}).then(taiLai);
+})();
+</script>
+</body>
+</html>
