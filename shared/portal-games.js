@@ -46,6 +46,20 @@ Portal.GAMES = [
       { khoa: 'catPoints',     nhan: 'Điểm mèo', chinh: true },
       { khoa: 'bestStreak',    nhan: 'Chuỗi thắng' }
     ]
+  },
+  {
+    id: 'dash',
+    ten: 'Neon Dash',
+    bieuTuong: '\u26A1',
+    thuMuc: 'NeonDash',
+    scoreDoc: 'dashScores',
+    tieuChi: [
+      /* `bestMeters` la tieu chi CHINH: no la thu ca game do luong, va cung la thu duy
+         nhat duoc hoi thu hang tren may chu. */
+      { khoa: 'bestMeters', nhan: 'Xa nhất', chinh: true, donVi: 'm' },
+      { khoa: 'weekMeters', nhan: 'Tuần này', donVi: 'm' },
+      { khoa: 'totalRuns',  nhan: 'Số ván' }
+    ]
   }
 ];
 

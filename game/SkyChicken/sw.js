@@ -6,7 +6,7 @@
  *     thay vì tự đổi bản giữa lúc đang chơi
  */
 
-const CACHE = 'sky-chicken-8967ad80';
+const CACHE = 'sky-chicken-3e98eaae';
 
 const SHELL = [
   "./",
