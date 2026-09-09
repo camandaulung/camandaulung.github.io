@@ -363,6 +363,21 @@
       .game-card:hover .card-icon { transform: none; }
     }
 
+    /* ---- Linh vật 3D trong card-thumb (hiện dùng cho thẻ Cờ vua với mèo) ----
+       Cùng kiến trúc với trang chủ: <model-viewer> vendor tại ../vendor/, GLB nén
+       Draco tại ../assets/, icon PNG bên dưới làm fallback. Thẻ nào có linh vật 3D
+       thì phá lệ "icon danh sách = icon PWA" — icon cài máy vẫn là PNG.
+       BẪY: .card-thumb đặt image-rendering:pixelated, canvas của model-viewer kế
+       thừa theo sẽ răng cưa — phải trả về auto. pointer-events:none để không chặn
+       vùng chạm "cả thẻ là nút chơi". */
+    .card-thumb model-viewer {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      pointer-events: none;
+      image-rendering: auto;
+      --poster-color: transparent;
+    }
+    .card-thumb.model-ready .card-icon { visibility: hidden; }
+
     .card-play {
       font-family: var(--font-mono); font-size: 11px; font-weight: 500;
       letter-spacing: 0.08em; text-transform: uppercase;
@@ -550,11 +565,14 @@
 
         <!-- Sky Chicken -->
         <article class="game-card live" data-od-id="game-card-skychicken">
-          <div class="card-thumb" aria-hidden="true">
+          <div class="card-thumb" data-mascot="../assets/sky-chicken-mascot.glb" aria-hidden="true">
             <img class="card-icon" alt="" decoding="async" width="512" height="512"
                  src="./SkyChicken/icons/icon-192.png"
                  srcset="./SkyChicken/icons/icon-192.png 192w, ./SkyChicken/icons/icon-512.png 512w"
                  sizes="124px">
+            <model-viewer auto-rotate rotation-per-second="24deg"
+              interaction-prompt="none" disable-zoom disable-pan disable-tap
+              camera-orbit="25deg 78deg auto" exposure="1.1"></model-viewer>
           </div>
           <div class="card-body">
             <span class="card-tag" data-i18n="tag-shooter">Bắn gà</span>
@@ -580,11 +598,16 @@
 
         <!-- Cờ vua với mèo -->
         <article class="game-card live" data-od-id="game-card-catchess">
-          <div class="card-thumb" aria-hidden="true">
+          <div class="card-thumb" data-mascot="../assets/cat-chess-mascot.glb" aria-hidden="true">
             <img class="card-icon" alt="" decoding="async" width="512" height="512"
                  src="./chess/icons/icon-192.png"
                  srcset="./chess/icons/icon-192.png 192w, ./chess/icons/icon-512.png 512w"
                  sizes="124px">
+            <!-- src gắn bằng JS (đọc data-mascot của thumb) sau khi vendor script nạp —
+                 icon PNG ở trên là fallback -->
+            <model-viewer auto-rotate rotation-per-second="24deg"
+              interaction-prompt="none" disable-zoom disable-pan disable-tap
+              camera-orbit="25deg 78deg auto" exposure="1.1"></model-viewer>
           </div>
           <div class="card-body">
             <span class="card-tag" data-i18n="tag-chess">Cờ vua</span>
@@ -610,11 +633,14 @@
 
         <!-- Neon Dash -->
         <article class="game-card live" data-od-id="game-card-neondash">
-          <div class="card-thumb" aria-hidden="true">
+          <div class="card-thumb" data-mascot="../assets/neon-dash-mascot.glb" aria-hidden="true">
             <img class="card-icon" alt="" decoding="async" width="512" height="512"
                  src="./NeonDash/icons/icon-192.png"
                  srcset="./NeonDash/icons/icon-192.png 192w, ./NeonDash/icons/icon-512.png 512w"
                  sizes="124px">
+            <model-viewer auto-rotate rotation-per-second="24deg"
+              interaction-prompt="none" disable-zoom disable-pan disable-tap
+              camera-orbit="25deg 78deg auto" exposure="1.1"></model-viewer>
           </div>
           <div class="card-body">
             <span class="card-tag" data-i18n="tag-runner">Chạy vô tận</span>
@@ -660,6 +686,45 @@
   <script src="../shared/portal-player.js" defer></script>
   <script src="../shared/portal-rank.js" defer></script>
   <script src="../shared/portal-games.js" defer></script>
+
+  <script>
+    /* Linh vật 3D trong card-thumb — thẻ nào khai `data-mascot="<đường dẫn .glb>"`
+     * trên .card-thumb (kèm một <model-viewer> trống bên trong) là tự được gắn model.
+     * Nạp trễ sau 'load', cùng khuôn với trang chủ (portal/index.html). Cố ý KHÔNG
+     * đưa vào shared/: sửa shared/ là phải build lại mọi game vì từng game precache
+     * bản shared/ riêng — không đáng cho ~30 dòng. */
+    (function () {
+      var cacKhung = document.querySelectorAll('.card-thumb[data-mascot]');
+      if (!cacKhung.length) return;
+
+      var giamChuyenDong = window.matchMedia &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      window.addEventListener('load', function () {
+        var s = document.createElement('script');
+        s.type = 'module';
+        s.src = '../vendor/model-viewer/model-viewer.min.js';
+        s.onload = function () {
+          /* Decoder Draco trỏ về vendor của MÌNH, không là model-viewer tải từ CDN
+             Google. BẪY ĐÃ SẬP: bản module min KHÔNG tạo global ModelViewerElement,
+             guard `if (window.ModelViewerElement)` im lặng bỏ qua và decoder vẫn về
+             gstatic — phải lấy class qua customElements.get, và gán TRƯỚC khi đặt src. */
+          customElements.whenDefined('model-viewer').then(function () {
+            customElements.get('model-viewer').dracoDecoderLocation = '../vendor/draco/';
+            cacKhung.forEach(function (khung) {
+              var mascot = khung.querySelector('model-viewer');
+              if (!mascot) return;
+              if (giamChuyenDong) mascot.removeAttribute('auto-rotate');
+              mascot.addEventListener('load', function () { khung.classList.add('model-ready'); });
+              mascot.addEventListener('error', function () { mascot.remove(); });
+              mascot.src = khung.getAttribute('data-mascot');
+            });
+          });
+        };
+        document.body.appendChild(s);
+      });
+    })();
+  </script>
 
   <!-- Phase 4: Theme + Language + Dashboard Sync -->
   <script>

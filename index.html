@@ -207,6 +207,51 @@
       font-size: 27px; margin-bottom: auto;
       background: rgba(255, 255, 255, 0.05); border: 1px solid var(--card-line);
     }
+
+    /* ---- Icon 3D của thẻ Minigame ----
+       Linh vật GLB tự xoay bằng <model-viewer> (vendor/, ~1MB đã gồm Three.js) — nạp
+       SAU sự kiện load để không tranh băng thông với nội dung chính; trước đó và khi
+       lỗi thì emoji 🎮 bên dưới vẫn hiện, trang không phụ thuộc script để dùng được.
+       BẪY: model-viewer bắt sự kiện chuột dù không bật camera-controls — phải
+       pointer-events:none, không thì cả vùng icon chặn click vào thẻ <a>. */
+    /* Thẻ chia đôi bằng grid (class `portal-split`): linh vật 3D chiếm trọn nửa
+       trái, chữ nửa phải. Dùng grid-area thay vì bọc thêm <div> để markup các thẻ
+       vẫn đồng dạng nhau. Thẻ nào muốn có linh vật: thêm class này + khai
+       `data-mascot="<đường dẫn .glb>"` trên .icon-3d. */
+    .portal-split {
+      display: grid;
+      grid-template-columns: 1fr 1.05fr;
+      grid-template-areas: "model title" "model desc" "model go";
+      grid-template-rows: auto auto 1fr;
+      column-gap: 22px;
+    }
+    .portal-split h2   { grid-area: title; }
+    .portal-split .desc { grid-area: desc; }
+    /* `go` dính đáy cột phải cho các thẻ cạnh nhau ngang hàng liên kết */
+    .portal-split .go  { grid-area: go; align-self: end; }
+    .portal .icon-3d {
+      grid-area: model;
+      position: relative;
+      width: 100%; height: 100%; min-height: 190px;
+      font-size: 64px; /* emoji fallback to theo khung lớn */
+    }
+    /* Màn hẹp: nửa trái + nửa phải không đủ chỗ cho chữ 30px — xếp dọc lại,
+       linh vật thành dải ngang phía trên */
+    @media (max-width: 560px) {
+      .portal-split {
+        grid-template-columns: 1fr;
+        grid-template-areas: "model" "title" "desc" "go";
+        grid-template-rows: 200px auto auto auto;
+      }
+      .portal-split h2 { margin-top: 14px; }
+    }
+    .icon-3d model-viewer {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      pointer-events: none;
+      --poster-color: transparent;
+    }
+    /* Emoji chỉ ẩn khi model đã tải xong thật sự (JS gắn lớp này lúc nghe 'load') */
+    .icon-3d.model-ready .icon-fallback { visibility: hidden; }
     .portal .status {
       position: absolute; top: 24px; right: 24px;
       display: inline-flex; align-items: center; gap: 7px;
@@ -267,17 +312,29 @@
     </section>
 
     <section class="portals" aria-label="Chọn khu vực">
-      <a class="portal portal-live" href="/morning/">
+      <a class="portal portal-live portal-split" href="/morning/">
         <span class="status"><span class="dot"></span>Đang chạy</span>
-        <span class="icon" aria-hidden="true">🌅</span>
+        <span class="icon icon-3d" data-mascot="./assets/morning-mascot.glb" aria-hidden="true">
+          <span class="icon-fallback">🌅</span>
+          <model-viewer auto-rotate rotation-per-second="24deg"
+            interaction-prompt="none" disable-zoom disable-pan disable-tap
+            camera-orbit="25deg 78deg auto" exposure="1.1"></model-viewer>
+        </span>
         <h2>Morning</h2>
         <span class="desc">Bản tin tự động mỗi sáng 9h &amp; tối 22h, không lá cải.</span>
         <span class="go">Vào đọc <span class="arrow" aria-hidden="true">→</span></span>
       </a>
 
-      <a class="portal portal-game" href="/game/">
+      <a class="portal portal-game portal-split" href="/game/">
         <span class="status"><span class="dot"></span>Mới mở</span>
-        <span class="icon" aria-hidden="true">🎮</span>
+        <!-- src gắn bằng JS (đọc data-mascot) sau khi vendor script nạp xong — để
+             trình duyệt không tải GLB khi chưa có gì hiển thị được nó -->
+        <span class="icon icon-3d" data-mascot="./assets/minigame-mascot.glb" aria-hidden="true">
+          <span class="icon-fallback">🎮</span>
+          <model-viewer auto-rotate rotation-per-second="24deg"
+            interaction-prompt="none" disable-zoom disable-pan disable-tap
+            camera-orbit="25deg 78deg auto" exposure="1.1"></model-viewer>
+        </span>
         <h2>Minigame</h2>
         <span class="desc">Vài minigame tự làm, chạy thẳng trên trình duyệt.</span>
         <span class="go">Vào Arcade <span class="arrow" aria-hidden="true">→</span></span>
@@ -290,6 +347,47 @@
   </footer>
 
   <script>
+    /* Linh vật 3D thẻ Minigame — nạp trễ có chủ đích.
+     *
+     * VÌ SAO KHÔNG để <script type="module"> thẳng trong HTML: vendor nặng ~1MB,
+     * nạp ngay là tranh băng thông với font và LCP của trang chủ vốn siêu nhẹ.
+     * Đợi 'load' xong mới chèn; ai tắt JS / mạng lỗi / reduced-motion vẫn thấy 🎮.
+     */
+    (function () {
+      var cacKhung = document.querySelectorAll('.icon-3d[data-mascot]');
+      if (!cacKhung.length) return;
+
+      var giamChuyenDong = window.matchMedia &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      window.addEventListener('load', function () {
+        var s = document.createElement('script');
+        s.type = 'module';
+        s.src = './vendor/model-viewer/model-viewer.min.js';
+        s.onload = function () {
+          /* GLB nén Draco (60MB gốc → ~1MB mỗi con) — decoder phải trỏ về vendor/
+             của MÌNH, không chỉnh thì model-viewer lặng lẽ tải decoder từ CDN Google,
+             portal mất tính tự chứa và hỏng khi CDN bị chặn.
+             BẪY ĐÃ SẬP: bản module min KHÔNG tạo global ModelViewerElement — guard
+             `if (window.ModelViewerElement)` im lặng bỏ qua và decoder vẫn về gstatic.
+             Phải lấy class qua customElements.get, và gán TRƯỚC khi đặt src. */
+          customElements.whenDefined('model-viewer').then(function () {
+            customElements.get('model-viewer').dracoDecoderLocation = './vendor/draco/';
+            cacKhung.forEach(function (khung) {
+              var mascot = khung.querySelector('model-viewer');
+              if (!mascot) return;
+              if (giamChuyenDong) mascot.removeAttribute('auto-rotate');
+              mascot.addEventListener('load', function () { khung.classList.add('model-ready'); });
+              /* Lỗi tải GLB (thiếu file, hỏng) → giữ nguyên emoji, gỡ viewer cho sạch */
+              mascot.addEventListener('error', function () { mascot.remove(); });
+              mascot.src = khung.getAttribute('data-mascot');
+            });
+          });
+        };
+        document.body.appendChild(s);
+      });
+    })();
+
     // Rising bubbles — generated once, respect reduced-motion.
     (function () {
       if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
