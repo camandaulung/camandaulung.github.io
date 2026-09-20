@@ -34,6 +34,34 @@ Portal.GAMES = [
     ]
   },
   {
+    id: 'spore',
+    ten: 'Nấm Spore',
+    bieuTuong: '🍄',
+    thuMuc: 'Spore',
+    scoreDoc: 'sporeScores',
+    tieuChi: [
+      /* Man sau nhat la tieu chi chinh: no do dung "tien do that" cua idle RPG.
+         totalPulls chi de khoe do cham chi, khong noi len suc manh. */
+      { khoa: 'highestStage', nhan: 'Màn sâu nhất', chinh: true },
+      { khoa: 'lampTier',     nhan: 'Bậc đèn' },
+      { khoa: 'totalPulls',   nhan: 'Lượt mở đèn' }
+    ]
+  },
+  {
+    id: 'dash',
+    ten: 'Neon Dash',
+    bieuTuong: '⚡',
+    thuMuc: 'NeonDash',
+    scoreDoc: 'dashScores',
+    tieuChi: [
+      /* Quang xa nhat la tieu chi chinh — game do met, "xa hon" la thuoc do tu nhien
+         (cung ly do cloud-adapter cua game chon weight = bestMeters). */
+      { khoa: 'bestMeters', nhan: 'Quãng xa nhất', chinh: true, donVi: 'm' },
+      { khoa: 'weekMeters', nhan: 'Tuần này', donVi: 'm' },
+      { khoa: 'totalRuns',  nhan: 'Số ván' }
+    ]
+  },
+  {
     id: 'chess',
     ten: 'Cờ vua với mèo',
     bieuTuong: '♟',
