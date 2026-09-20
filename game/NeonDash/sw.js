@@ -11,14 +11,14 @@
  * là được kết quả xanh giả.
  */
 
-const CACHE = 'neon-dash-9539e796';
+const CACHE = 'neon-dash-3abc98d0';
 
 const SHELL = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
-  "./assets/style-54033f14.css",
-  "./assets/app-3bf690ba.js",
+  "./assets/style-c3259c2e.css",
+  "./assets/app-66d091fd.js",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./icons/icon-maskable-512.png",

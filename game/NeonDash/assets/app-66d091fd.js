@@ -2979,7 +2979,11 @@ ND.UI.RankPanel = (function () {
 
   async function tai() {
     if (typeof Portal === 'undefined' || !Portal.Rank) { nhan('Bảng xếp hạng cần kết nối mạng.'); return; }
-    if (!Portal.Auth || !Portal.Auth.user) { nhan('Đăng nhập để xem bảng xếp hạng.'); return; }
+    if (!Portal.Auth || !Portal.Auth.available()) { nhan('Bảng xếp hạng chưa bật.'); return; }
+    /* KHÔNG bắt đăng nhập mới được XEM bảng: luật Firestore cho đọc công khai
+     * (allow read: if true), giống mọi game khác trong cổng. Bản trước chặn ở đây
+     * làm bảng thành trang trắng với người chưa đăng nhập — trong khi không có
+     * nổi một nút đăng nhập nào trên màn. Đăng nhập chỉ cần khi GHI điểm. */
 
     const cua = tabHienTai;
     dangTai = true;
@@ -2987,13 +2991,23 @@ ND.UI.RankPanel = (function () {
 
     try {
       const truong = cua === 'week' ? 'weekMeters' : 'bestMeters';
-      const opts = { limit: SO_DONG };
-      if (cua === 'week') opts.where = ['weekStart', '==', ND.CloudAdapter.tuanNay()];
 
-      const rows = await Portal.Rank.top('dashScores', truong, opts);
+      /* Tab tuần LỌC Ở PHÍA NÀY theo mốc tuần, vì `Portal.Rank.top` không nhận điều
+       * kiện where (bản trước truyền `opts.where` và nó bị BỎ QUA IM LẶNG — tab tuần
+       * trộn lẫn thành tích các tuần cũ). Lọc server cần composite index của
+       * Firestore; khi nào bảng đông mới đáng trả giá đó.
+       *
+       * Tab tuần lấy RỘNG HƠN rồi mới lọc: đầu tuần mới, top-20 thô toàn bản ghi
+       * tuần cũ (weekMeters chỉ về 0 khi chính chủ chơi lại) — lấy đúng 20 rồi lọc
+       * thì người chơi tuần này rơi hết ra ngoài và bảng báo "chưa ai chạy" sai. */
+      const rows = await Portal.Rank.top('dashScores', truong,
+        { limit: cua === 'week' ? 100 : SO_DONG });
       if (cua !== tabHienTai) return;            // người chơi đã đổi tab trong lúc chờ
 
-      const co = rows.filter(r => (r[truong] || 0) > 0);
+      const tuan = ND.CloudAdapter.tuanNay();
+      const co = rows
+        .filter(r => (r[truong] || 0) > 0 && (cua !== 'week' || r.weekStart === tuan))
+        .slice(0, SO_DONG);
       if (!co.length) {
         nhan(cua === 'week'
           ? 'Tuần này chưa ai chạy. Chạy một ván là đứng đầu bảng.'
@@ -3002,14 +3016,17 @@ ND.UI.RankPanel = (function () {
       }
 
       body.textContent = '';
-      const uid = Portal.Auth.user.uid;
-      for (const r of co) {
+      const uid = Portal.Auth.user ? Portal.Auth.user.uid : null;
+      co.forEach((r, i) => {
         const d = document.createElement('div');
         d.className = 'rank-dong' + (r.uid === uid ? ' minh' : '');
 
         const pos = document.createElement('span');
         pos.className = 'rank-pos';
-        pos.textContent = '#' + r.pos;           // `pos`, KHÔNG phải `rank`
+        /* Tab tuần đánh số lại theo danh sách ĐÃ LỌC — `r.pos` là thứ hạng trong
+         * danh sách trộn mọi tuần, dùng nó thì bảng tuần hiện #1 #4 #9 đầy lỗ hổng.
+         * (`pos`, KHÔNG phải `rank` — bẫy số 4 trong CLAUDE.md.) */
+        pos.textContent = '#' + (cua === 'week' ? i + 1 : r.pos);
 
         const ten = document.createElement('span');
         ten.className = 'rank-ten';
@@ -3021,7 +3038,7 @@ ND.UI.RankPanel = (function () {
 
         d.append(pos, ten, so);
         body.appendChild(d);
-      }
+      });
     } catch (e) {
       if (cua !== tabHienTai) return;
       console.warn('[neon-dash] không tải được bảng:', e && e.message);
@@ -3042,6 +3059,141 @@ ND.UI.RankPanel = (function () {
 })();
 
 ;
+/* ===== js/ui-portal-return.js ===== */
+/* ui-portal-return.js — nút quay về cổng game, góc trên trái
+ *
+ * TỰ ẨN khi không có portal. Game chạy ở ba nơi khác nhau:
+ *   - camandaulung.github.io/game/NeonDash  -> có portal ở /game/, hiện nút
+ *   - dev-server / mở file lẻ               -> không có portal, ẩn nút
+ *
+ * Nút dẫn tới nơi không có gì còn tệ hơn là không có nút (bài học từ cờ vua,
+ * xem games/cat-chess/js/ui-portal-return.js).
+ *
+ * Nút GẮN VÀO GỐC MÀN CHỜ (#man) chứ không gắn vào #ui: nhờ vậy nó tự biến mất
+ * khi ván bắt đầu (màn chờ ẩn đi) — đang chạy mà bấm nhầm "về cổng" là mất ván.
+ */
+
+ND.UI = ND.UI || {};
+
+ND.UI.PortalReturn = (function () {
+  /* Đường dẫn cha, hoặc null nếu đang ở gốc. Nhận biết portal bằng cách so tên
+   * thư mục đang đứng với bảng khai báo — cùng cách với `Portal.duongDanHoSo`:
+   * ở máy dev thư mục là `neon-dash` (tên mã nguồn), không có trong bảng nên ẩn. */
+  function duongVeCong() {
+    if (location.protocol === 'file:') return null;
+    if (typeof Portal === 'undefined' || !Portal.GAMES) return null;
+
+    const parts = location.pathname.split('/').filter(Boolean);
+    if (parts.length && parts[parts.length - 1].indexOf('.') >= 0) parts.pop();
+    if (!parts.length) return null;
+
+    const thuMuc = parts[parts.length - 1];
+    if (!Portal.GAMES.some(g => g.thuMuc === thuMuc)) return null;
+    return '../';
+  }
+
+  function build(parent) {
+    const duong = duongVeCong();
+    if (!duong) return;
+
+    const a = document.createElement('a');
+    a.className = 'portal-return';
+    a.href = duong;
+    a.textContent = '‹ Cổng game';
+    parent.appendChild(a);
+  }
+
+  return { build };
+})();
+
+;
+/* ===== js/ui-auth-box.js ===== */
+/* ui-auth-box.js — khu đăng nhập Google trong màn chờ
+ *
+ * Trước đây game GỌI `Portal.Auth.init()` nhưng KHÔNG có nút đăng nhập nào — bảng
+ * xếp hạng hiện "Đăng nhập để xem" mà người chơi không có cách nào đăng nhập. Khu
+ * này bịt đúng lỗ đó, theo mẫu của cờ vua (games/cat-chess/js/ui-rank-panel.js).
+ *
+ * NGUYÊN TẮC của cả cổng: KHÔNG bắt đăng nhập mới chơi được. Vào là chạy ngay;
+ * đăng nhập chỉ cần khi muốn lên bảng xếp hạng hoặc giữ tiến độ khi đổi máy.
+ *
+ * Vẽ lại theo `Portal.Auth.onChange` — mỗi lần trạng thái đổi (đăng nhập xong,
+ * đăng xuất, đang xử lý) là vẽ lại cả khu, không giữ trạng thái DOM riêng.
+ * Tên người chơi đưa vào DOM bằng `textContent`, không `innerHTML`.
+ */
+
+ND.UI = ND.UI || {};
+
+ND.UI.AuthBox = (function () {
+  let root;
+
+  function build(parent) {
+    root = document.createElement('div');
+    root.className = 'auth-box';
+    parent.appendChild(root);
+
+    if (typeof Portal === 'undefined' || !Portal.Auth || !Portal.Auth.available()) {
+      const p = document.createElement('div');
+      p.className = 'auth-nhan';
+      p.textContent = 'Bảng xếp hạng chưa bật. Kỷ lục vẫn lưu trong máy.';
+      root.appendChild(p);
+      return;
+    }
+
+    Portal.Auth.onChange(ve);
+  }
+
+  function ve(u) {
+    root.textContent = '';
+
+    if (u) {
+      const ten = document.createElement('span');
+      ten.className = 'auth-ten';
+      ten.textContent = u.name;                    // textContent, không innerHTML
+
+      const thoat = document.createElement('button');
+      thoat.type = 'button';
+      thoat.className = 'auth-nut auth-nut-phu';
+      thoat.textContent = 'Đăng xuất';
+      /* `click` chứ không `pointerdown`: vuốt cuộn trang bắt đầu trên nút mà cũng
+       * đăng xuất thì quá tệ. Độ trễ ~100ms không thành vấn đề với hành động hiếm —
+       * `pointerdown` chỉ dành cho nút CHẠY, thứ cần nhạy nhất (xem ui-screens.js). */
+      thoat.addEventListener('click', () => Portal.Auth.logout());
+
+      root.append(ten, thoat);
+    } else {
+      const nhan = document.createElement('span');
+      nhan.className = 'auth-nhan';
+      nhan.textContent = 'Đăng nhập để lên bảng xếp hạng';
+
+      const vao = document.createElement('button');
+      vao.type = 'button';
+      vao.className = 'auth-nut';
+      vao.textContent = Portal.Auth.busy ? 'Đang xử lý…' : 'Đăng nhập Google';
+      vao.disabled = !!Portal.Auth.busy;
+      /* `click` — cùng lý do với nút đăng xuất; thêm nữa popup Google mở từ
+       * `pointerdown` dễ bị trình chặn popup coi là không do người dùng bấm. */
+      vao.addEventListener('click', () => Portal.Auth.login());
+
+      root.append(nhan, vao);
+    }
+
+    /* Đường sang trang hồ sơ chung — nơi xem thành tích cả cổng game.
+     * Tự ẩn khi không có portal: nút dẫn tới trang 404 còn tệ hơn không có nút. */
+    const hoSo = Portal.duongDanHoSo && Portal.duongDanHoSo();
+    if (hoSo) {
+      const a = document.createElement('a');
+      a.className = 'auth-hoso';
+      a.href = hoSo;
+      a.textContent = 'Hồ sơ cả cổng game →';
+      root.appendChild(a);
+    }
+  }
+
+  return { build };
+})();
+
+;
 /* ===== js/ui-screens.js ===== */
 /* ui-screens.js — màn chờ và màn chết
  *
@@ -3056,7 +3208,7 @@ ND.UI.RankPanel = (function () {
 ND.UI = ND.UI || {};
 
 ND.UI.Screens = (function () {
-  let root, elTieuDe, elSo, elPhu, elNut, elSkin, elSlotXepHang, elToast;
+  let root, elTieuDe, elSo, elKyLuc, elPhu, elNut, elSkin, elSlotXepHang, elToast;
   let toastT = 0;
   let onPlay = null;
   let kyLuc = 0;                 // nạp từ `ND.Store` lúc khởi động, xem `setKyLuc`
@@ -3078,6 +3230,11 @@ ND.UI.Screens = (function () {
     elSo = document.createElement('div');
     elSo.className = 'man-so';
 
+    /* Dòng kỷ lục RIÊNG, luôn có mặt ở cả màn chờ lẫn màn chết. Trước đây kỷ lục
+     * lẫn trong dòng phụ cỡ chữ nhỏ — người chơi phản hồi là "không thấy kỷ lục". */
+    elKyLuc = document.createElement('div');
+    elKyLuc.className = 'man-kyluc';
+
     elPhu = document.createElement('div');
     elPhu.className = 'man-phu';
 
@@ -3096,10 +3253,17 @@ ND.UI.Screens = (function () {
     elSlotXepHang = document.createElement('div');
     elSlotXepHang.id = 'slot-xephang';
 
-    hop.append(elTieuDe, elSo, elPhu, elNut, elSkin, elSlotXepHang);
+    hop.append(elTieuDe, elSo, elKyLuc, elPhu, elNut, elSkin, elSlotXepHang);
     root.appendChild(hop);
     parent.appendChild(root);
 
+    /* Nút về cổng gắn vào GỐC màn chờ (không vào hộp giữa): tự ẩn khi ván chạy,
+     * và tự vắng mặt khi chạy ngoài portal — xem ui-portal-return.js. */
+    ND.UI.PortalReturn.build(root);
+
+    /* Khu đăng nhập nằm NGAY TRÊN bảng xếp hạng: bảng cần đăng nhập mới ghi được,
+     * để nút ngay cạnh thì lời nhắn "Đăng nhập để..." mới có chỗ mà làm theo. */
+    ND.UI.AuthBox.build(elSlotXepHang);
     ND.UI.RankPanel.build(elSlotXepHang);
 
     /* Toast dùng chung cho cả mã portal (`Portal.toast`) lẫn game. Đặt ở đây vì nó là
@@ -3124,9 +3288,12 @@ ND.UI.Screens = (function () {
   function moChoi() {
     elTieuDe.textContent = 'NEON DASH';
     elSo.textContent = '';
-    elPhu.textContent = kyLuc > 0
-      ? 'Kỷ lục ' + soDep(kyLuc) + ' m  ·  ◈ ' + soDep(ND.Store.wallet().shards)
-      : '← → đổi làn · ↑ nhảy · ↓ cúi (giữ để trượt dài)';
+    /* Kỷ lục có dòng riêng, to và luôn hiện — dòng phụ dành cho hướng dẫn và ngọc.
+     * Trước đây hai thứ nhét chung một dòng nhỏ nên chơi cả tuần vẫn "không thấy
+     * kỷ lục đâu". */
+    elKyLuc.textContent = kyLuc > 0 ? 'KỶ LỤC  ' + soDep(kyLuc) + ' m' : '';
+    elPhu.textContent = '← → đổi làn · ↑ nhảy · ↓ cúi (giữ để trượt dài)'
+      + (ND.Store.wallet().shards > 0 ? '  ·  ◈ ' + soDep(ND.Store.wallet().shards) : '');
     elNut.textContent = 'CHẠY';
     veSkin();
     elSkin.style.display = '';
@@ -3148,12 +3315,15 @@ ND.UI.Screens = (function () {
     elTieuDe.textContent = moi ? 'KỶ LỤC MỚI' : 'HẾT LƯỢT';
     elSo.textContent = soDep(diem) + ' m';
 
+    /* Kỷ lục luôn có mặt trên màn chết, dòng riêng. `kyLuc` lúc này đã được main.js
+     * cập nhật (setKyLuc chạy TRƯỚC moChet) nên ván lập kỷ lục hiện đúng số mới. */
+    elKyLuc.textContent = kyLuc > 0 ? 'KỶ LỤC  ' + soDep(kyLuc) + ' m' : '';
+
     /* Nói RÕ điểm đến từ đâu khi có thưởng phá khối — nếu không người chơi thấy con số
      * lớn hơn số mét mình vừa nhìn trên HUD và tưởng game tính sai. */
     const phan = [];
     if (s.bonusMeters > 0) phan.push(soDep(Math.floor(s.meters)) + ' m chạy + ' + soDep(s.bonusMeters) + ' m phá khối');
     if (s.shards > 0) phan.push('◈ ' + soDep(s.shards));
-    if (!moi && kyLuc > 0) phan.push('kỷ lục ' + soDep(kyLuc) + ' m');
     /* Ván bị từ chối vì số vô lý: nói thẳng ra. Im lặng thì người chơi thấy điểm cao mà
      * kỷ lục không nhúc nhích và kết luận game hỏng. */
     if (!moi && diem > kyLuc) phan.push('không ghi nhận được ván này');
@@ -3190,7 +3360,10 @@ ND.UI.Screens = (function () {
       nhan.textContent = daMo ? sk.ten : '◈ ' + soDep(sk.gia);
 
       b.append(cham, nhan);
-      b.addEventListener('pointerdown', e => { e.preventDefault(); bamSkin(sk); });
+      /* `click` chứ không `pointerdown`: bấm skin có thể TRỪ NGỌC THẬT (mua), mà
+       * `pointerdown` thì vuốt cuộn bắt đầu trên ô skin cũng kích hoạt. Nhạy 100ms
+       * chỉ đáng đổi ở nút CHẠY — không đáng đổi bằng ngọc của người chơi. */
+      b.addEventListener('click', () => bamSkin(sk));
       elSkin.appendChild(b);
     }
   }

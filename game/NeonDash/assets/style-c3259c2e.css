@@ -176,12 +176,46 @@ html, body {
   font-variant-numeric: tabular-nums;
 }
 
+/* Dòng kỷ lục riêng — to hơn dòng phụ, ánh hồng để phân biệt với số mét xanh.
+   Có `min-height` để màn không giật khi người chơi mới (chưa có kỷ lục) chuyển sang
+   có kỷ lục: chỗ đó luôn được chừa sẵn. */
+.man-kyluc {
+  margin-top: 8px;
+  min-height: 22px;
+  font-size: clamp(14px, 4vw, 18px);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: #ff9ad2;
+  text-shadow: 0 0 16px rgba(255, 154, 210, 0.45);
+  font-variant-numeric: tabular-nums;
+}
+
 .man-phu {
   margin-top: 10px;
   font-size: 13px;
   line-height: 1.7;
   color: #7f9dc9;
 }
+
+/* Nút về cổng game — góc trên trái, trong vùng an toàn tai thỏ. Gắn vào #man nên
+   tự biến mất khi ván chạy (màn chờ ẩn). Là thẻ <a> thật để giữ hành vi trình
+   duyệt: mở tab mới, chuột giữa, lịch sử — đừng đổi thành button + location.href. */
+.portal-return {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0px) + 14px);
+  left: calc(env(safe-area-inset-left, 0px) + 14px);
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: #9fb8d8;
+  text-decoration: none;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  touch-action: manipulation;
+}
+.portal-return:active { transform: translateY(1px); }
 
 .man-nut {
   margin-top: 26px;
@@ -240,6 +274,54 @@ html, body {
      neon của nhân vật thật thay vì là một nốt màu phẳng. */
   box-shadow: 0 0 9px currentColor;
 }
+
+/* ==================== KHU ĐĂNG NHẬP ====================
+   Nằm ngay trên bảng xếp hạng trong màn chờ. Vẽ lại toàn bộ theo Portal.Auth.onChange
+   (xem ui-auth-box.js) nên mọi trạng thái đều đi qua đúng một bộ class này. */
+.auth-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-top: 18px;
+}
+
+.auth-nhan { font-size: 12px; color: #6d87ab; }
+
+.auth-ten { font-size: 13px; font-weight: 600; color: #eaf6ff; }
+
+.auth-nut {
+  padding: 8px 18px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #05060f;
+  background: #7de3ff;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.auth-nut:disabled { opacity: 0.55; cursor: default; }
+.auth-nut:active { transform: translateY(1px); }
+
+/* Nút phụ (đăng xuất): viền mảnh thay vì khối đặc — hành động hiếm dùng thì không
+   được nổi hơn nút CHẠY. */
+.auth-nut-phu {
+  color: #9fb8d8;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.auth-hoso {
+  flex-basis: 100%;
+  font-size: 12px;
+  color: #7de3ff;
+  text-decoration: none;
+}
+.auth-hoso:active { opacity: 0.7; }
 
 /* ==================== BẢNG XẾP HẠNG ==================== */
 .rank { margin-top: 20px; }

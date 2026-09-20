@@ -33,34 +33,10 @@ Portal.GAMES = [
       { khoa: 'bestTime',     nhan: 'Thời gian', dir: 'asc', donVi: 'giây' }
     ]
   },
-  {
-    id: 'spore',
-    ten: 'Nấm Spore',
-    bieuTuong: '🍄',
-    thuMuc: 'Spore',
-    scoreDoc: 'sporeScores',
-    tieuChi: [
-      /* Man sau nhat la tieu chi chinh: no do dung "tien do that" cua idle RPG.
-         totalPulls chi de khoe do cham chi, khong noi len suc manh. */
-      { khoa: 'highestStage', nhan: 'Màn sâu nhất', chinh: true },
-      { khoa: 'lampTier',     nhan: 'Bậc đèn' },
-      { khoa: 'totalPulls',   nhan: 'Lượt mở đèn' }
-    ]
-  },
-  {
-    id: 'dash',
-    ten: 'Neon Dash',
-    bieuTuong: '⚡',
-    thuMuc: 'NeonDash',
-    scoreDoc: 'dashScores',
-    tieuChi: [
-      /* Quang xa nhat la tieu chi chinh — game do met, "xa hon" la thuoc do tu nhien
-         (cung ly do cloud-adapter cua game chon weight = bestMeters). */
-      { khoa: 'bestMeters', nhan: 'Quãng xa nhất', chinh: true, donVi: 'm' },
-      { khoa: 'weekMeters', nhan: 'Tuần này', donVi: 'm' },
-      { khoa: 'totalRuns',  nhan: 'Số ván' }
-    ]
-  },
+  /* CHU Y — bai hoc 26/08 va 20/09: dang ky game o day PHAI di cung viec game co mat
+     trong bien `GAMES` cua workflow deploy. Lech nhip la trang ho so hien nut "Choi thu"
+     tro vao 404. Nam Spore da xong o may dev nhung CHUA vao workflow — nen chua duoc
+     dang ky o day; khi nao deploy that thi them entry cung mot commit voi workflow. */
   {
     id: 'chess',
     ten: 'Cờ vua với mèo',
