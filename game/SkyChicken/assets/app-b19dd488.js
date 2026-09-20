@@ -8527,6 +8527,12 @@ SC.MapSelect = {
     box.style.setProperty('--sky0', biome.sky[0]);
     box.style.setProperty('--sky1', biome.sky[1]);
     box.style.setProperty('--sky2', biome.sky[2]);
+    // banner AI làm cảnh nền vùng; file thiếu thì CSS chỉ còn lớp gradient trời cũ.
+    // BẪY ĐÃ GẶP: url() tương đối trong custom property bị Chrome resolve theo chỗ
+    // var() được TIÊU THỤ (css/style.css) -> thành css/assets/... 404 im lặng.
+    // Phải đưa URL tuyệt đối dựng từ baseURI của trang.
+    const bimg = new URL(`assets/art-game/ui-banner-${biome.id}.webp`, document.baseURI).href;
+    box.style.setProperty('--bimg', `url('${bimg}')`);
 
     // Vùng khoá: tiêu đề thành nút bấm để bung/gập xem trước — thấy trước con trùm
     // sắp phải đánh là một lý do để đi tiếp.
@@ -8703,6 +8709,14 @@ SC.TreeUI = {
 
   num(n) { return n.toLocaleString('vi-VN'); },
 
+  /* Icon nhánh: ảnh AI theo hướng đã rẽ (wpn-a, wpn-b...), chưa rẽ dùng icon gốc.
+     Ảnh lỗi/chưa deploy thì rơi về glyph chữ cũ — không bao giờ ô icon trống. */
+  _icon(key, path, glyph) {
+    const f = 'assets/art-game/ui-icon-' + key + (path ? '-' + path.toLowerCase() : '') + '.webp';
+    return `<div class="shop-ic"><img src="${f}" alt="" loading="lazy"
+      onerror="this.parentNode.textContent='${glyph}'"></div>`;
+  },
+
   build() {
     const wrap = document.getElementById('treeList');
     if (!wrap) return;
@@ -8760,7 +8774,7 @@ SC.TreeUI = {
 
     row.innerHTML = `
       <div class="tree-top">
-        <div class="shop-ic">${d.ic}</div>
+        ${this._icon(key, path, d.ic)}
         <div class="shop-mid">
           <div class="tree-name">${d.name}${p ? ` <em>${SC.Rank.esc(p.name)}</em>` : ''}${
             beyond ? ` <i class="tree-lv">Lv ${lv}</i>` : ''}</div>
@@ -8804,7 +8818,7 @@ SC.TreeUI = {
     row.className = 'tree-row extra' + (cost === null ? ' maxed' : '');
     row.innerHTML = `
       <div class="tree-top">
-        <div class="shop-ic">${d.ic}</div>
+        ${this._icon('gold', null, d.ic)}
         <div class="shop-mid">
           <div class="tree-name">${d.name}</div>
           <div class="tree-track">${

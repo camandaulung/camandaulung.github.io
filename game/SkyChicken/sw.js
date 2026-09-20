@@ -6,14 +6,14 @@
  *     thay vì tự đổi bản giữa lúc đang chơi
  */
 
-const CACHE = 'sky-chicken-854b2003';
+const CACHE = 'sky-chicken-5a21b7ae';
 
 const SHELL = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
-  "./assets/style-be05b917.css",
-  "./assets/app-a32c0695.js",
+  "./assets/style-4cc0fb63.css",
+  "./assets/app-b19dd488.js",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./icons/icon-maskable-512.png",
@@ -81,6 +81,29 @@ const SHELL = [
   "./assets/art-game/enemy-vespa.webp",
   "./assets/art-game/enemy-vulture.webp",
   "./assets/art-game/ship-player.webp",
+  "./assets/art-game/ui-banner-dune.webp",
+  "./assets/art-game/ui-banner-farm.webp",
+  "./assets/art-game/ui-banner-frost.webp",
+  "./assets/art-game/ui-banner-magma.webp",
+  "./assets/art-game/ui-banner-neon.webp",
+  "./assets/art-game/ui-banner-ocean.webp",
+  "./assets/art-game/ui-banner-scrap.webp",
+  "./assets/art-game/ui-banner-storm.webp",
+  "./assets/art-game/ui-banner-toxic.webp",
+  "./assets/art-game/ui-banner-void.webp",
+  "./assets/art-game/ui-icon-armor-a.webp",
+  "./assets/art-game/ui-icon-armor-b.webp",
+  "./assets/art-game/ui-icon-armor.webp",
+  "./assets/art-game/ui-icon-drone-a.webp",
+  "./assets/art-game/ui-icon-drone-b.webp",
+  "./assets/art-game/ui-icon-drone.webp",
+  "./assets/art-game/ui-icon-gold.webp",
+  "./assets/art-game/ui-icon-shield-a.webp",
+  "./assets/art-game/ui-icon-shield-b.webp",
+  "./assets/art-game/ui-icon-shield.webp",
+  "./assets/art-game/ui-icon-wpn-a.webp",
+  "./assets/art-game/ui-icon-wpn-b.webp",
+  "./assets/art-game/ui-icon-wpn.webp",
   "../../shared/portal-config.js",
   "../../shared/portal-games.js",
   "../../shared/portal-firebase.js",

@@ -291,8 +291,15 @@ button.saga-head{width:100%;border:0;font:inherit;cursor:pointer;text-align:left
 /* Đậm hơn bản cũ (.26): cuộn qua vùng mới mà thấy đổi cảnh chính là phần thưởng
    thị giác của màn này, để nhạt quá thì 10 vùng nhìn na ná nhau. Lớp ::after phía
    dưới vẫn kéo tối mép nên chữ trên nút không bị chìm. */
+/* Banner AI (--bimg, ui-map-select.js) nằm DƯỚI, gradient trời phủ LÊN để ăn tông
+   màu vùng và giữ chữ đọc được; thiếu ảnh thì chỉ còn gradient — y hệt bản cũ. */
 .saga-path::before{content:'';position:absolute;inset:0;border-radius:14px;pointer-events:none;
-  background:linear-gradient(180deg,var(--sky0),var(--sky1),var(--sky2));opacity:.42}
+  background:
+    linear-gradient(180deg,color-mix(in srgb,var(--sky0) 55%,transparent),
+      color-mix(in srgb,var(--sky1) 30%,transparent),
+      color-mix(in srgb,var(--sky2) 60%,transparent)),
+    var(--bimg,linear-gradient(180deg,var(--sky0),var(--sky1),var(--sky2))) center/cover no-repeat;
+  opacity:.5}
 .saga-path::after{content:'';position:absolute;inset:0;border-radius:14px;pointer-events:none;
   background:radial-gradient(120% 60% at 50% 0%,transparent 40%,rgba(5,7,15,.55) 100%)}
 .saga-trail{position:absolute;inset:0;width:100%;height:100%;opacity:.55;pointer-events:none;z-index:1}
@@ -602,6 +609,8 @@ body.is-touch .m-txt i{font-size:17px}
 .shop-row.maxed{box-shadow:inset 0 0 0 1px rgba(255,190,60,.5);background:rgba(255,190,60,.07)}
 .shop-ic{width:42px;height:42px;flex:none;border-radius:11px;display:grid;place-content:center;
   font-size:20px;background:rgba(0,0,0,.35);color:var(--acc)}
+.shop-ic img{width:32px;height:32px;object-fit:contain;display:block;
+  filter:drop-shadow(0 1px 4px rgba(0,0,0,.45))}
 .shop-mid{flex:1;min-width:0}
 .shop-name{font-size:12px;letter-spacing:.14em;font-weight:700}
 .shop-pips{display:flex;gap:3px;margin:6px 0}
