@@ -2239,6 +2239,80 @@ SC.draw = {
 };
 
 ;
+/* ===== js/system-sprite-art.js ===== */
+/* system-sprite-art.js — nạp sprite AI (assets/art-game/*.webp) cho các lớp vẽ
+ *
+ * VÌ SAO CÓ: bộ art AI thay tạo hình canvas thủ tục, nhưng art thủ tục VẪN GIỮ
+ * làm fallback — ảnh chưa tải xong (mạng chậm, offline lần đầu) thì game vẫn
+ * chơi được với hình vẽ cũ, không màn hình trống.
+ *
+ * Cách dùng: SC.SpriteArt.get('enemy', e.type) trả về Image sẵn vẽ hoặc null.
+ * Người gọi tự quyết fallback. Không có if (game === ...) — tra theo khoá.
+ *
+ * BẪY: EnemySprite và ShipArt nướng hình vào canvas đệm rồi cache. Ảnh tải xong
+ * SAU khi cache đã dựng thì buffer giữ hình cũ mãi — nên onload phải xoá cache
+ * hai chỗ đó để lần vẽ sau nướng lại bằng sprite.
+ */
+SC.SpriteArt = {
+  enabled: true,            // công tắc tổng — tắt để so A/B với art thủ tục
+  BASE: 'assets/art-game/',
+
+  /* Khoá khớp e.type (enemy), khoá art của trùm/elite (data-biomes.js) */
+  KEYS: {
+    enemy: ['chick', 'hen', 'egg', 'dive', 'ufo', 'tank',
+      'fly', 'gnat', 'hornet', 'beetle', 'dfly', 'moth', 'sparrow', 'locust',
+      'mantis', 'hawk', 'ffly', 'scarab', 'vespa', 'crow', 'cicada', 'owl',
+      'stag', 'falcon', 'queen', 'vulture', 'scorp', 'phoenix'],
+    boss: ['hen', 'eagle', 'penguin', 'spider', 'phoenix', 'octopus',
+      'neonRooster', 'scrapDragon', 'stormEye', 'voidEgg'],
+    elite: ['scarecrow', 'scorpion', 'iceBear', 'wasp', 'golem', 'shark',
+      'droneEye', 'crusher', 'thunderbird', 'voidPrism'],
+    ship: ['player'],
+    drone: ['swarm', 'sniper'],
+    /* Chỉ đạn của QUÁI. Đạn người chơi giữ thủ tục: màu đạn là tín hiệu nhánh
+     * vũ khí, đổi động theo mod — sprite tĩnh làm mất tín hiệu đó. */
+    bullet: ['laser', 'arrow', 'dart', 'bounce', 'boomer', 'blast',
+      'egg', 'plasma', 'rocket'],
+  },
+
+  /* Quái phải CHÚI XUỐNG phía người chơi. Tấm nào AI vẽ đầu hướng lên thì xoay
+   * 180 độ lúc nướng buffer. Danh sách chốt bằng mắt trên _contact-sheet.png +
+   * _orient-check.png. Không flip: hawk/scorp/tank/fly đã chúi xuống sẵn,
+   * chick/ufo nhìn thẳng nên xoay là ngược đầu. */
+  FLIP: ['crow', 'gnat', 'phoenix', 'scarab', 'egg', 'hen', 'cicada', 'beetle',
+    'dfly', 'dive', 'falcon', 'ffly', 'hornet', 'locust', 'mantis', 'moth',
+    'owl', 'queen', 'sparrow', 'stag', 'vespa', 'vulture'],
+
+  _imgs: {},
+
+  load() {
+    for (const kind in this.KEYS) {
+      for (const key of this.KEYS[kind]) {
+        const img = new Image();
+        img.src = this.BASE + kind + '-' + key + '.webp';
+        img.onload = () => {
+          // xoá cache buffer để nướng lại bằng sprite (xem BẪY ở đầu file)
+          if (SC.EnemySprite) SC.EnemySprite._cache = {};
+          if (SC.ShipArt) SC.ShipArt._cache = {};
+        };
+        this._imgs[kind + '-' + key] = img;
+      }
+    }
+  },
+
+  /* Trả Image khi đã tải xong và hợp lệ, ngược lại null để người gọi fallback */
+  get(kind, key) {
+    if (!this.enabled) return null;
+    const img = this._imgs[kind + '-' + key];
+    return (img && img.complete && img.naturalWidth) ? img : null;
+  },
+
+  flipped(key) { return this.FLIP.indexOf(key) >= 0; },
+};
+
+SC.SpriteArt.load();
+
+;
 /* ===== js/system-particles.js ===== */
 /* system-particles.js — hạt hiệu ứng (nổ, lông gà, tia lửa) + số điểm bay lên */
 
@@ -2775,6 +2849,40 @@ SC.FoeBullet = {
     return false;
   },
 
+  /* ---------- tạo hình bằng sprite AI ----------
+   * Thay phần THÂN đạn; GIỮ toàn bộ glow và nhấp nháy cảnh báo — chúng là tín
+   * hiệu né đạn, không phải trang trí. Quy ước sprite: mũi hướng LÊN trong frame
+   * gốc, xoay theo vận tốc bằng đúng góc art cũ dùng. Gồm cả 3 loại đời đầu
+   * (egg/plasma/rocket) mà entity-bullet.js chuyển sang đây khi có sprite. */
+  drawSprite(ctx, b, img) {
+    const a = Math.atan2(b.vy, b.vx) + Math.PI / 2;
+    const S = { laser: 46, arrow: 28, dart: 20, bounce: 18, boomer: 22,
+      blast: 22, egg: 22, plasma: 15, rocket: 30 };
+    const s = S[b.kind] || 20;
+    switch (b.kind) {
+      case 'laser': SC.draw.glow(ctx, b.x, b.y, 18, '#ff4d7a', .55); break;
+      case 'arrow': SC.draw.glow(ctx, b.x, b.y, 13, '#ffb45c', .5); break;
+      case 'bounce': SC.draw.glow(ctx, b.x, b.y, 15, '#ff9d5c', .55); break;
+      case 'boomer': SC.draw.glow(ctx, b.x, b.y, 20, '#c58cff', .5); break;
+      case 'plasma': SC.draw.glow(ctx, b.x, b.y, 13, '#ff3b5c', .6); break;
+    }
+    ctx.save(); ctx.translate(b.x, b.y);
+    let k = 1;
+    if (b.kind === 'blast') {
+      // giữ nhịp phồng nhanh dần khi sắp nổ — cảnh báo không lời của art cũ
+      const near = SC.clamp(1 - b.life / 0.9, 0, 1);
+      k = 1 + Math.sin(b.rot * (6 + near * 26)) * (0.12 + near * 0.3);
+      SC.draw.glow(ctx, 0, 0, 24 * k, '#ff6b2b', .6);
+    } else if (b.kind === 'boomer') ctx.rotate(b.rot);
+    // trứng: art cũ là hình oval nên chỉ lắc; sprite mới có mũi rõ ràng nên phải
+    // xoay theo chiều rơi trước rồi mới lắc, không thì trứng rơi ngược đầu
+    else if (b.kind === 'egg') ctx.rotate(a + b.rot * .3);
+    else if (b.kind !== 'bounce' && b.kind !== 'plasma') ctx.rotate(a);
+    if (b.kind === 'rocket') SC.draw.glow(ctx, 0, 10, 22, '#ffb45c', .7);  // lửa đuôi
+    ctx.drawImage(img, -s / 2 * k, -s / 2 * k, s * k, s * k);
+    ctx.restore();
+  },
+
   /* ---------- tạo hình ---------- */
   render(ctx, b) {
     const a = Math.atan2(b.vy, b.vx) + Math.PI / 2;
@@ -3006,9 +3114,13 @@ SC.Bullets = {
     }
     ctx.restore();
 
-    /* đạn địch */
+    /* đạn địch — có sprite AI thì dùng (kể cả egg/plasma/rocket đời đầu),
+       chưa tải xong thì rơi về art thủ tục bên dưới */
     for (const b of this.foe) {
-      if (SC.FoeBullet.is(b.kind)) {
+      const img = SC.SpriteArt && SC.SpriteArt.get('bullet', b.kind);
+      if (img) {
+        SC.FoeBullet.drawSprite(ctx, b, img);
+      } else if (SC.FoeBullet.is(b.kind)) {
         SC.FoeBullet.render(ctx, b);
       } else if (b.kind === 'egg') {
         ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(b.rot * .3);
@@ -3771,6 +3883,20 @@ SC.EnemySprite = {
   },
 
   _paint(g, e, flap) {
+    // Sprite AI có thì dùng, chưa tải xong thì rơi về art thủ tục bên dưới.
+    // 0.85: sprite đã trim sát cánh, vẽ full box PAD thì thân to hơn hitbox r
+    // rõ rệt — thu lại cho cảm giác va chạm khớp mắt.
+    const img = SC.SpriteArt && SC.SpriteArt.get('enemy', e.type);
+    if (img) {
+      const s = e.r * this.PAD * 2 * 0.85;
+      g.save();
+      if (SC.SpriteArt.flipped(e.type)) g.rotate(Math.PI);
+      // nhịp vỗ cánh giả: bóp nhẹ theo flap để 6 khung cache vẫn khác nhau
+      g.scale(1 + flap * 0.05, 1 - flap * 0.05);
+      g.drawImage(img, -s / 2, -s / 2, s, s);
+      g.restore();
+      return;
+    }
     const art = e.def.art;
     if (art) {
       (art[0] === 'bird' ? SC.BirdArt : SC.InsectArt).draw(g, e.r, art, flap, 0);
@@ -3813,8 +3939,28 @@ SC.EnemySprite = {
 
 SC.BossArt = {
   draw(key, ctx, r, t, phase, hue) {
+    // Sprite AI có thì dùng (trùm và elite chung một đường vẽ, khoá không đụng
+    // nhau); chưa tải thì rơi về hàm vẽ thủ tục bên dưới.
+    const img = SC.SpriteArt
+      && (SC.SpriteArt.get('boss', key) || SC.SpriteArt.get('elite', key));
+    if (img) return this._sprite(ctx, img, r, t, phase);
     // gọi qua .call để hàm vẽ vẫn dùng được _eyes dùng chung
     (this[key] || this.hen).call(this, ctx, r, t, phase, hue);
+  },
+
+  /* Sprite tĩnh nên bù hai thứ art thủ tục vốn có: nhịp thở (scale nhẹ theo t)
+     và tín hiệu nổi điên theo giai đoạn (quầng vàng/đỏ quanh thân). */
+  _sprite(ctx, img, r, t, phase) {
+    const s = r * 2.9;                       // cánh xoè ngoài bán kính thân
+    const b = 1 + Math.sin(t * 2.1) * 0.02;
+    ctx.save();
+    ctx.scale(b, 1 / b);
+    if (phase >= 2) {
+      ctx.shadowColor = phase === 3 ? '#ff3b5c' : '#ffd23f';
+      ctx.shadowBlur = 26;
+    }
+    ctx.drawImage(img, -s / 2, -s / 2, s, s);
+    ctx.restore();
   },
 
   /* dùng chung: mắt phát sáng đổi màu theo giai đoạn */
@@ -5887,6 +6033,23 @@ SC.ShipArt = {
     g.strokeStyle = '#16294a'; g.lineWidth = 2; g.lineJoin = 'round';
 
     this._aura(g, r, hue, evo);
+
+    // Sprite AI thay cánh + thân; hào quang GIỮ vẽ thủ tục vì nó là tín hiệu
+    // đọc nhánh khiên/tiến hoá. Nhuộm màu biến thể lên sprite để variant vẫn
+    // phân biệt được (sprite tĩnh chỉ có một bản màu gốc).
+    const img = SC.SpriteArt && SC.SpriteArt.get('ship', 'player');
+    if (img) {
+      const s = r * 2.3;
+      g.drawImage(img, -s / 2, -s / 2, s, s);
+      g.globalCompositeOperation = 'source-atop';
+      g.globalAlpha = 0.2;
+      g.fillStyle = hue;
+      g.fillRect(-size / 2, -size / 2, size, size);
+      g.globalAlpha = 1;
+      g.globalCompositeOperation = 'source-over';
+      return c;
+    }
+
     this._wings(g, r, hue, evo);
     this._body(g, r, hue, evo);
     return c;
@@ -6309,9 +6472,32 @@ SC.DroneArt = {
     ctx.save();
     ctx.translate(w.x, w.y);
     ctx.globalAlpha = 0.92;
-    if (swarm) this._swarm(ctx, w, evo);
+    const img = SC.SpriteArt && SC.SpriteArt.get('drone', swarm ? 'swarm' : 'sniper');
+    if (img) this._sprite(ctx, img, w, swarm, evo);
+    else if (swarm) this._swarm(ctx, w, evo);
     else this._sniper(ctx, w, evo);
     ctx.restore();
+  },
+
+  /* Sprite thay thân + cánh; GIỮ các tín hiệu động vì chúng là thông tin gameplay:
+     quầng phía sau, vành tiến hoá, mắt ngắm, loé trắng khi bầy đàn lao cản quái. */
+  _sprite(ctx, img, w, swarm, evo) {
+    const r = w.r;
+    SC.draw.glow(ctx, 0, r * 1.1, swarm ? 11 : 15, swarm ? '#5ad0ff' : '#c58cff', 0.5);
+    const s = r * 2.6;
+    // bập bềnh nhẹ theo thời gian riêng từng chiếc, thay cho cánh rung của art cũ
+    ctx.drawImage(img, -s / 2, -s / 2 + Math.sin(w.t * 8) * 1.5, s, s);
+    if (evo >= 1) {
+      if (swarm) {
+        ctx.strokeStyle = `rgba(120,240,255,${0.35 + Math.sin(w.t * 5) * 0.15})`;
+        ctx.lineWidth = 1.6;
+        ctx.beginPath(); ctx.arc(0, 0, r * 1.35, 0, 6.283); ctx.stroke();
+      } else {
+        ctx.fillStyle = `rgba(255,90,120,${0.5 + Math.sin(w.t * 8) * 0.35})`;
+        ctx.beginPath(); ctx.arc(0, -r * 1.6, 2.4, 0, 6.283); ctx.fill();
+      }
+    }
+    if (swarm && w.dive > 0) SC.draw.glow(ctx, 0, 0, 26, '#ffffff', 0.8);
   },
 
   /* Bầy đàn — thân tròn nhỏ, hai cánh ngắn rung, vệt sáng khi đã tiến hoá */
