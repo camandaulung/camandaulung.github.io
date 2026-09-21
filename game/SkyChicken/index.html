@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="icon" type="image/png" href="icons/icon-192.png">
-<link rel="stylesheet" href="assets/style-eab72bc7.css">
+<link rel="stylesheet" href="assets/style-395f8180.css">
 </head>
 <body>
 
@@ -711,12 +711,16 @@
         <button class="btn primary hidden" id="btnResFinale">TỔNG KẾT CHIẾN DỊCH</button>
         <button class="btn primary" id="btnResNext">MAP TIẾP</button>
       </div>
+      <!-- 2 lối phụ dùng THƯỜNG XUYÊN (22/09/2026): từ chữ trơn thành ô nút có icon AI,
+           cùng bộ icon với thanh nút ở lobby -->
       <div class="res-links">
-        <button class="btn text" id="btnResShop">
-          <svg class="ic" aria-hidden="true"><use href="#i-upgrade"/></svg><span>KỸ NĂNG</span>
+        <button class="res-sub" id="btnResShop">
+          <img class="ic" src="assets/art-game/ui-icon-skill.webp" alt="" aria-hidden="true" onerror="if(this.r)this.remove();else{this.r=1;this.src=this.src}"><span>KỸ NĂNG</span>
           <i class="btn-dot hidden" id="resShopDot"></i>
         </button>
-        <button class="btn text" id="btnResMenu"><span>LOBBY</span></button>
+        <button class="res-sub" id="btnResMenu">
+          <img class="ic" src="assets/art-game/ui-icon-back.webp" alt="" aria-hidden="true" onerror="if(this.r)this.remove();else{this.r=1;this.src=this.src}"><span>LOBBY</span>
+        </button>
       </div>
     </div>
   </div>

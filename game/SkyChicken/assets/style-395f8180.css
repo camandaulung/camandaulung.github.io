@@ -1471,7 +1471,7 @@ body.is-touch .rank-pos img{width:32px;height:32px}
 
 /* chấm đỏ "đủ vàng nâng cấp" trên nút KỸ NĂNG ở bảng kết quả (22/09/2026) */
 #btnResShop{position:relative}
-#btnResShop .btn-dot{top:2px;right:-4px}
+#btnResShop .btn-dot{top:6px;right:8px}
 
 /* lực chiến + đường lên hạng kế trên thẻ hồ sơ lobby (22/09/2026) */
 /* hạng + lực chiến một dòng KHÔNG gãy, mốc hạng kế xuống dòng riêng — để tự gãy
@@ -1656,3 +1656,23 @@ body.is-touch .now-foe,body.is-touch .now-biome{letter-spacing:.04em}
 body.is-touch .rail-btn{padding:9px 2px 8px;letter-spacing:0}
 /* cảm ứng chữ 17px: danh hiệu to ngang tên thì tên bị cắt còn "PHI CÔ…" — danh hiệu nhỏ lại */
 body.is-touch .prof-chip .prof-l1 .prof-title{font-size:13px;letter-spacing:.06em}
+
+/* ---------- 2 lối phụ màn kết quả thành Ô NÚT (22/09/2026) ----------
+   KỸ NĂNG / LOBBY bấm gần như mỗi màn mà trước chỉ là chữ trơn mờ — khó thấy, khó
+   bấm. Giờ chia đôi bề ngang bằng hàng nút chính, icon AI cùng bộ thanh nút lobby,
+   kiểu ghost để không tranh vai với MAP TIẾP. */
+.res-links{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+.res-sub{position:relative;display:flex;align-items:center;justify-content:center;gap:9px;
+  min-height:46px;padding:9px 12px;border:0;border-radius:12px;cursor:pointer;
+  font:700 13px/1 var(--font-display);letter-spacing:.12em;color:var(--ink);
+  background:linear-gradient(180deg,rgba(120,180,255,.14),rgba(120,180,255,.05));
+  box-shadow:inset 0 0 0 1px rgba(120,180,255,.32),0 3px 0 rgba(0,0,0,.35);transition:.12s}
+.res-sub .ic{width:24px;height:24px;object-fit:contain;flex:none;
+  filter:drop-shadow(0 0 6px rgba(120,200,255,.35))}
+.res-sub span{white-space:nowrap}
+@media (hover:hover){.res-sub:hover{background:linear-gradient(180deg,rgba(120,180,255,.24),rgba(120,180,255,.09));
+  box-shadow:inset 0 0 0 1px rgba(150,210,255,.6),0 3px 0 rgba(0,0,0,.35)}}
+.res-sub:active{transform:translateY(2px);box-shadow:inset 0 0 0 1px rgba(150,210,255,.6)}
+.res-sub .btn-dot{top:6px;right:8px}
+body.is-touch .res-sub{min-height:54px;font-size:16px;letter-spacing:.05em}
+body.is-touch .res-sub .ic{width:28px;height:28px}
