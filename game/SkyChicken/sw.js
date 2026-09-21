@@ -6,14 +6,14 @@
  *     thay vì tự đổi bản giữa lúc đang chơi
  */
 
-const CACHE = 'sky-chicken-0e2dc68f';
+const CACHE = 'sky-chicken-c4b12750';
 
 const SHELL = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
-  "./assets/style-801b254a.css",
-  "./assets/app-ae992a56.js",
+  "./assets/style-21b45fdf.css",
+  "./assets/app-4fb1431b.js",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./icons/icon-maskable-512.png",
@@ -125,6 +125,7 @@ const SHELL = [
   "./assets/art-game/ui-frame-panel.webp",
   "./assets/art-game/ui-frame-plate-boss-name.webp",
   "./assets/art-game/ui-frame-ribbon-title.webp",
+  "./assets/art-game/ui-gacha-machine.webp",
   "./assets/art-game/ui-icon-armor-a.webp",
   "./assets/art-game/ui-icon-armor-b.webp",
   "./assets/art-game/ui-icon-armor.webp",

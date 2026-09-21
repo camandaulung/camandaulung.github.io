@@ -11686,6 +11686,7 @@ SC.EvoGachaUI = {
     document.getElementById('gachaType').textContent = 'MẢNH ' + SC.EVO_KW.LABEL[kw.t];
     const reel = document.getElementById('gachaReel');
     reel.classList.remove('lock');
+    this._machine(m => { m.classList.remove('lock'); m.classList.add('spin'); });
     SC.UI.showOverlay('gacha');
 
     const pool = SC.EVO_KW[kw.t].map(x => x.vi.toUpperCase());
@@ -11700,6 +11701,8 @@ SC.EvoGachaUI = {
         last = now;
         idx = (idx + 1) % pool.length;
         reel.textContent = pool[idx];
+        // gỡ + ép reflow + gắn lại: animation trượt chạy lại mỗi nhịp đổi chữ
+        reel.classList.remove('tick'); void reel.offsetWidth; reel.classList.add('tick');
       }
       if (k < 1) this._raf = requestAnimationFrame(tick);
       else this._reveal();
@@ -11713,16 +11716,22 @@ SC.EvoGachaUI = {
     cancelAnimationFrame(this._raf);
     const reel = document.getElementById('gachaReel');
     reel.textContent = this._kw.vi.toUpperCase();
+    reel.classList.remove('tick');
     reel.classList.add('lock');          // bung scale + glow, xem CSS .gacha-reel.lock
+    // máy thôi rung -> mắt dung hợp lóe + vòng năng lượng nổ (CSS .gacha-machine.lock)
+    this._machine(m => { m.classList.remove('spin'); void m.offsetWidth; m.classList.add('lock'); });
     SC.Audio.win();
     SC.Input.vibrate(45);
     // bỏ qua giữa chừng vẫn được LIẾC kết quả một nhịp ngắn — đừng nuốt phần thưởng
     this._timer = setTimeout(() => this._finish(), skipped ? 700 : 1400);
   },
 
+  _machine(fn) { const m = document.getElementById('gachaMachine'); if (m) fn(m); },
+
   _finish() {
     cancelAnimationFrame(this._raf);
     clearTimeout(this._timer);
+    this._machine(m => m.classList.remove('spin'));
     SC.UI.hideOverlay('gacha');
     const d = this._done;
     this._done = null;

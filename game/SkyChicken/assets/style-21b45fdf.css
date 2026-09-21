@@ -1422,6 +1422,45 @@ body.is-touch .rank-pos img{width:32px;height:32px}
 @keyframes gachaPop{0%{transform:scale(.7)}60%{transform:scale(1.18)}100%{transform:scale(1)}}
 .gacha-hint{font-size:12px;color:var(--dim);letter-spacing:.14em}
 
+/* MÁY SLOT BÍ THUẬT (22/09/2026) — ảnh làm khung, hộp cũ bỏ nền để máy tự đứng.
+   Ô chữ đặt theo % đo trên ảnh 720x314 (cửa sổ đen x146-575, y119-199); đổi ảnh
+   máy thì PHẢI đo lại, lệch vài % là chữ tràn ra viền vàng. */
+.gacha-box:has(.gacha-machine){background:none;box-shadow:none;padding:0 8px}
+.gacha-machine{position:relative;width:min(94vw,500px);aspect-ratio:720/314}
+.gacha-machine img{position:absolute;inset:0;width:100%;height:100%;z-index:1;
+  filter:drop-shadow(0 16px 30px rgba(0,0,0,.7))}
+.gacha-machine .gacha-reel{position:absolute;z-index:2;left:20.3%;top:37.9%;width:59.7%;height:25.8%;
+  min-width:0;padding:0;display:grid;place-items:center;overflow:hidden;border-radius:6px;
+  font-size:clamp(14px,4.8vw,26px);white-space:nowrap;background:none;box-shadow:none;
+  text-shadow:0 0 12px rgba(197,140,255,.9)}
+.gacha-machine.noart{aspect-ratio:auto}
+.gacha-machine.noart .gacha-reel{position:static;width:auto;min-width:240px;padding:18px 20px;
+  background:rgba(0,0,0,.45);box-shadow:inset 0 0 0 1px rgba(197,140,255,.35)}
+/* mỗi nhịp đổi chữ trượt từ trên xuống — cảm giác trục quay thật (JS gắn lại class) */
+.gacha-reel.tick{animation:reelTick .12s ease-out}
+@keyframes reelTick{from{transform:translateY(-55%);opacity:.3}}
+/* hào quang sau lưng máy: thở chậm lúc chờ, dồn dập lúc quay */
+.gm-glow{position:absolute;inset:-18% -8%;z-index:0;border-radius:50%;
+  background:radial-gradient(closest-side,rgba(157,106,216,.55),transparent);animation:gmBreath 2.4s ease-in-out infinite}
+@keyframes gmBreath{50%{opacity:.55;transform:scale(.94)}}
+.gacha-machine.spin{animation:gmShake .09s linear infinite}
+.gacha-machine.spin .gm-glow{animation-duration:.5s}
+@keyframes gmShake{25%{transform:translate(1px,-1px)}75%{transform:translate(-1px,1px)}}
+/* mắt dung hợp (giữa đỉnh máy) lóe sáng khi chốt từ */
+.gm-eye{position:absolute;z-index:3;left:50%;top:14%;width:16%;aspect-ratio:1;translate:-50% -50%;
+  border-radius:50%;background:radial-gradient(closest-side,#fff,rgba(230,200,255,.8) 35%,transparent);
+  opacity:0;mix-blend-mode:screen}
+.gacha-machine.lock .gm-eye{animation:gmEye .9s ease-out}
+@keyframes gmEye{15%{opacity:1;transform:scale(1.8)}100%{opacity:0;transform:scale(1)}}
+/* vòng năng lượng nổ ra từ ô chữ khi chốt */
+.gm-burst{position:absolute;z-index:0;left:50%;top:50%;width:60%;aspect-ratio:1;translate:-50% -50%;
+  border-radius:50%;box-shadow:0 0 0 3px rgba(230,200,255,.9),0 0 40px 10px rgba(197,140,255,.6);opacity:0}
+.gacha-machine.lock .gm-burst{animation:gmBurst .8s ease-out}
+@keyframes gmBurst{0%{opacity:1;transform:scale(.3)}100%{opacity:0;transform:scale(2.2)}}
+.gacha-machine.lock{animation:gachaPop .5s cubic-bezier(.2,1.6,.4,1)}
+.gacha-machine .gacha-reel.lock{animation:none;box-shadow:none;color:#fff;
+  text-shadow:0 0 8px #fff,0 0 22px rgba(230,200,255,.95)}
+
 /* ---------- hàng GEN LẠI THEO STYLE trong popup tiến hóa ---------- */
 .evoai-styles{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:8px}
 .evoai-styles span{font-size:11px;letter-spacing:.16em;color:var(--dim)}
