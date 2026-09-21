@@ -2297,7 +2297,7 @@ SC.SpriteArt = {
       'egg', 'plasma', 'rocket'],
     /* Mèo béo nhảy dù (thay phi công, 21/09/2026) — 3 mẫu rơi ngẫu nhiên,
      * entity-rescue.js chọn skin lúc thả dù */
-    rescue: ['cat-fish', 'cat-goggles'],
+    rescue: ['cat-fish', 'cat-goggles', 'cat-fish-torn', 'cat-goggles-torn'],   // -torn: dù bị bắn lủng
     /* Quái khắc chế (entity-enemy-counter.js): KHIÊN NGƯỢC = gà bông ôm khiên,
        GIÁP DÀY = tổ ong phun đàn ong (chọn mẫu 21/09/2026) */
     counter: ['guard', 'brute'],
@@ -7282,12 +7282,31 @@ SC.Rescue = {
      nhỏ quá nhìn không ra dáng — chỉ giữ 2 con đọc shape rõ (dù xanh, mèo đen ôm cá). */
   SKINS: ['cat-fish', 'cat-goggles'],
 
+  /* DÙ BỊ BẮN LỦNG (22/09/2026, phàn nàn "cứu mèo dễ và đơn điệu"): một số bé bị
+     trúng đạn giữa chừng, dù rách, rơi TĂNG TỐC — phải bỏ vị trí lao tới ngay.
+     Tỉ lệ 10% → 30% theo độ khó màn: 60% từ nhịp cụm (SIÊU DỄ 0.68 … SIÊU KHÓ 1.62)
+     + 40% từ tiến độ chiến dịch. Quyết lúc THẢ (không phải lúc rơi) để một bé chỉ
+     gieo xúc xắc một lần. */
+  TORN_MIN: 0.10, TORN_MAX: 0.30,
+  tornChance() {
+    const id = Math.min(SC.TOTAL_LEVELS, SC.Game.levelId || 1);
+    const lv = SC.LEVELS[id - 1] || {};
+    const c = SC.CHUNK.find(x => x.name === lv.chunk);
+    const muls = SC.CHUNK.map(x => x.mul), lo = Math.min(...muls), hi = Math.max(...muls);
+    const tChunk = c ? (c.mul - lo) / (hi - lo) : 0.5;
+    const t = 0.6 * tChunk + 0.4 * (id - 1) / Math.max(1, SC.TOTAL_LEVELS - 1);
+    return this.TORN_MIN + (this.TORN_MAX - this.TORN_MIN) * SC.clamp(t, 0, 1);
+  },
+
   _tha() {
     this.toSpawn--;
+    const doomed = Math.random() < this.tornChance();
     this.list.push({
       x: SC.rnd(70, SC.W - 70), y: -40, r: 16,
       t: SC.rnd(0, 6.28), sway: SC.rnd(24, 44), saved: false,
-      skin: this.SKINS[(Math.random() * this.SKINS.length) | 0]
+      skin: this.SKINS[(Math.random() * this.SKINS.length) | 0],
+      // bị bắn ở khoảng 1/5 → 1/2 màn: đủ cao để người chơi còn KỊP phản xạ
+      cutAt: doomed ? SC.rnd(0.2, 0.5) * SC.H : Infinity, torn: false, vy: 0
     });
     SC.UI.toast('CÓ MÈO RƠI!');
     SC.Audio.wave();
@@ -7308,8 +7327,13 @@ SC.Rescue = {
     for (let i = this.list.length - 1; i >= 0; i--) {
       const p = this.list[i];
       p.t += dt;
-      p.y += fall * dt;                                // dù rơi chậm
-      p.x += Math.sin(p.t * 1.3) * p.sway * dt;
+      if (!p.torn && p.y > p.cutAt) this._tear(p);
+      if (p.torn) {
+        // rơi tự do có trần: ~1.5-2 giây từ lúc lủng tới đáy màn — gắt nhưng cứu được
+        p.vy = Math.min(this.TORN_VMAX, p.vy + this.TORN_G * dt);
+        p.y += p.vy * dt;
+      } else p.y += fall * dt;                         // dù rơi chậm
+      p.x += Math.sin(p.t * 1.3) * p.sway * (p.torn ? 0.3 : 1) * dt;
       p.x = SC.clamp(p.x, 26, SC.W - 26);
 
       // phải chạm tận nơi mới cứu được
@@ -7325,24 +7349,43 @@ SC.Rescue = {
     }
   },
 
+  TORN_G: 520,       // gia tốc rơi sau khi lủng dù (px/s²)
+  TORN_VMAX: 360,    // trần tốc rơi — gấp ~6 lần dù lành
+  // màu dù của từng skin, cho mảnh vải văng ra đúng màu
+  CANOPY: { 'cat-fish': '#ffd23f', 'cat-goggles': '#4db8ff' },
+
+  _tear(p) {
+    p.torn = true;
+    p.vy = 90;
+    SC.FX.burst(p.x, p.y - 34, this.CANOPY[p.skin] || '#fff', 12, 190, 1.2);
+    SC.FX.text(p.x, p.y - 58, 'DÙ LỦNG!', '#ff5c7a');
+    SC.Audio.alarm();
+  },
+
   render(ctx) {
     for (const p of this.list) {
-      const sway = Math.sin(p.t * 1.3) * 0.18;
+      // lủng dù thì lắc giật liên hồi thay cho đung đưa êm
+      const sway = p.torn ? Math.sin(p.t * 22) * 0.12 : Math.sin(p.t * 1.3) * 0.18;
       ctx.save();
       ctx.translate(p.x, p.y);
       ctx.rotate(sway);
 
-      // vòng sáng cho dễ thấy giữa đạn lửa
-      SC.draw.glow(ctx, 0, 0, 34, '#4dff9f', 0.4);
+      // vòng sáng cho dễ thấy giữa đạn lửa — lủng dù chuyển ĐỎ: báo động, lao tới ngay
+      SC.draw.glow(ctx, 0, 0, 34, p.torn ? '#ff4d6a' : '#4dff9f', p.torn ? 0.6 : 0.4);
 
       /* Sprite mèo béo nhảy dù — vẽ TO hơn art cũ có chủ ý (91px, +20% lần 2 ngày
          22/09): đây là thứ người chơi phải muốn bay tới cứu, nhỏ quá là bị bỏ rơi.
          Vòng hút r=16 GIỮ NGUYÊN — chỉ phóng hình, không đổi gameplay.
          Ảnh chưa tải xong thì rơi về hình phi công vẽ tay bên dưới. */
-      const img = SC.SpriteArt.get('rescue', p.skin);
+      // sprite "dù lủng" riêng (<skin>-torn); chưa có ảnh thì dùng ảnh lành + glow đỏ
+      const img = (p.torn && SC.SpriteArt.get('rescue', p.skin + '-torn'))
+        || SC.SpriteArt.get('rescue', p.skin);
       if (img) {
-        const S = 91;
-        ctx.drawImage(img, -S / 2, -S / 2 - 4, S, S);
+        // sprite dù rách (OPT B) dáng DỌC: dải dù phía trên, mèo ở ~70% chiều cao ảnh
+        // -> vẽ to hơn + đẩy lên cho THÂN MÈO nằm đúng tâm vòng cứu
+        const S = p.torn ? 112 : 91;
+        const oy = p.torn ? -S * 0.7 : -S / 2 - 4;
+        ctx.drawImage(img, -S / 2, oy, S, S);
         ctx.restore();
         continue;
       }

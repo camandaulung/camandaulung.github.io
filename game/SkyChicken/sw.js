@@ -6,14 +6,14 @@
  *     thay vì tự đổi bản giữa lúc đang chơi
  */
 
-const CACHE = 'sky-chicken-c4b12750';
+const CACHE = 'sky-chicken-fb05f8d2';
 
 const SHELL = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
   "./assets/style-21b45fdf.css",
-  "./assets/app-4fb1431b.js",
+  "./assets/app-a042b02f.js",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./icons/icon-maskable-512.png",
@@ -92,7 +92,9 @@ const SHELL = [
   "./assets/art-game/enemy-ufo.webp",
   "./assets/art-game/enemy-vespa.webp",
   "./assets/art-game/enemy-vulture.webp",
+  "./assets/art-game/rescue-cat-fish-torn.webp",
   "./assets/art-game/rescue-cat-fish.webp",
+  "./assets/art-game/rescue-cat-goggles-torn.webp",
   "./assets/art-game/rescue-cat-goggles.webp",
   "./assets/art-game/rescue-cat-grey.webp",
   "./assets/art-game/ship-player.webp",
