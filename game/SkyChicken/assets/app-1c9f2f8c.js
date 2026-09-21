@@ -10901,7 +10901,19 @@ SC.PWA = {
       (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1');
     if (ok) {
       navigator.serviceWorker.register('sw.js')
-        .then(reg => this._watchUpdate(reg))
+        .then(reg => {
+          this._reg = reg;
+          /* MỞ LẠNH = BẢN MỚI NHẤT (yêu cầu 21/09/2026): F5 không được trình duyệt
+             tính là "đóng tab", nên bản SW mới có thể KẸT Ở TRẠNG THÁI CHỜ qua vô số
+             lần mở lại — người chơi cứ tưởng mình đã ở bản mới. Vừa boot mà thấy có
+             bản chờ thì kích hoạt LUÔN: lúc này còn ở lobby, đổi bản là miễn phí
+             (controllerchange bên dưới tải lại trang trong giây đầu tiên). */
+          if (reg.waiting && navigator.serviceWorker.controller) {
+            this._bootSwap = true;               // đừng chớp nút CẬP NHẬT trong giây swap
+            reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+          }
+          this._watchUpdate(reg);
+        })
         .catch(() => {});
 
       // bản mới đã tiếp quản -> tải lại một lần duy nhất
@@ -10909,6 +10921,13 @@ SC.PWA = {
         if (this._reloading) return;
         this._reloading = true;
         location.reload();
+      });
+
+      /* App cài PC hay bị "mở lại từ nền" — không có navigation nào xảy ra nên
+         trình duyệt chẳng buồn kiểm tra bản mới. Quay lại thấy tab/app là chủ động
+         hỏi máy chủ một lần; có bản mới thì đường chấm-đỏ-bánh-răng lo phần còn lại. */
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && this._reg) this._reg.update().catch(() => {});
       });
     }
 
@@ -10954,7 +10973,9 @@ SC.PWA = {
       if (SC.Game.state === 'menu') SC.UI.toast('CÓ BẢN CẬP NHẬT MỚI');
     };
 
-    if (reg.waiting && navigator.serviceWorker.controller) offer(reg.waiting);
+    // boot-swap đang tự kích hoạt bản chờ (xem register) thì khỏi mời — trang sắp
+    // tải lại trong giây này rồi
+    if (reg.waiting && navigator.serviceWorker.controller && !this._bootSwap) offer(reg.waiting);
 
     reg.addEventListener('updatefound', () => {
       const nw = reg.installing;
