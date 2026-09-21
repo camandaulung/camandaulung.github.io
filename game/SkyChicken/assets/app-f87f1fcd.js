@@ -9774,6 +9774,36 @@ SC.EVO_KW = {
   /* Thứ tự nhặt: đủ một bộ ba rồi mới quay vòng lại */
   ORDER: ['animal', 'trait', 'color'],
 
+  /* Chi tiết sơn/decal CÁ NHÂN (21/09/2026, goal "không ai giống ai"): 2 mục được
+     chọn theo hash danh tính + số lần tiến hóa, nhồi vào prompt — hai người cùng
+     ra một bộ từ khóa thì tàu vẫn khác nhau ở lớp áo. */
+  LIVERY: [
+    'diagonal racing stripes on the wings',
+    'scattered paw-print decals',
+    'a star squadron emblem on the nose',
+    'weathered battle scratches and scuffs',
+    'iridescent pearl paint finish',
+    'hexagon pattern panel accents',
+    'checker-tipped twin tail fins',
+    'glowing circuit line details along the hull',
+    'a big lucky number decal on one wing',
+    'flame decal trim along the edges',
+  ],
+
+  _hash(s) {
+    let h = 2166136261;
+    for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return h >>> 0;
+  },
+
+  livery(seed) {
+    const h = this._hash(String(seed || ''));
+    const n = this.LIVERY.length;
+    const a = h % n;
+    const b = (a + 1 + ((h >>> 8) % (n - 1))) % n;
+    return `${this.LIVERY[a]}, ${this.LIVERY[b]}`;
+  },
+
   /* Nhãn loại để hiện trên toast/popup */
   LABEL: { animal: 'CON VẬT', trait: 'TÍNH CÁCH', color: 'MÀU SẮC' },
 
@@ -9804,7 +9834,7 @@ SC.EVO_KW = {
   /* Prompt sinh ảnh: vibe chốt với GD 21/09/2026 — toon, animal chiến đấu cơ,
      vui vẻ, game, NGẦU (game bắn máy bay phải ngầu một tí). Khung mô tả khớp
      STYLE của bộ sprite hiện tại (tools/gen-assets.mjs) để tàu mới không lạc tông. */
-  prompt(kws, style) {
+  prompt(kws, style, seed) {
     const by = {};
     for (const k of kws) by[k.t] = k.en;
     const dna = this._dnaOf(kws);
@@ -9812,6 +9842,7 @@ SC.EVO_KW = {
       ...(style && this.STYLES[style] ? [this.STYLES[style].en] : []),
       `a heroic fighter aircraft styled as a ${by.animal || 'rooster'}`,
       ...(dna ? [`the aircraft body MUST keep the ${by.animal} anatomy DNA: ${dna}`] : []),
+      ...(seed ? [`unique personal livery: ${this.livery(seed)}`] : []),
       `personality: ${by.trait || 'cheerful'} — show it clearly in the face and pose`,
       `dominant color scheme: ${by.color || 'vivid red'}`,
       'vibrant toon cartoon game sprite, fun but cool and battle-ready',
@@ -9932,7 +9963,24 @@ SC.EvoAI = {
     if (levelId % this.CHUNK !== 0 || levelId <= e.lastLv) return null;
     e.lastLv = levelId;
     const type = SC.EVO_KW.ORDER[e.kw.length % 3];
-    const kw = SC.EVO_KW.roll(type);
+    /* RNG có kiểm soát (21/09/2026, bị bắt quả tang trùng bộ): re-roll tối đa 10
+       lần để (1) không lặp lại đúng giá trị cùng loại của BỘ NGAY TRƯỚC — đổi vị
+       liên tục, và (2) mảnh CUỐI không được chốt thành tổ hợp đã từng ghép
+       (progress.evo.hist). Hết 10 lần vẫn kẹt (hist gần phủ kín pool) thì chấp
+       nhận — thà trùng còn hơn treo. */
+    const hist = e.hist || [];
+    const truoc = hist[hist.length - 1];
+    const viTri = SC.EVO_KW.ORDER.indexOf(type);
+    let kw;
+    for (let thu = 0; thu < 10; thu++) {
+      kw = SC.EVO_KW.roll(type);
+      if (truoc && truoc.split('|')[viTri] === kw.en) continue;
+      if (type === 'color' && e.kw.length % 3 === 2) {
+        const to = [e.kw[e.kw.length - 2].en, e.kw[e.kw.length - 1].en, kw.en].join('|');
+        if (hist.indexOf(to) >= 0) continue;
+      }
+      break;
+    }
     e.kw.push(kw);
     SC.UI.save();
     if (!silent)
@@ -9958,8 +10006,13 @@ SC.EvoAI = {
   async generate(signal, style) {
     const kws = this.st().kw.slice(0, 3);
     const ep = this._endpoint();
+    /* Seed cá nhân cho lớp áo (livery): danh tính + hồ sơ + số lần tiến hóa —
+       cùng bộ từ khóa nhưng khác người/khác lần là tàu khác nhau. */
+    const prof = SC.Profiles.cur() || {};
+    const seed = ((SC.M365 && SC.M365.info && SC.M365.info.email) || prof.name || 'phi cong')
+      + '#' + (prof.id || 0) + '·' + (this.st().n || 0);
     const [ship, drone] = await Promise.all([
-      this._genOne(ep, SC.EVO_KW.prompt(kws, style), signal),
+      this._genOne(ep, SC.EVO_KW.prompt(kws, style, seed), signal),
       this._genOne(ep, SC.EVO_KW.dronePrompt(kws, style), signal)
     ]);
     return { ship, drone };
@@ -10018,6 +10071,9 @@ SC.EvoAI = {
         JSON.stringify({ dataUrl: pack.ship, droneUrl: pack.drone || '', name, at: Date.now() }));
     } catch (err) { /* localStorage đầy — bộ này vẫn dùng được tới hết phiên */ }
     this._apply(pack.ship, pack.drone);
+    // sổ tổ hợp đã ghép — nguồn cho luật chống trùng ở award(); giữ 20 bộ gần nhất
+    e.hist = (e.hist || []).slice(-19);
+    e.hist.push(e.kw.slice(0, 3).map(k => k.en).join('|'));
     e.kw.splice(0, 3);
     e.n++;
     e.rolls = 0;                        // bộ từ khóa mới = hạn mức gen mới
