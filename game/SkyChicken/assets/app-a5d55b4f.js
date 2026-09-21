@@ -1512,8 +1512,14 @@ SC.Power = {
      Chỉ đụng SÁT THƯƠNG (mọi đòn trúng người chơi đều qua dmg()) — máu, mật độ, nhịp
      bắn giữ nguyên, nên màn vẫn dài và đông như cũ, chỉ bớt "một phát bay nửa cây máu". */
   LATE: SC.bal('power.lateDmg', { from: 51, full: 60, start: 0.90, end: 0.85 }),
-  lateEase() {
-    const L = this.LATE, id = SC.Game.levelId || 1;
+  /* HẠ MẬT ĐỘ QUÁI CUỐI GAME (22/09/2026, phản hồi "từ màn 49 quá dày"): màn 49 bớt
+     10% số quái mỗi wave, trượt tới 20% ở màn 60, giữ 20% cho vòng vô tận. Chỉ SỐ CON
+     — máu/đạn từng con không đổi. system-waves._buildWave nhân vào. */
+  LATE_DEN: SC.bal('power.lateDensity', { from: 49, full: 60, start: 0.90, end: 0.80 }),
+  lateDensity() { return this.lateEase(this.LATE_DEN); },
+
+  lateEase(L = this.LATE) {
+    const id = SC.Game.levelId || 1;
     if (id < L.from) return 1;
     const k = SC.clamp((id - L.from) / Math.max(1, L.full - L.from), 0, 1);
     return L.start + (L.end - L.start) * k;
@@ -7495,7 +7501,8 @@ SC.Waves = {
     const lv = this.lv;
     const inten = this.curve[this.index - 1];
     // mật độ cộng thêm theo lực chiến — người khoẻ thì quái phải đông hơn
-    const n = Math.max(4, Math.round(lv.perWave * inten * SC.Power.den()));
+    // × lateDensity: bớt quái từ màn 49 (system-power.js)
+    const n = Math.max(4, Math.round(lv.perWave * inten * SC.Power.den() * SC.Power.lateDensity()));
     const rush = inten >= 1.35;                 // wave dồn dập
     const gap = rush ? 0.055 : 0.1;             // giãn cách nhả từng con
     this.queue.length = 0;
@@ -8785,8 +8792,8 @@ SC.Cloud = {
   },
 
   /* ---------- số liệu rút ra từ tiến độ ---------- */
-  stats() {
-    const p = SC.UI.progress;
+  /* p mặc định = hồ sơ đang mở; system-rank-all-profiles.js truyền tiến độ hồ sơ khác */
+  stats(p = SC.UI.progress) {
     const times = p.times || {};
     let sum = 0, cleared = 0;
     for (let i = 1; i <= SC.TOTAL_LEVELS; i++) {
@@ -8796,7 +8803,7 @@ SC.Cloud = {
       // KHÔNG chặn ở màn 60: vòng vô tận là chỗ người chơi giỏi phân định hơn thua,
       // chặn lại thì ai qua chiến dịch cũng hoà nhau ở đúng một con số.
       highestLevel: p.unlocked || 1,
-      totalStars: SC.UI.totalStar(),       // tính cả sao kiếm ở vòng vô tận
+      totalStars: Object.values(p.stars || {}).reduce((a, b) => a + b, 0),   // cả sao vòng vô tận
       cleared,
       // chỉ tính "thời gian hoàn thành" khi đã qua đủ cả chiến dịch, so kèo mới công bằng
       campaignTime: cleared >= SC.TOTAL_LEVELS ? Math.round(sum) : null
@@ -8819,6 +8826,14 @@ SC.Cloud = {
     if (SC.M365Sync) SC.M365Sync.mirror();
   },
 
+  /* MỖI HỒ SƠ MỘT DÒNG BXH (bug 22/09/2026): bản cũ ghi scores/{uid} cho MỌI hồ sơ —
+     đổi hồ sơ là đè dòng của hồ sơ kia, cả tài khoản chỉ còn đúng hồ sơ chơi gần nhất.
+     Hồ sơ 1 GIỮ scores/{uid} (dòng cũ của mọi người vẫn đúng chủ), hồ sơ 2-3 ghi
+     scores/{uid}_p{id}. Luật firestore.rules cho phép đúng hai dạng id này. */
+  scoreId(uid, prof = SC.Profiles.cur()) {
+    return prof && prof.id !== 1 ? `${uid}_p${prof.id}` : uid;
+  },
+
   /* Bảng xếp hạng toàn cầu. Đệm 60 giây nằm trong `Portal.Rank`. */
   rank(tab) {
     const [field, dir] = this.ORDER[tab];
@@ -8828,12 +8843,15 @@ SC.Cloud = {
          sắp theo thành tích — dòng ĐẦU TIÊN của mỗi email là dòng tốt nhất, các dòng
          sau bỏ khỏi hiển thị (bản ghi trong Firestore vẫn còn, chỉ là không chiếm
          chỗ trên bảng). Dòng không có email (đăng nhập Google, khách) giữ nguyên.
-         Lọc xong phải đánh lại pos, không thì bảng hiện 1-2-4-5. */
+         Lọc xong phải đánh lại pos, không thì bảng hiện 1-2-4-5.
+         Khoá = email + TÊN PHI CÔNG (22/09/2026): chỉ theo email thì mọi HỒ SƠ khác
+         của cùng một người bị ẩn sạch — cùng tên hồ sơ trên hai máy mới là trùng. */
       const seen = new Set();
       return rows
         .filter(r => {
-          const k = (r.m365Email || '').toLowerCase();
-          if (!k) return true;
+          const em = (r.m365Email || '').toLowerCase();
+          if (!em) return true;
+          const k = em + '|' + String(r.name || '').trim().toLowerCase();
           if (seen.has(k)) return false;
           seen.add(k);
           return true;
@@ -8904,7 +8922,9 @@ SC.Cloud = {
         const s = SC.Cloud.stats();
         const out = { highestLevel: s.highestLevel, totalStars: s.totalStars };
         if (s.campaignTime !== null) out.bestTime = s.campaignTime;
-        else if (hadDoc) out.bestTime = fsM.deleteField();
+        // hadDoc nói về dòng của HỒ SƠ 1 (scores/{uid}); dòng hồ sơ 2-3 có thể chưa tồn
+        // tại -> không gọi deleteField ở đó (xem lý do ở chú thích trên)
+        else if (hadDoc && SC.Profiles.cur().id === 1) out.bestTime = fsM.deleteField();
         /* Bản deploy zingplay.dev: đính email tài khoản domain vào bản ghi điểm.
            uid anonymous sống theo trình duyệt nên email là manh mối gộp/đối chiếu
            sau này. Luật scores/ không khoá danh sách trường — thêm là hợp lệ. */
@@ -8918,6 +8938,7 @@ SC.Cloud = {
         return out;
       },
 
+      scoreId: uid => SC.Cloud.scoreId(uid),
       playerName: () => SC.Cloud.playerName(),
       weight: p => SC.Cloud._weight(p),
       isEmpty: p => SC.Cloud._empty(p),
@@ -8935,6 +8956,55 @@ SC.Cloud = {
     Portal.Cloud.snapshotLocal();
 
     return this;
+  }
+};
+
+;
+/* ===== js/system-rank-all-profiles.js ===== */
+/* system-rank-all-profiles.js — đưa ĐỦ MỌI HỒ SƠ trên máy lên bảng xếp hạng (22/09/2026)
+ *
+ * Portal.Cloud chỉ đẩy điểm của hồ sơ ĐANG MỞ (và chỉ khi có gì đổi). Hồ sơ còn lại
+ * nằm im trong localStorage: người chơi 3 hồ sơ mà chỉ mở 1 thì 2 hồ sơ kia không bao
+ * giờ có dòng BXH — đúng câu hỏi "chơi nhiều profile có lên bxh hết không".
+ * Nên mỗi phiên, ngay khi có vé đăng nhập, đẩy một lượt điểm cho MỌI hồ sơ KHÁC hồ sơ
+ * đang mở (hồ sơ đang mở đã có Portal.Cloud lo). Id dòng: SC.Cloud.scoreId (hồ sơ 1 =
+ * uid, hồ sơ 2-3 = uid_p{id}). Chỉ ghi scores/ — KHÔNG đụng users/{uid} (kho tiến độ).
+ */
+
+SC.RankAllProfiles = {
+  _uid: '',              // đã đẩy cho uid nào trong phiên này
+
+  init() { Portal.Auth.onChange(u => { if (u) this.push(); }); },
+
+  async push() {
+    const u = Portal.Auth.user;
+    if (!u || this._uid === u.uid || !Portal.FB.configured()) return;
+    this._uid = u.uid;
+    try {
+      const fb = await Portal.FB.load();
+      const { doc, setDoc, serverTimestamp } = fb.fsM;
+      const cur = SC.Profiles.cur();
+      const email = SC.M365 && SC.M365.info && SC.M365.info.email;
+      const jobs = SC.Profiles.list.filter(p => p !== cur).map(p => {
+        const pr = SC.Profiles.progressOf(p.id);
+        if (SC.Cloud._empty(pr)) return null;            // hồ sơ trắng không chiếm chỗ BXH
+        const s = SC.Cloud.stats(pr);
+        const row = {
+          name: String(p.name || 'Phi công').replace(/[\x00-\x1F<>]/g, '').slice(0, 40),
+          avatar: (p.photo || p.avatar || '').slice(0, 300),
+          highestLevel: s.highestLevel, totalStars: s.totalStars, updatedAt: serverTimestamp()
+        };
+        if (s.campaignTime !== null) row.bestTime = s.campaignTime;
+        if (email) row.m365Email = email.slice(0, 80);
+        return setDoc(doc(fb.db, 'scores', SC.Cloud.scoreId(u.uid, p)), row, { merge: true });
+      }).filter(Boolean);
+      if (!jobs.length) return;
+      await Portal.FB.limit(Promise.all(jobs), 'đẩy điểm các hồ sơ');
+      Portal.Rank.clearCache();
+    } catch (e) {
+      this._uid = '';                                    // lần đổi phiên sau thử lại
+      console.warn('[rank] chưa đẩy được điểm các hồ sơ khác:', (e && e.code) || e);
+    }
   }
 };
 
@@ -8977,6 +9047,7 @@ SC.AuthPanel = {
     /* Adapter đã nối ở đầu hàm — phải xong TRƯỚC `Portal.Auth.init()`, vì Auth gọi
        `Portal.Cloud.onUser()` ngay khi nhận ra phiên cũ, lúc đó adapter phải có sẵn. */
     Portal.Auth.onChange(() => this.sync());
+    SC.RankAllProfiles.init();   // có vé -> đẩy điểm MỌI hồ sơ trên máy lên BXH
     Portal.Auth.init();
   },
 
@@ -9266,7 +9337,7 @@ SC.Rank = {
       // Top 3 đeo medal AI (đợt 2) thay số; hỏng ảnh thì onerror trả lại con số —
       // cùng chiến thuật fallback với icon cây kỹ năng (ui-tree.js).
       wrap.innerHTML = banner + rows.map(r => `
-        <div class="rank-row${r.me || (me && r.uid === me.uid) ? ' me' : ''}">
+        <div class="rank-row${r.me || (me && r.uid === SC.Cloud.scoreId(me.uid)) ? ' me' : ''}">
           <span class="rank-pos${r.pos <= 3 ? ' top' : ''}">${r.pos <= 3
             ? `<img src="assets/art-game/ui-badge-medal-${r.pos}.webp" alt="${r.pos}" onerror="if(this.r)this.replaceWith('${r.pos}');else{this.r=1;this.src=this.src}">`
             : r.pos}</span>

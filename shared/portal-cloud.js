@@ -24,6 +24,7 @@
  *   scoreDoc:   'chessScores',      // noi luu diem de xep hang
  *   progress:   () => ({...}),      // tien do day du hien tai (ghi vao userDoc)
  *   score:      (hadDoc, fsM) => ({...}),   // cac truong xep hang (ghi vao scoreDoc)
+ *   scoreId:    uid => uid + '_p2',   // (tuy chon) id ban ghi diem, mac dinh = uid
  *                                   //   hadDoc: ban ghi da ton tai chua
  *                                   //   fsM:    module firestore, de dung deleteField()
  *   playerName: () => 'Ten',        // ten hien tren bang xep hang
@@ -194,7 +195,9 @@ Portal.Cloud = (function () {
             name: u.name, avatar: u.avatar,
             progress: A.progress(), updatedAt: serverTimestamp()
           }, { merge: true }),
-          setDoc(doc(fb.db, A.scoreDoc, u.uid), score, { merge: true })
+          /* scoreId (tuy chon): game co NHIEU HO SO tren mot tai khoan can moi ho so mot
+           * dong BXH rieng (Sky Chicken 22/09/2026) — mac dinh van la uid. */
+          setDoc(doc(fb.db, A.scoreDoc, A.scoreId ? A.scoreId(u.uid) : u.uid), score, { merge: true })
         ]), 'lưu tiến độ');
 
         hadDoc = true;
