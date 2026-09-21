@@ -9374,9 +9374,11 @@ SC.MapSelect = {
        ra như đã ăn đủ 3 sao, ngược hẳn với con số ở tiêu đề vùng. */
     const pips = [0, 1, 2].map(i => `<i class="${i < st ? 'on' : ''}"></i>`).join('');
 
+    // Số MÀN thật (37, 38… 42), không phải số thứ tự trong vùng: lobby, briefing, bảng
+    // kết quả đều gọi "MÀN 42" — bản đồ ghi "6" là người chơi không dò ra được (22/09)
     el.innerHTML = `
       <span class="sn-num">${locked
-        ? '<svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg>' : lv.stage}</span>
+        ? '<svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg>' : lv.id}</span>
       ${lv.boss ? `<span class="sn-tag">${lv.finalBoss ? 'TRÙM' : 'ELITE'}</span>` : ''}
       ${locked ? '' : `<span class="sn-star">${pips}</span>`}`;
 
