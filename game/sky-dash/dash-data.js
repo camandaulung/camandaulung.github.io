@@ -24,6 +24,8 @@ Dash.Data = {
 
   /* rows -> { kpi, levels: Map(lv -> số liệu), waves: {lose theo wave}, hard[] } */
   crunch(rows, opt) {
+    // kênh 'test' = bản ghi kiểm luật / QA, không bao giờ tính vào số liệu
+    rows = rows.filter(r => r.ch !== 'test');
     const R = rows.filter(r => (!opt.ch || r.ch === opt.ch) && (opt.quit || r.res !== 'quit'));
     const players = new Set(R.map(r => r.pk));
     const wins = R.filter(r => r.res === 'win');
