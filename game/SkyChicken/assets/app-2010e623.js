@@ -7945,8 +7945,10 @@ SC.Combat = {
      trâu của loại quái (máu gốc / 60). Màn đầu gốc 40 + 90% là chết sạch; map 57 bọ cạp
      còn ~30% máu, map 30 bọ hung còn ~3%. Trùm giữ max(160, 5% máu) — không xoá trùm
      bằng vài quả bom. Số chỉnh ở bảng cân bằng khoá 'bomb'. */
-  // mul 0.9: hạ 10% toàn bộ sức bom (anh Đức, 22/09/2026 — "bom mạnh quá")
-  BOMB: SC.bal('bomb', { base: 40, pctMax: 0.90, pctMin: 0.60, lvW: 0.7, mul: 0.9 }),
+  /* mul: hạ sức bom toàn phần. 0.9 ("bom mạnh quá") rồi 0.8 (22/09/2026, anh Đức:
+     "2 quả bom là sạch cả round") — quả đầu để lại 40-50% máu, quả 2 không còn quét
+     sạch quái to cuối game. */
+  BOMB: SC.bal('bomb', { base: 40, pctMax: 0.90, pctMin: 0.60, lvW: 0.7, mul: 0.8 }),
   bombDmg(e, levelId) {
     const B = this.BOMB, M = B.mul || 1;
     if (e.isBoss) return Math.max(160, e.hpMax * 0.05) * M;
