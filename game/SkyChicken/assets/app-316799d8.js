@@ -7344,8 +7344,9 @@ SC.Rescue = {
       x: SC.rnd(70, SC.W - 70), y: -40, r: 16,
       t: SC.rnd(0, 6.28), sway: SC.rnd(24, 44), saved: false,
       skin: this.SKINS[(Math.random() * this.SKINS.length) | 0],
-      // bị bắn ở khoảng 1/5 → 1/2 màn: đủ cao để người chơi còn KỊP phản xạ
-      cutAt: doomed ? SC.rnd(0.2, 0.5) * SC.H : Infinity, torn: false, vy: 0
+      // bị bắn quanh 1/3 màn (±3%). Bản đầu rải 20-50% -> nhiều bé quá nửa map mới
+      // lủng, anh Đức test live thấy muộn (22/09/2026)
+      cutAt: doomed ? SC.rnd(0.30, 0.36) * SC.H : Infinity, torn: false, vy: 0
     });
     SC.UI.toast('CÓ MÈO RƠI!');
     SC.Audio.wave();
