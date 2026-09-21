@@ -2678,6 +2678,9 @@ SC.BG = {
     const g = ctx.createLinearGradient(0, 0, 0, SC.H);
     g.addColorStop(0, b.sky[0]); g.addColorStop(0.55, b.sky[1]); g.addColorStop(1, b.sky[2]);
     ctx.fillStyle = g; ctx.fillRect(0, 0, SC.W, SC.H);
+    // đã có ảnh AI (mây vẽ sẵn trong ảnh) thì mây elip vẽ tay chỉ còn làm lớp gần mờ —
+    // để nguyên độ đậm là hai kiểu mây chồng nhau, lộ ngay mảng elip giả
+    const cloudK = this._art(ctx, b.id) ? 0.4 : 1;
 
     // sao
     ctx.save();
@@ -2699,7 +2702,7 @@ SC.BG = {
     // mây / bụi
     ctx.save();
     for (const c of this.clouds) {
-      ctx.globalAlpha = c.a;
+      ctx.globalAlpha = c.a * cloudK;
       ctx.fillStyle = b.cloud;
       ctx.beginPath();
       ctx.ellipse(c.x, c.y, c.s, c.s * 0.42, 0, 0, 6.283);
@@ -2707,6 +2710,27 @@ SC.BG = {
       ctx.fill();
     }
     ctx.restore();
+  },
+
+  /* Nền AI mỗi vùng (assets/art-game/bg-<id>.webp) — lớp XA NHẤT, cuộn chậm hơn đồi
+     để còn chiều sâu. Ảnh đã được tools/make-bg-loops.py crossfade đầu-cuối nên xếp
+     chồng dọc không lộ đường nối, và đã chặn độ sáng cho tối hơn máy bay.
+     Chưa tải xong / thiếu file thì chỉ còn gradient trời — không bao giờ màn đen. */
+  ART_SPEED: 18,
+  _imgs: {},
+
+  _art(ctx, id) {
+    let im = this._imgs[id];
+    if (!im) {
+      im = this._imgs[id] = new Image();
+      im.src = `assets/art-game/bg-${id}.webp`;
+    }
+    if (!im.complete || !im.naturalWidth) return false;
+    const h = Math.ceil(im.naturalHeight * SC.W / im.naturalWidth);
+    // Math.floor: toạ độ lẻ làm hai tấm kề nhau hở 1px đường sáng khi cuộn
+    const oy = Math.floor((this.scroll * this.ART_SPEED) % h);
+    for (let y = oy - h; y < SC.H; y += h) ctx.drawImage(im, 0, y, SC.W, h);
+    return true;
   },
 
   /* vẽ một dải địa hình dạng răng cưa mềm, lặp theo trục dọc */
@@ -8756,6 +8780,7 @@ SC.Cloud = {
       (cu.owned || []).forEach(o => { if (!moi.owned.some(x => x.id === o.id)) moi.owned.push(o); });
       moi.hist = Array.from(new Set([...(moi.hist || []), ...(cu.hist || [])]));
       if (!moi.equip && cu.equip) moi.equip = cu.equip;
+      if (!moi.nick0 && cu.nick0) moi.nick0 = cu.nick0;   // tên riêng tàu nguyên bản
     }
     SC.UI.save();
     SC.UI.buildMapList();
@@ -11088,7 +11113,12 @@ SC.GarageUI = {
       const rc = e.target.closest('button[data-recast]');
       if (rc) { this._recast(rc); return; }
       const b = e.target.closest('button[data-eq]');
-      if (!b) return;
+      if (!b) {
+        // bấm vào phần còn lại của thẻ = mở popup chi tiết, lướt được sang tàu khác
+        const card = e.target.closest('.gar-card');
+        if (card) { SC.Audio.click(); SC.GarageDetail.open(this.items, +card.dataset.i); }
+        return;
+      }
       SC.Audio.power();
       SC.EvoGarage.equip(b.dataset.eq || null);
       SC.UI.toast(b.dataset.eq ? 'ĐÃ LÊN TÀU' : 'VỀ TÀU NGUYÊN BẢN');
@@ -11118,21 +11148,25 @@ SC.GarageUI = {
       .map(s => `<span><b>+${SC.EvoGarage.pct(s)}%</b>${SC.EvoGarage.STAT_VI[s]}</span>`).join('');
 
     // bệ số 0: tàu nguyên bản — luôn chọn lại được
-    const goc = SC.EvoAI._orig && SC.EvoAI._orig.ship ? SC.EvoAI._orig.ship.src : '';
-    let html = this._card({ id: '', sn: '#00', name: 'NGUYÊN BẢN', img: goc,
-      chips: '<i class="gar-chip dim">Tàu xuất xưởng</i>', on: !eq });
+    const G = SC.EvoAI._orig || {}, src = x => (x && x.src) || '';
+    // this.items: dữ liệu thô dùng chung cho thẻ lưới VÀ popup chi tiết (lướt theo đúng thứ tự)
+    this.items = [{ id: '', sn: '#00', combo: 'NGUYÊN BẢN', img: src(G.ship),
+      drones: [src(G.swarm), src(G.sniper)].filter(Boolean), stats: null }];
 
     // mới nhất lên đầu — tàu vừa ghép là thứ người chơi muốn ngắm nhất
     own.slice().reverse().forEach((o, ri) => {
       const i = own.length - 1 - ri;
       // bản đẹp ở máy này, không có thì ảnh thu nhỏ trong sổ (theo mây)
       const im = imgs.find(x => x.id === o.id) || (o.thumb ? { ship: o.thumb } : null);
-      html += this._card({ id: o.id, sn: '#' + String(i + 1).padStart(2, '0'),
-        name: (o.names || []).map(n => SC.Rank.esc(String(n).toUpperCase())).join(' · '),
-        img: im ? im.ship : '', chips: this._chips(o.stats), on: eq === o.id,
+      this.items.push({ id: o.id, o, sn: '#' + String(i + 1).padStart(2, '0'),
+        combo: (o.names || []).map(n => String(n).toUpperCase()).join(' · '),
+        img: im ? im.ship : '', drones: im && im.drone ? [im.drone] : [], stats: o.stats,
         recast: !im && SC.EvoRecover.canRecast(o) });
     });
-    document.getElementById('garList').innerHTML = html;
+    document.getElementById('garList').innerHTML = this.items.map((it, k) => this._card({
+      ...it, i: k, name: SC.Rank.esc(SC.GarageDetail.nameOf(it)), on: (eq || '') === it.id,
+      chips: it.id ? this._chips(it.stats) : '<i class="gar-chip dim">Tàu xuất xưởng</i>'
+    })).join('');
   },
 
   /* Đúc lại ảnh cho tàu đã mất ảnh — miễn phí 1 lần, ~15 giây, giữ nguyên thuộc tính */
@@ -11154,7 +11188,7 @@ SC.GarageUI = {
       : c.recast
         ? `<span class="gar-miss">ảnh chưa có<br><button class="btn small gar-recast" data-recast="${c.id}">ĐÚC LẠI</button></span>`
         : '<span class="gar-miss">ảnh đang ở<br>máy khác</span>';
-    return `<div class="gar-card${c.on ? ' on' : ''}">
+    return `<div class="gar-card${c.on ? ' on' : ''}" data-i="${c.i}">
       <div class="gar-stage">${hinh}<i class="gar-sn">${c.sn}</i></div>
       <b class="gar-name">${c.name}</b>
       <div class="gar-chips">${c.chips}</div>
@@ -11181,6 +11215,190 @@ SC.GarageUI = {
       </div>`;
     row.querySelector('.shop-buy').onclick = () => { SC.Audio.click(); this.open(); };
     return row;
+  }
+};
+
+;
+/* ===== js/ui-evo-garage-detail.js ===== */
+/* ui-evo-garage-detail.js — popup XEM CHI TIẾT một chiến đấu cơ trong gara
+ *
+ * Bấm vào thẻ nào ở gara là mở popup gần kín màn hình: tên (đổi được), thuộc tính ẩn,
+ * tàu chính đang lượn trên bệ với phi đội bay kèm, và ô riêng khoe phi đội.
+ * Vuốt ngang / mũi tên / phím ← → để lướt sang tàu kế — gara là bộ sưu tập, người
+ * chơi muốn ngắm hết một lượt chứ không phải đóng-mở từng thẻ.
+ *
+ * Tên riêng lưu `o.nick` NGAY TRONG SỔ progress.evo.owned (theo mây như tàu); tàu
+ * nguyên bản lưu `evo.nick0`. Tên tổ hợp gốc vẫn hiện dòng phụ — đó là "giấy khai
+ * sinh" của tàu, thuộc tính ẩn băm từ nó nên không được mất.
+ */
+
+SC.GarageDetail = {
+  NICK_MAX: 24,
+  items: [],
+  i: 0,
+
+  _el() {
+    if (this.box) return this.box;
+    const box = this.box = document.createElement('div');
+    box.className = 'gd-wrap hidden';
+    box.innerHTML = `
+      <div class="gd-pop" role="dialog" aria-modal="true">
+        <div class="gd-top">
+          <i class="gd-sn"></i>
+          <button class="icon-btn gd-x" aria-label="Đóng">✕</button>
+        </div>
+        <label class="gd-name"><input maxlength="${this.NICK_MAX}" spellcheck="false"
+          aria-label="Tên chiến đấu cơ"><span aria-hidden="true">✎</span></label>
+        <div class="gd-combo"></div>
+        <div class="gd-stage">
+          <button class="gd-nav prev" aria-label="Tàu trước">‹</button>
+          <div class="gd-fly"><img class="gd-dr l" alt=""><img class="gd-ship" alt=""><img class="gd-dr r" alt=""></div>
+          <div class="gd-miss gar-miss"></div>
+          <button class="gd-nav next" aria-label="Tàu sau">›</button>
+        </div>
+        <div class="gd-dots"></div>
+        <div class="gd-row">
+          <div class="gd-cell"><em>MÁY BAY CHÍNH</em><img class="gd-mini ship" alt=""></div>
+          <div class="gd-cell"><em>PHI ĐỘI</em><div class="gd-mini-dr"></div></div>
+        </div>
+        <div class="gd-stats"></div>
+        <button class="btn primary gd-eq"></button>
+      </div>`;
+    document.getElementById('scrGarage').appendChild(box);
+
+    const q = s => box.querySelector(s);
+    q('.gd-x').onclick = () => this.close();
+    box.addEventListener('click', e => { if (e.target === box) this.close(); });
+    q('.prev').onclick = () => this.go(-1);
+    q('.next').onclick = () => this.go(1);
+    q('.gd-eq').onclick = () => this._equip();
+    q('.gd-miss').addEventListener('click', async e => {
+      const b = e.target.closest('button[data-recast]');
+      if (!b) return;
+      await SC.GarageUI._recast(b);      // _recast tự build lại lưới -> items mới có ảnh
+      this.items = SC.GarageUI.items;
+      this.show(this.i);
+    });
+    const inp = q('.gd-name input');
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') inp.blur(); e.stopPropagation(); });
+    // cả change lẫn blur: chỉ blur thì mất tên khi đóng popup bằng phím/nút không lấy focus
+    inp.addEventListener('change', () => this._rename(inp.value));
+    inp.addEventListener('blur', () => this._rename(inp.value));
+
+    // vuốt ngang để lướt; bỏ qua khi đang gõ tên (kéo chọn chữ không phải vuốt)
+    let x0 = null;
+    const pop = q('.gd-pop');
+    // BẪY ĐÃ GẶP: kéo trúng <img> là trình duyệt chuyển sang kéo-thả ảnh, nuốt mất
+    // pointerup -> vuốt không ăn. CSS tắt pointer-events của ảnh + chặn dragstart.
+    pop.addEventListener('dragstart', e => e.preventDefault());
+    pop.addEventListener('pointerdown', e => {
+      x0 = e.target.closest('input,button') ? null : e.clientX;
+    });
+    pop.addEventListener('pointerup', e => {
+      if (x0 === null) return;
+      const dx = e.clientX - x0; x0 = null;
+      if (Math.abs(dx) > 48) this.go(dx < 0 ? 1 : -1);
+    });
+    document.addEventListener('keydown', e => {
+      if (box.classList.contains('hidden')) return;
+      if (e.key === 'ArrowLeft') this.go(-1);
+      else if (e.key === 'ArrowRight') this.go(1);
+      else if (e.key === 'Escape') this.close();
+    });
+    return box;
+  },
+
+  open(items, i) {
+    this.items = items;
+    this._el().classList.remove('hidden');
+    this.show(i);
+  },
+
+  close() {
+    if (!this.box) return;
+    this._rename(this.box.querySelector('.gd-name input').value);
+    this.box.classList.add('hidden');
+    SC.GarageUI.build();                 // tên / tàu đang bay có thể vừa đổi
+  },
+
+  go(d) {
+    const n = this.items.length;
+    if (n < 2) return;
+    this._rename(this.box.querySelector('.gd-name input').value);   // đang gõ dở mà vuốt đi
+    SC.Audio.click();
+    this.show((this.i + d + n) % n, d);
+  },
+
+  show(i, dir) {
+    this.i = i;
+    const it = this.items[i], box = this.box, q = s => box.querySelector(s);
+    const eq = (SC.UI.progress.evo && SC.UI.progress.evo.equip) || '';
+    q('.gd-sn').textContent = `${it.sn} · ${i + 1}/${this.items.length}`;
+    q('.gd-name input').value = this.nameOf(it);
+    // dòng tổ hợp gốc chỉ hiện khi đã đặt tên riêng — trùng tên chính thì thừa
+    q('.gd-combo').textContent = this.nameOf(it) === it.combo ? '' : it.combo;
+    q('.gd-miss').innerHTML = it.img ? '' : it.recast
+      ? `ảnh chưa có<br><button class="btn small gar-recast" data-recast="${it.id}">ĐÚC LẠI</button>`
+      : 'ảnh đang ở máy khác';
+
+    const fly = q('.gd-fly');
+    fly.classList.remove('in-l', 'in-r');
+    void fly.offsetWidth;                // ép reflow để animation trượt vào chạy lại
+    if (dir) fly.classList.add(dir > 0 ? 'in-r' : 'in-l');
+    const set = (img, src) => { img.src = src || ''; img.style.visibility = src ? '' : 'hidden'; };
+    set(q('.gd-ship'), it.img);
+    set(q('.gd-mini.ship'), it.img);
+    box.querySelectorAll('.gd-dr').forEach(im => set(im, it.drones[0]));
+    q('.gd-mini-dr').innerHTML = it.drones.length
+      ? it.drones.map(s => `<img src="${s}" alt="">`).join('')
+      : '<span class="gar-miss">ảnh đang ở máy khác</span>';
+
+    q('.gd-stats').innerHTML = SC.EvoGarage.STATS.map(s => {
+      const v = (it.stats && it.stats[s]) || 0;
+      return `<span class="${v ? '' : 'off'}"><b>+${v}%</b>${SC.EvoGarage.STAT_VI[s]}</span>`;
+    }).join('');
+
+    const on = eq === it.id, b = q('.gd-eq');
+    b.textContent = on ? 'ĐANG BAY' : it.img ? 'DÙNG CHIẾN ĐẤU CƠ NÀY' : 'CHƯA CÓ ẢNH';
+    b.disabled = on || !it.img;
+    b.className = 'btn gd-eq ' + (b.disabled ? 'ghost' : 'primary');
+
+    q('.gd-dots').innerHTML = this.items.length > 1
+      ? this.items.map((_, k) => `<i class="${k === i ? 'on' : ''}"></i>`).join('') : '';
+  },
+
+  /* tên hiển thị: tên riêng người chơi đặt, chưa đặt thì tên tổ hợp */
+  nameOf(it) {
+    const e = SC.UI.progress.evo || {};
+    const nick = it.id ? (it.o && it.o.nick) : e.nick0;
+    return nick || it.combo;
+  },
+
+  _rename(v) {
+    const it = this.items[this.i];
+    if (!it) return;
+    const e = SC.EvoAI.st();
+    // trim + gộp khoảng trắng; để trống = về tên tổ hợp
+    const nick = String(v || '').replace(/\s+/g, ' ').trim().slice(0, this.NICK_MAX);
+    const o = it.id ? (e.owned || []).find(x => x.id === it.id) : null;
+    const cu = it.id ? (o && o.nick) || '' : e.nick0 || '';
+    const moi = nick === it.combo ? '' : nick;
+    if (moi === cu) return;
+    if (it.id) { if (!o) return; if (moi) o.nick = moi; else delete o.nick; it.o = o; }
+    else if (moi) e.nick0 = moi; else delete e.nick0;
+    SC.UI.save();
+    SC.Cloud.markDirty();
+    SC.UI.toast(moi ? 'ĐÃ ĐỔI TÊN' : 'VỀ TÊN GỐC');
+    this.show(this.i);
+  },
+
+  _equip() {
+    const it = this.items[this.i];
+    if (!it || !it.img) return;
+    SC.Audio.power();
+    SC.EvoGarage.equip(it.id || null);
+    SC.UI.toast(it.id ? 'ĐÃ LÊN TÀU' : 'VỀ TÀU NGUYÊN BẢN');
+    this.show(this.i);
   }
 };
 

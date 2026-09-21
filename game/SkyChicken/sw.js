@@ -6,14 +6,14 @@
  *     thay vì tự đổi bản giữa lúc đang chơi
  */
 
-const CACHE = 'sky-chicken-b6b06f9f';
+const CACHE = 'sky-chicken-086342c8';
 
 const SHELL = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
-  "./assets/style-e2eed3db.css",
-  "./assets/app-9eaa1902.js",
+  "./assets/style-6bd3cccc.css",
+  "./assets/app-0ec98473.js",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./icons/icon-maskable-512.png",
@@ -21,6 +21,16 @@ const SHELL = [
   "./assets/fonts/chakra-petch-600-viet.woff2",
   "./assets/fonts/chakra-petch-700-latin.woff2",
   "./assets/fonts/chakra-petch-700-viet.woff2",
+  "./assets/art-game/bg-dune.webp",
+  "./assets/art-game/bg-farm.webp",
+  "./assets/art-game/bg-frost.webp",
+  "./assets/art-game/bg-magma.webp",
+  "./assets/art-game/bg-neon.webp",
+  "./assets/art-game/bg-ocean.webp",
+  "./assets/art-game/bg-scrap.webp",
+  "./assets/art-game/bg-storm.webp",
+  "./assets/art-game/bg-toxic.webp",
+  "./assets/art-game/bg-void.webp",
   "./assets/art-game/boss-eagle.webp",
   "./assets/art-game/boss-hen.webp",
   "./assets/art-game/boss-neonRooster.webp",
