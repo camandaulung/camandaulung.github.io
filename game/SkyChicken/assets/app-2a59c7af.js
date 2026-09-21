@@ -1512,10 +1512,11 @@ SC.Power = {
      Chỉ đụng SÁT THƯƠNG (mọi đòn trúng người chơi đều qua dmg()) — máu, mật độ, nhịp
      bắn giữ nguyên, nên màn vẫn dài và đông như cũ, chỉ bớt "một phát bay nửa cây máu". */
   LATE: SC.bal('power.lateDmg', { from: 51, full: 60, start: 0.90, end: 0.85 }),
-  /* HẠ MẬT ĐỘ QUÁI CUỐI GAME (22/09/2026, phản hồi "từ màn 49 quá dày"): màn 49 bớt
-     10% số quái mỗi wave, trượt tới 20% ở màn 60, giữ 20% cho vòng vô tận. Chỉ SỐ CON
-     — máu/đạn từng con không đổi. system-waves._buildWave nhân vào. */
-  LATE_DEN: SC.bal('power.lateDensity', { from: 49, full: 60, start: 0.90, end: 0.80 }),
+  /* HẠ MẬT ĐỘ QUÁI CUỐI GAME (22/09/2026, phản hồi "từ màn 49 quá dày"): bớt PHẲNG 5%
+     số quái mỗi wave từ màn 49 (cả vòng vô tận). Bản đầu 10%→20% bị hạ lại sau khi
+     anh Đức test live: riêng giảm sát thương (LATE) đã đủ dễ thở. Chỉ SỐ CON — máu/đạn
+     từng con không đổi. system-waves._buildWave nhân vào. */
+  LATE_DEN: SC.bal('power.lateDensity', { from: 49, full: 49, start: 0.95, end: 0.95 }),
   lateDensity() { return this.lateEase(this.LATE_DEN); },
 
   lateEase(L = this.LATE) {
