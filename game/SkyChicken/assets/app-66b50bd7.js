@@ -3776,7 +3776,11 @@ SC.Enemy.prototype.update = function (dt, player, lv) {
       this.fireT = this.def.fire / this.fireMul;
       // 22 loại quái mới khai báo đường đạn riêng: [loại, số viên, độ toả, tốc độ]
       const blt = this.def.blt;
-      if (blt) {
+      // tàu phản bội ở vòng vô tận: đổi HÌNH loạt bắn theo class, giữ số viên + tốc độ
+      if (this.dz && SC.DefectorSpawn.fire(this, player,
+        blt ? blt[1] : this.type === 'tank' ? 3 : 1, blt ? blt[3] : this.type === 'hen' ? 210 : 260)) {
+        // đã bắn theo class
+      } else if (blt) {
         const [kind, n, spread, sp] = blt;
         const a = SC.angTo(this.x, this.y, player.x, player.y);
         for (let i = 0; i < n; i++) {
@@ -3955,7 +3959,8 @@ SC.EnemySprite = {
   },
 
   get(e, fi) {
-    const key = e.type + '|' + fi;
+    // tàu phản bội: cùng loại quái nhưng mỗi chiếc một ảnh -> khoá cache theo tàu
+    const key = e.type + '|' + fi + (e.dz ? '|' + e.dz.id : '');
     let c = this._cache[key];
     if (c) return c;
 
@@ -3979,6 +3984,17 @@ SC.EnemySprite = {
     // Sprite AI có thì dùng, chưa tải xong thì rơi về art thủ tục bên dưới.
     // 0.85: sprite đã trim sát cánh, vẽ full box PAD thì thân to hơn hitbox r
     // rõ rệt — thu lại cho cảm giác va chạm khớp mắt.
+    // tàu phản bội (system-defector-spawn.js): ảnh gen mũi hướng LÊN -> xoay 180° cho
+    // chúi xuống phía người chơi như mọi quái khác
+    if (e.dz) {
+      const s = e.r * this.PAD * 2 * 0.95;
+      g.save();
+      g.rotate(Math.PI);
+      g.scale(1 + flap * 0.03, 1 - flap * 0.03);
+      g.drawImage(e.dz.img, -s / 2, -s / 2, s, s);
+      g.restore();
+      return;
+    }
     const img = SC.SpriteArt && SC.SpriteArt.get('enemy', e.type);
     if (img) {
       const s = e.r * this.PAD * 2 * 0.85;
@@ -5666,7 +5682,11 @@ SC.Boss.prototype.render = function (ctx) {
   }
   ctx.restore();
 
-  SC.BossArt.draw(this.art, ctx, this.r, this.t, this.phase, this.hue);
+  if (this.dz) {                                 // tàu phản bội hạng trùm (vô tận)
+    ctx.save(); ctx.rotate(Math.PI);             // ảnh mũi hướng lên -> chúi xuống
+    SC.BossArt._sprite(ctx, this.dz.img, this.r, this.t, this.phase);
+    ctx.restore();
+  } else SC.BossArt.draw(this.art, ctx, this.r, this.t, this.phase, this.hue);
 
   ctx.filter = 'none';
   ctx.restore();
@@ -7440,6 +7460,7 @@ SC.Waves = {
 
   start(lv) {
     this.lv = lv;
+    SC.Defectors.load();                        // một lần mỗi phiên, chạy nền
     this.curve = lv.boss ? SC.WAVE_CURVE.boss : SC.WAVE_CURVE.normal;
     this.index = 0;
     this.total = this.curve.length;
@@ -7489,6 +7510,7 @@ SC.Waves = {
     });
 
     this._mixCounter(lv, inten);
+    SC.DefectorSpawn.mix(this.queue, lv, this.index);   // tàu người chơi đã bán, ≤50% wave
     this.lastCount = this.queue.length;
     this.spawning = true;
     this.sinceWave = 0;
@@ -7548,7 +7570,9 @@ SC.Waves = {
         const q = this.queue[i];
         q.delay -= dt;
         if (q.delay <= 0) {
-          enemies.push(new SC.Enemy(q.t, q.x, q.y, lv));
+          const e = new SC.Enemy(q.t, q.x, q.y, lv);
+          if (q.dz) e.dz = q.dz;
+          enemies.push(e);
           this.queue.splice(i, 1);
         }
       }
@@ -7597,10 +7621,11 @@ SC.Waves = {
       SC.Items.drop(SC.W * 0.65, 80, 'power');
 
       const boss = new SC.Boss(lv);
+      SC.DefectorSpawn.bossify(boss, lv);     // vô tận: có thể là tàu phản bội hạng trùm
       enemies.push(boss);
       SC.Game.boss = boss;
-      SC.UI.showBoss(lv.bossName);
-      SC.UI.toast('CẢNH BÁO — ' + lv.bossName, true);
+      SC.UI.showBoss(boss.name);
+      SC.UI.toast('CẢNH BÁO — ' + boss.name, true);
       SC.addShake(12, 0.6);
       SC.Audio.alarm();
       SC.UI.setWave(this.total + 1, this.total + 1);
@@ -11319,6 +11344,9 @@ SC.EvoSell = {
     const o = e.owned.find(x => x.id === id);
     const dangBay = e.equip === id;
 
+    // tàu bị bán gia nhập quân địch (kho chung trên mây) — lấy ảnh TRƯỚC khi xoá khỏi gara
+    const im = SC.EvoGarage.imageOf(id);
+    SC.Defectors.publish(o, im && im.ship);
     e.owned = e.owned.filter(x => x.id !== id);
     if (o.ens && o.ens.length) {
       e.sold = (e.sold || []).filter(k => k !== this.key(o));
@@ -11333,6 +11361,276 @@ SC.EvoSell = {
     // đang bay đúng chiếc vừa bán -> về tàu nguyên bản (equip tự save + dựng lại sprite)
     if (dangBay) SC.EvoGarage.equip(null);
     return kw;
+  }
+};
+
+;
+/* ===== js/system-defector-grade.js ===== */
+/* system-defector-grade.js — CHẤM HẠNG tàu bị bán trước khi nó gia nhập hàng ngũ địch
+ *
+ * Tàu đẹp, chi tiết, hoành tráng -> đủ tư cách làm TRÙM ở vòng vô tận; tàu đơn giản
+ * -> quái thường. Chấm NGAY LÚC BÁN, trên máy người bán, lưu điểm vào tài liệu mây —
+ * máy người chơi khác chỉ đọc hạng, không phải tính lại.
+ *
+ * Chỉ số chính = VÂN CHI TIẾT: tỉ lệ điểm ảnh (trong thân tàu) có độ cong sáng
+ * Laplacian > 60 ở khung 192px. Mảng màu phẳng kiểu toon cho ~0, giáp chạm khắc
+ * viền vàng cho cao.
+ * BẪY ĐÃ ĐO (22/09/2026): bản đầu dùng chênh sáng hai điểm kề nhau ở 96px — bão hoà,
+ * drone 128px đơn giản cũng ăn 0.74 ngang tàu Yu-Gi-Oh. Laplacian@192 tách rõ:
+ * drone 0.08 · tàu toon cũ 0.25 · tàu gốc 0.35 · tàu Yu-Gi-Oh 0.36-0.54.
+ * Phụ: điểm sáng (năng lượng phát quang), độ rực màu, độ phủ khung. Cộng thêm cho
+ * linh thú huyền thoại và bộ lai hai con vật (quái dung hợp).
+ */
+
+SC.DefectorGrade = {
+  BOSS_AT: 0.75,     // mẫu 22/09: bạch hổ 1.01, bulldog 0.77 -> trùm; gà mái 0.74, corgi 0.68, cú toon 0.47 -> quái
+  N: 192,
+  LEGEND: ['dragon', 'phoenix', 'unicorn', 'griffin', 'nine-tailed fox', 'azure dragon',
+    'white tiger', 'vermilion bird', 'black tortoise'],
+
+  /* img: Image đã tải xong. ens: bộ từ khóa (en). Trả { score, tier, f } */
+  grade(img, ens) {
+    const N = this.N, c = document.createElement('canvas');
+    c.width = c.height = N;
+    const g = c.getContext('2d', { willReadFrequently: true });
+    g.drawImage(img, 0, 0, N, N);
+    const d = g.getImageData(0, 0, N, N).data;
+    const L = new Float32Array(N * N), op = new Uint8Array(N * N);
+    let cnt = 0, bright = 0, srg = 0, syb = 0, qrg = 0, qyb = 0;
+    for (let i = 0; i < N * N; i++) {
+      const r = d[i * 4], gg = d[i * 4 + 1], b = d[i * 4 + 2];
+      L[i] = 0.299 * r + 0.587 * gg + 0.114 * b;
+      if (d[i * 4 + 3] < 200) continue;
+      op[i] = 1; cnt++;
+      if (L[i] > 200) bright++;
+      const rg = r - gg, yb = 0.5 * (r + gg) - b;
+      srg += rg; syb += yb; qrg += rg * rg; qyb += yb * yb;
+    }
+    if (!cnt) return { score: 0, tier: 'mob', f: {} };
+    let inner = 0, tex = 0;
+    for (let y = 1; y < N - 1; y++) for (let x = 1; x < N - 1; x++) {
+      const i = y * N + x;
+      if (!op[i] || !op[i - 1] || !op[i + 1] || !op[i - N] || !op[i + N]) continue;
+      inner++;
+      if (Math.abs(4 * L[i] - L[i - 1] - L[i + 1] - L[i - N] - L[i + N]) > 60) tex++;
+    }
+    const mrg = srg / cnt, myb = syb / cnt;
+    const sd = Math.sqrt(Math.max(0, qrg / cnt - mrg * mrg) + Math.max(0, qyb / cnt - myb * myb));
+    const f = {
+      tex: Math.min(1, (inner ? tex / inner : 0) / 0.5),
+      bright: Math.min(1, bright / cnt / 0.15),
+      color: Math.min(1, (sd + 0.3 * Math.sqrt(mrg * mrg + myb * myb)) / 150),
+      cover: Math.min(1, cnt / (N * N) / 0.4)
+    };
+    let score = 0.6 * f.tex + 0.15 * f.bright + 0.15 * f.color + 0.1 * f.cover;
+    const ks = ens || [];
+    if (ks.some(k => this.LEGEND.indexOf(k) >= 0)) score += 0.1;
+    if (ks.filter(k => SC.EVO_KW.animal.some(a => a.en === k)).length >= 2) score += 0.05;
+    score = +score.toFixed(3);
+    return { score, tier: score >= this.BOSS_AT ? 'boss' : 'mob', f };
+  }
+};
+
+;
+/* ===== js/system-defector-pool.js ===== */
+/* system-defector-pool.js — KHO TÀU PHẢN BỘI: tàu người chơi bán ở gara gia nhập quân địch
+ *
+ * Mỗi lần AI đó bán tàu (system-evo-garage-sell.js), tàu được chấm hạng
+ * (system-defector-grade.js) rồi đẩy lên Firestore `defectors/{uid}_{idTàu}` — kho
+ * CHUNG của mọi người chơi. Máy nào vào trận cũng đọc 60 tàu mới nhất làm quân địch
+ * (system-defector-spawn.js).
+ *
+ * Chỉ kênh có tiến hóa (SC.EvoAI.active, tức zingplay.dev): portal công khai không có
+ * gara nên cũng không có tàu phản bội — giữ nguyên nguyên tắc "portal không thấy evo".
+ *
+ * Tàu CỦA MÌNH bán ra được giữ thêm ở máy (`sc.defectors.mine`, tối đa 8, ảnh 160px):
+ *   - thấy ngay tàu mình vừa bán trong trận kế, không phải đợi mây;
+ *   - đẩy mây lỗi (mất mạng, luật Firestore chưa dán) thì còn bản chờ, lần nạp sau
+ *     đẩy lại. Doc id cố định theo uid+tàu nên đẩy lại không nhân bản.
+ * Tài liệu KHÔNG chứa tên/email người bán — ảnh tàu đi khắp máy người khác.
+ */
+
+SC.Defectors = {
+  COL: 'defectors',
+  LIMIT: 60,
+  MINE: 'sc.defectors.mine',
+  MINE_MAX: 8,
+  pool: [],            // { id, img:Image, tier, score, cls, ens, bird }
+  _p: null,
+
+  BIRDS: ['rooster', 'hen', 'baby chick', 'fighting gamecock', 'owl', 'eagle', 'phoenix',
+    'vermilion bird', 'pterodactyl', 'griffin'],
+
+  _mine() { try { return JSON.parse(localStorage.getItem(this.MINE) || '[]'); } catch (e) { return []; } },
+  _saveMine(l) { try { localStorage.setItem(this.MINE, JSON.stringify(l.slice(-this.MINE_MAX))); } catch (e) {} },
+
+  /* dữ liệu thô (mây hoặc máy) -> mục trong pool, ảnh tải nền; chưa tải xong thì spawn bỏ qua */
+  /* khoá theo TÀU: bản máy 'm_<idTàu>' và bản mây '<uid>_<idTàu>' là cùng một chiếc */
+  _key(id) { return id.startsWith('m_') ? id.slice(2) : id.slice(id.indexOf('_') + 1); },
+
+  _add(d) {
+    if (!d || !d.img || typeof d.img !== 'string') return;
+    const k = this._key(String(d.id));
+    if (this.pool.some(x => this._key(x.id) === k)) return;
+    const img = new Image();
+    img.src = d.img;
+    const ens = Array.isArray(d.ens) ? d.ens : [];
+    this.pool.push({ id: d.id, img, tier: d.tier === 'boss' ? 'boss' : 'mob', score: +d.score || 0,
+      cls: d.cls || '', ens, names: Array.isArray(d.names) ? d.names : [],
+      bird: ens.some(e => this.BIRDS.indexOf(e) >= 0) });
+  },
+
+  ready(tier) {
+    return this.pool.filter(x => x.img.complete && x.img.naturalWidth && (!tier || x.tier === tier));
+  },
+
+  /* Nạp một lần mỗi phiên (Waves.start gọi mỗi màn, lần sau trả luôn promise cũ) */
+  load() {
+    if (this._p) return this._p;
+    if (!SC.EvoAI.active()) return (this._p = Promise.resolve());
+    this._mine().forEach(d => this._add(d));
+    if (!Portal.FB.configured()) return (this._p = Promise.resolve());
+    this._p = (async () => {
+      try {
+        const fb = await this._auth();
+        const { collection, query, orderBy, limit, getDocs } = fb.fsM;
+        const snap = await Portal.FB.limit(getDocs(query(collection(fb.db, this.COL),
+          orderBy('at', 'desc'), limit(this.LIMIT))), 'đọc tàu phản bội');
+        snap.forEach(s => this._add(Object.assign({ id: s.id }, s.data())));
+        this._retry(fb);
+      } catch (e) {
+        console.warn('[defectors] chưa đọc được kho tàu phản bội:', (e && e.code) || e);
+        this._p = null;                   // lần vào màn sau thử lại
+      }
+    })();
+    return this._p;
+  },
+
+  /* vé anonymous của M365 có thể chưa kịp cấp lúc vào màn đầu — đợi tối đa ~8 giây */
+  async _auth() {
+    const fb = await Portal.FB.load();
+    for (let i = 0; i < 16 && !fb.auth.currentUser; i++) await new Promise(r => setTimeout(r, 500));
+    if (!fb.auth.currentUser) throw Object.assign(new Error('chưa có vé'), { code: 'no-auth' });
+    return fb;
+  },
+
+  /* Gọi lúc BÁN (trước khi xoá ảnh khỏi gara). url = ảnh tàu, ưu tiên bản 256px. */
+  async publish(o, url) {
+    if (!SC.EvoAI.active() || !url) return;
+    try {
+      const im = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+      const g = SC.DefectorGrade.grade(im, o.ens);
+      const cls = (o.ens || []).find(e => SC.EVO_KW.class.some(c => c.en === e)) || '';
+      const d = { id: 'm_' + o.id, img: await SC.EvoGarage.compress(url, 192), ens: (o.ens || []).slice(0, 4),
+        names: (o.names || []).slice(0, 4).map(n => String(n).slice(0, 24)), cls, tier: g.tier,
+        score: g.score, at: Date.now(), up: 0 };
+      this._add(d);
+      const mine = this._mine().filter(x => x.id !== d.id);
+      mine.push(d);
+      this._saveMine(mine);
+      if (Portal.FB.configured()) this._upload(await this._auth(), d).catch(() => {});
+    } catch (e) {
+      console.warn('[defectors] không đẩy được tàu vừa bán:', (e && e.code) || e);
+    }
+  },
+
+  async _upload(fb, d) {
+    const uid = fb.auth.currentUser.uid;
+    const { doc, setDoc } = fb.fsM;
+    await Portal.FB.limit(setDoc(doc(fb.db, this.COL, uid + '_' + d.id.slice(2)), {
+      img: d.img, ens: d.ens, names: d.names, cls: d.cls, tier: d.tier, score: d.score, at: d.at, by: uid
+    }), 'đẩy tàu phản bội');
+    this._saveMine(this._mine().map(x => (x.id === d.id ? Object.assign(x, { up: 1 }) : x)));
+  },
+
+  _retry(fb) {
+    this._mine().filter(x => !x.up).forEach(d => this._upload(fb, d).catch(e => {
+      // doc đã tồn tại (lần trước đẩy xong mà chưa kịp đánh dấu) -> luật chặn update, coi như xong
+      if (e && String(e.code).includes('permission'))
+        this._saveMine(this._mine().map(x => (x.id === d.id ? Object.assign(x, { up: 1 }) : x)));
+    }));
+  }
+};
+
+;
+/* ===== js/system-defector-spawn.js ===== */
+/* system-defector-spawn.js — đưa TÀU PHẢN BỘI (system-defector-pool.js) vào trận
+ *
+ * LUẬT (chốt 22/09/2026):
+ *   - Chiến dịch (màn 1-60): tàu phản bội CHỈ là quái thường, mọi hạng. Nó KHOÁC ẢNH
+ *     lên đúng con quái nó thế chỗ: giữ máu, tốc, kiểu bay, đường đạn — không đụng cân bằng.
+ *   - Vòng vô tận (61+): hạng 'mob' làm quái thường, hạng 'boss' làm TRÙM (thay tạo hình
+ *     trùm của map). Đường đạn đổi theo CLASS của tàu (cung thủ bắn tên, pháp sư cầu
+ *     plasma...) nhưng GIỮ số viên, tốc độ, nhịp bắn — cân bằng vô tận không đổi.
+ *   - TRẦN: tối đa 50% quân một wave. Tỉ lệ động, gieo theo SỐ MAP: mỗi map một "khẩu
+ *     vị" cố định (map này nhiều, map kia ít), từng wave dao động quanh mức đó.
+ */
+
+SC.DefectorSpawn = {
+  CAP: 0.5,
+  BOSS_CHANCE: 0.5,    // vòng vô tận: xác suất trùm của map bị thay bằng tàu hạng trùm
+
+  /* RNG gieo theo chuỗi — cùng map cùng wave thì luôn cùng kết quả */
+  _r(...k) {
+    let h = SC.EVO_KW._hash(k.join('|'));
+    h = Math.imul(h ^ (h >>> 15), 2246822507); h = Math.imul(h ^ (h >>> 13), 3266489909);
+    return ((h ^= h >>> 16) >>> 0) / 4294967296;
+  },
+
+  /* Waves._buildWave gọi sau khi trộn quái khắc chế. Gắn q.dz cho một phần hàng chờ. */
+  mix(queue, lv, wave) {
+    const endless = SC.Endless.active(lv.id);
+    let pool = SC.Defectors.ready(endless ? 'mob' : null);
+    if (endless && !pool.length) pool = SC.Defectors.ready();
+    if (!pool.length || !queue.length) return;
+    const base = this.CAP * this._r('map', lv.id);
+    const share = Math.min(this.CAP, base * (0.5 + this._r('wave', lv.id, wave)));
+    // quái khắc chế có cơ chế riêng nhìn bằng hình (khiên, tổ ong) — không khoác áo
+    const slots = queue.filter(q => !SC.EnemyCounter.is(q.t));
+    let k = Math.floor(queue.length * share);
+    while (k-- > 0 && slots.length) {
+      const q = slots.splice((Math.random() * slots.length) | 0, 1)[0];
+      q.dz = pool[(Math.random() * pool.length) | 0];
+    }
+  },
+
+  /* Vòng vô tận: thay trùm của map bằng tàu hạng trùm. Giữ máu/chiêu vùng của trùm gốc. */
+  bossify(boss, lv) {
+    if (!SC.Endless.active(lv.id)) return;
+    const pool = SC.Defectors.ready('boss');
+    if (!pool.length || this._r('boss', lv.id) >= this.BOSS_CHANCE) return;
+    const dz = pool[(this._r('pick', lv.id) * pool.length) | 0];
+    boss.dz = dz;
+    boss.name = 'PHẢN ĐỒ · ' + (dz.names.length ? dz.names.join(' ').toUpperCase() : 'VÔ DANH');
+    // chiêu mổ chỉ hợp gia cầm — tàu phản bội không phải chim thì mổ đổi thành laze
+    if (!dz.bird) boss.atkList = boss.atkList.map(a => (a === 'peck' ? 'laser' : a));
+  },
+
+  /* Đường đạn theo class (vô tận). n/sp lấy từ đường đạn GỐC của con quái -> cùng lượng
+     đạn, cùng tốc: chỉ đổi hình dạng loạt bắn và loại viên. Trả false = dùng đạn gốc. */
+  CLS: {
+    archer: 'fan', gunslinger: 'burst', 'ninja assassin': 'burst', mage: 'orb', summoner: 'orb',
+    cleric: 'orb', warrior: 'cleave', berserker: 'cleave', swordsman: 'cleave', dragoon: 'cleave',
+    'paladin knight': 'cleave', guardian: 'cleave'
+  },
+  fire(e, player, n, sp) {
+    const kind = this.CLS[e.dz.cls];
+    if (!kind || !SC.Endless.active(SC.Game.levelId || 1)) return false;
+    const a = SC.angTo(e.x, e.y, player.x, player.y), y = e.y + e.r * 0.6;
+    for (let i = 0; i < n; i++) {
+      const off = n === 1 ? 0 : i / (n - 1) - 0.5;
+      if (kind === 'fan')         // mưa tên: quạt hẹp, bay thẳng
+        SC.Bullets.spawnFoe(e.x, y, Math.cos(a + off * 0.3) * sp, Math.sin(a + off * 0.3) * sp, 'arrow');
+      else if (kind === 'burst')  // loạt liên thanh: cùng hướng, nối đuôi nhau (tốc lệch nhẹ)
+        SC.Bullets.spawnFoe(e.x, y, Math.cos(a) * sp * (1 - i * 0.1), Math.sin(a) * sp * (1 - i * 0.1), 'dart');
+      else if (kind === 'orb')    // cầu phép: quạt rộng, chậm hơn một nhịp
+        SC.Bullets.spawnFoe(e.x, y, Math.cos(a + off * 1.1) * sp * 0.85, Math.sin(a + off * 1.1) * sp * 0.85, 'plasma');
+      // chém: quạt vừa, tia laze. KHÔNG dùng 'blast' — nó nổ thêm 5 mảnh = tăng lượng
+      // đạn, phá luật "vô tận không đổi cân bằng"
+      else
+        SC.Bullets.spawnFoe(e.x, y, Math.cos(a + off * 0.5) * sp, Math.sin(a + off * 0.5) * sp, 'laser');
+    }
+    return true;
   }
 };
 
