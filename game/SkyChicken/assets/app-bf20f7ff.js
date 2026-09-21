@@ -7530,6 +7530,24 @@ SC.MenuCard = {
     const fill = id('nowStarFill');
     if (fill) fill.style.width = SC.clamp(star / max * 100, 0, 100).toFixed(1) + '%';
 
+    /* ---------- câu chuyện mảnh tiến hóa thế chỗ số liệu (21/09/2026) ----------
+       Kênh có TIẾN HÓA AI: thanh sao + hàng ví bị chê "số trần trụi" — thay bằng
+       một dòng kể chuyện mảnh 🧬 (từ đã nhặt, "???" nhá hàng, mảnh kế ở màn nào).
+       Kênh không có tính năng (portal công khai) giữ nguyên số liệu cũ. */
+    const evoBox = id('nowEvo');
+    const evoOn = !!(SC.EvoAI && SC.EvoAI.active());
+    document.querySelectorAll('#menuNow .star-track, #menuNow .now-foot')
+      .forEach(x => x.classList.toggle('hidden', evoOn));
+    if (evoBox) {
+      evoBox.classList.toggle('hidden', !evoOn);
+      if (evoOn) {
+        evoBox.innerHTML = this._evoLine();
+        const duBo = SC.EvoAI.ready();
+        evoBox.classList.toggle('go', duBo);
+        evoBox.onclick = duBo ? () => SC.EvoAIUI.open() : null;
+      }
+    }
+
     /* ---------- ví + sức mạnh ---------- */
     this._count('nowPower', SC.Power.show());
     this._count('menuCoin', ui.progress.coin);
@@ -7602,6 +7620,21 @@ SC.MenuCard = {
     if (buyable) return `Đủ vàng nâng <b>${esc(SC.TREE[buyable].name)}</b>`;
 
     return '';
+  },
+
+  /* Một dòng kể chuyện mảnh: ngắn vì thẻ chỉ rộng ~200 đơn vị ảo. Đủ bộ thì cả
+     dòng thành nút bấm mở popup ghép — đường ngắn nhất từ "thấy" tới "làm". */
+  _evoLine() {
+    const st = SC.EvoAI.st();
+    const n = SC.EvoShard.progress();
+    const pips = `<span class="frag-pips">${
+      [1, 2, 3].map(i => `<i class="${i <= n ? 'on' : ''}"></i>`).join('')}</span>`;
+    if (n >= 3) return `${pips}🧬 <b>ĐỦ BỘ</b> — bấm ghép chiến đấu cơ mới!`;
+    const nextLv = (Math.floor(st.lastLv / 3) + 1) * 3;
+    if (n === 0) return `${pips}🧬 Mảnh tiến hóa đầu tiên rơi ở <b>MÀN ${nextLv}</b>`;
+    const bo = st.kw.slice(st.kw.length - n);
+    const ten = i => bo[i] ? SC.Rank.esc(bo[i].vi.toUpperCase()) : '???';
+    return `${pips}🧬 ${ten(0)} · ${ten(1)} · ${ten(2)} — mảnh kế: <b>MÀN ${nextLv}</b>`;
   },
 
   /* Đếm lên khi số đổi — cho cảm giác vừa kiếm được, không phải con số chết.

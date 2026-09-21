@@ -1353,6 +1353,18 @@ body.is-touch .rank-pos img{width:32px;height:32px}
 /* dòng khoe từ khóa đã nhặt + "???" nhá hàng — tím nhạt cho khớp hệ mảnh */
 .mission-rows li.evo-frag .m-txt i{color:#d9b8ff}
 
+/* Câu chuyện mảnh trên thẻ xuất kích ở lobby — thế chỗ thanh sao + hàng ví
+   trên kênh có tính năng. Đủ bộ thì phát sáng và bấm được. */
+.now-evo{display:flex;align-items:center;justify-content:center;gap:7px;
+  margin:8px 0 2px;padding:8px 10px;border-radius:10px;font-size:10.5px;
+  letter-spacing:.04em;color:#d9b8ff;background:rgba(197,140,255,.08);
+  box-shadow:inset 0 0 0 1px rgba(197,140,255,.25)}
+.now-evo b{color:#fff}
+.now-evo.go{cursor:pointer;background:rgba(197,140,255,.16);
+  animation:evoGoPulse 1.4s ease-in-out infinite}
+@keyframes evoGoPulse{50%{box-shadow:inset 0 0 0 1px rgba(197,140,255,.7),
+  0 0 16px rgba(197,140,255,.35)}}
+
 /* ---------- popup kết quả banh gần full width (21/09/2026, lần 2) ----------
    Panel gốc 300px giữa khung ~450 nhìn "dài và dẹt". Nới 93% + xếp 4 ô chỉ số
    thành MỘT hàng — thấp đi một tầng, bề ngang có đất thở. */
