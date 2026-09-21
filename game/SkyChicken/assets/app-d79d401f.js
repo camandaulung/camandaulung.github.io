@@ -1478,14 +1478,21 @@ SC.Power = {
    * Nên tách: total() lo cân bằng, show() lo phản hồi. Mỗi cấp vượt mốc 24 cộng 4 điểm
    * — con số nhích lên thấy được ngay sau mỗi lần mua. */
   PER_OVER: 4,
+  /* ×100 CHỈ Ở PHẦN HIỂN THỊ (22/09/2026): cây kỹ năng toàn số hàng trăm (máu 440,
+     sát thương 240/giây) mà lực chiến ghi 143 — nhìn như chỉ số rác. total() vẫn
+     0-100 vì nó là hệ số độ khó; đổi thang ở đó là vỡ cả bảng cân bằng. */
+  SCALE: 100,
 
   show() {
     const core = this.CORE_LV * SC.TREE_KEYS.length;
     const over = Math.max(0, SC.Tree.totalLevels() - core);
     // + mỗi 1% thuộc tính ẩn của gara tiến hóa = 1 lực chiến (chỉ phần HIỂN THỊ —
     // total() lo độ khó thì không đụng, cân bằng động của gara tự lo phần đó)
-    return this.total() + over * this.PER_OVER + SC.EvoGarage.totalPct();
+    return (this.total() + over * this.PER_OVER + SC.EvoGarage.totalPct()) * this.SCALE;
   },
+
+  /* chuỗi hiển thị có dấu chấm nghìn, cùng kiểu số vàng (14.300) */
+  fmt(n) { return Math.round(n).toLocaleString('vi-VN'); },
 
   /* hệ số riêng của biến thể đang chạy; chưa thành hình thì trung tính */
   _v(i) {
@@ -1517,7 +1524,8 @@ SC.Power = {
   /* Bậc kế tiếp: { need, name } — trả null khi đã ở bậc cao nhất */
   next() {
     const p = this.total();
-    for (const [need, name] of this.TIERS) if (p < need) return { need: need - p, name };
+    // need theo thang HIỂN THỊ (×SCALE) — người chơi so với con số lực chiến họ thấy
+    for (const [need, name] of this.TIERS) if (p < need) return { need: (need - p) * this.SCALE, name };
     return null;
   }
 };
@@ -8194,13 +8202,14 @@ SC.MenuCard = {
     this._prev[elId] = target;
 
     const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (from === undefined || from === target || reduce) { el.textContent = target; return; }
+    const f = n => SC.Power.fmt(n);      // chấm nghìn cho cả lực chiến ×100 lẫn vàng
+    if (from === undefined || from === target || reduce) { el.textContent = f(target); return; }
 
     clearInterval(el._countT);
     const t0 = performance.now(), span = 450, d = target - from;
     el._countT = setInterval(() => {
       const k = Math.min(1, (performance.now() - t0) / span);
-      el.textContent = Math.round(from + d * (1 - Math.pow(1 - k, 3)));   // ease-out
+      el.textContent = f(from + d * (1 - Math.pow(1 - k, 3)));   // ease-out
       if (k >= 1) clearInterval(el._countT);
     }, 32);
   }
@@ -8931,15 +8940,16 @@ SC.AuthPanel = {
     // ghi hẳn chữ LỰC CHIẾN (22/09): "⚔84" trơ trọi người chơi không biết là số gì
     // Hai dòng NGẮN thay một dòng dài: thẻ ở lobby chỉ rộng ~170px, sau khi nâng cỡ
     // chữ thì "hạng · lực chiến · mốc kế" chung một dòng là vỡ hoặc tràn đè nút ĐỔI.
-    const moc = SC.Power.rank() + (nx ? ` · +${nx.need}→${SC.Rank.esc(nx.name)}` : '');
+    const P = SC.Power, pw = P.fmt(P.show());
+    const moc = P.rank() + (nx ? ` · +${P.fmt(nx.need)}→${SC.Rank.esc(nx.name)}` : '');
 
     chip.innerHTML =
       `<span class="ava-wrap">${SC.Ava.ofLobby(cur)}${badge}</span>` +
       `<span class="prof-txt"><b>${SC.Rank.esc(cur.name)}</b>` +
-      `<i class="prof-rank">${dot}LỰC CHIẾN ${SC.Power.show()}` +
+      `<i class="prof-rank">${dot}POWER ${pw}` +
       `<em class="pw-next">${moc}</em></i></span><em>ĐỔI</em>`;
-    chip.title = `${cur.name} · ${SC.Power.rank()} · lực chiến ${SC.Power.show()}`
-      + (nx ? ` · còn ${nx.need} nữa lên ${nx.name}` : '') + (u ? ` · ${tip}` : '');
+    chip.title = `${cur.name} · ${P.rank()} · lực chiến ${pw}`
+      + (nx ? ` · còn ${P.fmt(nx.need)} nữa lên ${nx.name}` : '') + (u ? ` · ${tip}` : '');
   },
 
   /* ---------- khối tài khoản ở màn hồ sơ ---------- */
@@ -9525,7 +9535,7 @@ SC.TreeUI = {
     document.getElementById('treeCoin').textContent = this.num(SC.UI.progress.coin);
     const pw = document.getElementById('treePower');
     if (pw) {
-      pw.querySelector('b').textContent = SC.Power.show();
+      pw.querySelector('b').textContent = SC.Power.fmt(SC.Power.show());
       pw.title = 'Lực chiến — ' + SC.Power.rank();
     }
   },
@@ -10252,7 +10262,7 @@ SC.Victory = {
     set('vicStars', star);
     set('vicStarMax', SC.TOTAL_STARS);
     set('vicTime', SC.Rank.time(this.totalTime()));
-    set('vicPower', SC.Power.show());
+    set('vicPower', SC.Power.fmt(SC.Power.show()));
     set('vicCoin', p.coin || 0);
     set('vicUpg', SC.Tree.totalLevels() + '/' + SC.Tree.totalMax());
     set('vicMaps', SC.TOTAL_LEVELS);

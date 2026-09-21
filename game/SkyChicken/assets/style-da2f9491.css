@@ -1480,6 +1480,8 @@ body.is-touch .rank-pos img{width:32px;height:32px}
 .evo-tree .gar-chips{justify-content:flex-start;margin:6px 0 4px}
 .shop-buy.gar-open{background:linear-gradient(180deg,#d9b8ff,#9d6ad8);box-shadow:0 3px 0 #5a3a8a;color:#1a0a2a}
 .gar-card{cursor:pointer}
+/* nhãn POWER cạnh số lực chiến — số trơ trọi người chơi không biết là gì */
+.pw-lb{font-style:normal;font-size:11px;letter-spacing:.12em;opacity:.75;margin-right:2px}
 
 /* popup chi tiết gara — gần kín màn, tàu LƯỢN trên bệ kèm 2 phi đội bay theo */
 .gd-wrap{position:absolute;inset:0;z-index:40;display:grid;place-items:center;padding:10px;
