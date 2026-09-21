@@ -3848,6 +3848,7 @@ SC.Enemy.prototype.retreat = function () {
 SC.Enemy.prototype.hurt = function (dmg, src) {
   const d = SC.EnemyCounter.filter(this, dmg, src);
   if (d <= 0) return false;
+  SC.Telemetry.dealt(Math.min(d, Math.max(0, this.hp)));   // sát thương THỰC (không tính đánh thừa)
   this.hp -= d;
   this.flash = 0.09;
   return this.hp <= 0;
@@ -5682,6 +5683,7 @@ SC.Boss.prototype._minions = function () {
 };
 
 SC.Boss.prototype.hurt = function (dmg) {
+  SC.Telemetry.dealt(Math.min(dmg, Math.max(0, this.hp)));
   this.hp -= dmg; this.flash = 0.07;
   return this.hp <= 0;
 };
@@ -7932,10 +7934,17 @@ SC.Combat = {
     // cả màn chớp trắng rồi chữ BOM nổ ra trong bong bóng kiểu truyện tranh
     SC.ScreenFX.flash('255,240,220', 0.22);
     SC.ScreenFX.pop('BOM!', '#ff3b5c');
-    g.stats.bombs = (g.stats.bombs || 0) + 1;       // log trận (system-telemetry.js)
+    // log trận (system-telemetry.js): số bom, sát thương/hạ gục DO BOM, bom CỨU NGUY
+    // (nổ lúc máu < 35%) — dashboard tính bom gánh bao nhiêu % trận đấu
+    const S = g.stats, p = g.player;
+    S.bombs = (S.bombs || 0) + 1;
+    if (p.hpMax && p.hp / p.hpMax < 0.35) S.bClutch = (S.bClutch || 0) + 1;
     for (const e of g.enemies) {
       if (e.dead) continue;
-      if (e.hurt(this.bombDmg(e, g.levelId))) this.killEnemy(g, e);
+      const truoc = Math.max(0, e.hp);
+      const chet = e.hurt(this.bombDmg(e, g.levelId));
+      S.bDmg = (S.bDmg || 0) + (truoc - Math.max(0, e.hp));
+      if (chet) { S.bKill = (S.bKill || 0) + 1; this.killEnemy(g, e); }
     }
   },
 
@@ -9092,7 +9101,15 @@ SC.RankAllProfiles = {
 
 SC.Telemetry = {
   COL: 'runs',
-  V: 1,                           // đổi khi đổi hình dạng bản ghi — dashboard lọc theo
+  V: 2,                           // đổi khi đổi hình dạng bản ghi — dashboard lọc theo
+                                  // v2 (22/09/2026): + dmg, bDmg, bKill, bClutch (sức mạnh bom)
+
+  /* Cộng sát thương THỰC người chơi gây ra (Enemy/Boss.hurt gọi) — mẫu số cho "% sát
+     thương từ bom". Chỉ tính lúc đang chơi: bom/đạn sau khi màn kết thúc không tính. */
+  dealt(n) {
+    const g = SC.Game;
+    if (g.state === 'play' && n > 0) g.stats.dmg = (g.stats.dmg || 0) + n;
+  },
 
   /* g = SC.Game, win = true/false, quit = bỏ giữa chừng */
   log(g, win, quit) {
@@ -9113,6 +9130,8 @@ SC.Telemetry = {
       kills: g.kills | 0, esc: g.stats.escaped | 0,
       wave: SC.Waves.index | 0, bossUp: !!SC.Waves.bossSpawned,
       bombs: g.stats.bombs | 0, resc: g.stats.rescued | 0,
+      dmg: Math.round(g.stats.dmg || 0), bDmg: Math.round(g.stats.bDmg || 0),
+      bKill: g.stats.bKill | 0, bClutch: g.stats.bClutch | 0,
       acc: p.shots ? Math.round(p.hits / p.shots * 100) : 0,
       pw: SC.Power.total(), pwShow: SC.Power.show(),
       tree: SC.TREE_KEYS.map(T).join('-'),

@@ -53,6 +53,35 @@ Dash.UI = {
     this._waveChart(d.waves);
     this._hard(d.hard);
     this._table(d.levels);
+    this._bomb(d.bomb);
+  },
+
+  _bomb(b) {
+    const k = b.kpi, box = (lb, v, tip, cls = '') => `<div class="kpi ${cls}" title="${tip}"><b>${v}</b><span>${lb}</span></div>`;
+    const pp = v => (v == null ? '—' : (v > 0 ? '+' : '') + Math.round(v * 100) + ' điểm');
+    this.$('bombKpis').innerHTML = !k.n ? '<p class="dim">Chưa có trận log v2 (bản game có đo sát thương) trong khoảng này.</p>'
+      : box('% sát thương từ bom', this.pct(k.dmgPct), 'tổng sát thương do bom ÷ tổng sát thương cả trận', k.dmgPct > 0.25 ? 'bad' : '')
+      + box('% hạ gục từ bom', this.pct(k.killPct), 'số quái chết vì bom ÷ tổng số quái hạ', k.killPct > 0.3 ? 'bad' : '')
+      + box('Bom / trận', this.num(k.perRun, 2), 'số bom trung bình mỗi trận')
+      + box('Thắng: có bom − không bom', pp(k.uplift), 'tỉ lệ thắng trận có ≥1 bom trừ trận không bom — có nhiễu: trận dài nhặt nhiều bom hơn', k.uplift > 0.2 ? 'bad' : '')
+      + box('Trận thắng có bom cứu nguy', this.pct(k.clutchWin), 'bom nổ lúc máu < 35% trong các trận THẮNG');
+    const L = b.levels;
+    this._chart('cBomb', {
+      type: 'bar',
+      data: { labels: L.map(l => l.key), datasets: [
+        { label: '% sát thương', data: L.map(l => Math.round(l.dmgPct * 100)), backgroundColor: '#ff5c7a' },
+        { label: '% hạ gục', data: L.map(l => Math.round(l.killPct * 100)), backgroundColor: '#ffd23f' }] },
+      options: { maintainAspectRatio: false, scales: { y: { min: 0, suggestedMax: 50, title: { display: true, text: '%' } } } }
+    });
+    this._chart('cBombWin', {
+      type: 'bar',
+      data: { labels: L.map(l => l.key), datasets: [
+        { label: 'Có bom', data: L.map(l => (l.wrBomb == null ? null : Math.round(l.wrBomb * 100))), backgroundColor: '#ff8a2b' },
+        { label: 'Không bom', data: L.map(l => (l.wrNo == null ? null : Math.round(l.wrNo * 100))), backgroundColor: '#7ae0ff' }] },
+      options: { maintainAspectRatio: false, scales: { y: { min: 0, max: 100, title: { display: true, text: 'thắng %' } } },
+        plugins: { tooltip: { callbacks: { afterLabel: c => {
+          const l = L[c.dataIndex]; return c.datasetIndex ? l.nNo + ' trận' : l.nBomb + ' trận'; } } } } }
+    });
   },
 
   _kpis(k) {

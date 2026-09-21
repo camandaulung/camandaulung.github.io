@@ -39,3 +39,7 @@ tr:hover td{background:rgba(120,160,255,.06)}
 body.locked .kpis,body.locked .card,body.locked .grid2,body.locked .filters{display:none}
 body.locked .status{font-size:15px;color:var(--ink)}
 .status button{margin-left:10px}
+.kpis.inner{margin:4px 0 14px}
+.grid2.flat{gap:18px}
+h3{font-size:13px;letter-spacing:.06em;margin:0 0 8px;color:var(--ink)}
+h3 small{font-weight:400;color:var(--dim)}

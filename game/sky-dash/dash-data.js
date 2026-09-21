@@ -86,6 +86,41 @@ Dash.Data = {
       waves[k] = (waves[k] || 0) + 1;
     }
     const hard = out.filter(l => l.n >= 5).sort((a, b) => a.win - b.win).slice(0, 10);
-    return { kpi, levels: out, waves, hard };
+    return { kpi, levels: out, waves, hard, bomb: this.bomb(R, out) };
+  },
+
+  /* SỨC MẠNH BOM (log v2+, 22/09/2026). Chỉ tính bản ghi có số sát thương (v>=2).
+     - % sát thương / % hạ gục: tổng do bom ÷ tổng cả trận (cộng dồn, không trung bình tỉ lệ)
+     - góp vào chiến thắng: tỉ lệ thắng trận CÓ bom − trận KHÔNG bom (điểm %), và % trận
+       thắng có bom CỨU NGUY (nổ lúc máu < 35%). Chênh lệch có nhiễu: trận dài nhặt được
+       nhiều bom hơn — đọc cùng số trận, đừng đọc một mình. */
+  bomb(R) {
+    const B = R.filter(r => r.v >= 2);
+    const sum = (a, k) => a.reduce((s, r) => s + (r[k] || 0), 0);
+    const wr = a => (a.length ? a.filter(r => r.res === 'win').length / a.length : null);
+    const withB = B.filter(r => r.bombs > 0), noB = B.filter(r => !r.bombs);
+    const wins = B.filter(r => r.res === 'win');
+    const kpi = {
+      n: B.length,
+      dmgPct: sum(B, 'dmg') ? sum(B, 'bDmg') / sum(B, 'dmg') : null,
+      killPct: sum(B, 'kills') ? sum(B, 'bKill') / sum(B, 'kills') : null,
+      perRun: this.avg(B.map(r => r.bombs || 0)),
+      uplift: withB.length && noB.length ? wr(withB) - wr(noB) : null,
+      clutchWin: wins.length ? wins.filter(r => r.bClutch > 0).length / wins.length : null
+    };
+    const by = new Map();
+    for (const r of B) {
+      const key = r.cyc > 0 ? 'V' + (r.cyc + 1) : r.lv;
+      if (!by.has(key)) by.set(key, { key, ord: r.cyc > 0 ? 60 + r.cyc * 1000 : r.lv, rows: [] });
+      by.get(key).rows.push(r);
+    }
+    const levels = [...by.values()].sort((a, b) => a.ord - b.ord).map(L => {
+      const a = L.rows, wb = a.filter(r => r.bombs > 0), nb = a.filter(r => !r.bombs);
+      return { key: L.key, n: a.length,
+        dmgPct: sum(a, 'dmg') ? sum(a, 'bDmg') / sum(a, 'dmg') : 0,
+        killPct: sum(a, 'kills') ? sum(a, 'bKill') / sum(a, 'kills') : 0,
+        wrBomb: wr(wb), wrNo: wr(nb), nBomb: wb.length, nNo: nb.length };
+    });
+    return { kpi, levels };
   }
 };
