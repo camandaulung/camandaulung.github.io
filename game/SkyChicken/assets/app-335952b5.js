@@ -10279,40 +10279,15 @@ SC.Victory = {
 /* ===== js/data-evo-keywords.js ===== */
 /* data-evo-keywords.js — kho từ khóa cho TIẾN HÓA AI (system-evo-ai.js)
  *
- * Bộ 3 từ khóa = CON VẬT + TÍNH CÁCH + MÀU SẮC, vd "gà + vui vẻ + đỏ tươi"
- * → gen chiến đấu cơ hình gà, thần thái vui vẻ, màu chủ đạo đỏ.
+ * Bộ 3 từ khóa theo CÔNG THỨC (RECIPES), món chính là CON VẬT + CLASS + (màu/tính
+ * cách), vd "bulldog + hiệp sĩ + đỏ tươi" → quái thú dung hợp kiểu bài Yu-Gi-Oh.
  *
  * Mỗi mục có `vi` (hiện cho người chơi) và `en` (ghép vào prompt sinh ảnh —
  * model ảnh ăn tiếng Anh ổn định hơn hẳn, đo thật ở bộ 60 sprite 20/09).
  */
 
 SC.EVO_KW = {
-  /* `dna` = đặc điểm giải phẫu BẮT BUỘC giữ khi gen (21/09/2026: gấu trúc mà gen
-     ra tàu thon là mất hết cái hồn — panda phải MẬP). Nhồi thẳng vào prompt. */
-  animal: [
-    { vi: 'gà',        en: 'rooster',        dna: 'plump round chicken body, red comb on top, wattle under the chin' },
-    { vi: 'mèo',       en: 'cat',            dna: 'feline face with whiskers, pointed triangular ears, sleek curved body' },
-    { vi: 'cú mèo',    en: 'owl',            dna: 'huge round owl eyes, flat facial disc, ear tufts' },
-    { vi: 'cá mập',    en: 'shark',          dna: 'streamlined shark body, tall dorsal fin, gill slits, toothy grin' },
-    { vi: 'đại bàng',  en: 'eagle',          dna: 'fierce hooked eagle beak, broad feathered wings, sharp talons' },
-    { vi: 'rồng',      en: 'dragon',         dna: 'dragon horns, scaled armor plates, long serpentine tail' },
-    { vi: 'gấu trúc',  en: 'panda',          dna: 'VERY chubby round panda body with a big belly, black eye patches, round black ears' },
-    { vi: 'sói',       en: 'wolf',           dna: 'lean wolf snout with fangs, pointed ears, bushy tail' },
-    { vi: 'bạch tuộc', en: 'octopus',        dna: 'dome octopus head, multiple curling tentacles as wings or thrusters' },
-    { vi: 'khủng long',en: 't-rex dinosaur', dna: 'big t-rex jaws with teeth, tiny front arms, thick powerful tail' },
-    { vi: 'ong',       en: 'bee',            dna: 'striped bee abdomen with a stinger tail, translucent double wings' },
-    { vi: 'cáo',       en: 'fox',            dna: 'slim fox muzzle, big pointed ears, fluffy bushy tail' },
-  ],
-  trait: [
-    { vi: 'vui vẻ',     en: 'cheerful, big happy grin' },
-    { vi: 'dữ dằn',     en: 'fierce, angry battle face' },
-    { vi: 'lạnh lùng',  en: 'cool and composed, confident smirk' },
-    { vi: 'tinh nghịch',en: 'mischievous, playful winking face' },
-    { vi: 'kiêu hãnh',  en: 'proud, chin-up heroic look' },
-    { vi: 'lì lợm',     en: 'stubborn tough, gritted teeth' },
-    { vi: 'bí ẩn',      en: 'mysterious, half-shadowed knowing eyes' },
-    { vi: 'hăng máu',   en: 'hot-blooded, burning determined eyes' },
-  ],
+  /* animal / class / trait: pool ở data-evo-keyword-pools-animal-class-trait.js */
   color: [
     { vi: 'đỏ tươi',    en: 'vivid red' },
     { vi: 'xanh neon',  en: 'neon cyan' },
@@ -10330,12 +10305,20 @@ SC.EVO_KW = {
   /* CÔNG THỨC bộ 3 (21/09/2026): mỗi bộ mới RNG một công thức — có bộ lai HAI
      con vật, có bộ mang phong cách nghệ thuật riêng. system-evo-ai.award chọn
      lúc nhặt mảnh đầu của bộ và lưu vào progress.evo.recipe. */
+  /* 22/09/2026 thêm CÓ TRỌNG SỐ: bộ lai 2 con vật từ 50% xuống 10% — lai 2 con hay
+     ra quái lổn nhổn, không đẹp. "Con vật + class" thành món chính (60%). */
   RECIPES: [
-    ['animal', 'trait', 'color'],
-    ['animal', 'animal', 'color'],
-    ['animal', 'animal', 'trait'],
-    ['animal', 'style', 'color'],
+    { r: ['animal', 'class', 'color'], w: 3 },
+    { r: ['animal', 'class', 'trait'], w: 3 },
+    { r: ['animal', 'trait', 'color'], w: 2 },
+    { r: ['animal', 'style', 'class'], w: 1 },
+    { r: ['animal', 'animal', 'class'], w: 1 },   // dung hợp hiếm — đúng chất fusion
   ],
+  pickRecipe() {
+    let x = Math.random() * this.RECIPES.reduce((a, c) => a + c.w, 0);
+    for (const c of this.RECIPES) if ((x -= c.w) < 0) return c.r;
+    return this.RECIPES[0].r;
+  },
 
   /* Chi tiết sơn/decal CÁ NHÂN (21/09/2026, goal "không ai giống ai"): 2 mục được
      chọn theo hash danh tính + số lần tiến hóa, nhồi vào prompt — hai người cùng
@@ -10376,6 +10359,13 @@ SC.EVO_KW = {
     return { t: type, vi: it.vi, en: it.en, dna: it.dna };
   },
 
+  /* DNA của một từ khóa bất kỳ loại — kw lưu từ bản cũ có thể thiếu dna, tra lại theo en */
+  _dnaKw(k) {
+    if (k.dna) return k.dna;
+    const it = (this[k.t] || []).find(x => x.en === k.en);
+    return it && it.dna ? it.dna : '';
+  },
+
   /* DNA của con vật trong bộ từ khóa — kw cũ (trước khi có dna) tra lại theo en */
   _dnaOf(kws) {
     const a = kws.find(k => k.t === 'animal');
@@ -10406,31 +10396,37 @@ SC.EVO_KW = {
      trúc ra hẳn một CON THÚ đứng dang tay — nhìn ghê và không giống máy bay trong
      game bắn máy bay dọc. Giờ góc nhìn TOP-DOWN + "là máy bay trước, con vật sau"
      đứng ĐẦU prompt; gen lại (attempt ≥ 2) còn siết chặt hơn nữa. */
+  /* VIBE 22/09/2026: art style bài Yu-Gi-Oh (quái thú DUNG HỢP) — khớp đúng cơ chế
+     ghép từ khóa, thay cho tông toon hoạt hình cũ. Vẫn là sprite máy bay top-down. */
+  VIBE: 'Yu-Gi-Oh! Duel Monsters card illustration art style, epic fusion-monster design, '
+    + 'ornate mythic armor with gold trim, dramatic anime inking, intense glowing energy accents',
+
   prompt(kws, styleBtn, seed, attempt) {
     const animals = kws.filter(k => k.t === 'animal');
+    const cls = kws.find(k => k.t === 'class');
     const trait = (kws.find(k => k.t === 'trait') || {}).en;
     const color = (kws.find(k => k.t === 'color') || {}).en;
     const style = styleBtn || (kws.find(k => k.t === 'style') || {}).en;
     const a1 = animals[0] ? animals[0].en : 'rooster';
-    const theme = animals.length > 1 ? `a hybrid of a ${a1} and a ${animals[1].en}` : `a ${a1}`;
-    const dna = animals.map(a => {
-      const it = a.dna ? a : this.animal.find(x => x.en === a.en);
-      return it && it.dna ? `${a.en}: ${it.dna}` : '';
-    }).filter(Boolean).join('; ');
+    const theme = animals.length > 1 ? `a FUSION of a ${a1} and a ${animals[1].en}` : `a ${a1}`;
+    const dna = animals.map(a => { const d = this._dnaKw(a); return d ? `${a.en}: ${d}` : ''; })
+      .filter(Boolean).join('; ');
     return [
       'top-down view from directly above, vertical shoot-em-up game sprite of a FIGHTER AIRCRAFT, '
         + 'nose pointing up, two wings spread left and right',
       ...(attempt >= 2 ? ['STRICTLY an aircraft silhouette seen from above, never a standing creature, '
-        + 'no legs, no arms, no full animal body'] : []),
+        + 'no legs, no arms, no full animal body, no human rider'] : []),
       ...(style && this.STYLES[style] ? [this.STYLES[style].en] : []),
-      `the aircraft is themed as ${theme}: the animal head forms the nose and cockpit, `
-        + 'its features blend into the fuselage, wings and tail',
+      `the aircraft is themed as ${theme}${cls ? ` ${cls.en} class` : ''}: the animal head forms `
+        + 'the nose and cockpit, its features blend into the fuselage, wings and tail',
       ...(dna ? [`recognizable animal DNA built into the plane shape — ${dna}`] : []),
+      // class = trang bị HOÁ vào thân tàu, không vẽ thêm người cưỡi
+      ...(cls ? [`${cls.en} class gear fused into the aircraft itself (not a rider): ${this._dnaKw(cls)}`] : []),
       ...(seed ? [`unique personal livery: ${this.livery(seed)}`] : []),
       ...(trait ? [`personality: ${trait} — show it clearly in the face and pose`] : []),
       ...(color ? [`dominant color scheme: ${color}`] : []),
-      'vibrant toon cartoon game sprite, fun but cool and battle-ready',
-      'glossy plating, bold dark outlines, saturated colors, subtle neon rim light',
+      this.VIBE,
+      'crisp bold outlines, saturated colors, strong rim light, readable silhouette',
       'top-down view, nose pointing up, symmetrical, centered, single subject',
       'flat transparent background, no scenery, no frame, no text, no watermark',
     ].join(', ');
@@ -10443,17 +10439,19 @@ SC.EVO_KW = {
     const animals = kws.filter(k => k.t === 'animal');
     const trait = (kws.find(k => k.t === 'trait') || {}).en;
     const style = styleBtn || (kws.find(k => k.t === 'style') || {}).en;
+    const cls = kws.find(k => k.t === 'class');
     const ten = animals.map(a => a.en).join(' and ') || 'rooster';
     const dna = this._dnaOf(kws);
     return [
       ...(style && this.STYLES[style] ? [this.STYLES[style].en] : []),
-      `a tiny cute escort drone, companion of a ${ten} themed fighter aircraft`,
+      `a tiny escort drone, companion of a ${ten}${cls ? ' ' + cls.en + ' class' : ''} themed fighter aircraft`,
+      ...(cls ? [`one small ${cls.en} emblem or weapon motif`] : []),
       `same theme: ${ten} motif${trait ? ', ' + trait + ' vibe' : ''}`,
       ...(dna ? [`echo the ${animals[0] ? animals[0].en : 'rooster'} DNA in miniature: ${dna}`] : []),
       ...((kws.find(k => k.t === 'color') || {}).en
         ? [`same dominant color scheme: ${kws.find(k => k.t === 'color').en}`] : []),
-      'very simple bold silhouette readable at 24 pixels, vibrant toon cartoon game sprite',
-      'glossy, bold dark outlines, subtle neon rim light',
+      'very simple bold silhouette readable at 24 pixels',
+      'Yu-Gi-Oh! Duel Monsters art style in miniature, bold outlines, glowing energy accent',
       'top-down view, nose pointing up, centered, single subject',
       'flat transparent background, no scenery, no frame, no text, no watermark',
     ].join(', ');
@@ -10465,6 +10463,122 @@ SC.EVO_KW = {
    số (SC.EVO_KW[kw.t]) tự ăn theo vì đây là mảng như animal/trait/color. */
 SC.EVO_KW.style = Object.keys(SC.EVO_KW.STYLES)
   .map(k => ({ vi: SC.EVO_KW.STYLES[k].vi, en: k }));
+
+;
+/* ===== js/data-evo-keyword-pools-animal-class-trait.js ===== */
+/* data-evo-keyword-pools-animal-class-trait.js — POOL từ khóa tiến hóa (nạp SAU
+ * data-evo-keywords.js, đắp đè lên SC.EVO_KW)
+ *
+ * Tách riêng vì pool dài ra theo thời gian (22/09/2026: 12 → 36 con vật, 8 → 24
+ * tính cách, thêm hẳn loại CLASS) — logic prompt nằm yên ở file kia.
+ *
+ * LUẬT GIỮ TƯƠNG THÍCH: `en` là KHOÁ — lịch sử tổ hợp (evo.hist), sổ gara và thuộc
+ * tính ẩn (ANIMAL_STAT, băm en) đều tra theo en. Đổi `vi` thoải mái, ĐỪNG đổi `en`
+ * của mục đã phát cho người chơi.
+ *
+ * Vì sao pool to: pool 8 tính cách + chống trùng "không lặp bộ ngay trước" nghĩa là
+ * thực tế chỉ còn 5-6 lựa chọn — người chơi thấy "dữ dằn" quay lại liên tục.
+ */
+
+Object.assign(SC.EVO_KW, {
+  /* `dna` = đặc điểm giải phẫu BẮT BUỘC giữ khi gen (panda phải MẬP...). Biến thể
+     cùng loài (gà mái/gà trống, bulldog/corgi) phải có DNA KHÁC HẲN nhau, không thì
+     tốn thêm mục mà ảnh ra y hệt. */
+  animal: [
+    // --- họ nhà gà: nhân vật chính của game, nhiều biến thể nhất ---
+    { vi: 'gà trống',   en: 'rooster',        dna: 'proud rooster with a tall red comb, wattle, long arched sickle tail feathers' },
+    { vi: 'gà mái',     en: 'hen',            dna: 'round plump mother hen body, small neat comb, soft fluffy feathers, stubby tail' },
+    { vi: 'gà con',     en: 'baby chick',     dna: 'tiny round fluffy chick, oversized head, tiny beak, stubby wing nubs' },
+    { vi: 'gà chọi',    en: 'fighting gamecock', dna: 'lean muscular gamecock, trimmed comb, sharp leg spurs, battle-scarred feathers' },
+    // --- chó mèo ---
+    { vi: 'mèo',        en: 'cat',            dna: 'feline face with whiskers, pointed triangular ears, sleek curved body' },
+    { vi: 'mèo đen',    en: 'black cat',      dna: 'jet-black sleek cat, glowing slit pupils, arched back, curling tail' },
+    { vi: 'bulldog',    en: 'bulldog',        dna: 'wide stocky bulldog body, droopy jowls, underbite with lower fangs, spiked collar' },
+    { vi: 'corgi',      en: 'corgi',          dna: 'long low corgi body, huge upright ears, fluffy round butt, stubby short legs' },
+    { vi: 'husky',      en: 'husky',          dna: 'husky mask face markings, piercing ice-blue eyes, thick fur ruff, curled tail' },
+    { vi: 'shiba',      en: 'shiba inu',      dna: 'smug shiba face, cream cheeks, small triangle ears, tight curled tail' },
+    // --- thú dữ ---
+    { vi: 'sói',        en: 'wolf',           dna: 'lean wolf snout with fangs, pointed ears, bushy tail' },
+    { vi: 'cáo',        en: 'fox',            dna: 'slim fox muzzle, big pointed ears, fluffy bushy tail' },
+    { vi: 'sư tử',      en: 'lion',           dna: 'massive flowing lion mane framing the nose, broad muzzle, tufted tail' },
+    { vi: 'hổ',         en: 'tiger',          dna: 'bold black tiger stripes, heavy jaw with sabre fangs, muscular shoulders' },
+    { vi: 'gấu trúc',   en: 'panda',          dna: 'VERY chubby round panda body with a big belly, black eye patches, round black ears' },
+    { vi: 'tê giác',    en: 'rhino',          dna: 'huge armored rhino horn as the nose ram, thick plated hide, heavy bulk' },
+    // --- trời, biển, côn trùng ---
+    { vi: 'cú mèo',     en: 'owl',            dna: 'huge round owl eyes, flat facial disc, ear tufts' },
+    { vi: 'đại bàng',   en: 'eagle',          dna: 'fierce hooked eagle beak, broad feathered wings, sharp talons' },
+    { vi: 'dơi',        en: 'bat',            dna: 'membrane bat wings with finger struts, big radar ears, tiny fangs' },
+    { vi: 'cá mập',     en: 'shark',          dna: 'streamlined shark body, tall dorsal fin, gill slits, toothy grin' },
+    { vi: 'cá kiếm',    en: 'swordfish',      dna: 'long spear bill as the nose, sail-like dorsal fin, crescent tail' },
+    { vi: 'bạch tuộc',  en: 'octopus',        dna: 'dome octopus head, multiple curling tentacles as wings or thrusters' },
+    { vi: 'ong',        en: 'bee',            dna: 'striped bee abdomen with a stinger tail, translucent double wings' },
+    { vi: 'bọ cạp',     en: 'scorpion',       dna: 'segmented scorpion tail arching forward with a stinger, big pincer claws as wings' },
+    { vi: 'bọ ngựa',    en: 'praying mantis', dna: 'triangular mantis head, folded scythe forearms as blades, slender body' },
+    // --- cổ đại / huyền thoại ---
+    { vi: 'khủng long', en: 't-rex dinosaur', dna: 'big t-rex jaws with teeth, tiny front arms, thick powerful tail' },
+    { vi: 'thằn lằn bay', en: 'pterodactyl',  dna: 'long crested pterodactyl head, leathery wings, sharp toothed beak' },
+    { vi: 'rồng',       en: 'dragon',         dna: 'dragon horns, scaled armor plates, long serpentine tail' },
+    { vi: 'phượng hoàng', en: 'phoenix',      dna: 'blazing phoenix plumage, trailing flame tail feathers, crest of fire' },
+    { vi: 'kỳ lân',     en: 'unicorn',        dna: 'single spiral horn on the nose, flowing mane, elegant equine head' },
+    { vi: 'sư tử đầu chim', en: 'griffin',    dna: 'eagle head and wings fused to a lion body, feathered crest' },
+    { vi: 'cửu vĩ hồ',  en: 'nine-tailed fox', dna: 'fox with NINE fanned-out spirit tails, mystic forehead mark' },
+    // --- TỨ LINH phương Đông — đúng chất quái thú dung hợp ---
+    { vi: 'thanh long', en: 'azure dragon',   dna: 'long serpentine eastern azure dragon, whiskers, antler horns, pearl orb, cloud-scroll fins' },
+    { vi: 'bạch hổ',    en: 'white tiger',    dna: 'white tiger with black stripes, divine glowing forehead mark, silver fangs' },
+    { vi: 'chu tước',   en: 'vermilion bird', dna: 'vermilion firebird, long ribbon tail plumes, crown crest, burning wing tips' },
+    { vi: 'huyền vũ',   en: 'black tortoise', dna: 'massive tortoise shell hull with a serpent coiled around it, snake head tail' },
+  ],
+
+  /* CLASS (22/09/2026): "con vật + class" ra tàu có VAI rõ ràng hơn hẳn lai 2 con
+     vật (lai 2 con hay ra quái vật lổn nhổn). `dna` = trang bị của class HOÁ THÂN vào
+     thân máy bay — vũ khí, giáp, huy hiệu — KHÔNG phải một người cưỡi trên tàu. */
+  class: [
+    { vi: 'chiến binh', en: 'warrior',     dna: 'heavy battle-axe blades as wing edges, horned war helm cockpit, battle banners' },
+    { vi: 'kiếm sĩ',    en: 'swordsman',   dna: 'giant sword forming the fuselage spine, katana-blade wings, sheath-shaped tail' },
+    { vi: 'cung thủ',   en: 'archer',      dna: 'wings shaped like a drawn longbow with glowing string, arrow-tipped missile pods, quiver tail' },
+    { vi: 'pháp sư',    en: 'mage',        dna: 'wizard hat cockpit canopy, floating spell-rune circles, magic staff cannon with crystal orb' },
+    { vi: 'hiệp sĩ',    en: 'paladin knight', dna: 'ornate plate armor hull, holy shield-shaped wings, lance cannon, golden crest' },
+    { vi: 'sát thủ',    en: 'ninja assassin', dna: 'stealth matte hull, hooded cockpit, shuriken rotors, twin kunai wing blades' },
+    { vi: 'xạ thủ',     en: 'gunslinger',  dna: 'twin revolver-barrel cannons, bandolier ammo belts, cowboy-hat cockpit' },
+    { vi: 'giáp sĩ',    en: 'guardian',    dna: 'massive tower-shield armor plates, fortress-like bulky hull, glowing barrier emitters' },
+    { vi: 'triệu hồi sư', en: 'summoner',  dna: 'summoning sigil halo, floating spirit orbs orbiting the hull, tome-shaped tail' },
+    { vi: 'thánh sứ',   en: 'cleric',      dna: 'radiant halo ring, white-gold feathered angel wings, holy relic emblem' },
+    { vi: 'cuồng chiến', en: 'berserker',  dna: 'jagged spiked armor, blood-red war paint, twin chained cleavers, torn cape tail' },
+    { vi: 'long kỵ sĩ', en: 'dragoon',     dna: 'dragon-scale knight armor, long jousting spear nose, crested dragon-helm cockpit' },
+  ],
+
+  /* tính cách: mỗi mục phải KHÁC NHAU TRÊN MẶT — hai từ gần nghĩa ra cùng một nét
+     mặt là phí một ô pool */
+  trait: [
+    { vi: 'vui vẻ',       en: 'cheerful, big happy grin' },
+    { vi: 'dữ dằn',       en: 'fierce, angry battle face' },
+    { vi: 'lạnh lùng',    en: 'cool and composed, confident smirk' },
+    { vi: 'tinh nghịch',  en: 'mischievous, playful winking face' },
+    { vi: 'kiêu hãnh',    en: 'proud, chin-up heroic look' },
+    { vi: 'lì lợm',       en: 'stubborn tough, gritted teeth' },
+    { vi: 'bí ẩn',        en: 'mysterious, half-shadowed knowing eyes' },
+    { vi: 'hăng máu',     en: 'hot-blooded, burning determined eyes' },
+    { vi: 'ngái ngủ',     en: 'sleepy half-closed droopy eyes, relaxed yawn' },
+    { vi: 'tự mãn',       en: 'smug, raised eyebrow and cocky grin' },
+    { vi: 'hiền lành',    en: 'gentle, soft kind eyes and calm smile' },
+    { vi: 'điên loạn',    en: 'maniacal, wild spiral eyes and crazy toothy laugh' },
+    { vi: 'uy nghiêm',    en: 'majestic, regal stern gaze like a king' },
+    { vi: 'nhút nhát',    en: 'shy, blushing cheeks and nervous sweat drop' },
+    { vi: 'tham ăn',      en: 'gluttonous, drooling mouth and hungry eyes' },
+    { vi: 'tăng động',    en: 'hyperactive, sparkling excited eyes and open-mouth shout' },
+    { vi: 'u sầu',        en: 'melancholic, teary glossy eyes and quiet frown' },
+    { vi: 'nham hiểm',    en: 'sinister, narrow scheming eyes and evil grin' },
+    { vi: 'dũng mãnh',    en: 'valiant, fearless roaring battle cry' },
+    { vi: 'lãnh khốc',    en: 'ruthless, cold dead-calm glowing eyes' },
+    { vi: 'ngạo nghễ',    en: 'arrogant, looking down with a sneer' },
+    { vi: 'điềm tĩnh',    en: 'zen, serene closed-eye meditation calm' },
+    { vi: 'cáu kỉnh',     en: 'grumpy, furrowed brow and pouting scowl' },
+    { vi: 'cuồng nộ',     en: 'enraged, veins popping and steam from the nose' },
+  ],
+});
+
+/* nhãn loại mới cho toast / màn quay số / popup */
+SC.EVO_KW.LABEL.class = 'CLASS';
 
 ;
 /* ===== js/system-evo-ai.js ===== */
@@ -10559,7 +10673,7 @@ SC.EvoAI = {
        bộ lai hai con vật, hay bộ mang phong cách nghệ thuật — xem SC.EVO_KW.RECIPES. */
     const viTriBo = e.kw.length % 3;
     if (viTriBo === 0)
-      e.recipe = SC.EVO_KW.RECIPES[(Math.random() * SC.EVO_KW.RECIPES.length) | 0];
+      e.recipe = SC.EVO_KW.pickRecipe();
     const recipe = e.recipe || SC.EVO_KW.ORDER;
     const type = recipe[viTriBo];
     /* RNG có kiểm soát (21/09/2026, bị bắt quả tang trùng bộ): re-roll tối đa 10
@@ -10820,10 +10934,19 @@ SC.EvoGarage = {
   KEY: 'sc.evoGarage',
   STATS: ['hp', 'atk', 'drone', 'armor'],
   STAT_VI: { hp: 'MÁU', atk: 'SÁT THƯƠNG', drone: 'PHI ĐỘI', armor: 'GIÁP' },
-  /* con vật quyết thuộc tính theo "tính loài" — nhìn tàu là đoán được nó mạnh gì */
+  /* con vật + CLASS quyết thuộc tính theo "tính loài / vai" — nhìn tàu là đoán được nó
+     mạnh gì. Mục không có ở đây rơi về băm en (statsOf). KHOÁ theo en: đổi là đổi
+     thuộc tính tàu người chơi đang có. */
   ANIMAL_STAT: { panda: 'hp', 't-rex dinosaur': 'hp', rooster: 'armor', dragon: 'armor',
     shark: 'atk', wolf: 'atk', eagle: 'atk', cat: 'atk',
-    owl: 'drone', octopus: 'drone', bee: 'drone', fox: 'drone' },
+    owl: 'drone', octopus: 'drone', bee: 'drone', fox: 'drone',
+    hen: 'hp', 'baby chick': 'drone', 'fighting gamecock': 'atk', bulldog: 'armor', corgi: 'hp',
+    lion: 'atk', tiger: 'atk', rhino: 'armor', 'black tortoise': 'armor', 'white tiger': 'atk',
+    'azure dragon': 'armor', 'vermilion bird': 'atk', phoenix: 'hp', 'nine-tailed fox': 'drone',
+    // class
+    warrior: 'atk', swordsman: 'atk', archer: 'drone', mage: 'drone', 'paladin knight': 'armor',
+    'ninja assassin': 'atk', gunslinger: 'atk', guardian: 'armor', summoner: 'drone',
+    cleric: 'hp', berserker: 'hp', dragoon: 'armor' },
 
   _k() { const p = SC.Profiles.cur(); return this.KEY + '.' + (p ? p.id : 0); },
   owned() { return (SC.UI.progress.evo && SC.UI.progress.evo.owned) || []; },
@@ -10943,10 +11066,11 @@ SC.EvoGarage = {
 
 SC.EvoRecover = {
   THUMB: 160,        // cạnh ảnh thu nhỏ nằm trong sổ (theo mây)
+  TYPES: ['animal', 'class', 'trait', 'color', 'style'],   // thêm loại mới thì thêm ở đây
 
   /* loại từ khóa theo giá trị en — sổ cũ chỉ lưu en, prompt cần biết t */
   _kwOf(en) {
-    for (const t of ['animal', 'trait', 'color', 'style']) {
+    for (const t of this.TYPES) {
       const it = (SC.EVO_KW[t] || []).find(x => x.en === en);
       if (it) return { t, en, vi: it.vi, dna: it.dna };
     }
@@ -10989,7 +11113,7 @@ SC.EvoRecover = {
      nhất trước để "cú mèo" không bị hiểu thành "mèo" */
   _parseName(name) {
     const all = [];
-    for (const t of ['animal', 'trait', 'color', 'style'])
+    for (const t of this.TYPES)
       (SC.EVO_KW[t] || []).forEach(x => all.push({ t, en: x.en, vi: x.vi }));
     all.sort((a, b) => b.vi.length - a.vi.length);
     let s = ' ' + String(name || '').toLowerCase() + ' ';
