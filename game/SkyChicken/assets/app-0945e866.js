@@ -8745,11 +8745,22 @@ SC.Cloud = {
 
   /* nhận tiến độ từ đám mây về máy */
   adopt(cloud) {
+    /* GARA LÀ TÀI SẢN — không bao giờ để một bản mây cũ xoá tàu đã ghép (22/09/2026).
+       Sổ tàu (owned) + lịch sử tổ hợp (hist) GỘP hai bên theo id, không thay thế. */
+    const cu = SC.UI.progress && SC.UI.progress.evo;
     SC.UI.progress = Object.assign(
       { stars: {}, unlocked: 1, coin: 0, upg: {}, missions: {}, times: {} }, cloud);
+    if (cu) {
+      const moi = SC.UI.progress.evo = SC.UI.progress.evo || {};
+      moi.owned = moi.owned || [];
+      (cu.owned || []).forEach(o => { if (!moi.owned.some(x => x.id === o.id)) moi.owned.push(o); });
+      moi.hist = Array.from(new Set([...(moi.hist || []), ...(cu.hist || [])]));
+      if (!moi.equip && cu.equip) moi.equip = cu.equip;
+    }
     SC.UI.save();
     SC.UI.buildMapList();
     SC.UI.syncMenu();
+    if (SC.EvoGarage) SC.EvoGarage.applyEquipped();   // tàu đang chọn theo sổ vừa gộp
     SC.UI.toast('ĐÃ TẢI TIẾN ĐỘ VỀ');
   },
 
@@ -8892,13 +8903,16 @@ SC.AuthPanel = {
        trước đó "còn X lực chiến lên Y" là dòng hook trôi nổi dưới nút XUẤT KÍCH —
        navigation sức mạnh phải đứng cùng chỗ với danh hiệu nó dẫn tới. */
     const nx = SC.Power.next();
-    const luc = `⚔${SC.Power.show()}`
-      + (nx ? ` <em class="pw-next">+${nx.need}→${SC.Rank.esc(nx.name)}</em>` : '');
+    // ghi hẳn chữ LỰC CHIẾN (22/09): "⚔84" trơ trọi người chơi không biết là số gì
+    // Hai dòng NGẮN thay một dòng dài: thẻ ở lobby chỉ rộng ~170px, sau khi nâng cỡ
+    // chữ thì "hạng · lực chiến · mốc kế" chung một dòng là vỡ hoặc tràn đè nút ĐỔI.
+    const moc = SC.Power.rank() + (nx ? ` · +${nx.need}→${SC.Rank.esc(nx.name)}` : '');
 
     chip.innerHTML =
       `<span class="ava-wrap">${SC.Ava.ofLobby(cur)}${badge}</span>` +
       `<span class="prof-txt"><b>${SC.Rank.esc(cur.name)}</b>` +
-      `<i class="prof-rank">${dot}${SC.Power.rank()} · ${luc}</i></span><em>ĐỔI</em>`;
+      `<i class="prof-rank">${dot}LỰC CHIẾN ${SC.Power.show()}` +
+      `<em class="pw-next">${moc}</em></i></span><em>ĐỔI</em>`;
     chip.title = `${cur.name} · ${SC.Power.rank()} · lực chiến ${SC.Power.show()}`
       + (nx ? ` · còn ${nx.need} nữa lên ${nx.name}` : '') + (u ? ` · ${tip}` : '');
   },
@@ -10852,6 +10866,10 @@ SC.EvoGarage = {
     SC.UI.save();
     // ảnh bản đẹp vào máy + ảnh thu nhỏ vào sổ (theo mây) — mất máy vẫn còn tàu
     await SC.EvoRecover.attach(o, pack.ship, pack.drone);
+    // trong lúc chờ nén, đồng bộ mây có thể đã thay cả progress — gắn lại tàu vào sổ mới
+    const e2 = SC.EvoAI.st();
+    if (!e2.owned) e2.owned = [];
+    if (!e2.owned.some(x => x.id === id)) { e2.owned.push(o); e2.equip = id; }
     SC.UI.save();
     SC.Cloud.markDirty();
     return id;
@@ -10915,33 +10933,96 @@ SC.EvoRecover = {
     return null;
   },
 
-  async migrate() {
-    const e = SC.EvoAI.st();
-    const raw = this._raw();
-    if (e.owned && e.owned.length && !raw) return;
+  /* BA LUẬT rút ra từ sự cố 22/09/2026 (cứu hộ bản 1 ghi đè mất ảnh tàu cá mập):
+   *   1. Tổ hợp nào trong lịch sử CHƯA có trong sổ thì LUÔN bổ sung — bản 1 chỉ dựng
+   *      lại khi sổ trống, sổ có 1 tàu mới là bỏ luôn 3 tàu cũ.
+   *   2. Ảnh kho cũ chỉ gắn vào tàu KHỚP TÊN mà CHƯA CÓ ẢNH; không khớp thì lập TÀU MỚI
+   *      cho nó. KHÔNG BAO GIỜ đè ảnh của tàu đang có — bản 1 "không khớp thì gắn tàu
+   *      cuối" đã xoá ảnh cá mập vừa ghép.
+   *   3. Đọc lại SC.EvoAI.st() SAU mỗi lần await: lúc chờ nén ảnh, đồng bộ mây có thể
+   *      thay cả SC.UI.progress bằng object mới — ghi vào object cũ là ghi vào hư không.
+   */
+  _key(ens) { return (ens || []).join('|'); },
+
+  _mergeHist(e) {
     if (!e.owned) e.owned = [];
+    let them = 0;
+    (e.hist || []).forEach(h => {
+      if (e.owned.some(o => this._key(o.ens) === h)) return;
+      const ens = h.split('|');
+      e.owned.push({ id: 'h' + SC.EVO_KW._hash(h).toString(36), ens,
+        names: ens.map(en => this._kwOf(en).vi), stats: SC.EvoGarage.statsOf(ens),
+        lv: 0, span: 1, at: 0 });
+      them++;
+    });
+    return them;
+  },
 
-    // 1a. sổ từ lịch sử: mỗi tổ hợp đã ghép là một tàu, đủ thuộc tính ẩn
-    if (!e.owned.length) {
-      (e.hist || []).forEach((h, i) => {
-        const ens = h.split('|');
-        e.owned.push({ id: 'm' + i, ens, names: ens.map(en => this._kwOf(en).vi),
-          stats: SC.EvoGarage.statsOf(ens), lv: 0, span: 1, at: 0 });
-      });
+  /* tên kho cũ ("cú mèo dữ dằn hồng xung") -> bộ từ khóa, dò theo tên tiếng Việt dài
+     nhất trước để "cú mèo" không bị hiểu thành "mèo" */
+  _parseName(name) {
+    const all = [];
+    for (const t of ['animal', 'trait', 'color', 'style'])
+      (SC.EVO_KW[t] || []).forEach(x => all.push({ t, en: x.en, vi: x.vi }));
+    all.sort((a, b) => b.vi.length - a.vi.length);
+    let s = ' ' + String(name || '').toLowerCase() + ' ';
+    const ens = [];
+    for (const k of all) {
+      const v = ' ' + k.vi.toLowerCase() + ' ';
+      if (s.includes(v)) { ens.push(k.en); s = s.replace(v, ' '); }
     }
-    if (!raw) { if (e.owned.length) SC.UI.save(); return; }
+    return ens;
+  },
 
-    // 1b. cứu ảnh kho cũ — xoá key TRƯỚC để trả chỗ, rồi mới nén + ghi
+  /* BẢN VÁ MỘT LẦN cho đúng sự cố 22/09/2026 (hồ sơ ducdm trên banga): cứu hộ bản 1
+     dán ảnh CÚ MÈO · DỮ DẰN · HỒNG XUNG (tàu đời đầu, trước khi có hist) đè lên tàu
+     cá mập vừa ghép id 'emubiy043'. Tách ảnh về đúng chủ, trả cá mập về "chưa có
+     ảnh" để ĐÚC LẠI. Khoá theo id cụ thể + cờ fix0922: không đụng dữ liệu ai khác. */
+  _fix0922(e) {
+    if (e.fix0922) return false;
+    e.fix0922 = 1;
+    const ca = (e.owned || []).find(o => o.id === 'emubiy043');
+    if (!ca || !ca.thumb) return true;
+    const ens = ['owl', 'fierce, angry battle face', 'hot pink'];
+    const owl = { id: 'Lowl', ens, names: ['cú mèo', 'dữ dằn', 'hồng xung'],
+      stats: SC.EvoGarage.statsOf(ens), lv: 0, span: 1, at: 0, thumb: ca.thumb };
+    const imgs = SC.EvoGarage.images();
+    const im = imgs.find(x => x.id === 'emubiy043');
+    if (im) im.id = 'Lowl';
+    SC.EvoGarage._saveImages(imgs);
+    delete ca.thumb; ca.recast = 0;
+    e.owned.unshift(owl);
+    if (e.equip === 'emubiy043') e.equip = 'Lowl';
+    return true;
+  },
+
+  async migrate() {
+    const e0 = SC.EvoAI.st();
+    const raw = this._raw();
+    const fixed = this._fix0922(e0);
+    const them = this._mergeHist(e0) + (fixed ? 1 : 0);
+    if (!raw) { if (them) { SC.UI.save(); SC.Cloud.markDirty(); } return; }
+
+    // cứu ảnh kho cũ — đọc vào bộ nhớ, XOÁ key TRƯỚC để trả chỗ, rồi mới nén + ghi
     let o = null;
     try { o = JSON.parse(raw.v); } catch (x) {}
     try { localStorage.removeItem(raw.k); } catch (x) {}
     if (!o || !o.dataUrl) { SC.UI.save(); return; }
-    if (!e.owned.length)
-      e.owned.push({ id: 'm0', ens: [], names: ['TÀU ĐỜI ĐẦU'],
-        stats: { hp: 1, atk: 1, drone: 1, armor: 0 }, lv: 0, span: 1, at: 0 });
-    // kho cũ ghi name = tên tiếng Việt nối bằng dấu cách -> ghép đúng tàu trong sổ
-    const target = e.owned.find(x => (x.names || []).join(' ') === o.name) || e.owned[e.owned.length - 1];
+
+    const imgs = SC.EvoGarage.images();
+    const coAnh = x => imgs.some(i => i.id === x.id) || x.thumb;
+    let target = e0.owned.find(x => (x.names || []).join(' ') === o.name && !coAnh(x));
+    if (!target) {
+      const ens = this._parseName(o.name);
+      target = { id: 'L' + Date.now().toString(36), ens,
+        names: ens.length ? ens.map(en => this._kwOf(en).vi) : ['TÀU ĐỜI ĐẦU'],
+        stats: ens.length ? SC.EvoGarage.statsOf(ens) : { hp: 1, atk: 1, drone: 1, armor: 0 },
+        lv: 0, span: 1, at: o.at || 0 };
+      e0.owned.push(target);
+    }
     await this.attach(target, o.dataUrl, o.droneUrl || '');
+    const e = SC.EvoAI.st();                   // luật 3: object có thể đã bị thay
+    if (e !== e0) { this._mergeHist(e); if (!e.owned.some(x => x.id === target.id)) e.owned.push(target); }
     if (!e.equip) e.equip = target.id;
     SC.UI.save();
     SC.Cloud.markDirty();
