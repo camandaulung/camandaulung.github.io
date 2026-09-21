@@ -10211,18 +10211,28 @@ SC.Gift = {
 
   open() {
     document.getElementById('giftAmount').textContent = this.AMOUNT.toLocaleString('vi-VN');
+    SC.EvoStarter.attach(false);      // kênh zingplay: kèm khu chọn tàu AI tân thủ
     SC.UI.showOverlay('gift');
     SC.Audio.gem();
   },
 
-  claim() {
+  /* Cộng vàng không đụng UI — tàu tân thủ (ui-evo-starter.js) gọi khi người chơi bấm
+     chọn tàu mà chưa bấm NHẬN QUÀ. Trả false nếu đã nhận rồi. */
+  grant() {
     const p = SC.UI.progress;
-    if (p.gift) return SC.UI.hideOverlay('gift');
+    if (p.gift || !this.eligible()) return false;
     p.gift = 1;                       // đánh dấu trước khi cộng: bấm nhanh hai lần không ăn hai lần
     p.coin = (p.coin | 0) + this.AMOUNT;
     SC.UI.save();
     SC.Cloud.markDirty();
+    return true;
+  },
+
+  claim() {
+    if (SC.EvoStarter.busy) return;   // đang ấp tàu tân thủ — đóng giữa chừng là mất màn nở
+    const moi = this.grant();
     SC.UI.hideOverlay('gift');
+    if (!moi) return;
     SC.Audio.power();
     SC.UI.syncMenu();
     SC.UI.toast('NHẬN ◈' + this.AMOUNT.toLocaleString('vi-VN'), true);
@@ -10394,6 +10404,9 @@ SC.EVO_KW = {
     { r: ['animal', 'trait', 'color'], w: 2 },
     { r: ['animal', 'style', 'class'], w: 1 },
     { r: ['animal', 'animal', 'class'], w: 1 },   // dung hợp hiếm — đúng chất fusion
+    // dòng MÁY BAY CHIẾN ĐẤU thuần (22/09): ~28% số bộ — data-evo-fighter-jet-prompt.js
+    { r: ['frame', 'class', 'color'], w: 3 },
+    { r: ['frame', 'style', 'color'], w: 1 },
   ],
   pickRecipe() {
     let x = Math.random() * this.RECIPES.reduce((a, c) => a + c.w, 0);
@@ -10483,6 +10496,7 @@ SC.EVO_KW = {
     + 'ornate mythic armor with gold trim, dramatic anime inking, intense glowing energy accents',
 
   prompt(kws, styleBtn, seed, attempt) {
+    if (this.isFighter(kws)) return this.fighterPrompt(kws, styleBtn, seed, attempt);
     const animals = kws.filter(k => k.t === 'animal');
     const cls = kws.find(k => k.t === 'class');
     const trait = (kws.find(k => k.t === 'trait') || {}).en;
@@ -10517,6 +10531,7 @@ SC.EVO_KW = {
      định nhìn như đi mượn). Mô tả lặp lại đúng bộ từ khóa + bắt dáng ĐƠN GIẢN:
      drone vẽ ~24px, chi tiết mấy cũng thành nhiễu. */
   dronePrompt(kws, styleBtn) {
+    if (this.isFighter(kws)) return this.fighterDronePrompt(kws, styleBtn);
     const animals = kws.filter(k => k.t === 'animal');
     const trait = (kws.find(k => k.t === 'trait') || {}).en;
     const style = styleBtn || (kws.find(k => k.t === 'style') || {}).en;
@@ -10628,6 +10643,26 @@ Object.assign(SC.EVO_KW, {
     { vi: 'long kỵ sĩ', en: 'dragoon',     dna: 'dragon-scale knight armor, long jousting spear nose, crested dragon-helm cockpit' },
   ],
 
+  /* KHUNG MÁY BAY (22/09/2026): dòng tàu CHIẾN ĐẤU THUẦN — hiện đại / sci-fi, không con
+     vật, style toon 2D shmup như tàu gốc của game (xem EVO_KW.prompt nhánh frame).
+     `dna` = đặc điểm khung BẮT BUỘC thấy được từ góc nhìn trên xuống. */
+  frame: [
+    { vi: 'tàng hình',      en: 'stealth fighter',      dna: 'angular faceted stealth airframe, diamond planform, twin canted tail fins, sharp chined nose' },
+    { vi: 'cánh tam giác',  en: 'delta wing interceptor', dna: 'large pure delta wing, long needle nose, single tall tail' },
+    { vi: 'cánh xuôi ngược', en: 'forward-swept wing fighter', dna: 'wings swept FORWARD toward the nose, small canards, twin tails' },
+    { vi: 'cánh mũi',       en: 'canard delta multirole', dna: 'delta wing with small canard foreplanes near the cockpit, single engine' },
+    { vi: 'cánh cụp xòe',   en: 'swing-wing strike jet', dna: 'variable-sweep wings spread wide, twin engines, broad tail' },
+    { vi: 'đánh chặn Mach 3', en: 'mach 3 interceptor', dna: 'long slender fuselage, huge twin engine intakes, short trapezoid wings' },
+    { vi: 'cánh bay',       en: 'flying wing bomber',   dna: 'tailless blended flying wing, sawtooth trailing edge, no fuselage' },
+    { vi: 'hai thân',       en: 'twin-boom fighter',    dna: 'central pod cockpit with two tail booms joined by a rear wing' },
+    { vi: 'pháo hạm',       en: 'heavy gunship',        dna: 'wide armored hull, multiple rotary cannons on the nose and wing roots, four engines' },
+    { vi: 'phi thuyền plasma', en: 'plasma starfighter', dna: 'X-shaped split wings, glowing plasma engine rings, sleek cockpit bubble' },
+    { vi: 'biến hình',      en: 'transforming variable fighter', dna: 'jet fighter with folded robot arms and legs visible along the fuselage, mech details' },
+    { vi: 'cánh vòng',      en: 'ring-wing fighter',    dna: 'circular annular ring wing wrapped around the fuselage, rear pusher engine' },
+    { vi: 'mẫu hạm drone',  en: 'drone carrier jet',    dna: 'broad lifting body with open docking bays holding mini drones' },
+    { vi: 'siêu thanh',     en: 'hypersonic waverider', dna: 'flat wedge waverider hull, scramjet underbody, tiny tip fins' },
+  ],
+
   /* tính cách: mỗi mục phải KHÁC NHAU TRÊN MẶT — hai từ gần nghĩa ra cùng một nét
      mặt là phí một ô pool */
   trait: [
@@ -10660,6 +10695,66 @@ Object.assign(SC.EVO_KW, {
 
 /* nhãn loại mới cho toast / màn quay số / popup */
 SC.EVO_KW.LABEL.class = 'CLASS';
+SC.EVO_KW.LABEL.frame = 'KHUNG MÁY';
+
+;
+/* ===== js/data-evo-fighter-jet-prompt.js ===== */
+/* data-evo-fighter-jet-prompt.js — prompt dòng MÁY BAY CHIẾN ĐẤU THUẦN (22/09/2026)
+ *
+ * Bộ từ khóa có KHUNG MÁY (frame) thay cho con vật -> tàu hiện đại / sci-fi đúng
+ * chuẩn máy bay chiến đấu, style toon 2D shmup như tàu gốc của game (tools/gen-assets
+ * STYLE), KHÔNG dùng vibe Yu-Gi-Oh của dòng máy bay thú: vibe đó kéo ra mặt thú, giáp
+ * thần thoại — sai hẳn chất "tiêm kích".
+ * EVO_KW.prompt / dronePrompt tự rẽ sang đây khi bộ có frame.
+ */
+
+Object.assign(SC.EVO_KW, {
+  FIGHTER_VIBE: 'premium 2D mobile shoot-em-up game art, clean toon cel-shading, glossy metal panels, '
+    + 'crisp bold dark outlines, saturated colors, glowing engine exhaust and subtle neon rim light',
+
+  isFighter(kws) { return kws.some(k => k.t === 'frame') && !kws.some(k => k.t === 'animal'); },
+
+  fighterPrompt(kws, styleBtn, seed, attempt) {
+    const fr = kws.find(k => k.t === 'frame');
+    const cls = kws.find(k => k.t === 'class');
+    const trait = (kws.find(k => k.t === 'trait') || {}).en;
+    const color = (kws.find(k => k.t === 'color') || {}).en;
+    const style = styleBtn || (kws.find(k => k.t === 'style') || {}).en;
+    return [
+      'top-down view from directly above, vertical shoot-em-up game sprite of a modern sci-fi FIGHTER JET, '
+        + 'nose pointing up, two wings spread left and right',
+      ...(attempt >= 2 ? ['STRICTLY a single aircraft silhouette seen from above, clean readable shape'] : []),
+      ...(style && this.STYLES[style] ? [this.STYLES[style].en] : []),
+      `airframe type: ${fr.en} — ${this._dnaKw(fr)}`,
+      // class = bộ vũ khí/giáp của vai trò, gắn lên thân tàu (không có người)
+      ...(cls ? [`${cls.en} combat role loadout built into the jet: ${this._dnaKw(cls)}`] : []),
+      ...(trait ? [`design attitude inspired by: ${trait} (expressed through shape and decals, no face)`] : []),
+      // livery chung có "dấu chân thú" — mẫu 22/09 ra pháo hạm in chân mèo, lạc tông tiêm kích
+      ...(seed ? [`unique personal livery: ${this.livery(seed)
+        .replace('scattered paw-print decals', 'squadron kill-mark decals')}`] : []),
+      ...(color ? [`dominant color scheme: ${color}`] : []),
+      this.FIGHTER_VIBE,
+      'no animal features, no face, no pilot figure, no text',
+      'top-down view, nose pointing up, symmetrical, centered, single subject',
+      'flat transparent background, no scenery, no frame, no watermark',
+    ].join(', ');
+  },
+
+  fighterDronePrompt(kws, styleBtn) {
+    const fr = kws.find(k => k.t === 'frame');
+    const color = (kws.find(k => k.t === 'color') || {}).en;
+    const style = styleBtn || (kws.find(k => k.t === 'style') || {}).en;
+    return [
+      ...(style && this.STYLES[style] ? [this.STYLES[style].en] : []),
+      `a tiny unmanned escort drone matching a ${fr.en} fighter jet, same design language in miniature`,
+      ...(color ? [`same dominant color scheme: ${color}`] : []),
+      'very simple bold silhouette readable at 24 pixels',
+      this.FIGHTER_VIBE,
+      'top-down view, nose pointing up, centered, single subject',
+      'flat transparent background, no scenery, no frame, no text, no watermark',
+    ].join(', ');
+  }
+});
 
 ;
 /* ===== js/system-evo-ai.js ===== */
@@ -11034,7 +11129,10 @@ SC.EvoGarage = {
     // class
     warrior: 'atk', swordsman: 'atk', archer: 'drone', mage: 'drone', 'paladin knight': 'armor',
     'ninja assassin': 'atk', gunslinger: 'atk', guardian: 'armor', summoner: 'drone',
-    cleric: 'hp', berserker: 'hp', dragoon: 'armor' },
+    cleric: 'hp', berserker: 'hp', dragoon: 'armor',
+    // khung máy bay chiến đấu (22/09) — khung không có ở đây thì băm en
+    'stealth fighter': 'atk', 'mach 3 interceptor': 'atk', 'heavy gunship': 'hp',
+    'drone carrier jet': 'drone', 'flying wing bomber': 'armor', 'transforming variable fighter': 'armor' },
 
   _k() { const p = SC.Profiles.cur(); return this.KEY + '.' + (p ? p.id : 0); },
   owned() { return (SC.UI.progress.evo && SC.UI.progress.evo.owned) || []; },
@@ -11156,7 +11254,7 @@ SC.EvoGarage = {
 
 SC.EvoRecover = {
   THUMB: 160,        // cạnh ảnh thu nhỏ nằm trong sổ (theo mây)
-  TYPES: ['animal', 'class', 'trait', 'color', 'style'],   // thêm loại mới thì thêm ở đây
+  TYPES: ['animal', 'frame', 'class', 'trait', 'color', 'style'],   // thêm loại mới thì thêm ở đây
 
   /* loại từ khóa theo giá trị en — sổ cũ chỉ lưu en, prompt cần biết t */
   _kwOf(en) {
@@ -12241,6 +12339,127 @@ SC.EvoAIUI = {
 };
 
 ;
+/* ===== js/ui-evo-starter.js ===== */
+/* ui-evo-starter.js — TÀU AI TÂN THỦ: vào game là được gen ngay 1 chiến đấu cơ (22/09/2026)
+ *
+ * Chỉ kênh có tiến hóa (zingplay.dev). Nằm TRONG popup quà tân thủ (ui-gift.js): hai
+ * lựa chọn MÁY BAY CHIẾN ĐẤU (khung máy + class + màu) hoặc MÁY BAY THÚ (con vật + class
+ * + màu). Người chơi zingplay CŨ (đã nhận vàng từ trước) cũng được một lần — popup mở ở
+ * chế độ chỉ-có-tàu (`evo-only`).
+ *
+ * Trạng thái ở progress.evo.starter (theo mây):
+ *   (chưa có)          -> mời chọn
+ *   { k, kws }         -> ĐANG DỞ: đã chọn + đã roll từ khóa, chưa có tàu (lỗi mạng / F5
+ *                         giữa lúc ấp). Chọn lại CÙNG loại thì dùng lại đúng bộ từ khóa —
+ *                         F5 liên tục không roll được bộ mới.
+ *   'done'             -> đã có tàu, không bao giờ mời nữa.
+ * Tàu tân thủ KHÔNG đụng bộ từ khóa đang nhặt (evo.kw) — gen bằng kwsOverride.
+ */
+
+SC.EvoStarter = {
+  busy: false,
+  RECIPE: { fighter: ['frame', 'class', 'color'], beast: ['animal', 'class', 'color'] },
+
+  eligible() { return SC.EvoAI.active() && SC.EvoAI.st().starter !== 'done'; },
+
+  init() {
+    const box = document.getElementById('giftEvoPick');
+    if (box) box.addEventListener('click', e => {
+      const b = e.target.closest('button[data-starter]');
+      if (b) this.choose(b.dataset.starter);
+    });
+  },
+
+  /* Gọi sau Gift.check: hồ sơ không còn quà vàng nhưng chưa có tàu tân thủ */
+  check() {
+    if (SC.Gift.eligible() || !this.eligible()) return;
+    setTimeout(() => {
+      const dangMo = !SC.UI.el.gift.classList.contains('hidden');
+      if (dangMo || SC.Gift.eligible() || !this.eligible()) return;
+      this.attach(true);
+      SC.UI.showOverlay('gift');
+      SC.Audio.gem();
+    }, 900);
+  },
+
+  /* Dựng khu chọn tàu trong popup quà. evoOnly = ẩn phần vàng (người chơi cũ) */
+  attach(evoOnly) {
+    const box = document.querySelector('#scrGift .gift-box');
+    const sec = document.getElementById('giftEvo');
+    const on = this.eligible();
+    box.classList.toggle('evo-only', !!evoOnly && on);
+    box.querySelector('h3').textContent = evoOnly && on ? 'QUÀ TIẾN HÓA' : 'QUÀ TÂN THỦ';
+    sec.classList.toggle('hidden', !on);
+    if (!on) return this._ok('NHẬN QUÀ', true);
+    this._view('<div class="evo-egg">🥚</div>');
+    this._pick(true);
+    this._err('');
+    this._ok(evoOnly ? 'ĐỂ SAU' : 'NHẬN QUÀ', true);
+  },
+
+  async choose(kind) {
+    if (this.busy || !this.eligible() || !this.RECIPE[kind]) return;
+    const e = SC.EvoAI.st();
+    // đang dở cùng loại -> dùng lại bộ cũ; khác loại / chưa có -> roll bộ mới
+    let kws = e.starter && e.starter.k === kind ? e.starter.kws : null;
+    if (!kws) kws = this.RECIPE[kind].map(t => SC.EVO_KW.roll(t));
+    e.starter = { k: kind, kws };
+    SC.Gift.grant();                     // chọn tàu = nhận luôn quà vàng (nếu còn)
+    SC.UI.save();
+    SC.Cloud.markDirty();
+
+    this.busy = true;
+    SC.Audio.click();
+    this._pick(false);
+    this._err('');
+    this._ok('ĐANG ẤP…', false);
+    this._view('<div class="evo-egg hatching">🥚</div><span class="evoai-hint evoai-spin">'
+      + kws.map(k => SC.Rank.esc(k.vi.toUpperCase())).join(' · ') + '</span>');
+    try {
+      const pack = await SC.EvoAI.generate(undefined, undefined, kws);
+      await SC.EvoGarage.add(pack, kws);              // cất gara + lên tàu luôn
+      SC.EvoAI._apply(pack.ship, pack.drone);
+      const e2 = SC.EvoAI.st();
+      e2.hist = (e2.hist || []).slice(-19);
+      e2.hist.push(kws.map(k => k.en).join('|'));
+      e2.starter = 'done';
+      SC.UI.save();
+      SC.Cloud.markDirty();
+      this._view('<div class="evo-egg hatch">🐣</div>');
+      SC.Audio.win();
+      await new Promise(r => setTimeout(r, 550));
+      this._view(`<img src="${pack.ship}" alt="Chiến đấu cơ tân thủ">`
+        + (pack.drone ? `<img class="evoai-drone" src="${pack.drone}" alt="">` : ''));
+      this._ok('BAY THÔI!', true);
+      SC.UI.syncMenu();
+    } catch (err) {
+      this._view('<div class="evo-egg">🥚</div>');
+      this._err(((err && err.message) || 'Lỗi mạng') + ' — chọn lại để ấp tiếp');
+      this._pick(true);
+      this._ok('ĐỂ SAU', true);
+    }
+    this.busy = false;
+  },
+
+  _view(h) { document.getElementById('giftEvoView').innerHTML = h; },
+  _pick(on) {
+    const p = document.getElementById('giftEvoPick');
+    p.classList.toggle('hidden', !on);
+    p.querySelectorAll('button').forEach(b => { b.disabled = !on; });
+  },
+  _err(m) {
+    const el = document.getElementById('giftEvoErr');
+    el.textContent = m;
+    el.classList.toggle('hidden', !m);
+  },
+  _ok(label, enabled) {
+    const b = document.getElementById('btnGiftOk');
+    b.textContent = label;
+    b.disabled = !enabled;
+  }
+};
+
+;
 /* ===== js/ui-map-jump.js ===== */
 /* ui-map-jump.js — dải chip nhảy vùng ở đầu bản đồ hành trình
  *
@@ -12491,6 +12710,7 @@ SC.UI = {
     this.buildMapList();
     this.bind();
     SC.Gift.check();          // hồ sơ mới tinh -> mời nhận quà tân thủ
+    SC.EvoStarter.check();    // zingplay: người chơi cũ chưa có tàu AI tân thủ -> mời riêng
   },
 
   bind() {
@@ -12524,6 +12744,7 @@ SC.UI = {
     SC.EvoGachaUI.init();
     SC.GarageUI.init(on);
     SC.Gift.init(on);
+    SC.EvoStarter.init();
     SC.Brief.init(on);
     SC.Rank.init(on);
     SC.Victory.init(on);
