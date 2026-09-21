@@ -9977,27 +9977,27 @@ SC.PWA = {
     this.syncBanner();
   },
 
-  /* Có lời mời nào đang treo không (cài về máy / có bản mới)? */
-  anyOffer() {
-    const vis = id => {
-      const b = document.getElementById(id);
-      return !!b && !b.classList.contains('hidden');
-    };
-    return vis('btnInstall') || vis('btnUpdate');
+  _vis(id) {
+    const b = document.getElementById(id);
+    return !!b && !b.classList.contains('hidden');
   },
+
+  /* Có lời mời nào đang treo không (cài về máy / có bản mới)? */
+  anyOffer() { return this._vis('btnInstall') || this._vis('btnUpdate'); },
 
   /* Băng thông báo trượt lên từ đáy: chỉ hiện ở lobby và chỉ khi có việc để mời.
      Trước đây hai nút này nằm cố định giữa menu, xuất hiện bất chợt là đẩy layout. */
   syncBanner() {
-    // Hai nút cài/cập nhật giờ nằm trong màn Cài đặt, không chen vào thanh trên lobby
-    // nữa (thanh đó để dành cho danh tính). Có việc thì bánh răng ngoài lobby nổi
-    // chấm đỏ để dẫn người chơi vào — nếu không thì lời mời nằm im không ai thấy.
-    const offer = this.anyOffer();
+    /* Chấm đỏ trên bánh răng CHỈ báo BẢN CẬP NHẬT, không báo lời mời cài app.
+       BUG ĐÃ GẶP (banga.zingplay.dev, 21/09/2026): trên desktop Chrome, site đạt
+       chuẩn PWA thì beforeinstallprompt bắn MỌI lần mở trang → lời mời cài luôn
+       treo → chấm đỏ sáng vĩnh viễn. Đèn báo lúc nào cũng sáng thì hết là đèn báo.
+       Nút CÀI VỀ MÁY vẫn nằm trong màn Cài đặt cho ai muốn tự cài. */
     const dot = document.getElementById('optDot');
-    if (dot) dot.classList.toggle('hidden', !offer);
+    if (dot) dot.classList.toggle('hidden', !this._vis('btnUpdate'));
 
     const note = document.getElementById('optAppNote');
-    if (note) note.classList.toggle('hidden', offer);
+    if (note) note.classList.toggle('hidden', this.anyOffer());
   },
 
   /* Bấm nút cài: bật lại hộp thoại đã chặn ở trên */
