@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="icon" type="image/png" href="icons/icon-192.png">
-<link rel="stylesheet" href="assets/style-164ad4c2.css">
+<link rel="stylesheet" href="assets/style-0bb1eaf1.css">
 </head>
 <body>
 
@@ -253,6 +253,10 @@
       <button class="rail-btn" id="btnRank">
         <img class="ic" src="assets/art-game/ui-icon-trophy.webp" alt="" aria-hidden="true" onerror="if(!this.r){this.r=1;this.src=this.src}"><span>BXH</span>
       </button>
+      <!-- Gara chiến đấu cơ tiến hóa — chỉ kênh zingplay.dev (ui-evo-garage.syncButton) -->
+      <button class="rail-btn hidden" id="btnGarage">
+        <span class="ic gar-ic" aria-hidden="true">🛩️</span><span>GARA</span>
+      </button>
     </div>
 
     <p class="hint" id="menuHint">Di chuyển bằng <b>chuột</b> · Tự bắn · Tự nhặt đồ · <b>P</b> hoặc <b>Space</b> để tạm dừng</p>
@@ -429,6 +433,18 @@
     </div>
     <div class="shop-scroll" id="codexList"></div>
     <p class="shop-note">Mỗi tổ hợp VŨ KHÍ × PHI ĐỘI × KHIÊN cho một biến thể riêng</p>
+  </div>
+
+  <!-- ===== GARA CHIẾN ĐẤU CƠ (bộ sưu tập tàu tiến hóa AI, chọn lại được) ===== -->
+  <div id="scrGarage" class="layer screen hidden">
+    <div class="scr-head">
+      <button class="icon-btn back" id="btnGarageBack" aria-label="Quay lại"><img class="ic" src="assets/art-game/ui-icon-back.webp" alt="" onerror="if(this.r)this.replaceWith('‹');else{this.r=1;this.src=this.src}"></button>
+      <h2>GARA</h2>
+      <span class="total-star gold"><b id="garCount">0</b> chiếc độc nhất</span>
+    </div>
+    <div class="gar-perks" id="garPerks"></div>
+    <div class="shop-scroll gar-grid" id="garList"></div>
+    <p class="shop-note">Mỗi chiến đấu cơ là độc nhất — thuộc tính ẩn cộng dồn dù đang bay chiếc nào</p>
   </div>
 
   <!-- ===== MÀN TIẾN HOÁ (diễn dạng cũ -> dạng mới) ===== -->
@@ -704,7 +720,7 @@
 <script src="../../shared/portal-cloud.js"></script>
 <script src="../../shared/portal-rank.js"></script>
 <script src="../../shared/portal-player.js"></script>
-<script src="assets/app-682dd659.js" onerror="window.__shellHong=1"></script>
+<script src="assets/app-f7eabafe.js" onerror="window.__shellHong=1"></script>
 <script>
 /* LOP TU CUU KHI VO UNG DUNG HONG — dung xoa.
  *

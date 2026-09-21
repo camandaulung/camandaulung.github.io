@@ -1482,7 +1482,9 @@ SC.Power = {
   show() {
     const core = this.CORE_LV * SC.TREE_KEYS.length;
     const over = Math.max(0, SC.Tree.totalLevels() - core);
-    return this.total() + over * this.PER_OVER;
+    // + mỗi 1% thuộc tính ẩn của gara tiến hóa = 1 lực chiến (chỉ phần HIỂN THỊ —
+    // total() lo độ khó thì không đụng, cân bằng động của gara tự lo phần đó)
+    return this.total() + over * this.PER_OVER + SC.EvoGarage.totalPct();
   },
 
   /* hệ số riêng của biến thể đang chạy; chưa thành hình thì trung tính */
@@ -1494,8 +1496,9 @@ SC.Power = {
 
   /* ---------- các mặt độ khó co giãn theo lực chiến ---------- */
   den()   { return (1 + this._t() * this.S.den) * this._v(0); },   // mật độ quái
-  hp()    { return (1 + this._t() * this.S.hp) * this._v(1); },    // máu quái
-  dmg()   { return 1 + this._t() * this.S.dmg; },                  // sát thương
+  // × cân bằng động của gara tiến hóa: tàu mới ngấm dần vào độ khó trong 1-6 màn
+  hp()    { return (1 + this._t() * this.S.hp) * this._v(1) * SC.EvoGarage.enemyHpMul(SC.Game.levelId || 1); },
+  dmg()   { return (1 + this._t() * this.S.dmg) * SC.EvoGarage.enemyDmgMul(SC.Game.levelId || 1); },
   fire()  { return 1 + this._t() * this.S.fire; },                 // nhịp bắn
   spd()   { return 1 + this._t() * this.S.spd; },                  // tốc độ di chuyển
   orbit() { return this._t() * this.S.orbit; },                    // độ cong đạn địch
@@ -5964,7 +5967,9 @@ SC.Gun = {
     const A = p.aimAnim || 0;
     const sA = Math.sin(A), cA = Math.cos(A);
     const w = p.weapon;
-    const dmg = Math.max(1, Math.round(2 * t.dmgMul * this.runMul(w)));
+    // nhân thuộc tính ẩn SÁT THƯƠNG SAU khi làm tròn — làm tròn sau thì +1% của
+    // đạn 2-4 sát thương mất trắng
+    const dmg = Math.max(1, Math.round(2 * t.dmgMul * this.runMul(w))) * SC.EvoGarage.mul('atk');
 
     // Cả loạt tính là MỘT lần bắn. Loạt bắn vào chỗ trống không có gì để trúng nên
     // không tính vào độ chính xác.
@@ -6004,7 +6009,7 @@ SC.Gun = {
     const lv = lvOverride === undefined ? SC.Tree.lv('wpn') : lvOverride;
     const t = SC.Tree.tierOf(this[path], Math.max(1, lv));
     const ww = w || 1;
-    const dmg = Math.max(1, Math.round(2 * t.dmgMul * this.runMul(ww)));
+    const dmg = Math.max(1, Math.round(2 * t.dmgMul * this.runMul(ww))) * SC.EvoGarage.mul('atk');
     const n = t.n + (path === 'B' ? 0 : this.runExtra(ww));
     return n * dmg / (SC.CFG.fireBase * t.rateMul);
   }
@@ -6698,6 +6703,9 @@ SC.Player.prototype.reset = function (weapon) {
   // Nhánh GIÁP đặt máu, bán kính thân, độ bám con trỏ, thời gian bất tử và độ nghiêng
   // tối đa — năm thứ cùng lúc, nên hai hướng giáp lái khác hẳn nhau.
   SC.Armor.apply(this);
+  // thuộc tính ẩn của gara tiến hóa: +% máu tối đa cộng dồn mọi tàu đã sở hữu
+  this.hpMax = Math.round(this.hpMax * SC.EvoGarage.mul('hp'));
+  this.hp = this.hpMax;
   SC.Shield.reset(this);
   this.weapon = weapon || 1;      // cấp vũ khí nhặt trong màn, cây kỹ năng lo phần còn lại
   this.fireT = 0;
@@ -6782,6 +6790,7 @@ SC.Player.prototype.leak = function (e) {
 SC.Player.prototype.hurt = function (dmg) {
   if (this.inv > 0 || this.dead) return false;
   this.damaged++;
+  dmg = dmg / SC.EvoGarage.mul('armor');    // thuộc tính ẩn GIÁP của gara tiến hóa
   dmg = SC.Shield.mitigate(this, dmg);      // khiên từ trường đỡ bớt, xem system-shield.js
   if (this.shield > 0) {
     this.shield -= dmg * 1.6;
@@ -6903,7 +6912,8 @@ SC.Drones = {
     const over = n > this.MAX_N ? n / this.MAX_N : 1;
     return Object.assign({}, t, {
       n: Math.min(this.MAX_N, n),
-      dmg: Math.max(1, Math.round(t.dmg * over))
+      // thuộc tính ẩn PHI ĐỘI của gara tiến hóa, nhân sau làm tròn (như súng chính)
+      dmg: Math.max(1, Math.round(t.dmg * over)) * SC.EvoGarage.mul('drone')
     });
   },
 
@@ -8082,6 +8092,7 @@ SC.MenuCard = {
     set('logoTag', 'CHIẾN DỊCH · VÔ TẬN · AUTO BẮN');
 
     this.hookLine(ui, lv, biome, per);
+    SC.GarageUI.syncButton();     // nút GARA chỉ hiện ở kênh có tiến hóa
     SC.AuthPanel.sync();          // thẻ hồ sơ + danh hiệu + trạng thái đăng nhập
   },
 
@@ -9466,6 +9477,8 @@ SC.TreeUI = {
     wrap.innerHTML = this._variantCard();
     for (const k of SC.TREE_KEYS) wrap.appendChild(this._branch(k));
     wrap.appendChild(this._gold());
+    const evo = SC.GarageUI.treeCard();          // mục TIẾN HÓA (chỉ kênh zingplay)
+    if (evo) wrap.appendChild(evo);
     wrap.appendChild(this._rebuild());
 
     document.getElementById('treeCoin').textContent = this.num(SC.UI.progress.coin);
@@ -10348,23 +10361,30 @@ SC.EVO_KW = {
      STYLE của bộ sprite hiện tại (tools/gen-assets.mjs) để tàu mới không lạc tông. */
   /* styleBtn = style người chơi BẤM ở nút GEN LẠI — thắng từ khóa style trong bộ
      (lệnh trực tiếp thắng vận may). Bộ lai 2 con vật thì DNA phải giữ CẢ HAI. */
-  prompt(kws, styleBtn, seed) {
+  /* attempt = lượt gen thứ mấy của bộ (1 = lần đầu). 22/09/2026: bộ lai sói + gấu
+     trúc ra hẳn một CON THÚ đứng dang tay — nhìn ghê và không giống máy bay trong
+     game bắn máy bay dọc. Giờ góc nhìn TOP-DOWN + "là máy bay trước, con vật sau"
+     đứng ĐẦU prompt; gen lại (attempt ≥ 2) còn siết chặt hơn nữa. */
+  prompt(kws, styleBtn, seed, attempt) {
     const animals = kws.filter(k => k.t === 'animal');
     const trait = (kws.find(k => k.t === 'trait') || {}).en;
     const color = (kws.find(k => k.t === 'color') || {}).en;
     const style = styleBtn || (kws.find(k => k.t === 'style') || {}).en;
     const a1 = animals[0] ? animals[0].en : 'rooster';
-    const dau = animals.length > 1
-      ? `a hybrid fighter aircraft fusing a ${a1} and a ${animals[1].en} into one creature-plane`
-      : `a heroic fighter aircraft styled as a ${a1}`;
+    const theme = animals.length > 1 ? `a hybrid of a ${a1} and a ${animals[1].en}` : `a ${a1}`;
     const dna = animals.map(a => {
       const it = a.dna ? a : this.animal.find(x => x.en === a.en);
-      return it && it.dna ? `from the ${a.en}: ${it.dna}` : '';
+      return it && it.dna ? `${a.en}: ${it.dna}` : '';
     }).filter(Boolean).join('; ');
     return [
+      'top-down view from directly above, vertical shoot-em-up game sprite of a FIGHTER AIRCRAFT, '
+        + 'nose pointing up, two wings spread left and right',
+      ...(attempt >= 2 ? ['STRICTLY an aircraft silhouette seen from above, never a standing creature, '
+        + 'no legs, no arms, no full animal body'] : []),
       ...(style && this.STYLES[style] ? [this.STYLES[style].en] : []),
-      dau,
-      ...(dna ? [`the aircraft body MUST keep the anatomy DNA — ${dna}`] : []),
+      `the aircraft is themed as ${theme}: the animal head forms the nose and cockpit, `
+        + 'its features blend into the fuselage, wings and tail',
+      ...(dna ? [`recognizable animal DNA built into the plane shape — ${dna}`] : []),
       ...(seed ? [`unique personal livery: ${this.livery(seed)}`] : []),
       ...(trait ? [`personality: ${trait} — show it clearly in the face and pose`] : []),
       ...(color ? [`dominant color scheme: ${color}`] : []),
@@ -10551,7 +10571,8 @@ SC.EvoAI = {
     const seed = ((SC.M365 && SC.M365.info && SC.M365.info.email) || prof.name || 'phi cong')
       + '#' + (prof.id || 0) + '·' + (this.st().n || 0);
     const [ship, drone] = await Promise.all([
-      this._genOne(ep, SC.EVO_KW.prompt(kws, style, seed), signal),
+      // rolls đã trừ trước khi gọi mạng: 1 = lượt đầu, ≥2 = gen lại -> prompt siết top-down
+      this._genOne(ep, SC.EVO_KW.prompt(kws, style, seed, this.st().rolls || 1), signal),
       this._genOne(ep, SC.EVO_KW.dronePrompt(kws, style), signal)
     ]);
     return { ship, drone };
@@ -10604,11 +10625,10 @@ SC.EvoAI = {
      ĐỐT bộ từ khóa */
   accept(pack) {
     const e = this.st();
-    const name = e.kw.slice(0, 3).map(k => k.vi).join(' ');
-    try {
-      localStorage.setItem(this._sk(),
-        JSON.stringify({ dataUrl: pack.ship, droneUrl: pack.drone || '', name, at: Date.now() }));
-    } catch (err) { /* localStorage đầy — bộ này vẫn dùng được tới hết phiên */ }
+    const kws = e.kw.slice(0, 3);
+    const name = kws.map(k => k.vi).join(' ');
+    // cất vào GARA (ảnh nén + sổ thuộc tính ẩn) — system-evo-garage.js
+    SC.EvoGarage.add(pack, kws);
     this._apply(pack.ship, pack.drone);
     // sổ tổ hợp đã ghép — nguồn cho luật chống trùng ở award(); giữ 20 bộ gần nhất
     e.hist = (e.hist || []).slice(-19);
@@ -10635,17 +10655,7 @@ SC.EvoAI = {
   /* Gọi mỗi khi ĐỔI/TẠO/XOÁ hồ sơ (ui-profile-panel._reloadProgress): tàu là của
      từng hồ sơ, đổi người là đổi tàu — bug 21/09: hồ sơ mới toanh vẫn bay tàu evo
      của hồ sơ trước vì key lưu dùng chung. */
-  onProfileChange() {
-    try {
-      const raw = localStorage.getItem(this._sk());
-      if (raw) {
-        const o = JSON.parse(raw);
-        this._apply(o.dataUrl, o.droneUrl || '');
-        return;
-      }
-    } catch (e) { /* đọc hỏng thì coi như chưa có tàu */ }
-    this.restoreDefault();
-  },
+  onProfileChange() { SC.EvoGarage.applyEquipped(); },
 
   /* Khởi động (hoãn 1 tick cho SC.Game.init nạp hồ sơ xong): chụp tham chiếu
      sprite gốc để còn đường quay về, di trú bản lưu key-chung đời đầu về key
@@ -10744,6 +10754,247 @@ SC.EvoShard = {
 /* Mảnh vào bảng vật phẩm với trọng số 0: KHÔNG BAO GIỜ rơi ngẫu nhiên từ quái
    thường (_roll cộng theo w), chỉ SC.Items.drop(..., 'evoShard') chủ động nhả. */
 SC.ITEM_DEF.push({ k: 'evoShard', w: 0, c: '#c58cff', ic: '🧬' });
+
+;
+/* ===== js/system-evo-garage.js ===== */
+/* system-evo-garage.js — GARA chiến đấu cơ tiến hóa + thuộc tính ẩn (22/09/2026)
+ *
+ * Tàu gen từ AI là TÀI SẢN QUÝ và độc nhất của người chơi, nên:
+ *   - mọi tàu từng ghép đều được giữ lại, chọn lại được bất cứ lúc nào (gara);
+ *   - mỗi tàu kích hoạt 3 THUỘC TÍNH ẨN (+1% mỗi từ khóa) và CỘNG DỒN qua mọi tàu
+ *     đã sở hữu, kể cả khi đang bay tàu khác;
+ *   - CÂN BẰNG ĐỘNG: tàu mới làm quái mạnh DẦN lên tương ứng trong 1-6 màn (ngẫu nhiên)
+ *     rồi bù hết — người chơi được "phê" một nhịp rồi về đúng nhịp cân bằng cũ.
+ *
+ * Hai lớp lưu trữ, CỐ Ý tách:
+ *   - progress.evo.owned (sổ tàu: từ khóa, chỉ số, màn mở khoá) — nhỏ, theo mây;
+ *   - localStorage 'sc.evoGarage.<id hồ sơ>' (ảnh webp đã nén) — nặng, theo máy.
+ *   Ảnh gốc PNG 1024px ~1.5MB, nhét nguyên vào localStorage (~5MB) được 3 tàu là hết
+ *   chỗ; nén về webp 256px còn ~20-40KB.
+ */
+
+SC.EvoGarage = {
+  KEY: 'sc.evoGarage',
+  STATS: ['hp', 'atk', 'drone', 'armor'],
+  STAT_VI: { hp: 'MÁU', atk: 'SÁT THƯƠNG', drone: 'PHI ĐỘI', armor: 'GIÁP' },
+  /* con vật quyết thuộc tính theo "tính loài" — nhìn tàu là đoán được nó mạnh gì */
+  ANIMAL_STAT: { panda: 'hp', 't-rex dinosaur': 'hp', rooster: 'armor', dragon: 'armor',
+    shark: 'atk', wolf: 'atk', eagle: 'atk', cat: 'atk',
+    owl: 'drone', octopus: 'drone', bee: 'drone', fox: 'drone' },
+
+  _k() { const p = SC.Profiles.cur(); return this.KEY + '.' + (p ? p.id : 0); },
+  owned() { return (SC.UI.progress.evo && SC.UI.progress.evo.owned) || []; },
+
+  /* 3 từ khóa -> 3 lần +1%: con vật theo tính loài, còn lại theo băm từ khóa */
+  statsOf(ens) {
+    const s = { hp: 0, atk: 0, drone: 0, armor: 0 };
+    ens.forEach(en => { s[this.ANIMAL_STAT[en] || this.STATS[SC.EVO_KW._hash(en) % 4]] += 1; });
+    return s;
+  },
+
+  /* tên tiếng Việt của một từ khóa (sổ cũ chỉ lưu tiếng Anh) */
+  _vi(en) {
+    for (const t of ['animal', 'trait', 'color', 'style']) {
+      const it = (SC.EVO_KW[t] || []).find(x => x.en === en);
+      if (it) return it.vi;
+    }
+    return en;
+  },
+
+  /* tổng % của một thuộc tính trên MỌI tàu đã sở hữu */
+  pct(stat) { return this.owned().reduce((a, o) => a + ((o.stats && o.stats[stat]) || 0), 0); },
+  mul(stat) { return 1 + this.pct(stat) / 100; },
+  totalPct() { return this.STATS.reduce((a, s) => a + this.pct(s), 0); },
+
+  /* % đã "ngấm" vào độ khó ở màn lv: mỗi tàu ngấm tuyến tính trong span màn sau khi mở */
+  _ramp(stat, lv) {
+    return this.owned().reduce((a, o) =>
+      a + ((o.stats && o.stats[stat]) || 0) * SC.clamp((lv - o.lv) / (o.span || 1), 0, 1), 0);
+  },
+  /* sức công của người chơi (súng + một phần phi đội) -> quái trâu hơn tương ứng */
+  enemyHpMul(lv) { return (1 + this._ramp('atk', lv) / 100) * (1 + this._ramp('drone', lv) * 0.3 / 100); },
+  /* sức thủ (máu + giáp) -> quái đánh đau hơn tương ứng */
+  enemyDmgMul(lv) { return (1 + this._ramp('hp', lv) / 100) * (1 + this._ramp('armor', lv) / 100); },
+
+  /* ---------- ảnh trong máy ---------- */
+  images() { try { return JSON.parse(localStorage.getItem(this._k()) || '[]'); } catch (e) { return []; } },
+  _saveImages(list) {
+    try { localStorage.setItem(this._k(), JSON.stringify(list)); return true; }
+    catch (e) { return false; }                  // hết chỗ: tàu vẫn có trong sổ, chỉ thiếu ảnh
+  },
+  imageOf(id) { return this.images().find(x => x.id === id) || null; },
+
+  /* nén dataURL về webp vuông size px — ảnh AI có alpha nên KHÔNG dùng jpeg */
+  compress(url, size) {
+    return new Promise(res => {
+      const img = new Image();
+      img.onload = () => {
+        const c = document.createElement('canvas');
+        c.width = c.height = size;
+        c.getContext('2d').drawImage(img, 0, 0, size, size);
+        try { res(c.toDataURL('image/webp', 0.86)); } catch (e) { res(url); }
+      };
+      img.onerror = () => res(url);
+      img.src = url;
+    });
+  },
+
+  /* Ghép xong một bộ: ghi sổ (chỉ số + nhịp cân bằng) rồi cất ảnh nén vào gara */
+  async add(pack, kws) {
+    const e = SC.EvoAI.st();
+    const id = 'e' + Date.now().toString(36);
+    const ens = kws.map(k => k.en);
+    if (!e.owned) e.owned = [];
+    e.owned.push({ id, ens, names: kws.map(k => k.vi), stats: this.statsOf(ens),
+      lv: SC.UI.progress.unlocked || 1, span: 1 + ((Math.random() * 6) | 0), at: Date.now() });
+    e.equip = id;
+    SC.UI.save();
+    SC.Cloud.markDirty();
+    const [ship, drone] = await Promise.all([
+      this.compress(pack.ship, 256), pack.drone ? this.compress(pack.drone, 128) : ''
+    ]);
+    const list = this.images();
+    list.push({ id, ship, drone });
+    this._saveImages(list);
+    return id;
+  },
+
+  equip(id) {
+    const e = SC.EvoAI.st();
+    e.equip = id || null;
+    SC.UI.save();
+    SC.Cloud.markDirty();
+    this.applyEquipped();
+  },
+
+  /* Lên tàu đang chọn của hồ sơ đang mở; chưa chọn / thiếu ảnh -> tàu nguyên bản */
+  applyEquipped() {
+    this._migrate();
+    const e = SC.UI.progress.evo;
+    const im = e && e.equip ? this.imageOf(e.equip) : null;
+    if (im) SC.EvoAI._apply(im.ship, im.drone || '');
+    else SC.EvoAI.restoreDefault();
+  },
+
+  /* Di trú một lần từ kho tàu-đơn đời trước ('sc.evoShip.<id>'): tàu đang có vào
+     gara, sổ lấy từ lịch sử tổ hợp — người chơi cũ không mất tàu nào đã kiếm */
+  _migrate() {
+    const e = SC.EvoAI.st();
+    let cu = null;
+    try { cu = localStorage.getItem(SC.EvoAI._sk()); } catch (x) { return; }
+    if (!cu || (e.owned && e.owned.length)) return;
+    const hist = e.hist && e.hist.length ? e.hist : ['legacy'];
+    e.owned = hist.map((h, i) => {
+      const ens = h === 'legacy' ? [] : h.split('|');
+      return { id: 'm' + i, ens, names: ens.length ? ens.map(en => this._vi(en)) : ['TÀU ĐỜI ĐẦU'],
+        stats: this.statsOf(ens), lv: 0, span: 1, at: 0 };
+    });
+    e.equip = e.owned[e.owned.length - 1].id;
+    try {
+      const o = JSON.parse(cu);
+      this._saveImages([{ id: e.equip, ship: o.dataUrl, drone: o.droneUrl || '' }]);
+      localStorage.removeItem(SC.EvoAI._sk());
+    } catch (x) {}
+    SC.UI.save();
+  }
+};
+
+;
+/* ===== js/ui-evo-garage.js ===== */
+/* ui-evo-garage.js — màn GARA: nơi KHOE và CHỌN LẠI mọi chiến đấu cơ tiến hóa
+ *
+ * Tinh thần gara xe: mỗi tàu đứng trên một bệ có đèn rọi, số hiệu riêng, tên tổ hợp
+ * và thuộc tính ẩn của nó. Tàu nào cũng độc nhất (RNG chống trùng + livery cá nhân),
+ * nên màn này là bộ sưu tập chứ không phải cửa hàng — không có giá, chỉ có "DÙNG".
+ *
+ * Lối vào: nút GARA ở lobby + thẻ TIẾN HÓA trong cây kỹ năng. Chỉ hiện trên kênh có
+ * tính năng tiến hóa (zingplay.dev) — portal công khai không thấy.
+ */
+
+SC.GarageUI = {
+  init(on) {
+    on('btnGarage', () => this.open());
+    on('btnGarageBack', () => { SC.UI.show('menu'); SC.UI.syncMenu(); });
+    document.getElementById('garList').addEventListener('click', e => {
+      const b = e.target.closest('button[data-eq]');
+      if (!b) return;
+      SC.Audio.power();
+      SC.EvoGarage.equip(b.dataset.eq || null);
+      SC.UI.toast(b.dataset.eq ? 'ĐÃ LÊN TÀU' : 'VỀ TÀU NGUYÊN BẢN');
+      this.build();
+    });
+  },
+
+  /* nút GARA ở lobby chỉ hiện khi kênh có tiến hóa — ui-menu-card gọi mỗi lần sync */
+  syncButton() {
+    const b = document.getElementById('btnGarage');
+    if (b) b.classList.toggle('hidden', !SC.EvoAI.active());
+  },
+
+  open() { SC.UI.show('garage'); this.build(); },
+
+  _chips(stats) {
+    return SC.EvoGarage.STATS.filter(s => stats && stats[s])
+      .map(s => `<i class="gar-chip">+${stats[s]}% ${SC.EvoGarage.STAT_VI[s]}</i>`).join('');
+  },
+
+  build() {
+    const own = SC.EvoGarage.owned();
+    const eq = (SC.UI.progress.evo && SC.UI.progress.evo.equip) || null;
+    const imgs = SC.EvoGarage.images();
+    document.getElementById('garCount').textContent = own.length;
+    document.getElementById('garPerks').innerHTML = SC.EvoGarage.STATS
+      .map(s => `<span><b>+${SC.EvoGarage.pct(s)}%</b>${SC.EvoGarage.STAT_VI[s]}</span>`).join('');
+
+    // bệ số 0: tàu nguyên bản — luôn chọn lại được
+    const goc = SC.EvoAI._orig && SC.EvoAI._orig.ship ? SC.EvoAI._orig.ship.src : '';
+    let html = this._card({ id: '', sn: '#00', name: 'NGUYÊN BẢN', img: goc,
+      chips: '<i class="gar-chip dim">Tàu xuất xưởng</i>', on: !eq });
+
+    // mới nhất lên đầu — tàu vừa ghép là thứ người chơi muốn ngắm nhất
+    own.slice().reverse().forEach((o, ri) => {
+      const i = own.length - 1 - ri;
+      const im = imgs.find(x => x.id === o.id);
+      html += this._card({ id: o.id, sn: '#' + String(i + 1).padStart(2, '0'),
+        name: (o.names || []).map(n => SC.Rank.esc(String(n).toUpperCase())).join(' · '),
+        img: im ? im.ship : '', chips: this._chips(o.stats), on: eq === o.id });
+    });
+    document.getElementById('garList').innerHTML = html;
+  },
+
+  _card(c) {
+    const hinh = c.img
+      ? `<img src="${c.img}" alt="">`
+      : '<span class="gar-miss">ảnh đang ở<br>máy khác</span>';
+    return `<div class="gar-card${c.on ? ' on' : ''}">
+      <div class="gar-stage">${hinh}<i class="gar-sn">${c.sn}</i></div>
+      <b class="gar-name">${c.name}</b>
+      <div class="gar-chips">${c.chips}</div>
+      <button class="btn ${c.on ? 'ghost' : 'primary'} small" data-eq="${c.id}"${c.on ? ' disabled' : ''}>
+        ${c.on ? 'ĐANG BAY' : 'DÙNG'}</button>
+    </div>`;
+  },
+
+  /* Thẻ TIẾN HÓA trong cây kỹ năng: tổng thuộc tính ẩn + lối vào gara */
+  treeCard() {
+    if (!SC.EvoAI.active()) return null;
+    const row = document.createElement('div');
+    row.className = 'tree-row extra evo-tree';
+    row.innerHTML = `
+      <div class="tree-top">
+        <div class="shop-ic">🧬</div>
+        <div class="shop-mid">
+          <div class="tree-name">TIẾN HÓA <em>${SC.EvoGarage.owned().length} chiến đấu cơ</em></div>
+          <div class="gar-chips">${SC.EvoGarage.STATS.map(s =>
+            `<i class="gar-chip">+${SC.EvoGarage.pct(s)}% ${SC.EvoGarage.STAT_VI[s]}</i>`).join('')}</div>
+          <div class="shop-desc">Thuộc tính ẩn cộng dồn từ mọi chiến đấu cơ đã ghép</div>
+        </div>
+        <button class="shop-buy gar-open">GARA</button>
+      </div>`;
+    row.querySelector('.shop-buy').onclick = () => { SC.Audio.click(); this.open(); };
+    return row;
+  }
+};
 
 ;
 /* ===== js/ui-evo-gacha.js ===== */
@@ -11180,7 +11431,7 @@ SC.UI = {
       pause: id('scrPause'), result: id('scrResult'), tree: id('scrTree'), brief: id('scrBrief'),
       fork: id('scrFork'), codex: id('scrCodex'), evo: id('scrEvo'), gift: id('scrGift'),
       rank: id('scrRank'), merge: id('scrMerge'), profile: id('scrProfile'), setup: id('scrSetup'),
-      evoai: id('scrEvoAI'), gacha: id('scrGacha'),
+      evoai: id('scrEvoAI'), gacha: id('scrGacha'), garage: id('scrGarage'),
       options: id('scrOptions'), victory: id('scrVictory'),
       hpFill: id('hpFill'), shFill: id('shFill'),
       score: id('hudScore'), coin: id('hudCoin'), level: id('hudLevel'),
@@ -11237,6 +11488,7 @@ SC.UI = {
     SC.Evolution.init(on);
     SC.EvoAIUI.init(on);
     SC.EvoGachaUI.init();
+    SC.GarageUI.init(on);
     SC.Gift.init(on);
     SC.Brief.init(on);
     SC.Rank.init(on);
@@ -11266,7 +11518,7 @@ SC.UI = {
   /* ---------- điều hướng màn hình ---------- */
   show(which) {
     for (const k of ['menu', 'maps', 'pause', 'result', 'tree', 'codex', 'brief', 'rank',
-      'profile', 'options', 'victory'])
+      'profile', 'options', 'victory', 'garage'])
       this.el[k].classList.add('hidden');
     this.el.hud.classList.toggle('hidden', which !== 'game');
     if (this.el[which]) this.el[which].classList.remove('hidden');
