@@ -13111,6 +13111,9 @@ SC.Game = {
     SC.FX.clear();
     SC.Bullets.clear();
     SC.Items.clear();
+    // rung + vệt mực/vật bay chiêu trùm (BossSkills.clear dọn cả Splats lẫn BossSig)
+    SC.shake.t = 0; SC.shake.power = 0;
+    SC.BossSkills.clear();
     document.getElementById('missionPanel').classList.add('hidden');
     SC.UI.show('menu');
     SC.UI.syncMenu();
@@ -13123,6 +13126,11 @@ SC.Game = {
     SC.View.poll();
     if (this.state === 'play') this.update(dt);
     else SC.BG.update(dt);        // nền vẫn chạy ở menu / pause cho sinh động
+    /* Rung màn hình giảm dần ở MỌI trạng thái, không chỉ lúc chơi.
+       BẪY ĐÃ SẬP (22/09/2026, live): bản cũ chỉ trừ shake.t trong update() — thoát màn
+       đúng lúc đang rung (trùm nổ, ăn bom, chết) thì t đóng băng >0, renderer vẫn
+       rung, cả lobby giật ±8px mãi không dứt. */
+    if (SC.shake.t > 0) { SC.shake.t -= dt; if (SC.shake.t <= 0) { SC.shake.t = 0; SC.shake.power = 0; } }
     this.render(dt);
     requestAnimationFrame(t => this.loop(t));
   },
@@ -13217,8 +13225,7 @@ SC.Game = {
     SC.UI.setStats(this.score, this.coin);
     SC.UI.setTimer(this.stats.time, SC.Missions.timeTarget());
 
-    // rung màn hình giảm dần
-    if (SC.shake.t > 0) { SC.shake.t -= dt; if (SC.shake.t <= 0) SC.shake.power = 0; }
+    // (rung màn hình giảm dần ở loop() — chạy cả ngoài trạng thái chơi)
 
     // điều kiện kết thúc — chờ dù cuối rơi xong mới tính là hết màn
     // Hết quái thì cắt dù thừa chưa thả (giữ đúng số còn thiếu cho nhiệm vụ),
