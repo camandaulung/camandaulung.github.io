@@ -8005,7 +8005,24 @@ SC.Cloud = {
   /* Bảng xếp hạng toàn cầu. Đệm 60 giây nằm trong `Portal.Rank`. */
   rank(tab) {
     const [field, dir] = this.ORDER[tab];
-    return Portal.Rank.top('scores', field, { dir, limit: 100 });
+    return Portal.Rank.top('scores', field, { dir, limit: 100 }).then(rows => {
+      /* KHỬ TRÙNG LẶP M365 (bug thấy trên banga 21/09/2026): uid ẩn danh sống theo
+         TRÌNH DUYỆT, nên một người chơi trên 2 máy = 2 dòng cùng m365Email. Bảng đã
+         sắp theo thành tích — dòng ĐẦU TIÊN của mỗi email là dòng tốt nhất, các dòng
+         sau bỏ khỏi hiển thị (bản ghi trong Firestore vẫn còn, chỉ là không chiếm
+         chỗ trên bảng). Dòng không có email (đăng nhập Google, khách) giữ nguyên.
+         Lọc xong phải đánh lại pos, không thì bảng hiện 1-2-4-5. */
+      const seen = new Set();
+      return rows
+        .filter(r => {
+          const k = (r.m365Email || '').toLowerCase();
+          if (!k) return true;
+          if (seen.has(k)) return false;
+          seen.add(k);
+          return true;
+        })
+        .map((r, i) => Object.assign(r, { pos: i + 1 }));
+    });
   },
 
   /* ---------- điểm để so hai bản tiến độ ---------- */
@@ -8414,7 +8431,12 @@ SC.Rank = {
     } else if (!me) {
       foot.className = 'rank-me hint-row';
       foot.innerHTML = 'Đăng nhập để ghi tên mình lên bảng';
-    } else if (rows.some(r => r.uid === me.uid)) {
+    } else if (rows.some(r => r.uid === me.uid
+        // Dòng của mình có thể đã bị khử-trùng-lặp M365 (uid khác máy nhưng cùng
+        // người) — email trùng với dòng đang hiện nghĩa là MÌNH ĐANG TRÊN BẢNG,
+        // đừng hiện thêm footer "ngoài bảng" với con số tệ hơn.
+        || (SC.M365 && SC.M365.info && SC.M365.info.email && r.m365Email
+            && r.m365Email.toLowerCase() === SC.M365.info.email.toLowerCase()))) {
       foot.className = 'rank-me hidden';
     } else {
       const s = SC.Cloud.stats();
@@ -10424,12 +10446,20 @@ SC.M365 = {
     }
   },
 
-  /* Chỉ đè tên MẶC ĐỊNH. Người chơi đã tự đặt tên thì tôn trọng — tên là của họ. */
+  /* Chỉ đè tên MẶC ĐỊNH (hoặc tên do chính module này đặt trước đây).
+     Người chơi đã tự đặt tên thì tôn trọng — tên là của họ. */
   _nameProfile() {
     const p = SC.Profiles.cur();
     if (!p) { this._dbg('hồ sơ chưa nạp — bỏ qua đổi tên'); return; }
-    if (!/^PHI CÔNG \d+$/.test(p.name)) { this._dbg('giữ tên tự đặt: ' + p.name); return; }
-    p.name = this.info.name.toUpperCase().slice(0, 14);   // 14 = maxlength ô đặt tên
+    // Tên tài khoản domain để CHỮ THƯỜNG (yêu cầu 21/09/2026 — bản đầu in hoa).
+    const ten = this.info.name.toLowerCase().slice(0, 14);   // 14 = maxlength ô đặt tên
+    // Bản in hoa cũ do chính module đặt → được phép migrate xuống chữ thường.
+    const tenCu = this.info.name.toUpperCase().slice(0, 14);
+    if (!/^PHI CÔNG \d+$/.test(p.name) && p.name !== tenCu) {
+      this._dbg('giữ tên tự đặt: ' + p.name); return;
+    }
+    if (p.name === ten) { this._dbg('tên đã đúng: ' + ten); return; }
+    p.name = ten;
     SC.Profiles.save();
     this._dbg('đã đổi tên hồ sơ → ' + p.name);
   },
