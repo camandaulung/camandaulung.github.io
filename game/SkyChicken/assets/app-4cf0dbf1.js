@@ -8056,6 +8056,11 @@ SC.Cloud = {
         const out = { highestLevel: s.highestLevel, totalStars: s.totalStars };
         if (s.campaignTime !== null) out.bestTime = s.campaignTime;
         else if (hadDoc) out.bestTime = fsM.deleteField();
+        /* Bản deploy zingplay.dev: đính email tài khoản domain vào bản ghi điểm.
+           uid anonymous sống theo trình duyệt nên email là manh mối gộp/đối chiếu
+           sau này. Luật scores/ không khoá danh sách trường — thêm là hợp lệ. */
+        if (SC.M365 && SC.M365.info && SC.M365.info.email)
+          out.m365Email = SC.M365.info.email.slice(0, 80);
         return out;
       },
 
@@ -8387,9 +8392,13 @@ SC.Rank = {
     if (!rows.length) {
       wrap.innerHTML = banner + `<p class="rank-note">${this.EMPTY[this.tab]()}</p>`;
     } else {
+      // Top 3 đeo medal AI (đợt 2) thay số; hỏng ảnh thì onerror trả lại con số —
+      // cùng chiến thuật fallback với icon cây kỹ năng (ui-tree.js).
       wrap.innerHTML = banner + rows.map(r => `
         <div class="rank-row${r.me || (me && r.uid === me.uid) ? ' me' : ''}">
-          <span class="rank-pos${r.pos <= 3 ? ' top' : ''}">${r.pos}</span>
+          <span class="rank-pos${r.pos <= 3 ? ' top' : ''}">${r.pos <= 3
+            ? `<img src="assets/art-game/ui-badge-medal-${r.pos}.webp" alt="${r.pos}" onerror="if(this.r)this.replaceWith('${r.pos}');else{this.r=1;this.src=this.src}">`
+            : r.pos}</span>
           ${r.emoji ? `<span class="rank-av emo">${r.emoji}</span>`
             : r.avatar ? `<img class="rank-av" src="${this.esc(r.avatar)}" alt="">`
             : '<span class="rank-av"></span>'}
@@ -10305,5 +10314,151 @@ SC.Game = {
 };
 
 SC.Game.init();
+
+;
+/* ===== js/system-m365-identity.js ===== */
+/* system-m365-identity.js — danh tính tài khoản domain (M365) khi game chạy sau
+ * oauth2-proxy trên *.zingplay.dev (bản deploy nội bộ, vd banga.zingplay.dev).
+ *
+ * BỐI CẢNH: trên hạ tầng zingplay.dev, người dùng ĐÃ đăng nhập M365 ở tầng proxy
+ * trước khi thấy game — bắt họ bấm thêm "Đăng nhập Google" là vô lý. Module này:
+ *   1. Hỏi oauth2-proxy (`/oauth2/userinfo`, cùng origin, ăn cookie phiên) lấy
+ *      email + tên tài khoản domain.
+ *   2. Hồ sơ đang mở còn tên mặc định ("PHI CÔNG n") thì đổi thành tên domain —
+ *      tên này chính là tên hiện trên BXH (SC.Cloud.playerName đọc tên hồ sơ).
+ *   3. Lấy "vé ghi điểm" bằng Firebase ANONYMOUS auth: luật Firestore đòi
+ *      request.auth != null, còn danh tính thật nằm ở tên + trường m365Email
+ *      trong bản ghi điểm (cloud-adapter.js đính kèm).
+ *
+ * VÌ SAO KHÔNG đăng nhập Google: user M365 không có phiên Google, và popup Google
+ * sau proxy nội bộ vừa thừa vừa dễ bị chặn. Anonymous chỉ cần bật provider
+ * "Anonymous" trong Firebase console — không cần thêm authorized domain.
+ *
+ * GIỚI HẠN CHẤP NHẬN: uid anonymous sống theo trình duyệt (IndexedDB). Cùng một
+ * người mở 2 máy = 2 dòng trên bảng (cùng tên + cùng m365Email). Gộp theo email
+ * cần server mint custom token — để sau nếu thật sự cần.
+ *
+ * Ở máy dev / bản portal GitHub Pages: hostname không khớp → module im lặng,
+ * không phát sinh request nào. Hỏng bất kỳ bước nào cũng chỉ console.warn —
+ * game không bao giờ vỡ vì thiếu proxy.
+ */
+
+SC.M365 = {
+  info: null,     // { email, name } — null khi không chạy sau proxy
+  status: 'off',  // vết chân từng bước, đọc được qua ?m365debug (soi trên điện thoại)
+
+  /* Chỉ bật trên *.zingplay.dev — nơi chắc chắn có oauth2-proxy đứng trước */
+  active() { return /(^|\.)zingplay\.dev$/.test(location.hostname); },
+
+  /* Toast chỉ khi URL có ?m365debug — cách duy nhất soi được luồng này trên
+     điện thoại thật, nơi không mở được DevTools. Người chơi thường không thấy gì. */
+  _dbg(s) {
+    this.status = s;
+    if (/m365debug/.test(location.search) && SC.UI && SC.UI.toast) SC.UI.toast('M365: ' + s);
+  },
+
+  async init() {
+    if (!this.active()) { this._dbg('off — ngoài zingplay.dev'); return; }
+    /* Thứ tự: /oauth2/userinfo (nếu platform mở sau này) → /whoami (nginx của game
+       echo header forward-auth — đường ĐANG chạy, xem ghi chú trong build-standalone). */
+    this.info = (await this._userinfo()) || (await this._whoami());
+    if (!this.info) return;                    // proxy không trả — thôi, như khách lạ
+    this._dbg('userinfo OK: ' + this.info.name);
+    this._nameProfile();
+    // vẽ lại thẻ hồ sơ + menu nếu UI đã dựng xong (syncChip mới là chỗ vẽ tên)
+    try {
+      if (SC.AuthPanel && SC.AuthPanel.syncChip) SC.AuthPanel.syncChip();
+      if (SC.UI && SC.UI.syncMenu) SC.UI.syncMenu();
+    } catch (e) { /* UI chưa sẵn — reload sau sẽ đúng vì tên đã lưu */ }
+    await this._ticket();
+  },
+
+  /* oauth2-proxy chuẩn expose /oauth2/userinfo cùng origin, trả JSON có
+     email / user / preferredUsername tuỳ bản cấu hình — đọc kiểu phòng thủ.
+     redirect:'manual': chưa có phiên thì proxy 302 về sign_in — theo redirect là
+     dính CORS chéo origin rồi ném lỗi mù; chặn lại để phân biệt được "bị đá ra
+     sign_in" (opaqueredirect) với "endpoint hỏng" khi debug. */
+  async _userinfo() {
+    try {
+      const r = await fetch('/oauth2/userinfo',
+        { credentials: 'include', redirect: 'manual', headers: { accept: 'application/json' } });
+      if (r.type === 'opaqueredirect' || (r.status >= 300 && r.status < 400)) {
+        this._dbg('userinfo bị redirect — cookie phiên không tới được proxy');
+        return null;
+      }
+      if (!r.ok) { this._dbg('userinfo HTTP ' + r.status); return null; }
+      const j = await r.json();
+      const email = j.email || (typeof j.user === 'string' && j.user.includes('@') ? j.user : '') || '';
+      let name = j.preferredUsername || j.preferred_username || j.user || email;
+      if (typeof name !== 'string') name = email;
+      if (name.includes('@')) name = name.split('@')[0];   // tên tài khoản domain, bỏ đuôi
+      if (!email && !name) { this._dbg('userinfo JSON không có email/user'); return null; }
+      return { email, name: name || email };
+    } catch (e) {
+      this._dbg('userinfo lỗi mạng: ' + (e && e.message));
+      return null;
+    }
+  },
+
+  /* /whoami — endpoint của CHÍNH nginx game (xem tools/build-standalone.mjs), trả
+     các header danh tính mà tầng forward-auth bơm kèm request. Header vắng = chuỗi
+     rỗng, nên gộp fallback hai họ tên header rồi kiểm còn gì thật không. */
+  async _whoami() {
+    try {
+      const r = await fetch('/whoami', { credentials: 'include', headers: { accept: 'application/json' } });
+      if (!r.ok) { this._dbg('whoami HTTP ' + r.status); return null; }
+      const j = await r.json();
+      const email = j.email || j.email2 || '';
+      /* ĐO THẬT trên banga: user2 (X-Auth-Request-User) là UUID của Keycloak chứ
+         không phải tên người — lấy nó làm tên hiển thị là BXH toàn mã máy. Loại
+         mọi giá trị dạng UUID, ưu tiên email (phần trước @ chính là tên domain). */
+      const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      let name = [j.preferredUsername, j.user, email, j.user2]
+        .find(v => v && !uuid.test(v)) || '';
+      if (name.includes('@')) name = name.split('@')[0];
+      if (!email && !name) { this._dbg('whoami: header danh tính trống — SSO không bơm xuống backend'); return null; }
+      return { email, name: name || email };
+    } catch (e) {
+      this._dbg('whoami lỗi mạng: ' + (e && e.message));
+      return null;
+    }
+  },
+
+  /* Chỉ đè tên MẶC ĐỊNH. Người chơi đã tự đặt tên thì tôn trọng — tên là của họ. */
+  _nameProfile() {
+    const p = SC.Profiles.cur();
+    if (!p) { this._dbg('hồ sơ chưa nạp — bỏ qua đổi tên'); return; }
+    if (!/^PHI CÔNG \d+$/.test(p.name)) { this._dbg('giữ tên tự đặt: ' + p.name); return; }
+    p.name = this.info.name.toUpperCase().slice(0, 14);   // 14 = maxlength ô đặt tên
+    SC.Profiles.save();
+    this._dbg('đã đổi tên hồ sơ → ' + p.name);
+  },
+
+  /* Vé ghi điểm: anonymous session. _attach() nối listener onAuthStateChanged của
+     Portal.Auth TRƯỚC khi đăng nhập, nên phiên anonymous đi qua đúng đường ống cũ:
+     Portal.Auth.user được gán → Portal.Cloud.onUser → đồng bộ + ghi điểm như thường. */
+  async _ticket() {
+    if (!Portal.FB.configured()) { this._dbg('Firebase chưa cấu hình'); return; }
+    try {
+      const fb = await Portal.Auth._attach();
+      if (!fb.auth.currentUser) {
+        const cred = await fb.authM.signInAnonymously(fb.auth);
+        // displayName để Portal.Auth.user.name không rơi về 'Người chơi'
+        await fb.authM.updateProfile(cred.user, { displayName: this.info.name })
+          .catch(() => { /* chỉ là nhãn phụ, hỏng không sao */ });
+      }
+      this._dbg('vé ghi điểm OK');
+    } catch (e) {
+      // Thường gặp: provider Anonymous chưa bật trong Firebase console.
+      // Game vẫn chạy, BXH rơi về bảng nội bộ của máy — không chặn người chơi.
+      this._dbg('vé ghi điểm FAIL: ' + ((e && e.code) || e));
+      console.warn('[m365] chưa lấy được vé ghi điểm:', (e && e.code) || e);
+    }
+  }
+};
+
+/* Tự chạy sau khi mọi script đồng bộ đã nạp (file này nằm sau main.js trong
+   index.html, build.mjs giữ nguyên thứ tự) — lúc này adapter cloud đã đăng ký. */
+setTimeout(() => { SC.M365.init(); }, 0);
 
 ;
