@@ -1462,7 +1462,9 @@ body.is-touch .rank-pos img{width:32px;height:32px}
 @keyframes garHover{50%{transform:translateY(-5px)}}
 .gar-sn{position:absolute;top:6px;left:8px;font-style:normal;font-family:var(--font-display);
   font-size:10px;letter-spacing:.1em;color:rgba(255,255,255,.55)}
-.gar-miss{font-size:9.5px;color:var(--dim);line-height:1.5}
+.gar-miss{font-size:9.5px;color:var(--dim);line-height:1.5;text-align:center}
+.gar-miss .gar-recast{margin-top:8px;padding:7px 12px;font-size:10px;
+  background:linear-gradient(180deg,#d9b8ff,#9d6ad8);color:#1a0a2a;box-shadow:0 3px 0 #5a3a8a}
 .gar-name{font-size:9.5px;letter-spacing:.06em;line-height:1.4;color:#fff;min-height:2.8em}
 .gar-chips{display:flex;flex-wrap:wrap;justify-content:center;gap:3px}
 .gar-chip{font-style:normal;font-size:8.5px;letter-spacing:.04em;padding:2px 6px;border-radius:6px;

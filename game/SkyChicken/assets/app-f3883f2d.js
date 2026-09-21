@@ -10562,8 +10562,9 @@ SC.EvoAI = {
   /* Mỗi lượt gen ra CẢ BỘ: tàu + drone hộ tống cùng theme (21/09/2026 — tàu mới
      mà phi đội cũ thì lệch tông). Hai ảnh chạy song song, một cái hỏng là hỏng cả
      lượt — thà vậy còn hơn nửa bộ lệch nhau. 2×$0.007/lượt, vẫn trong hạn mức. */
-  async generate(signal, style) {
-    const kws = this.st().kw.slice(0, 3);
+  /* kwsOverride: đúc lại ảnh cho tàu CŨ đã mất ảnh (system-evo-garage-recover.js) */
+  async generate(signal, style, kwsOverride) {
+    const kws = kwsOverride || this.st().kw.slice(0, 3);
     const ep = this._endpoint();
     /* Seed cá nhân cho lớp áo (livery): danh tính + hồ sơ + số lần tiến hóa —
        cùng bộ từ khóa nhưng khác người/khác lần là tàu khác nhau. */
@@ -10658,29 +10659,30 @@ SC.EvoAI = {
   onProfileChange() { SC.EvoGarage.applyEquipped(); },
 
   /* Khởi động (hoãn 1 tick cho SC.Game.init nạp hồ sơ xong): chụp tham chiếu
-     sprite gốc để còn đường quay về, di trú bản lưu key-chung đời đầu về key
-     theo hồ sơ, rồi lên tàu của hồ sơ đang mở. */
+     sprite gốc để còn đường quay về, rồi lên tàu của hồ sơ đang mở. Việc di trú
+     kho đời trước nằm ở system-evo-garage-recover.js (applyEquipped gọi).
+     BẪY ĐÃ SẬP (22/09/2026): bản trước chép thẳng 'sc.evoShip' (PNG gốc 4MB) sang
+     key theo hồ sơ — trình duyệt phải giữ HAI bản 8MB, vượt hạn mức 5MB, setItem ném
+     lỗi và bị nuốt, gara trắng trơn dù ảnh vẫn còn. Đừng chép ảnh thô giữa hai key. */
   init() {
     this._orig = {
       ship: SC.SpriteArt._imgs['ship-player'],
       swarm: SC.SpriteArt._imgs['drone-swarm'],
       sniper: SC.SpriteArt._imgs['drone-sniper']
     };
-    try {
-      // di trú một lần: bản 21/09 sáng lưu 'sc.evoShip' không gắn hồ sơ —
-      // gán cho hồ sơ ĐANG MỞ (người tạo ra nó) rồi xoá key cũ
-      const cu = localStorage.getItem(this.STORE);
-      if (cu && !localStorage.getItem(this._sk())) localStorage.setItem(this._sk(), cu);
-      if (cu) localStorage.removeItem(this.STORE);
-    } catch (e) {}
     this.onProfileChange();
     return this;
   }
 };
 
-/* Hoãn 1 tick: script này parse TRƯỚC main.js, mà khoá lưu cần biết hồ sơ nào
-   đang mở (SC.Profiles nạp trong SC.Game.init). setTimeout(0) chạy sau cả hai. */
-setTimeout(() => { SC.EvoAI.init(); }, 0);
+/* Chờ DOMContentLoaded chứ KHÔNG setTimeout(0): script này parse TRƯỚC main.js (nơi
+   SC.Profiles nạp) và trước cả system-evo-garage.js. Ở máy dev ~100 file nạp rời,
+   trình duyệt nhường luồng giữa hai thẻ script nên setTimeout(0) có thể nổ trước khi
+   gara kịp định nghĩa -> TypeError, không cứu tàu được (dính 22/09/2026).
+   DOMContentLoaded chỉ nổ khi MỌI thẻ script đã chạy xong. */
+if (document.readyState === 'loading')
+  document.addEventListener('DOMContentLoaded', () => SC.EvoAI.init());
+else setTimeout(() => SC.EvoAI.init(), 0);
 
 ;
 /* ===== js/system-evo-shard.js ===== */
@@ -10792,15 +10794,6 @@ SC.EvoGarage = {
     return s;
   },
 
-  /* tên tiếng Việt của một từ khóa (sổ cũ chỉ lưu tiếng Anh) */
-  _vi(en) {
-    for (const t of ['animal', 'trait', 'color', 'style']) {
-      const it = (SC.EVO_KW[t] || []).find(x => x.en === en);
-      if (it) return it.vi;
-    }
-    return en;
-  },
-
   /* tổng % của một thuộc tính trên MỌI tàu đã sở hữu */
   pct(stat) { return this.owned().reduce((a, o) => a + ((o.stats && o.stats[stat]) || 0), 0); },
   mul(stat) { return 1 + this.pct(stat) / 100; },
@@ -10822,7 +10815,14 @@ SC.EvoGarage = {
     try { localStorage.setItem(this._k(), JSON.stringify(list)); return true; }
     catch (e) { return false; }                  // hết chỗ: tàu vẫn có trong sổ, chỉ thiếu ảnh
   },
-  imageOf(id) { return this.images().find(x => x.id === id) || null; },
+  /* ảnh bản đẹp ở máy này; không có thì ảnh thu nhỏ trong sổ (theo mây) — xem
+     system-evo-garage-recover.js */
+  imageOf(id) {
+    const im = this.images().find(x => x.id === id);
+    if (im) return im;
+    const o = this.owned().find(x => x.id === id);
+    return o && o.thumb ? { id, ship: o.thumb, drone: '' } : null;
+  },
 
   /* nén dataURL về webp vuông size px — ảnh AI có alpha nên KHÔNG dùng jpeg */
   compress(url, size) {
@@ -10845,17 +10845,15 @@ SC.EvoGarage = {
     const id = 'e' + Date.now().toString(36);
     const ens = kws.map(k => k.en);
     if (!e.owned) e.owned = [];
-    e.owned.push({ id, ens, names: kws.map(k => k.vi), stats: this.statsOf(ens),
-      lv: SC.UI.progress.unlocked || 1, span: 1 + ((Math.random() * 6) | 0), at: Date.now() });
+    const o = { id, ens, names: kws.map(k => k.vi), stats: this.statsOf(ens),
+      lv: SC.UI.progress.unlocked || 1, span: 1 + ((Math.random() * 6) | 0), at: Date.now() };
+    e.owned.push(o);
     e.equip = id;
     SC.UI.save();
+    // ảnh bản đẹp vào máy + ảnh thu nhỏ vào sổ (theo mây) — mất máy vẫn còn tàu
+    await SC.EvoRecover.attach(o, pack.ship, pack.drone);
+    SC.UI.save();
     SC.Cloud.markDirty();
-    const [ship, drone] = await Promise.all([
-      this.compress(pack.ship, 256), pack.drone ? this.compress(pack.drone, 128) : ''
-    ]);
-    const list = this.images();
-    list.push({ id, ship, drone });
-    this._saveImages(list);
     return id;
   },
 
@@ -10869,33 +10867,121 @@ SC.EvoGarage = {
 
   /* Lên tàu đang chọn của hồ sơ đang mở; chưa chọn / thiếu ảnh -> tàu nguyên bản */
   applyEquipped() {
-    this._migrate();
-    const e = SC.UI.progress.evo;
-    const im = e && e.equip ? this.imageOf(e.equip) : null;
-    if (im) SC.EvoAI._apply(im.ship, im.drone || '');
-    else SC.EvoAI.restoreDefault();
+    // cứu kho đời trước (nếu còn) TRƯỚC khi lên tàu — xem system-evo-garage-recover.js
+    SC.EvoRecover.migrate().catch(() => {}).then(() => {
+      const e = SC.UI.progress.evo;
+      const im = e && e.equip ? this.imageOf(e.equip) : null;
+      if (im) SC.EvoAI._apply(im.ship, im.drone || '');
+      else SC.EvoAI.restoreDefault();
+      if (SC.GarageUI && SC.UI.el.garage && !SC.UI.el.garage.classList.contains('hidden'))
+        SC.GarageUI.build();
+    });
+  }
+};
+
+;
+/* ===== js/system-evo-garage-recover.js ===== */
+/* system-evo-garage-recover.js — cứu tàu tiến hóa, không để tài sản của người chơi mất
+ *
+ * Ba lớp, xếp từ rẻ tới đắt:
+ *   1. migrate(): dựng sổ gara từ lịch sử tổ hợp (progress.evo.hist, theo mây) + cứu ảnh
+ *      từ các kho đời trước ('sc.evoShip' chung, 'sc.evoShip.<id>' theo hồ sơ).
+ *   2. thumb: mỗi tàu kèm ảnh thu nhỏ ~10KB NGAY TRONG SỔ -> theo mây + gương M365, đổi
+ *      máy hay xoá dữ liệu trình duyệt vẫn còn tàu để bay (system-evo-garage.add ghi).
+ *   3. recast(): tàu không còn ảnh ở đâu cả -> đúc lại từ ĐÚNG tổ hợp cũ, miễn phí một
+ *      lần mỗi chiếc (thuộc tính ẩn giữ nguyên, chỉ vẽ lại hình).
+ *
+ * BẪY ĐÃ SẬP (22/09/2026): kho cũ lưu PNG gốc ~4MB; chép sang key mới khi bản cũ còn
+ * nằm đó = 8MB > hạn mức 5MB, setItem ném lỗi bị nuốt, gara trắng trơn. Ở đây đọc vào
+ * bộ nhớ -> XOÁ key cũ TRƯỚC -> nén -> mới ghi.
+ */
+
+SC.EvoRecover = {
+  THUMB: 160,        // cạnh ảnh thu nhỏ nằm trong sổ (theo mây)
+
+  /* loại từ khóa theo giá trị en — sổ cũ chỉ lưu en, prompt cần biết t */
+  _kwOf(en) {
+    for (const t of ['animal', 'trait', 'color', 'style']) {
+      const it = (SC.EVO_KW[t] || []).find(x => x.en === en);
+      if (it) return { t, en, vi: it.vi, dna: it.dna };
+    }
+    return { t: 'trait', en, vi: en };
   },
 
-  /* Di trú một lần từ kho tàu-đơn đời trước ('sc.evoShip.<id>'): tàu đang có vào
-     gara, sổ lấy từ lịch sử tổ hợp — người chơi cũ không mất tàu nào đã kiếm */
-  _migrate() {
+  _raw() {
+    for (const k of [SC.EvoAI._sk(), SC.EvoAI.STORE]) {
+      try { const v = localStorage.getItem(k); if (v) return { k, v }; } catch (e) {}
+    }
+    return null;
+  },
+
+  async migrate() {
     const e = SC.EvoAI.st();
-    let cu = null;
-    try { cu = localStorage.getItem(SC.EvoAI._sk()); } catch (x) { return; }
-    if (!cu || (e.owned && e.owned.length)) return;
-    const hist = e.hist && e.hist.length ? e.hist : ['legacy'];
-    e.owned = hist.map((h, i) => {
-      const ens = h === 'legacy' ? [] : h.split('|');
-      return { id: 'm' + i, ens, names: ens.length ? ens.map(en => this._vi(en)) : ['TÀU ĐỜI ĐẦU'],
-        stats: this.statsOf(ens), lv: 0, span: 1, at: 0 };
-    });
-    e.equip = e.owned[e.owned.length - 1].id;
-    try {
-      const o = JSON.parse(cu);
-      this._saveImages([{ id: e.equip, ship: o.dataUrl, drone: o.droneUrl || '' }]);
-      localStorage.removeItem(SC.EvoAI._sk());
-    } catch (x) {}
+    const raw = this._raw();
+    if (e.owned && e.owned.length && !raw) return;
+    if (!e.owned) e.owned = [];
+
+    // 1a. sổ từ lịch sử: mỗi tổ hợp đã ghép là một tàu, đủ thuộc tính ẩn
+    if (!e.owned.length) {
+      (e.hist || []).forEach((h, i) => {
+        const ens = h.split('|');
+        e.owned.push({ id: 'm' + i, ens, names: ens.map(en => this._kwOf(en).vi),
+          stats: SC.EvoGarage.statsOf(ens), lv: 0, span: 1, at: 0 });
+      });
+    }
+    if (!raw) { if (e.owned.length) SC.UI.save(); return; }
+
+    // 1b. cứu ảnh kho cũ — xoá key TRƯỚC để trả chỗ, rồi mới nén + ghi
+    let o = null;
+    try { o = JSON.parse(raw.v); } catch (x) {}
+    try { localStorage.removeItem(raw.k); } catch (x) {}
+    if (!o || !o.dataUrl) { SC.UI.save(); return; }
+    if (!e.owned.length)
+      e.owned.push({ id: 'm0', ens: [], names: ['TÀU ĐỜI ĐẦU'],
+        stats: { hp: 1, atk: 1, drone: 1, armor: 0 }, lv: 0, span: 1, at: 0 });
+    // kho cũ ghi name = tên tiếng Việt nối bằng dấu cách -> ghép đúng tàu trong sổ
+    const target = e.owned.find(x => (x.names || []).join(' ') === o.name) || e.owned[e.owned.length - 1];
+    await this.attach(target, o.dataUrl, o.droneUrl || '');
+    if (!e.equip) e.equip = target.id;
     SC.UI.save();
+    SC.Cloud.markDirty();
+  },
+
+  /* Cất ảnh cho một tàu: bản 256px vào gara máy này + bản thu nhỏ vào sổ (theo mây) */
+  async attach(o, ship, drone) {
+    const [big, dr, th] = await Promise.all([
+      SC.EvoGarage.compress(ship, 256),
+      drone ? SC.EvoGarage.compress(drone, 128) : '',
+      SC.EvoGarage.compress(ship, this.THUMB)
+    ]);
+    const list = SC.EvoGarage.images().filter(x => x.id !== o.id);
+    list.push({ id: o.id, ship: big, drone: dr });
+    SC.EvoGarage._saveImages(list);
+    o.thumb = th;
+  },
+
+  /* Tàu này đúc lại được không: kênh có tiến hóa, có tổ hợp, chưa đúc lần nào */
+  canRecast(o) { return SC.EvoAI.active() && o.ens && o.ens.length && !o.recast; },
+
+  async recast(id) {
+    const e = SC.EvoAI.st();
+    const o = (e.owned || []).find(x => x.id === id);
+    if (!o || !this.canRecast(o)) return false;
+    o.recast = 1;                          // đánh dấu TRƯỚC khi gọi mạng: F5 không đúc thêm được
+    SC.UI.save();
+    let pack;
+    try {
+      pack = await SC.EvoAI.generate(undefined, undefined, o.ens.map(en => this._kwOf(en)));
+    } catch (err) {
+      o.recast = 0;                        // lỗi mạng: trả lượt, đây là tài sản của người chơi
+      SC.UI.save();
+      throw err;
+    }
+    await this.attach(o, pack.ship, pack.drone);
+    SC.UI.save();
+    SC.Cloud.markDirty();
+    if (e.equip === id) SC.EvoGarage.applyEquipped();
+    return true;
   }
 };
 
@@ -10916,6 +11002,8 @@ SC.GarageUI = {
     on('btnGarage', () => this.open());
     on('btnGarageBack', () => { SC.UI.show('menu'); SC.UI.syncMenu(); });
     document.getElementById('garList').addEventListener('click', e => {
+      const rc = e.target.closest('button[data-recast]');
+      if (rc) { this._recast(rc); return; }
       const b = e.target.closest('button[data-eq]');
       if (!b) return;
       SC.Audio.power();
@@ -10954,24 +11042,41 @@ SC.GarageUI = {
     // mới nhất lên đầu — tàu vừa ghép là thứ người chơi muốn ngắm nhất
     own.slice().reverse().forEach((o, ri) => {
       const i = own.length - 1 - ri;
-      const im = imgs.find(x => x.id === o.id);
+      // bản đẹp ở máy này, không có thì ảnh thu nhỏ trong sổ (theo mây)
+      const im = imgs.find(x => x.id === o.id) || (o.thumb ? { ship: o.thumb } : null);
       html += this._card({ id: o.id, sn: '#' + String(i + 1).padStart(2, '0'),
         name: (o.names || []).map(n => SC.Rank.esc(String(n).toUpperCase())).join(' · '),
-        img: im ? im.ship : '', chips: this._chips(o.stats), on: eq === o.id });
+        img: im ? im.ship : '', chips: this._chips(o.stats), on: eq === o.id,
+        recast: !im && SC.EvoRecover.canRecast(o) });
     });
     document.getElementById('garList').innerHTML = html;
+  },
+
+  /* Đúc lại ảnh cho tàu đã mất ảnh — miễn phí 1 lần, ~15 giây, giữ nguyên thuộc tính */
+  async _recast(btn) {
+    btn.disabled = true;
+    btn.textContent = 'ĐANG ĐÚC…';
+    try {
+      await SC.EvoRecover.recast(btn.dataset.recast);
+      SC.UI.toast('ĐÃ ĐÚC LẠI CHIẾN ĐẤU CƠ');
+    } catch (e) {
+      SC.UI.toast('CHƯA ĐÚC ĐƯỢC — THỬ LẠI SAU');
+    }
+    this.build();
   },
 
   _card(c) {
     const hinh = c.img
       ? `<img src="${c.img}" alt="">`
-      : '<span class="gar-miss">ảnh đang ở<br>máy khác</span>';
+      : c.recast
+        ? `<span class="gar-miss">ảnh chưa có<br><button class="btn small gar-recast" data-recast="${c.id}">ĐÚC LẠI</button></span>`
+        : '<span class="gar-miss">ảnh đang ở<br>máy khác</span>';
     return `<div class="gar-card${c.on ? ' on' : ''}">
       <div class="gar-stage">${hinh}<i class="gar-sn">${c.sn}</i></div>
       <b class="gar-name">${c.name}</b>
       <div class="gar-chips">${c.chips}</div>
-      <button class="btn ${c.on ? 'ghost' : 'primary'} small" data-eq="${c.id}"${c.on ? ' disabled' : ''}>
-        ${c.on ? 'ĐANG BAY' : 'DÙNG'}</button>
+      <button class="btn ${c.on || !c.img ? 'ghost' : 'primary'} small" data-eq="${c.id}"${c.on || !c.img ? ' disabled' : ''}>
+        ${c.on ? 'ĐANG BAY' : c.img ? 'DÙNG' : 'CHƯA CÓ ẢNH'}</button>
     </div>`;
   },
 
