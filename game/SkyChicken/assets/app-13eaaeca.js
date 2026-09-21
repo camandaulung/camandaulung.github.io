@@ -6297,6 +6297,11 @@ SC.Player.prototype.render = function (ctx) {
   ctx.globalAlpha = blink ? 0.35 : 1;
   ctx.translate(this.x, this.y);
 
+  // Màn nhảy dù vào trận: phóng cả khối (thân + lửa + khiên xoay) rồi xẹp dần —
+  // hệ số do SC.Game.introScale() lo, hitbox không đổi (lúc đó chưa có đạn).
+  const isc = SC.Game.introScale ? SC.Game.introScale() : 1;
+  if (isc !== 1) ctx.scale(isc, isc);
+
   // Xoay cả thân theo hướng ngắm — lên, xuống, trái, phải. Quay DẦN (aimAnim chạy
   // tới aim) nên nhìn như máy bay lượn vòng, chứ đảo tức thì thì giật và không hiểu
   // chuyện gì vừa xảy ra.
@@ -7666,14 +7671,23 @@ SC.Result = {
           <b>${m.done ? '✓' : '✗'}</b>
         </li>`).join('');
 
-      /* Tiến độ mảnh tiến hóa (chỉ kênh có tính năng): người chơi phải THẤY mình
-         đang gom tới đâu, không thì 9 màn gom mảnh như không tồn tại (phàn nàn 21/09). */
+      /* Tiến độ mảnh tiến hóa (chỉ kênh có tính năng): KHOE từ khóa đã nhặt và
+         nhá "???" cho mảnh còn thiếu + nói thẳng mảnh kế rơi ở màn nào — mồi tò mò
+         để người chơi đánh thêm một chặng nữa thay vì thoát (yêu cầu 21/09). */
       if (SC.EvoAI.active()) {
+        const st = SC.EvoAI.st();
         const n = SC.EvoShard.progress();
+        const bo = st.kw.slice(st.kw.length - n);          // bộ 3 đang gom dở
+        const ten = i => bo[i] ? SC.Rank.esc(bo[i].vi.toUpperCase()) : '???';
+        const chuoi = `${ten(0)} · ${ten(1)} · ${ten(2)}`;
+        const nextLv = (Math.floor(st.lastLv / 3) + 1) * 3;
+        const sub = n >= 3
+          ? `${chuoi} — chiến đấu cơ mới đang chờ ghép!`
+          : `${chuoi} — mảnh kế rơi ở màn ${nextLv}`;
         mis.innerHTML += `
         <li class="evo-frag${n >= 3 ? ' full' : ''}">
           <span class="m-ic">🧬</span>
-          <span class="m-txt">Mảnh tiến hóa</span>
+          <span class="m-txt">Mảnh tiến hóa<i>${sub}</i></span>
           <span class="frag-pips">${[1, 2, 3].map(i => `<i class="${i <= n ? 'on' : ''}"></i>`).join('')}</span>
           <b>${n >= 3 ? 'ĐỦ BỘ!' : n + '/3'}</b>
         </li>`;
@@ -9716,6 +9730,23 @@ SC.EVO_KW = {
       'top-down view, nose pointing up, symmetrical, centered, single subject',
       'flat transparent background, no scenery, no frame, no text, no watermark',
     ].join(', ');
+  },
+
+  /* Drone hộ tống CÙNG THEME với tàu (21/09/2026: tàu ong sọc mà phi đội tím mặc
+     định nhìn như đi mượn). Mô tả lặp lại đúng bộ từ khóa + bắt dáng ĐƠN GIẢN:
+     drone vẽ ~24px, chi tiết mấy cũng thành nhiễu. */
+  dronePrompt(kws) {
+    const by = {};
+    for (const k of kws) by[k.t] = k.en;
+    return [
+      `a tiny cute escort drone, companion of a ${by.animal || 'rooster'} themed fighter aircraft`,
+      `same theme: ${by.animal || 'rooster'} motif, ${by.trait || 'cheerful'} vibe`,
+      `same dominant color scheme: ${by.color || 'vivid red'}`,
+      'very simple bold silhouette readable at 24 pixels, vibrant toon cartoon game sprite',
+      'glossy, bold dark outlines, subtle neon rim light',
+      'top-down view, nose pointing up, centered, single subject',
+      'flat transparent background, no scenery, no frame, no text, no watermark',
+    ].join(', ');
   }
 };
 
@@ -9782,8 +9813,15 @@ SC.EvoAI = {
     SC.UI.save();
     SC.Cloud.markDirty();
   },
-  saveDraft(url) { try { localStorage.setItem(this.DRAFT, url); } catch (e) {} },
-  loadDraft() { try { return localStorage.getItem(this.DRAFT) || ''; } catch (e) { return ''; } },
+  saveDraft(pack) { try { localStorage.setItem(this.DRAFT, JSON.stringify(pack)); } catch (e) {} },
+  loadDraft() {
+    try {
+      const raw = localStorage.getItem(this.DRAFT);
+      if (!raw) return null;
+      // draft đời đầu là chuỗi dataURL trần (chưa có drone) — vẫn đọc được
+      return raw.charAt(0) === '{' ? JSON.parse(raw) : { ship: raw, drone: '' };
+    } catch (e) { return null; }
+  },
 
   /* Gọi từ system-level-finish khi THẮNG màn. Chỉ màn chia hết cho CHUNK, và mỗi
      màn chỉ phát một lần (cày lại màn cũ không ra thêm — lastLv chặn). */
@@ -9809,10 +9847,20 @@ SC.EvoAI = {
       : { url: this.RELAY + '/v1/images/generations', headers: { 'content-type': 'text/plain' }, credentials: 'include' };
   },
 
+  /* Mỗi lượt gen ra CẢ BỘ: tàu + drone hộ tống cùng theme (21/09/2026 — tàu mới
+     mà phi đội cũ thì lệch tông). Hai ảnh chạy song song, một cái hỏng là hỏng cả
+     lượt — thà vậy còn hơn nửa bộ lệch nhau. 2×$0.007/lượt, vẫn trong hạn mức. */
   async generate(signal) {
     const kws = this.st().kw.slice(0, 3);
-    const prompt = SC.EVO_KW.prompt(kws);
     const ep = this._endpoint();
+    const [ship, drone] = await Promise.all([
+      this._genOne(ep, SC.EVO_KW.prompt(kws), signal),
+      this._genOne(ep, SC.EVO_KW.dronePrompt(kws), signal)
+    ]);
+    return { ship, drone };
+  },
+
+  async _genOne(ep, prompt, signal) {
     const res = await fetch(ep.url, {
       method: 'POST', headers: ep.headers, credentials: ep.credentials,
       body: JSON.stringify({ model: 'gpt-image-2.5-flare', prompt }),
@@ -9835,23 +9883,35 @@ SC.EvoAI = {
   /* ---------- dùng ảnh làm máy bay ---------- */
 
   /* Đắp ảnh vào kho sprite rồi xoá cache dựng tàu — ShipArt tự nhuộm màu biến thể
-     và vẽ hào quang lên trên, nên mọi tín hiệu của cây kỹ năng vẫn đọc được. */
-  _apply(dataUrl) {
+     và vẽ hào quang lên trên, nên mọi tín hiệu của cây kỹ năng vẫn đọc được.
+     Drone (nếu có) thay CẢ hai kind swarm/sniper — DroneArt đọc thẳng mỗi khung,
+     không có buffer nên khỏi xoá cache gì thêm. */
+  _apply(shipUrl, droneUrl) {
     const img = new Image();
     img.onload = () => {
       SC.SpriteArt._imgs['ship-player'] = img;
       if (SC.ShipArt) SC.ShipArt._cache = {};
     };
-    img.src = dataUrl;
+    img.src = shipUrl;
+    if (droneUrl) {
+      const di = new Image();
+      di.onload = () => {
+        SC.SpriteArt._imgs['drone-swarm'] = di;
+        SC.SpriteArt._imgs['drone-sniper'] = di;
+      };
+      di.src = droneUrl;
+    }
   },
 
-  /* Người chơi bấm DÙNG LUÔN: lưu máy, thay tàu, ĐỐT bộ từ khóa đã dùng */
-  accept(dataUrl) {
+  /* Người chơi bấm DÙNG LUÔN: lưu cả bộ, thay tàu + phi đội, ĐỐT bộ từ khóa */
+  accept(pack) {
     const e = this.st();
     const name = e.kw.slice(0, 3).map(k => k.vi).join(' ');
-    try { localStorage.setItem(this.STORE, JSON.stringify({ dataUrl, name, at: Date.now() })); }
-    catch (err) { /* localStorage đầy — tàu vẫn dùng được tới hết phiên */ }
-    this._apply(dataUrl);
+    try {
+      localStorage.setItem(this.STORE,
+        JSON.stringify({ dataUrl: pack.ship, droneUrl: pack.drone || '', name, at: Date.now() }));
+    } catch (err) { /* localStorage đầy — bộ này vẫn dùng được tới hết phiên */ }
+    this._apply(pack.ship, pack.drone);
     e.kw.splice(0, 3);
     e.n++;
     e.rolls = 0;                        // bộ từ khóa mới = hạn mức gen mới
@@ -9861,11 +9921,14 @@ SC.EvoAI = {
     SC.UI.toast('TIẾN HÓA HOÀN TẤT: ' + name.toUpperCase());
   },
 
-  /* Khởi động: có tàu đã lưu thì lên tàu ngay */
+  /* Khởi động: có bộ đã lưu thì lên tàu ngay (bản cũ chưa có droneUrl — vẫn đọc được) */
   init() {
     try {
       const raw = localStorage.getItem(this.STORE);
-      if (raw) this._apply(JSON.parse(raw).dataUrl);
+      if (raw) {
+        const o = JSON.parse(raw);
+        this._apply(o.dataUrl, o.droneUrl || '');
+      }
     } catch (e) { /* JSON hỏng / storage tắt — bay tàu mặc định */ }
     return this;
   }
@@ -9931,13 +9994,14 @@ SC.ITEM_DEF.push({ k: 'evoShard', w: 0, c: '#c58cff', ic: '🧬' });
 /* ui-evo-ai.js — popup TIẾN HÓA AI: khoe bộ 3 từ khóa, gen thử, ưng thì lên tàu
  *
  * Nhịp dùng: mảnh 🧬 rơi ở màn 3×n (system-evo-shard.js) → đủ bộ 3 → popup này đè
- * lên bảng kết quả. Gen mất ~15 giây và TỐN TIỀN THẬT ($0.007/tấm, quota 10$/tháng)
- * nên: không bao giờ gen tự động, và mỗi bộ từ khóa chỉ có MAX_GEN lượt (1 đầu +
- * 3 gen lại — chốt 21/09/2026). Lượt đã đốt nằm trong progress (F5 không reset),
- * tấm gen dở nằm DRAFT localStorage (F5 không mất tàu đang chờ quyết). */
+ * lên bảng kết quả. Mỗi lượt gen ra CẢ BỘ tàu + drone hộ tống cùng theme (~15 giây,
+ * TỐN TIỀN THẬT 2×$0.007/lượt, quota 10$/tháng) nên: không bao giờ gen tự động, và
+ * mỗi bộ từ khóa chỉ có MAX_GEN lượt (1 đầu + 3 gen lại — chốt 21/09/2026). Lượt đã
+ * đốt nằm trong progress (F5 không reset), bộ gen dở nằm DRAFT localStorage (F5
+ * không mất bộ đang chờ quyết). */
 
 SC.EvoAIUI = {
-  _url: '',      // dataURL tấm đang chờ người chơi quyết
+  _pack: null,   // { ship, drone } đang chờ người chơi quyết
   _busy: false,
 
   init(on) {
@@ -9953,15 +10017,22 @@ SC.EvoAIUI = {
     ).join('');
     this._busy = false;
     this._err('');
-    this._url = SC.EvoAI.loadDraft();          // F5 xong vẫn còn tàu chờ quyết
-    if (this._url) {
-      this._view(`<img src="${this._url}" alt="Chiến đấu cơ tiến hóa">`);
+    this._pack = SC.EvoAI.loadDraft();         // F5 xong vẫn còn bộ chờ quyết
+    if (this._pack && this._pack.ship) {
+      this._view(this._preview(this._pack));
       this._btns(this._genLabel(), SC.EvoAI.rollsLeft() > 0, true);
     } else {
-      this._view('<span class="evoai-hint">Bấm TIẾN HÓA để AI ghép chiến đấu cơ từ bộ từ khóa (~15 giây)</span>');
+      this._pack = null;
+      this._view('<span class="evoai-hint">Bấm TIẾN HÓA để AI ghép chiến đấu cơ + phi đội từ bộ từ khóa (~15 giây)</span>');
       this._btns(this._genLabel(), true, false);
     }
     SC.UI.showOverlay('evoai');
+  },
+
+  /* Tàu to giữa khung, drone hộ tống thu nhỏ đậu góc — thấy cả bộ trước khi chốt */
+  _preview(pack) {
+    return `<img src="${pack.ship}" alt="Chiến đấu cơ tiến hóa">`
+      + (pack.drone ? `<img class="evoai-drone" src="${pack.drone}" alt="Drone hộ tống">` : '');
   },
 
   /* Nhãn nút gen nói luôn còn mấy lượt — hết hạn mức phải NHÌN THẤY chứ không phải
@@ -9987,10 +10058,10 @@ SC.EvoAIUI = {
 
   async gen() {
     if (this._busy) return;
-    // Hết hạn mức: chỉ cho "gen vớt" khi KHÔNG còn tấm chờ nào (draft mất do
-    // storage đầy) — không thì người chơi kẹt bộ từ khóa vĩnh viễn. Có tấm chờ
+    // Hết hạn mức: chỉ cho "gen vớt" khi KHÔNG còn bộ chờ nào (draft mất do
+    // storage đầy) — không thì người chơi kẹt bộ từ khóa vĩnh viễn. Có bộ chờ
     // thì hết lượt là hết, dùng hoặc để sau.
-    if (SC.EvoAI.rollsLeft() <= 0 && this._url) return;
+    if (SC.EvoAI.rollsLeft() <= 0 && this._pack) return;
     this._busy = true;
     this._err('');
     this._view('<span class="evoai-hint evoai-spin">⏳ ĐANG TIẾN HÓA…</span>');
@@ -9998,10 +10069,10 @@ SC.EvoAIUI = {
     // Trừ lượt TRƯỚC khi gọi mạng — F5 giữa chừng vẫn mất lượt (anti-cheat)
     if (SC.EvoAI.rollsLeft() > 0) SC.EvoAI.spendRoll();
     try {
-      const url = await SC.EvoAI.generate();
-      this._url = url;
-      SC.EvoAI.saveDraft(url);
-      this._view(`<img src="${url}" alt="Chiến đấu cơ tiến hóa">`);
+      const pack = await SC.EvoAI.generate();
+      this._pack = pack;
+      SC.EvoAI.saveDraft(pack);
+      this._view(this._preview(pack));
       this._busy = false;
       this._btns(this._genLabel(), SC.EvoAI.rollsLeft() > 0, true);
     } catch (e) {
@@ -10015,8 +10086,8 @@ SC.EvoAIUI = {
   },
 
   use() {
-    if (!this._url) return;
-    SC.EvoAI.accept(this._url);
+    if (!this._pack || !this._pack.ship) return;
+    SC.EvoAI.accept(this._pack);
     SC.UI.hideOverlay('evoai');
     SC.Audio.win();
     SC.UI.syncMenu();
@@ -10144,7 +10215,9 @@ SC.LobbyShip = {
      nghịch được chứ không chỉ ngắm. Chỉ nghe pointermove — không đụng Input của
      ván chơi, không va chạm, rời chuột thì tự trôi về giữa. */
   _mx: null,
+  _my: null,
   _xNow: 0,
+  _yNow: 0,
   _bindPointer() {
     if (this._bp) return;
     this._bp = 1;
@@ -10154,6 +10227,7 @@ SC.LobbyShip = {
       const rc = c.getBoundingClientRect();
       if (!rc.width) return;
       this._mx = (e.clientX - rc.left) / rc.width * SC.W;
+      this._my = (e.clientY - rc.top) / rc.height * SC.H;
     }, { passive: true });
   },
 
@@ -10166,19 +10240,25 @@ SC.LobbyShip = {
     const still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const t = still ? 0 : performance.now() / 1000;
 
-    // đích = con trỏ (kẹp trong 1/4..3/4 bề ngang cho khỏi chui vào nút), lerp
-    // cho mượt; không có con trỏ (điện thoại chưa chạm) thì lượn quanh giữa màn
-    const goal = still ? SC.W / 2
+    // đích = con trỏ, lượn được CẢ HAI TRỤC (yêu cầu 21/09). X kẹp 1/4..3/4 bề
+    // ngang, Y kẹp quanh sân đậu ±90px — đủ nghịch mà không chui vào logo hay nút.
+    // Không có con trỏ (điện thoại chưa chạm) thì tự lượn quanh giữa màn.
+    const goalX = still ? SC.W / 2
       : this._mx == null ? SC.W / 2 + Math.sin(t * 0.7) * 24
       : SC.clamp(this._mx, SC.W * 0.25, SC.W * 0.75);
+    const goalY = still ? this.y
+      : this._my == null ? this.y
+      : SC.clamp(this._my, this.y - 90, this.y + 90);
     if (!this._xNow) this._xNow = SC.W / 2;
+    if (!this._yNow) this._yNow = this.y;
     const truoc = this._xNow;
-    this._xNow += (goal - this._xNow) * 0.08;
+    this._xNow += (goalX - this._xNow) * 0.08;
+    this._yNow += (goalY - this._yNow) * 0.08;
 
     const cx = this._xNow;
-    const cy = this.y + (still ? 0 : Math.sin(t * 1.6) * 5);
-    // ×2 so với lúc chơi (yêu cầu 21/09): lobby là ảnh chân dung, phải nhìn rõ tàu
-    const r = SC.CFG.playerRadius * 2;
+    const cy = this._yNow + (still ? 0 : Math.sin(t * 1.6) * 5);
+    // ×2.4 so với lúc chơi (nâng lần 2, 21/09): lobby là ảnh chân dung của tàu
+    const r = SC.CFG.playerRadius * 2.4;
     // nghiêng cánh theo hướng đang lướt — cảm giác "lái" thật thay vì trượt ngang
     const tilt = still ? 0 : SC.clamp((this._xNow - truoc) * 0.09, -0.3, 0.3)
       + Math.sin(t * 0.9) * 0.08;
@@ -10810,6 +10890,13 @@ SC.Game = {
     this.stats = { escaped: 0, maxCombo: 1, rescued: 0, time: 0 };
 
     this.player.reset(this.lv.startWeapon);
+    /* NHẢY DÙ VÀO TRẬN (yêu cầu 21/09/2026): tàu xuất phát từ GIỮA màn với cỡ như
+       ở lobby rồi tự trượt xuống vị trí trực chiến (ty giữ 0.78H từ reset, hệ bám
+       con trỏ tự lo phần trượt) và thu nhỏ dần về cỡ thường — xem introScale().
+       0.5 giây đầu đóng băng waves + giấu bảng mục tiêu, xem update(). */
+    this.player.y = SC.H * 0.45;
+    this.introT = 0.9;
+    this._introPanel = false;
     SC.EvoShard.onLevelStart(id);      // màn 3×n chưa phát mảnh -> kẻ cuối sẽ nhả 🧬
     SC.Wingmen.spawn(this.player);
     SC.Variant.markSeen();              // ghi vào sổ tay biến thể
@@ -10822,6 +10909,8 @@ SC.Game = {
     const missions = SC.Missions.start(id);
     SC.Rescue.start(SC.Missions.rescueTarget());
     SC.UI.showMissions(missions, SC.Missions.rescueTarget());
+    // bảng mục tiêu nấp 0.5s đầu của màn nhảy dù — hiện đúng lúc trận thật bắt đầu
+    document.getElementById('missionPanel').classList.add('hidden');
 
     SC.UI.show('game');
     SC.UI.hideOverlay('pause'); SC.UI.hideOverlay('result');
@@ -10871,8 +10960,34 @@ SC.Game = {
     requestAnimationFrame(t => this.loop(t));
   },
 
+  /* Hệ số phóng đại tàu trong màn nhảy dù: bắt đầu ~2.6 lần (cỡ lobby), xẹp nhanh
+     dần về 1. Chỉ ảnh hưởng HÌNH VẼ (entity-player.render) — 0.5s đầu chưa có đạn,
+     nửa sau còn to hơn thật một chút thì người chơi được lợi cảm giác chứ không thiệt. */
+  introScale() {
+    if (!this.introT || this.introT <= 0) return 1;
+    const k = this.introT / 0.9;
+    return 1 + 1.6 * k * k;
+  },
+
   update(dt) {
     const p = this.player;
+
+    /* Màn nhảy dù: 0.5s đầu chỉ có nền trôi + tàu trượt xuống, KHÔNG waves, không
+       đạn, không tính giờ nhiệm vụ. Mốc 0.5s: hiện bảng mục tiêu và thả wave đầu;
+       hình tàu tiếp tục xẹp về cỡ thường tới hết 0.9s. */
+    if (this.introT > 0) {
+      this.introT -= dt;
+      if (!this._introPanel && this.introT <= 0.4) {
+        this._introPanel = true;
+        document.getElementById('missionPanel').classList.remove('hidden');
+      }
+      if (this.introT > 0.4) {
+        SC.BG.update(dt);
+        p.update(dt);
+        return;
+      }
+    }
+
     this.stats.time += dt;
     SC.BG.update(dt);
 

@@ -1299,8 +1299,12 @@ body.is-touch .rank-pos img{width:32px;height:32px}
 .evoai-view{height:180px;margin:10px 0;border-radius:14px;display:grid;place-content:center;
   background:radial-gradient(circle at 50% 40%,rgba(63,224,255,.12),rgba(0,0,0,.35) 75%);
   box-shadow:inset 0 0 0 1px rgba(122,224,255,.22)}
+.evoai-view{position:relative}
 .evoai-view img{height:164px;width:164px;object-fit:contain;
   filter:drop-shadow(0 6px 18px rgba(63,224,255,.35))}
+/* drone hộ tống cùng theme đậu góc khung xem trước — thấy cả bộ trước khi chốt */
+.evoai-view img.evoai-drone{position:absolute;right:8px;bottom:8px;
+  height:52px;width:52px;filter:drop-shadow(0 3px 8px rgba(0,0,0,.5))}
 .evoai-hint{font-size:11px;color:var(--dim);max-width:230px;text-align:center;line-height:1.5}
 .evoai-spin{animation:evoaiPulse 1.2s ease-in-out infinite}
 @keyframes evoaiPulse{50%{opacity:.45}}
@@ -1346,6 +1350,17 @@ body.is-touch .rank-pos img{width:32px;height:32px}
   clip-path:polygon(50% 0,100% 28%,100% 72%,50% 100%,0 72%,0 28%)}
 .frag-pips i.on{background:linear-gradient(180deg,#e6c8ff,#c58cff);
   filter:drop-shadow(0 0 5px rgba(197,140,255,.8))}
+/* dòng khoe từ khóa đã nhặt + "???" nhá hàng — tím nhạt cho khớp hệ mảnh */
+.mission-rows li.evo-frag .m-txt i{color:#d9b8ff}
+
+/* ---------- popup kết quả banh gần full width (21/09/2026, lần 2) ----------
+   Panel gốc 300px giữa khung ~450 nhìn "dài và dẹt". Nới 93% + xếp 4 ô chỉ số
+   thành MỘT hàng — thấp đi một tầng, bề ngang có đất thở. */
+.panel.result{width:min(93%,410px)}
+.panel.result .res-grid{grid-template-columns:repeat(4,1fr);gap:5px}
+.panel.result .rs{padding:8px 5px;align-items:center}
+.panel.result .rs .rs-v em{display:block;font-size:8px;letter-spacing:.12em;margin-top:2px}
+.res-crest{width:min(76%,330px)}
 
 /* ---------- nút cập nhật app có tiến độ (21/09/2026) ---------- */
 #btnUpdate{position:relative;overflow:hidden}
