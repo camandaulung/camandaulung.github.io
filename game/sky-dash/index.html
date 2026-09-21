@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Sky Chicken — Cân bằng</title>
+<link rel="stylesheet" href="dash.css">
+</head>
+<body>
+<!-- Dashboard CÂN BẰNG Sky Chicken (22/09/2026): đọc Firestore `runs` (log trận do
+     games/sky-chicken-invader/js/system-telemetry.js ghi). Vé ẩn danh riêng — không cần
+     đăng nhập, không có dữ liệu cá nhân trong log. -->
+<header class="top">
+  <h1>SKY CHICKEN · <em>BẢNG CÂN BẰNG</em></h1>
+  <div class="filters">
+    <label>Kênh <select id="fCh"><option value="">Tất cả</option><option value="banga">banga</option><option value="portal">portal</option></select></label>
+    <label>Thời gian <select id="fDays"><option value="1">24 giờ</option><option value="7" selected>7 ngày</option><option value="30">30 ngày</option><option value="90">90 ngày</option></select></label>
+    <label><input type="checkbox" id="fQuit"> Tính cả trận bỏ ngang</label>
+    <button id="btnReload">TẢI LẠI</button>
+  </div>
+  <p class="status" id="status">Đang tải…</p>
+</header>
+
+<section class="kpis" id="kpis"></section>
+
+<section class="card">
+  <h2>Tỉ lệ thắng theo màn <small>(cột = win %, đường = số trận)</small></h2>
+  <div class="chart"><canvas id="cWin"></canvas></div>
+</section>
+
+<section class="grid2">
+  <div class="card">
+    <h2>Thua ở đâu <small>(wave đang đánh lúc chết)</small></h2>
+    <div class="chart sm"><canvas id="cWave"></canvas></div>
+  </div>
+  <div class="card">
+    <h2>Top màn khó <small>(≥ 5 trận, xếp theo tỉ lệ thua)</small></h2>
+    <ol class="hard" id="hard"></ol>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Chi tiết từng màn</h2>
+  <div class="tbl-wrap"><table id="tbl">
+    <thead><tr><th>Màn</th><th>Nhịp</th><th>Trận</th><th>Người</th><th>Thắng</th><th>Bỏ</th>
+      <th>Giây (thắng)</th><th>Máu còn (thắng)</th><th>Trúng đòn</th><th>Bom</th><th>Thoát</th>
+      <th>Lực chiến</th><th>Tiến hóa %</th></tr></thead>
+    <tbody></tbody>
+  </table></div>
+</section>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="../../shared/portal-config.js"></script>
+<script src="../../shared/portal-firebase.js"></script>
+<script src="dash-data.js"></script>
+<script src="dash.js"></script>
+</body>
+</html>

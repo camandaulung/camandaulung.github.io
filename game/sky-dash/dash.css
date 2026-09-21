@@ -1,0 +1,37 @@
+/* dash.css — dashboard cân bằng Sky Chicken: tông HUD tối như game */
+:root{--bg:#060914;--panel:#0d1428;--line:rgba(120,160,255,.18);--ink:#dfe8ff;--dim:#8a9bc2;
+  --acc:#ffd23f;--good:#4dff9f;--bad:#ff5c7a;--cy:#7ae0ff}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(120% 60% at 50% 0%,#1a1f4a,var(--bg) 70%) fixed;color:var(--ink);
+  font:14px/1.5 system-ui,-apple-system,Segoe UI,sans-serif;padding:16px;max-width:1280px;margin:0 auto}
+h1{font-size:20px;letter-spacing:.14em;margin:0 0 10px}
+h1 em{font-style:normal;color:var(--acc)}
+h2{font-size:14px;letter-spacing:.08em;margin:0 0 10px}
+h2 small{font-weight:400;color:var(--dim);letter-spacing:0}
+.filters{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.filters label{display:flex;gap:6px;align-items:center;color:var(--dim)}
+select,button{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font:inherit}
+button{cursor:pointer;background:linear-gradient(180deg,#ffe07a,#ffb81f);color:#1a1000;font-weight:700;border:0}
+.status{color:var(--dim);font-size:12px;margin:8px 0 14px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.kpi b{display:block;font-size:26px;line-height:1.1}
+.kpi span{color:var(--dim);font-size:12px;letter-spacing:.06em}
+.kpi.good b,.good{color:var(--good)}
+.kpi.bad b,.bad{color:var(--bad)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:14px}
+.chart{position:relative;height:320px}
+.chart.sm{height:240px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid2 .card{margin-bottom:14px}
+.hard{margin:0;padding-left:22px}
+.hard li{margin:4px 0}
+.hard i{font-style:normal;color:var(--dim);font-size:12px}
+.dim{color:var(--dim)}
+.tbl-wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px;white-space:nowrap}
+th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:right}
+th:nth-child(-n+2),td:nth-child(-n+2){text-align:left}
+th{color:var(--dim);font-weight:600;position:sticky;top:0;background:var(--panel)}
+tr:hover td{background:rgba(120,160,255,.06)}
+@media (max-width:760px){.grid2{grid-template-columns:1fr}.chart{height:260px}}

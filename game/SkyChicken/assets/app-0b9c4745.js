@@ -3232,7 +3232,15 @@ SC.Bullets = {
 SC.Items = {
   list: [],
 
-  clear() { this.list.length = 0; },
+  clear() { this.list.length = 0; this.sinceBomb = 0; },
+
+  /* BẢO HIỂM BOM (22/09/2026): bom chỉ 7% trọng số, map đông quái chết sau 30 giây
+     mà xui là không có quả nào — đúng lúc cần nhất. Hạ BOMB_PITY con liền mà chưa rơi
+     bom thì con kế tiếp chắc chắn rơi bom. Đếm theo lượt hạ, không theo thời gian:
+     màn thưa quái thì không ngập bom. */
+  BOMB_PITY: 18,
+  sinceBomb: 0,
+  bombDue() { return ++this.sinceBomb > this.BOMB_PITY; },
 
   /* chọn loại vật phẩm theo trọng số */
   _roll() {
@@ -3244,6 +3252,7 @@ SC.Items = {
 
   drop(x, y, forceKind) {
     const def = forceKind ? SC.ITEM_DEF.find(d => d.k === forceKind) : this._roll();
+    if (def.k === 'bomb') this.sinceBomb = 0;
     this.list.push({
       x, y, r: 13, def,
       vx: SC.rnd(-70, 70), vy: SC.rnd(-120, -40),
@@ -7484,6 +7493,7 @@ SC.Waves = {
   queue: [],       // hàng chờ sinh quái từng con cho mượt
   bossSpawned: false,
   done: false,
+  MAX_WAVE: SC.bal('levels.maxWave', 44),   // trần số quái một wave (trước khi co theo cỡ)
 
   start(lv) {
     this.lv = lv;
@@ -7522,8 +7532,13 @@ SC.Waves = {
       : [SC.pick(SC.FORMATIONS)];
 
     forms.forEach((form, fi) => {
-      const cnt = Math.round(n / forms.length);
       const type = SC.pick(lv.pool);
+      /* MẬT ĐỘ THEO KÍCH THƯỚC (22/09/2026, map 57 "quái dày quá"): số con tính như
+         nhau cho muỗi r=12 lẫn bọ cạp r=27, mà một con to chiếm chỗ gấp đôi-gấp ba —
+         đội hình quái to phủ kín màn. Co số con theo bán kính (mốc r=20), trần 1 wave
+         MAX_WAVE con. Quái nhỏ giữ nguyên số. */
+      const r = (SC.ENEMY_DEF[type] && SC.ENEMY_DEF[type].r) || 20;
+      const cnt = Math.round(Math.min(n, this.MAX_WAVE) / forms.length * SC.clamp(20 / r, 0.6, 1));
       for (let i = 0; i < cnt; i++) {
         const spot = this._place(form, i, cnt);
         // pha trộn thêm 1 loại quái khác cho đa dạng
@@ -7863,6 +7878,8 @@ SC.Combat = {
       for (let i = 0; i < 16; i++)
         SC.Items.drop(e.x + SC.rnd(-60, 60), e.y + SC.rnd(-30, 30), i % 4 === 0 ? 'gem' : 'coin');
       SC.UI.toast('HẠ GỤC ' + e.name, true);
+    } else if (SC.Items.bombDue()) {
+      SC.Items.drop(e.x, e.y, 'bomb');              // bảo hiểm bom, xem entity-item.js
     } else if (Math.random() < e.def.drop) {
       SC.Items.drop(e.x, e.y);
     }
@@ -7915,7 +7932,16 @@ SC.Combat = {
     // cả màn chớp trắng rồi chữ BOM nổ ra trong bong bóng kiểu truyện tranh
     SC.ScreenFX.flash('255,240,220', 0.22);
     SC.ScreenFX.pop('BOM!', '#ff3b5c');
-    for (const e of g.enemies) if (!e.dead && e.hurt(e.isBoss ? 160 : 60)) this.killEnemy(g, e);
+    g.stats.bombs = (g.stats.bombs || 0) + 1;       // log trận (system-telemetry.js)
+    /* BOM PHẢI GIẾT ĐƯỢC QUÁI (22/09/2026, phản hồi map 57): bản cũ 60 sát thương CỐ
+       ĐỊNH trong khi máu quái nhân theo màn + lực chiến — cuối game bom chỉ gãi ngứa,
+       nút cứu nguy thành vô dụng đúng lúc cần nhất. Giờ quái thường chết hẳn, trùm ăn
+       max(160, 5% máu tối đa) — đủ đau mà không xoá trùm bằng vài quả bom. */
+    for (const e of g.enemies) {
+      if (e.dead) continue;
+      const dmg = e.isBoss ? Math.max(160, e.hpMax * 0.05) : e.hp + 1;
+      if (e.hurt(dmg)) this.killEnemy(g, e);
+    }
   }
 };
 
@@ -9028,6 +9054,66 @@ SC.RankAllProfiles = {
     } catch (e) {
       this._uid = '';                                    // lần đổi phiên sau thử lại
       console.warn('[rank] chưa đẩy được điểm các hồ sơ khác:', (e && e.code) || e);
+    }
+  }
+};
+
+;
+/* ===== js/system-telemetry.js ===== */
+/* system-telemetry.js — LOG TRẬN để tinh chỉnh cân bằng bằng số liệu thật (22/09/2026)
+ *
+ * Mỗi màn kết thúc (thắng/thua/bỏ cuộc) ghi MỘT bản ghi vào Firestore `runs` — dashboard
+ * ở portal/game/sky-dash/ đọc về tính win rate, thời gian, máu còn, bom, lực chiến theo
+ * từng màn. Trước đây cân bằng chỉ dựa vào "anh test thấy khó" — chậm và một người.
+ *
+ * KHÔNG có tên, email, uid thật: chỉ `pk` = băm uid (đếm được số người chơi riêng, không
+ * lần ngược ra ai). Chỉ ghi khi có vé đăng nhập (luật Firestore đòi auth) — portal khách
+ * chưa đăng nhập không có log, banga thì ai cũng có vé ẩn danh.
+ * Bản ghi CHỈ TẠO (luật cấm sửa/xoá). Lỗi mạng thì bỏ — log hụt vài trận không sao,
+ * chặn game vì log là không được.
+ */
+
+SC.Telemetry = {
+  COL: 'runs',
+  V: 1,                           // đổi khi đổi hình dạng bản ghi — dashboard lọc theo
+
+  /* g = SC.Game, win = true/false, quit = bỏ giữa chừng */
+  log(g, win, quit) {
+    const u = Portal.Auth.user;
+    if (!u || !Portal.FB.configured() || !g.lv) return;
+    const p = g.player, lv = g.lv;
+    const T = k => SC.Tree.lv(k);
+    const row = {
+      v: this.V,
+      ch: SC.M365 && SC.M365.active() ? 'banga' : 'portal',
+      pk: SC.EVO_KW._hash(u.uid).toString(36),
+      lv: g.levelId, base: SC.Endless.baseId(g.levelId), cyc: SC.Endless.cycle(g.levelId),
+      chunk: String(lv.chunk || ''), boss: !!lv.boss,
+      res: quit ? 'quit' : win ? 'win' : 'lose',
+      t: Math.round(g.stats.time || 0),
+      hp: p.hpMax ? +(Math.max(0, p.hp) / p.hpMax).toFixed(2) : 0,
+      hits: p.damaged | 0,
+      kills: g.kills | 0, esc: g.stats.escaped | 0,
+      wave: SC.Waves.index | 0, bossUp: !!SC.Waves.bossSpawned,
+      bombs: g.stats.bombs | 0, resc: g.stats.rescued | 0,
+      acc: p.shots ? Math.round(p.hits / p.shots * 100) : 0,
+      pw: SC.Power.total(), pwShow: SC.Power.show(),
+      tree: SC.TREE_KEYS.map(T).join('-'),
+      vari: String(SC.Tree.variant() || ''),
+      evo: SC.EvoGarage.totalPct(),
+      at: Date.now()
+    };
+    this._send(row);
+  },
+
+  async _send(row) {
+    try {
+      const fb = await Portal.FB.load();
+      if (!fb.auth.currentUser) return;
+      const { collection, addDoc } = fb.fsM;
+      await Portal.FB.limit(addDoc(collection(fb.db, this.COL), row), 'log trận');
+    } catch (e) {
+      console.warn('[telemetry] bỏ qua log trận:', (e && e.code) || e);
     }
   }
 };
@@ -13355,6 +13441,7 @@ SC.PortalNav = {
 SC.Finish = {
   run(g, win) {
     g.state = 'result';
+    SC.Telemetry.log(g, win);             // log trận cho dashboard cân bằng
     SC.Music.stop();
     win ? SC.Audio.win() : SC.Audio.lose();
     const p = g.player;
@@ -13521,6 +13608,8 @@ SC.Game = {
   },
 
   quitToMenu() {
+    // bỏ ngang giữa trận (không phải từ bảng kết quả) cũng là một dữ kiện cân bằng
+    if (this.state === 'play' || this.state === 'pause') SC.Telemetry.log(this, false, true);
     this.state = 'menu';
     SC.Music.stop();
     SC.Rescue.clear();
