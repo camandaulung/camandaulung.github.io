@@ -10847,6 +10847,14 @@ SC.Game = {
     SC.Music.stop();
     SC.Rescue.clear();
     SC.Wingmen.clear();
+    /* Dọn hiệu ứng toàn màn TRƯỚC KHI về lobby (bug thật 21/09/2026): nhặt bom rồi
+       thoát ngay là bong bóng "BOM!" còn hạn diễn vài giây, renderer lobby vẫn vẽ
+       nốt — nhìn như lobby nổ. startLevel có clear nhưng đường VỀ menu thì chưa ai
+       dọn. Dọn cả FX hạt và đạn cho cùng lý do, không riêng gì bong bóng. */
+    SC.ScreenFX.clear();
+    SC.FX.clear();
+    SC.Bullets.clear();
+    SC.Items.clear();
     document.getElementById('missionPanel').classList.add('hidden');
     SC.UI.show('menu');
     SC.UI.syncMenu();
