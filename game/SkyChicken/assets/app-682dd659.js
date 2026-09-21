@@ -5220,22 +5220,26 @@ SC.BossSig = {
   start(b, kind, player) {
     const sig = this.SIG[b.art] || {}, u = this._u(b);
     if (kind === 'toss') {
-      const a = SC.angTo(b.x, b.y, player.x, player.y), sp = 260 + u * 160;
+      // tốc độ nâng lần 2 (22/09, "dễ né quá"): 260→380 khởi điểm, mỗi lần dội +16-26%
+      const a = SC.angTo(b.x, b.y, player.x, player.y), sp = 380 + u * 220;
       this.list.push({ k: 'part', boss: b, part: sig.part || 'plate', x: b.x, y: b.y,
         vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, left: Math.round(2 + u * 3),
-        mul: 1.12 + u * 0.08, rot: 0, back: false, hit: false });
+        mul: 1.16 + u * 0.10, rot: 0, back: false, hit: false });
       b.missing = true;
       return { dur: 0.45, name: 'QUĂNG ' + (this.PART_VI[sig.part] || 'MẢNH GIÁP') + '!' };
     }
     if (kind === 'laser') {
       const from = sig.from || 'mouth';
-      this.list.push({ k: 'laser', boss: b, from, t: 0, warn: 0.8, gap: 0.2 - u * 0.1, beam: 0.55,
-        hw: 26 + u * 14, ang: SC.angTo(b.x, b.y, player.x, player.y), hit: false });
-      return { dur: 1.6, name: from === 'hand' ? 'CHƯỞNG LAZE!' : from === 'eye' ? 'NHÃN LAZE!' : 'KHẨU LAZE!' };
+      // khó lần 2: nháy ngắn hơn (0.8→0.6s), bám người chơi lâu hơn trước khi khoá,
+      // khoảng lặng 0.15→0.08s, tia to hơn
+      this.list.push({ k: 'laser', boss: b, from, t: 0, warn: 0.6, gap: 0.15 - u * 0.07, beam: 0.6,
+        hw: 30 + u * 16, ang: SC.angTo(b.x, b.y, player.x, player.y), hit: false });
+      return { dur: 1.45, name: from === 'hand' ? 'CHƯỞNG LAZE!' : from === 'eye' ? 'NHÃN LAZE!' : 'KHẨU LAZE!' };
     }
-    // peck: 1-3 cú mổ liên hoàn theo giai đoạn máu
-    const n = b.phase;
-    this.list.push({ k: 'pecker', boss: b, t: 0, n, done: 0, speed: 380 + u * 120 });
+    // peck: 2-4 cú mổ liên hoàn theo giai đoạn máu; khó lần 2: mỏ nhanh hơn
+    // (380→540) và NGẮM ĐÓN đầu hướng người chơi đang lượn — đứng lượn vòng hết né
+    const n = b.phase + 1;
+    this.list.push({ k: 'pecker', boss: b, t: 0, n, done: 0, speed: 540 + u * 180 });
     return { dur: 0.6 * n + 0.2, name: 'MỔ XUYÊN GIÁP!' };
   },
 
@@ -5291,9 +5295,9 @@ SC.BossSig = {
   _laser(o, dt, player) {
     o.t += dt;
     const b = o.boss;
-    if (o.t < o.warn * 0.65) {                   // bám theo người chơi rồi mới khoá
+    if (o.t < o.warn * 0.8) {                    // bám theo người chơi rồi mới khoá
       const want = SC.angTo(b.x, b.y, player.x, player.y);
-      o.ang += Math.atan2(Math.sin(want - o.ang), Math.cos(want - o.ang)) * Math.min(1, dt * 5);
+      o.ang += Math.atan2(Math.sin(want - o.ang), Math.cos(want - o.ang)) * Math.min(1, dt * 9);
     }
     const on = o.warn + o.gap;
     if (o.t >= on && !o.fired) { o.fired = true; SC.addShake(10, 0.35); SC.Audio.bomb(); }
@@ -5319,7 +5323,9 @@ SC.BossSig = {
     const idx = Math.floor(o.t / CYCLE);
     if (idx > o.done - 1 && k >= 0.6 && o.done < o.n) {
       o.done++;
-      const a = SC.angTo(b.x, b.y + b.r * 0.5, player.x, player.y);
+      // ngắm đón đầu: cộng một nhịp theo hướng tàu đang lao tới (tx/ty là đích bám)
+      const lx = player.x + (player.tx - player.x) * 0.5, ly = player.y + (player.ty - player.y) * 0.5;
+      const a = SC.angTo(b.x, b.y + b.r * 0.5, lx, ly);
       this.list.push({ k: 'beak', boss: b, x: b.x, y: b.y + b.r * 0.5, x0: b.x, y0: b.y + b.r * 0.5,
         vx: Math.cos(a) * o.speed, vy: Math.sin(a) * o.speed, ang: a, hit: false });
       SC.Audio.shoot();
