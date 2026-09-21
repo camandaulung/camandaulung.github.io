@@ -11477,6 +11477,7 @@ SC.Defectors = {
     img.src = d.img;
     const ens = Array.isArray(d.ens) ? d.ens : [];
     this.pool.push({ id: d.id, img, tier: d.tier === 'boss' ? 'boss' : 'mob', score: +d.score || 0,
+      at: +d.at || 0,                  // thứ tự bán — trùm phản bội rải map theo thứ tự này
       cls: d.cls || '', ens, names: Array.isArray(d.names) ? d.names : [],
       seller: typeof d.seller === 'string' ? d.seller : '',
       bird: ens.some(e => this.BIRDS.indexOf(e) >= 0) });
@@ -11580,7 +11581,7 @@ SC.Defectors = {
 
 SC.DefectorSpawn = {
   CAP: 0.5,
-  BOSS_CHANCE: 0.5,    // vòng vô tận: xác suất trùm của map bị thay bằng tàu hạng trùm
+  BOSS_CHANCE: 0.9,    // vòng vô tận: xác suất map trùm được giao tàu phản bội (duyệt 22/09)
   SELLER_CHANCE: 0.35, // xác suất băng tên trùm phản bội khai tên người đã bán nó
 
   /* RNG gieo theo chuỗi — cùng map cùng wave thì luôn cùng kết quả */
@@ -11608,11 +11609,25 @@ SC.DefectorSpawn = {
   },
 
   /* Vòng vô tận: thay trùm của map bằng tàu hạng trùm. Giữ máu/chiêu vùng của trùm gốc. */
+  /* KHÔNG LẶP (yêu cầu 22/09/2026): mỗi tàu hạng trùm chỉ làm trùm ở ĐÚNG MỘT map.
+     Xếp tàu theo lúc bán (cũ trước) rồi rải lần lượt vào các map trùm vô tận được gieo
+     trúng (90%): map trùng thứ k nhận tàu thứ k. Tàu bán sau nối ĐUÔI hàng nên map đã
+     gán không đổi chủ. Hết tàu thì map sau về trùm gốc.
+     Khi pool lớn (vượt số map trùm người ta thực sự chơi tới) nên đổi sang xáo theo
+     vòng — ghi chú để cải tiến, chưa cần lúc này. */
+  _bossSlot(id) {
+    let k = -1;
+    for (let i = SC.TOTAL_LEVELS + 1; i <= id; i++)
+      if (SC.levelAt(i).boss && this._r('boss', i) < this.BOSS_CHANCE) k++;
+    return this._r('boss', id) < this.BOSS_CHANCE ? k : -1;
+  },
+
   bossify(boss, lv) {
     if (!SC.Endless.active(lv.id)) return;
-    const pool = SC.Defectors.ready('boss');
-    if (!pool.length || this._r('boss', lv.id) >= this.BOSS_CHANCE) return;
-    const dz = pool[(this._r('pick', lv.id) * pool.length) | 0];
+    const pool = SC.Defectors.ready('boss').sort((a, b) => (a.at - b.at) || (a.id < b.id ? -1 : 1));
+    const k = this._bossSlot(lv.id);
+    if (k < 0 || k >= pool.length) return;
+    const dz = pool[k];
     boss.dz = dz;
     const ten = dz.names.length ? dz.names.join(' ').toUpperCase() : 'VÔ DANH';
     // THỈNH THOẢNG (~35%, gieo theo map) khai ra ai đã bán nó — vui vì bất ngờ; lần nào
