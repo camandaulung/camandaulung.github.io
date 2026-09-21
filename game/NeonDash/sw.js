@@ -11,7 +11,7 @@
  * là được kết quả xanh giả.
  */
 
-const CACHE = 'neon-dash-daf4d0a8';
+const CACHE = 'neon-dash-976c3355';
 
 const SHELL = [
   "./",

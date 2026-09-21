@@ -25,7 +25,7 @@ SC.BALANCE = {
     "run": {"mul": 0.1, "every": 3}
   },
   "drones": {
-    "A": [{"n": 1, "dmg": 2, "rate": 0.34, "pierce": 0}, {"n": 2, "dmg": 2, "rate": 0.32, "pierce": 0}, {"n": 3, "dmg": 2, "rate": 0.3, "pierce": 0}, {"n": 4, "dmg": 2, "rate": 0.28, "pierce": 0}, {"n": 5, "dmg": 2, "rate": 0.27, "pierce": 0}, {"n": 6, "dmg": 2, "rate": 0.25, "pierce": 0}, {"n": 6, "dmg": 3, "rate": 0.24, "pierce": 0}, {"n": 7, "dmg": 3, "rate": 0.22, "pierce": 0}, {"n": 7, "dmg": 4, "rate": 0.2, "pierce": 0}],
+    "A": [{"n": 1, "dmg": 2, "rate": 0.34, "pierce": 0}, {"n": 2, "dmg": 2, "rate": 0.32, "pierce": 0}, {"n": 3, "dmg": 2, "rate": 0.3, "pierce": 0}, {"n": 4, "dmg": 2, "rate": 0.28, "pierce": 0}, {"n": 5, "dmg": 2, "rate": 0.27, "pierce": 0}, {"n": 6, "dmg": 2, "rate": 0.25, "pierce": 0}, {"n": 6, "dmg": 3, "rate": 0.24, "pierce": 0}, {"n": 7, "dmg": 3, "rate": 0.22, "pierce": 0}, {"n": 7, "dmg": 4, "rate": 0.2, "pierce": 0}, {"n": 8, "dmg": 5, "rate": 0.18, "pierce": 0}, {"n": 8, "dmg": 6, "rate": 0.16, "pierce": 0}],
     "B": [{"n": 1, "dmg": 2, "rate": 0.34, "pierce": 0}, {"n": 1, "dmg": 8, "rate": 0.6, "pierce": 1}, {"n": 2, "dmg": 8, "rate": 0.6, "pierce": 1}, {"n": 2, "dmg": 11, "rate": 0.6, "pierce": 2}, {"n": 2, "dmg": 13, "rate": 0.58, "pierce": 3}, {"n": 2, "dmg": 15, "rate": 0.55, "pierce": 4}, {"n": 2, "dmg": 20, "rate": 0.52, "pierce": 5}, {"n": 3, "dmg": 22, "rate": 0.5, "pierce": 6}, {"n": 3, "dmg": 28, "rate": 0.46, "pierce": 7}]
   },
   "shield": {
@@ -698,11 +698,12 @@ SC.TREE = {
     paths: {
       A: {
         name: 'BẦY ĐÀN', color: '#7ae0ff',
-        good: 'Tới 7 chiếc nhỏ vòng quanh, dọn sạch quái vây quanh mình',
+        good: 'Tới 8 chiếc nhỏ vòng quanh, dọn sạch quái vây quanh mình',
         bad: 'Sát thương lẻ tẻ, gặm trùm rất lâu',
         tiers: ['1 chiếc bay kèm', '2 chiếc vòng quanh', '3 chiếc',
           '4 chiếc, bắn nhanh hơn', '5 chiếc', '6 chiếc, biết lao vào cản quái',
-          '6 chiếc, đạn đau gấp rưỡi', '7 chiếc, bắn nhanh hơn', '7 chiếc, sát thương tối đa']
+          '6 chiếc, đạn đau gấp rưỡi', '7 chiếc, bắn nhanh hơn', '7 chiếc, đạn đau hơn',
+          '8 chiếc, vành drone khép kín', '8 chiếc, sát thương tối đa']
       },
       B: {
         name: 'SÁT THỦ', color: '#c58cff',
@@ -6952,12 +6953,18 @@ SC.Drones = {
   /* count/dmg/rate theo cấp 1..6. Tổng sát thương hai hướng xấp xỉ nhau (~50/giây ở
      cấp 6), khác nhau ở CHỖ nó rơi vào: bầy đàn rải mỏng, sát thủ dồn một cục. */
   /* Ba cấp cuối (7-9) tăng SÁT THƯƠNG là chính, số chiếc chỉ nhích thêm một.
-     Bầy đàn dừng ở 7 chiếc: đông hơn nữa là vành drone che mất máy bay chính, người
-     chơi không còn đọc được mình đang đứng đâu giữa đám đạn. */
+     Bầy đàn dừng ở 8 chiếc: đông hơn nữa là vành drone che mất máy bay chính, người
+     chơi không còn đọc được mình đang đứng đâu giữa đám đạn.
+     22/09/2026 thêm cấp 10-11 = 8 chiếc: 7 chiếc lẻ, vành drone lệch một bên nhìn không
+     cân (anh Đức). Nhịp bắn vẫn giảm 0.02s/cấp như ngoại suy cũ: cấp 10 = 8×5/0.18s
+     (222/s) ≥ bản cũ 7×5/0.18s (194/s) — người đã vượt cấp 9 không bị tụt. Hai cấp
+     cuối cùng n=8 -> ngoại suy GIỮ 8 chiếc, +1 sát thương mỗi cấp (tierOf lấy hiệu
+     hai cấp cuối). Nguồn số: balance/sky-chicken-balance.xlsx sheet PhiDoi. */
   A: SC.bal('drones.A', [
     { n: 1, dmg: 2, rate: 0.34 }, { n: 2, dmg: 2, rate: 0.32 }, { n: 3, dmg: 2, rate: 0.30 },
     { n: 4, dmg: 2, rate: 0.28 }, { n: 5, dmg: 2, rate: 0.27 }, { n: 6, dmg: 2, rate: 0.25 },
-    { n: 6, dmg: 3, rate: 0.24 }, { n: 7, dmg: 3, rate: 0.22 }, { n: 7, dmg: 4, rate: 0.20 }
+    { n: 6, dmg: 3, rate: 0.24 }, { n: 7, dmg: 3, rate: 0.22 }, { n: 7, dmg: 4, rate: 0.20 },
+    { n: 8, dmg: 5, rate: 0.18 }, { n: 8, dmg: 6, rate: 0.16 }
   ]),
   B: SC.bal('drones.B', [
     { n: 1, dmg: 2, rate: 0.34, pierce: 0 }, { n: 1, dmg: 8, rate: 0.60, pierce: 1 },
@@ -8560,6 +8567,7 @@ SC.Profiles = {
   },
 
   save() {
+    if (SC.CloudRoster) SC.CloudRoster.schedule();   // danh sách hồ sơ theo lên mây
     try {
       localStorage.setItem(this.KEY, JSON.stringify({ list: this.list, active: this.active }));
     } catch (e) {}
@@ -8754,8 +8762,8 @@ SC.ProfileUI = {
     SC.EvoAI.onProfileChange();
     SC.UI.buildMapList();
     SC.UI.syncMenu();
-    // Đổi hồ sơ là đổi cả TÊN lẫn tiến độ hiện trên bảng xếp hạng -> đẩy lại ngay
-    SC.Cloud.markDirty(0);
+    // Đổi hồ sơ: kéo bản sao lưu của hồ sơ mới rồi mới đẩy (tên + tiến độ lên BXH)
+    SC.Cloud.switchProfile();
   }
 };
 
@@ -8834,6 +8842,15 @@ SC.Cloud = {
      scores/{uid}_p{id}. Luật firestore.rules cho phép đúng hai dạng id này. */
   scoreId(uid, prof = SC.Profiles.cur()) {
     return prof && prof.id !== 1 ? `${uid}_p${prof.id}` : uid;
+  },
+
+  /* ĐỔI HỒ SƠ: KÉO bản sao lưu của hồ sơ mới TRƯỚC, rồi mới đẩy (pull tự đẩy khi máy
+     nhiều hơn). Bản cũ markDirty(0) đẩy ngay — máy mới mở hồ sơ 2 trắng là đè mất bản
+     tốt trên mây của hồ sơ 2. Gương M365 cũng đọc lại theo khoá của hồ sơ mới. */
+  switchProfile() {
+    Portal.Cloud.snapshotLocal();
+    if (Portal.Auth.user) Portal.Cloud.pull();
+    if (SC.M365Sync) SC.M365Sync.restore();
   },
 
   /* Bảng xếp hạng toàn cầu. Đệm 60 giây nằm trong `Portal.Rank`. */
@@ -8941,6 +8958,11 @@ SC.Cloud = {
       },
 
       scoreId: uid => SC.Cloud.scoreId(uid),
+      // sao lưu theo TỪNG HỒ SƠ — xem system-cloud-profile-roster.js
+      userId: uid => SC.Cloud.scoreId(uid),
+      pick: d => (SC.CloudRoster.accepts(d) ? d.progress : null),
+      onDoc: d => SC.CloudRoster.adopt(d.profiles),
+      meta: () => SC.CloudRoster.meta(),
       playerName: () => SC.Cloud.playerName(),
       weight: p => SC.Cloud._weight(p),
       isEmpty: p => SC.Cloud._empty(p),
@@ -9006,6 +9028,83 @@ SC.RankAllProfiles = {
     } catch (e) {
       this._uid = '';                                    // lần đổi phiên sau thử lại
       console.warn('[rank] chưa đẩy được điểm các hồ sơ khác:', (e && e.code) || e);
+    }
+  }
+};
+
+;
+/* ===== js/system-cloud-profile-roster.js ===== */
+/* system-cloud-profile-roster.js — SAO LƯU MÂY THEO TỪNG HỒ SƠ (22/09/2026)
+ *
+ * BUG CŨ: users/{uid} và gương m365Users/{email} chỉ MỘT bản cho cả tài khoản, đổi hồ
+ * sơ là bản đó thành tiến độ hồ sơ vừa mở — sang máy mới chỉ kéo về được hồ sơ chơi
+ * gần nhất, 2 hồ sơ kia coi như mất.
+ *
+ * CÁCH MỚI (cùng quy ước với BXH, SC.Cloud.scoreId):
+ *   - hồ sơ 1 = users/{uid} + m365Users/{email} như cũ; hồ sơ 2-3 = ..._p{id}.
+ *   - mỗi bản ghi mang `pid` (số hồ sơ). Hồ sơ chỉ nhận bản ĐÚNG pid của mình; bản cũ
+ *     chưa có pid coi là của hồ sơ 1 (lệch nhau thì hộp thoại merge HỎI như luật cũ).
+ *   - mọi bản ghi mang `profiles` = danh sách hồ sơ {id, name, avatar}: máy mới kéo
+ *     bản hồ sơ 1 về là dựng lại đủ hồ sơ, mở hồ sơ nào thì kéo tiến độ hồ sơ đó.
+ */
+
+SC.CloudRoster = {
+  _t: 0,
+
+  list() {
+    return SC.Profiles.list.map(p => ({ id: p.id, name: String(p.name || '').slice(0, 20),
+      avatar: String(p.avatar || '').slice(0, 8) }));
+  },
+
+  /* bản ghi mây có phải của hồ sơ đang mở không */
+  accepts(doc) {
+    const id = SC.Profiles.cur().id;
+    return doc.pid === undefined ? id === 1 : doc.pid === id;
+  },
+
+  /* trường ghi kèm mọi bản sao lưu */
+  meta() { return { pid: SC.Profiles.cur().id, profiles: this.list() }; },
+
+  /* Dựng lại hồ sơ có trên mây mà máy này chưa có — GIỮ ĐÚNG id để khoá _p{id} khớp.
+     Trùng id mà khác tên (máy này tự tạo riêng) thì để nguyên hồ sơ máy này. */
+  adopt(list) {
+    if (!Array.isArray(list)) return;
+    let them = 0;
+    list.forEach(p => {
+      if (!p || !(p.id > 0) || SC.Profiles.full()) return;
+      if (SC.Profiles.list.some(x => x.id === p.id)) return;
+      SC.Profiles.list.push({ id: p.id, name: String(p.name || 'PHI CÔNG').slice(0, 14),
+        avatar: p.avatar || SC.Profiles.AVATARS[0] });
+      them++;
+    });
+    if (!them) return;
+    SC.Profiles.list.sort((a, b) => a.id - b.id);
+    const cur = SC.Profiles.cur();
+    SC.Profiles.active = Math.max(0, SC.Profiles.list.indexOf(cur));
+    SC.Profiles.save();
+    SC.UI.toast(`ĐÃ KHÔI PHỤC ${them} HỒ SƠ TỪ ĐÁM MÂY`);
+  },
+
+  /* Danh sách hồ sơ đổi (tạo/xoá/đổi tên/ảnh) -> ghi vào bản của hồ sơ 1 (merge: chỉ
+     chạm trường profiles). Gương M365 chưa tồn tại thì luật chặn — bỏ qua, lần treo
+     gương sau đã mang profiles. */
+  schedule() {
+    clearTimeout(this._t);
+    this._t = setTimeout(() => this._push(), 3000);
+  },
+
+  async _push() {
+    if (!Portal.FB.configured() || !Portal.Auth.user) return;
+    try {
+      const fb = await Portal.FB.load();
+      const { doc, setDoc } = fb.fsM;
+      const profiles = this.list();
+      const jobs = [setDoc(doc(fb.db, 'users', Portal.Auth.user.uid), { profiles }, { merge: true })];
+      const key = SC.M365Sync && SC.M365Sync._base();
+      if (key) jobs.push(setDoc(doc(fb.db, 'm365Users', key), { profiles }, { merge: true }).catch(() => {}));
+      await Portal.FB.limit(Promise.all(jobs), 'lưu danh sách hồ sơ');
+    } catch (e) {
+      console.warn('[roster] chưa lưu được danh sách hồ sơ:', (e && e.code) || e);
     }
   }
 };
@@ -13773,14 +13872,21 @@ SC.M365Sync = {
      dán, hết hạn giờ) thì module NGỦ CẢ PHIÊN — vì không biết gương đang giữ gì,
      ghi bừa là máy tiến-độ-thấp đè mất gương tốt, đúng cái bug đang chữa.
      Tiến độ phiên đó vẫn lưu bình thường ở users/{uid}, chỉ thiếu bản gương. */
-  _ready: false,
+  /* Khoá gương ĐÃ đọc thành công (22/09/2026: mỗi hồ sơ một gương — đổi hồ sơ là
+     khoá mới, phải đọc gương của hồ sơ đó trước rồi mới được treo đè). */
+  _readyKey: '',
   _timer: 0,
 
   /* Email → id tài liệu Firestore. Chữ thường để "Duc@X" và "duc@x" về một khoá.
      Ngoài zingplay.dev (SC.M365.info = null) trả chuỗi rỗng → cả module im lặng. */
-  _key() {
+  _base() {
     const e = SC.M365 && SC.M365.info && SC.M365.info.email;
     return e ? e.toLowerCase().replace(/[^a-z0-9@._-]/g, '_').slice(0, 100) : '';
+  },
+  /* hồ sơ 1 = khoá email như cũ, hồ sơ 2-3 = email_p{id} (system-cloud-profile-roster.js) */
+  _key() {
+    const b = this._base(), p = SC.Profiles.cur();
+    return b && p && p.id !== 1 ? `${b}_p${p.id}` : b;
   },
 
   /* Portal.Cloud.pull() giữ state 'pull' suốt cả lúc hộp thoại merge của NÓ đang mở.
@@ -13806,8 +13912,8 @@ SC.M365Sync = {
      LẠI khi mạng rớt rồi có lại (identity nghe 'online' và init lại) — đã đọc
      gương thành công rồi thì thôi, chạy nữa là hộp thoại merge hiện lặp. */
   async restore() {
-    if (this._ready) return;
     const key = this._key();
+    if (key && this._readyKey === key) return;
     if (!key || !Portal.FB.configured()) return;
     await this._waitPullSettled();
     try {
@@ -13815,7 +13921,11 @@ SC.M365Sync = {
       const { doc, getDoc } = fb.fsM;
       const snap = await Portal.FB.limit(
         getDoc(doc(fb.db, 'm365Users', key)), 'đọc tiến độ theo email');
-      const cloud = snap.exists() ? snap.data().progress : null;
+      const data = snap.exists() ? snap.data() : null;
+      if (data) SC.CloudRoster.adopt(data.profiles);          // máy mới: dựng lại đủ hồ sơ
+      // chỉ nhận gương ĐÚNG hồ sơ đang mở (bản cũ chưa có pid = của hồ sơ 1)
+      const cloud = data && SC.CloudRoster.accepts(data) ? data.progress : null;
+      if (key !== this._key()) return;        // người chơi đổi hồ sơ giữa lúc đọc -> bỏ
       const local = SC.UI.progress;
 
       if (!cloud || SC.Cloud._empty(cloud)) {
@@ -13830,7 +13940,7 @@ SC.M365Sync = {
         /* chọn 'local' → _done() treo gương bằng bản máy này, đè bản cũ: đó là
            lựa chọn có chủ đích của người chơi, không phải máy tự quyết */
       }
-      this._done();
+      this._done(key);
     } catch (e) {
       /* KHÔNG _done() ở đây — xem chú thích cờ _ready. Không toast: người chơi
          không làm gì được với lỗi này, game vẫn chạy như cũ. */
@@ -13838,8 +13948,8 @@ SC.M365Sync = {
     }
   },
 
-  _done() {
-    this._ready = true;
+  _done(key) {
+    this._readyKey = key;
     this.mirror();   // luôn treo gương một lần sau restore — để máy cũ seed gương
   },
 
@@ -13849,9 +13959,11 @@ SC.M365Sync = {
     const key = this._key();
     /* Chưa đọc gương thành công thì KHÔNG được ghi: máy trắng/máy yếu ghi trước là
        đè mất gương của máy kia — đúng cái đang cần cứu (xem chú thích _ready). */
-    if (!key || !this._ready) return;
+    if (!key || this._readyKey !== key) return;
     const p = SC.UI.progress;
     if (SC.Cloud._empty(p)) return;   // máy trắng không có gì đáng treo lên gương
+    // chốt pid NGAY LÚC GỌI: đổi hồ sơ trong 3 giây gom thì key cũ + pid mới là lệch
+    const meta = SC.CloudRoster.meta();
     clearTimeout(this._timer);
     this._timer = setTimeout(async () => {
       try {
@@ -13868,6 +13980,7 @@ SC.M365Sync = {
           // lọc như safeName của portal-cloud: tên sẽ có ngày được vẽ ra UI
           name: SC.Cloud.playerName().replace(/[\x00-\x1F<>]/g, '').slice(0, 40),
           progress: p,
+          ...meta,                                 // pid + danh sách hồ sơ
           updatedAt: serverTimestamp()
         }), 'lưu tiến độ theo email');
       } catch (e) {

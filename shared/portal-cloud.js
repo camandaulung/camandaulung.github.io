@@ -25,6 +25,10 @@
  *   progress:   () => ({...}),      // tien do day du hien tai (ghi vao userDoc)
  *   score:      (hadDoc, fsM) => ({...}),   // cac truong xep hang (ghi vao scoreDoc)
  *   scoreId:    uid => uid + '_p2',   // (tuy chon) id ban ghi diem, mac dinh = uid
+ *   userId:     uid => uid + '_p2',   // (tuy chon) id ban ghi tien do, mac dinh = uid
+ *   pick:       doc => doc.progress,  // (tuy chon) lay tien do tu ban ghi; null = coi nhu chua co
+ *   onDoc:      doc => {},            // (tuy chon) xem ca ban ghi vua keo ve (vd danh sach ho so)
+ *   meta:       () => ({}),           // (tuy chon) truong them ghi kem tien do
  *                                   //   hadDoc: ban ghi da ton tai chua
  *                                   //   fsM:    module firestore, de dung deleteField()
  *   playerName: () => 'Ten',        // ten hien tren bang xep hang
@@ -90,15 +94,24 @@ Portal.Cloud = (function () {
     /* ---------- keo tu dam may ve ---------- */
     async pull() {
       if (!api.ready() || !Portal.Auth.user) return;
+      /* Huy lenh day dang cho: game nhieu ho so goi pull() luc DOI HO SO — de lenh day
+       * cu no giua chung la day tien do (co the trang) cua ho so moi de len ban tot tren
+       * may truoc khi kip doc. Moi nhanh ben duoi deu tu day lai khi may co nhieu hon. */
+      clearTimeout(timer);
       state = 'pull'; emit();
       try {
         const fb = await Portal.FB.load();
         const { doc, getDoc } = fb.fsM;
+        /* userId/pick/onDoc (tuy chon): game NHIEU HO SO tren mot tai khoan — moi ho so
+         * mot ban sao luu rieng (Sky Chicken 22/09/2026). Mac dinh giu nguyen hanh vi cu. */
+        const uid = Portal.Auth.user.uid;
         const snap = await Portal.FB.limit(
-          getDoc(doc(fb.db, A.userDoc, Portal.Auth.user.uid)), 'đọc tiến độ');
+          getDoc(doc(fb.db, A.userDoc, A.userId ? A.userId(uid) : uid)), 'đọc tiến độ');
 
         hadDoc = snap.exists();
-        const cloud = snap.exists() ? snap.data().progress : null;
+        const data = snap.exists() ? snap.data() : null;
+        if (data && A.onDoc) A.onDoc(data);
+        const cloud = data ? (A.pick ? A.pick(data) : data.progress) : null;
 
         if (!cloud) {                    // tai khoan moi -> lay luon tien do dang choi
           state = 'ok'; emit();
@@ -191,10 +204,10 @@ Portal.Cloud = (function () {
         );
 
         await Portal.FB.limit(Promise.all([
-          setDoc(doc(fb.db, A.userDoc, u.uid), {
+          setDoc(doc(fb.db, A.userDoc, A.userId ? A.userId(u.uid) : u.uid), Object.assign({
             name: u.name, avatar: u.avatar,
             progress: A.progress(), updatedAt: serverTimestamp()
-          }, { merge: true }),
+          }, A.meta ? A.meta() : {}), { merge: true }),
           /* scoreId (tuy chon): game co NHIEU HO SO tren mot tai khoan can moi ho so mot
            * dong BXH rieng (Sky Chicken 22/09/2026) — mac dinh van la uid. */
           setDoc(doc(fb.db, A.scoreDoc, A.scoreId ? A.scoreId(u.uid) : u.uid), score, { merge: true })
