@@ -11447,7 +11447,8 @@ SC.DefectorGrade = {
  *   - thấy ngay tàu mình vừa bán trong trận kế, không phải đợi mây;
  *   - đẩy mây lỗi (mất mạng, luật Firestore chưa dán) thì còn bản chờ, lần nạp sau
  *     đẩy lại. Doc id cố định theo uid+tàu nên đẩy lại không nhân bản.
- * Tài liệu KHÔNG chứa tên/email người bán — ảnh tàu đi khắp máy người khác.
+ * Tài liệu có `seller` = phần trước @ của email (KHÔNG bao giờ cả email) để thỉnh thoảng
+ * trùm phản bội khoe "PHẢN ĐỒ CỦA ducdm" — duyệt 22/09/2026.
  */
 
 SC.Defectors = {
@@ -11477,6 +11478,7 @@ SC.Defectors = {
     const ens = Array.isArray(d.ens) ? d.ens : [];
     this.pool.push({ id: d.id, img, tier: d.tier === 'boss' ? 'boss' : 'mob', score: +d.score || 0,
       cls: d.cls || '', ens, names: Array.isArray(d.names) ? d.names : [],
+      seller: typeof d.seller === 'string' ? d.seller : '',
       bird: ens.some(e => this.BIRDS.indexOf(e) >= 0) });
   },
 
@@ -11523,7 +11525,7 @@ SC.Defectors = {
       const cls = (o.ens || []).find(e => SC.EVO_KW.class.some(c => c.en === e)) || '';
       const d = { id: 'm_' + o.id, img: await SC.EvoGarage.compress(url, 192), ens: (o.ens || []).slice(0, 4),
         names: (o.names || []).slice(0, 4).map(n => String(n).slice(0, 24)), cls, tier: g.tier,
-        score: g.score, at: Date.now(), up: 0 };
+        score: g.score, at: Date.now(), up: 0, seller: this._seller() };
       this._add(d);
       const mine = this._mine().filter(x => x.id !== d.id);
       mine.push(d);
@@ -11534,11 +11536,21 @@ SC.Defectors = {
     }
   },
 
+  /* Tên người bán cho câu "PHẢN ĐỒ CỦA ducdm" (22/09/2026, anh Đức duyệt: lộ tên nội bộ
+     cho vui). Chỉ phần trước @ của email M365 — không bao giờ cả email; ngoài M365 thì
+     tên hồ sơ. Lọc ký tự điều khiển/thẻ như safeName của portal-cloud. */
+  _seller() {
+    const em = SC.M365 && SC.M365.info && SC.M365.info.email;
+    const s = em ? String(em).split('@')[0] : SC.Cloud.playerName();
+    return String(s || '').replace(/[\x00-\x1F<>]/g, '').slice(0, 24);
+  },
+
   async _upload(fb, d) {
     const uid = fb.auth.currentUser.uid;
     const { doc, setDoc } = fb.fsM;
     await Portal.FB.limit(setDoc(doc(fb.db, this.COL, uid + '_' + d.id.slice(2)), {
-      img: d.img, ens: d.ens, names: d.names, cls: d.cls, tier: d.tier, score: d.score, at: d.at, by: uid
+      img: d.img, ens: d.ens, names: d.names, cls: d.cls, tier: d.tier, score: d.score, at: d.at, by: uid,
+      seller: d.seller || ''
     }), 'đẩy tàu phản bội');
     this._saveMine(this._mine().map(x => (x.id === d.id ? Object.assign(x, { up: 1 }) : x)));
   },
@@ -11569,6 +11581,7 @@ SC.Defectors = {
 SC.DefectorSpawn = {
   CAP: 0.5,
   BOSS_CHANCE: 0.5,    // vòng vô tận: xác suất trùm của map bị thay bằng tàu hạng trùm
+  SELLER_CHANCE: 0.35, // xác suất băng tên trùm phản bội khai tên người đã bán nó
 
   /* RNG gieo theo chuỗi — cùng map cùng wave thì luôn cùng kết quả */
   _r(...k) {
@@ -11601,7 +11614,11 @@ SC.DefectorSpawn = {
     if (!pool.length || this._r('boss', lv.id) >= this.BOSS_CHANCE) return;
     const dz = pool[(this._r('pick', lv.id) * pool.length) | 0];
     boss.dz = dz;
-    boss.name = 'PHẢN ĐỒ · ' + (dz.names.length ? dz.names.join(' ').toUpperCase() : 'VÔ DANH');
+    const ten = dz.names.length ? dz.names.join(' ').toUpperCase() : 'VÔ DANH';
+    // THỈNH THOẢNG (~35%, gieo theo map) khai ra ai đã bán nó — vui vì bất ngờ; lần nào
+    // cũng hiện thì thành nhàm và giống bảng tên hơn là trò đùa
+    boss.name = dz.seller && this._r('seller', lv.id) < this.SELLER_CHANCE
+      ? `PHẢN ĐỒ CỦA ${dz.seller.toUpperCase()} · ${ten}` : 'PHẢN ĐỒ · ' + ten;
     // chiêu mổ chỉ hợp gia cầm — tàu phản bội không phải chim thì mổ đổi thành laze
     if (!dz.bird) boss.atkList = boss.atkList.map(a => (a === 'peck' ? 'laser' : a));
   },
