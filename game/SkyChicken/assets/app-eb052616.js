@@ -9734,19 +9734,21 @@ SC.Victory = {
  */
 
 SC.EVO_KW = {
+  /* `dna` = đặc điểm giải phẫu BẮT BUỘC giữ khi gen (21/09/2026: gấu trúc mà gen
+     ra tàu thon là mất hết cái hồn — panda phải MẬP). Nhồi thẳng vào prompt. */
   animal: [
-    { vi: 'gà',        en: 'rooster' },
-    { vi: 'mèo',       en: 'cat' },
-    { vi: 'cú mèo',    en: 'owl' },
-    { vi: 'cá mập',    en: 'shark' },
-    { vi: 'đại bàng',  en: 'eagle' },
-    { vi: 'rồng',      en: 'dragon' },
-    { vi: 'gấu trúc',  en: 'panda' },
-    { vi: 'sói',       en: 'wolf' },
-    { vi: 'bạch tuộc', en: 'octopus' },
-    { vi: 'khủng long',en: 't-rex dinosaur' },
-    { vi: 'ong',       en: 'bee' },
-    { vi: 'cáo',       en: 'fox' },
+    { vi: 'gà',        en: 'rooster',        dna: 'plump round chicken body, red comb on top, wattle under the chin' },
+    { vi: 'mèo',       en: 'cat',            dna: 'feline face with whiskers, pointed triangular ears, sleek curved body' },
+    { vi: 'cú mèo',    en: 'owl',            dna: 'huge round owl eyes, flat facial disc, ear tufts' },
+    { vi: 'cá mập',    en: 'shark',          dna: 'streamlined shark body, tall dorsal fin, gill slits, toothy grin' },
+    { vi: 'đại bàng',  en: 'eagle',          dna: 'fierce hooked eagle beak, broad feathered wings, sharp talons' },
+    { vi: 'rồng',      en: 'dragon',         dna: 'dragon horns, scaled armor plates, long serpentine tail' },
+    { vi: 'gấu trúc',  en: 'panda',          dna: 'VERY chubby round panda body with a big belly, black eye patches, round black ears' },
+    { vi: 'sói',       en: 'wolf',           dna: 'lean wolf snout with fangs, pointed ears, bushy tail' },
+    { vi: 'bạch tuộc', en: 'octopus',        dna: 'dome octopus head, multiple curling tentacles as wings or thrusters' },
+    { vi: 'khủng long',en: 't-rex dinosaur', dna: 'big t-rex jaws with teeth, tiny front arms, thick powerful tail' },
+    { vi: 'ong',       en: 'bee',            dna: 'striped bee abdomen with a stinger tail, translucent double wings' },
+    { vi: 'cáo',       en: 'fox',            dna: 'slim fox muzzle, big pointed ears, fluffy bushy tail' },
   ],
   trait: [
     { vi: 'vui vẻ',     en: 'cheerful, big happy grin' },
@@ -9778,7 +9780,16 @@ SC.EVO_KW = {
   roll(type) {
     const pool = this[type];
     const it = pool[(Math.random() * pool.length) | 0];
-    return { t: type, vi: it.vi, en: it.en };
+    return { t: type, vi: it.vi, en: it.en, dna: it.dna };
+  },
+
+  /* DNA của con vật trong bộ từ khóa — kw cũ (trước khi có dna) tra lại theo en */
+  _dnaOf(kws) {
+    const a = kws.find(k => k.t === 'animal');
+    if (!a) return '';
+    if (a.dna) return a.dna;
+    const it = this.animal.find(x => x.en === a.en);
+    return it ? it.dna : '';
   },
 
   /* Style phụ cho nút GEN LẠI (21/09/2026): gen lại cùng prompt hay ra kết quả
@@ -9796,9 +9807,11 @@ SC.EVO_KW = {
   prompt(kws, style) {
     const by = {};
     for (const k of kws) by[k.t] = k.en;
+    const dna = this._dnaOf(kws);
     return [
       ...(style && this.STYLES[style] ? [this.STYLES[style].en] : []),
       `a heroic fighter aircraft styled as a ${by.animal || 'rooster'}`,
+      ...(dna ? [`the aircraft body MUST keep the ${by.animal} anatomy DNA: ${dna}`] : []),
       `personality: ${by.trait || 'cheerful'} — show it clearly in the face and pose`,
       `dominant color scheme: ${by.color || 'vivid red'}`,
       'vibrant toon cartoon game sprite, fun but cool and battle-ready',
@@ -9814,10 +9827,12 @@ SC.EVO_KW = {
   dronePrompt(kws, style) {
     const by = {};
     for (const k of kws) by[k.t] = k.en;
+    const dna = this._dnaOf(kws);
     return [
       ...(style && this.STYLES[style] ? [this.STYLES[style].en] : []),
       `a tiny cute escort drone, companion of a ${by.animal || 'rooster'} themed fighter aircraft`,
       `same theme: ${by.animal || 'rooster'} motif, ${by.trait || 'cheerful'} vibe`,
+      ...(dna ? [`echo the ${by.animal} DNA in miniature: ${dna}`] : []),
       `same dominant color scheme: ${by.color || 'vivid red'}`,
       'very simple bold silhouette readable at 24 pixels, vibrant toon cartoon game sprite',
       'glossy, bold dark outlines, subtle neon rim light',
@@ -10258,7 +10273,10 @@ SC.EvoAIUI = {
       this._btns(this._genLabel(), SC.EvoAI.rollsLeft() > 0, true);
     } else {
       this._pack = null;
-      this._view('<span class="evoai-hint">Bấm TIẾN HÓA để AI ghép chiến đấu cơ + phi đội từ bộ từ khóa (~15 giây)</span>');
+      // Quả trứng thay text box (21/09): thứ sắp nở ra tàu thì phải trông như
+      // một quả trứng đang chờ, không phải một đoạn hướng dẫn sử dụng.
+      this._view('<div class="evo-egg">🥚</div>'
+        + '<span class="evoai-hint">Bấm TIẾN HÓA để ấp trứng — AI ghép chiến đấu cơ + phi đội (~15 giây)</span>');
       this._btns(this._genLabel(), true, false);
     }
     SC.UI.showOverlay('evoai');
@@ -10305,20 +10323,27 @@ SC.EvoAIUI = {
     if (SC.EvoAI.rollsLeft() <= 0 && this._pack) return;
     this._busy = true;
     this._err('');
-    this._view('<span class="evoai-hint evoai-spin">⏳ ĐANG TIẾN HÓA…</span>');
-    this._btns('ĐANG TIẾN HÓA…', false, false);
+    // trứng lắc + nứt trong suốt ~15s chờ gen — thay cho dòng chữ đợi chán ngắt
+    this._view('<div class="evo-egg hatching">🥚</div>'
+      + '<span class="evoai-hint evoai-spin">ĐANG ẤP TRỨNG…</span>');
+    this._btns('ĐANG ẤP TRỨNG…', false, false);
     // Trừ lượt TRƯỚC khi gọi mạng — F5 giữa chừng vẫn mất lượt (anti-cheat)
     if (SC.EvoAI.rollsLeft() > 0) SC.EvoAI.spendRoll();
     try {
       const pack = await SC.EvoAI.generate(undefined, style);
       this._pack = pack;
       SC.EvoAI.saveDraft(pack);
+      // NỞ: gà con bung ra một nhịp rồi mới lộ tàu — phần thưởng phải có màn chào sân
+      this._view('<div class="evo-egg hatch">🐣</div>');
+      SC.Audio.win();
+      await new Promise(r => setTimeout(r, 550));
       this._view(this._preview(pack));
       this._busy = false;
       this._btns(this._genLabel(), SC.EvoAI.rollsLeft() > 0, true);
     } catch (e) {
       this._busy = false;
-      this._view('<span class="evoai-hint">Chưa tiến hóa được — thử lại sau</span>');
+      this._view('<div class="evo-egg">🥚</div>'
+        + '<span class="evoai-hint">Trứng chưa nở được — thử lại sau</span>');
       this._err((e && e.message) || 'Lỗi mạng');
       // lỗi mạng không hoàn lượt: server có thể ĐÃ gen xong (tiền đã tốn) mà
       // response rơi giữa đường — hoàn lượt là mở đường farm ảnh miễn phí

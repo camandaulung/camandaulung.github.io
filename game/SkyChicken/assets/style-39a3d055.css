@@ -1289,6 +1289,9 @@ body.is-touch .rank-pos img{width:32px;height:32px}
 .tree-rebuild{box-shadow:inset 0 0 0 1px rgba(255,210,63,.3)}
 
 /* ---------- popup TIẾN HÓA AI ---------- */
+/* HAI overlay này từng quên rule căn giữa riêng (mọi .layer.screen mặc định là
+   flex column KHÔNG center) — popup vì thế dạt lên góc trên trái (bug 21/09). */
+#scrEvoAI,#scrGacha{display:grid;place-content:center;padding:20px;z-index:13}
 .evoai-box{max-width:340px}
 .evoai-kws{display:flex;gap:8px;justify-content:center;margin:10px 0}
 .evoai-kw{display:flex;flex-direction:column;align-items:center;gap:2px;
@@ -1306,6 +1309,17 @@ body.is-touch .rank-pos img{width:32px;height:32px}
 .evoai-view img.evoai-drone{position:absolute;right:8px;bottom:8px;
   height:52px;width:52px;filter:drop-shadow(0 3px 8px rgba(0,0,0,.5))}
 .evoai-hint{font-size:11px;color:var(--dim);max-width:230px;text-align:center;line-height:1.5}
+/* Quả trứng tiến hóa: chờ thì đung đưa khẽ, đang ấp thì lắc gấp (như sắp bật nắp),
+   nở thì gà con bung scale một nhịp. prefers-reduced-motion cuối tệp tự tắt. */
+.evo-egg{font-size:64px;line-height:1;margin:6px auto;filter:drop-shadow(0 8px 16px rgba(0,0,0,.5));
+  animation:eggIdle 2.6s ease-in-out infinite;transform-origin:50% 85%}
+@keyframes eggIdle{0%,100%{transform:rotate(-4deg)}50%{transform:rotate(4deg)}}
+.evo-egg.hatching{animation:eggShake .32s linear infinite;
+  filter:drop-shadow(0 8px 16px rgba(0,0,0,.5)) drop-shadow(0 0 18px rgba(197,140,255,.55))}
+@keyframes eggShake{0%,100%{transform:rotate(-9deg)}25%{transform:rotate(7deg) translateY(-3px)}
+  50%{transform:rotate(-6deg)}75%{transform:rotate(9deg) translateY(-2px)}}
+.evo-egg.hatch{animation:eggHatch .5s cubic-bezier(.2,1.6,.4,1)}
+@keyframes eggHatch{0%{transform:scale(.5)}60%{transform:scale(1.35)}100%{transform:scale(1)}}
 .evoai-spin{animation:evoaiPulse 1.2s ease-in-out infinite}
 @keyframes evoaiPulse{50%{opacity:.45}}
 .evoai-err{font-size:10.5px;color:var(--dan);margin:4px 0}
@@ -1379,6 +1393,17 @@ body.is-touch .rank-pos img{width:32px;height:32px}
 .panel.result .rs{padding:8px 5px;align-items:center}
 .panel.result .rs .rs-v em{display:block;font-size:8px;letter-spacing:.12em;margin-top:2px}
 .res-crest{width:min(76%,330px)}
+
+/* VFX nhẹ cho logo lobby (21/09/2026): lơ lửng + hào quang vàng thở theo nhịp.
+   Nhẹ CÓ CHỦ ĐÍCH — logo không được giành sự chú ý với nút XUẤT KÍCH;
+   prefers-reduced-motion ở cuối tệp tự tắt. */
+.logo-img{animation:logoFloat 3.8s ease-in-out infinite}
+@keyframes logoFloat{
+  0%,100%{transform:translateY(0) rotate(-.4deg);
+    filter:drop-shadow(0 4px 10px rgba(0,0,0,.4)) drop-shadow(0 0 8px rgba(255,190,60,.12))}
+  50%{transform:translateY(-6px) rotate(.4deg);
+    filter:drop-shadow(0 12px 18px rgba(0,0,0,.45)) drop-shadow(0 0 24px rgba(255,190,60,.38))}
+}
 
 /* ---------- màn quay số mảnh tiến hóa ---------- */
 .gacha-box{display:flex;flex-direction:column;align-items:center;gap:14px;
