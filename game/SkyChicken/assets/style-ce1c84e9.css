@@ -1267,3 +1267,78 @@ body.is-touch .timer{font-size:17px}
   filter:drop-shadow(0 2px 4px rgba(0,0,0,.6))}
 body.is-touch .rank-pos img{width:32px;height:32px}
 
+/* ---------- CÂY KỸ NĂNG khoác áo (21/09/2026) ----------
+   Phàn nàn thật: màn này "đen thui" — thẻ nhánh chỉ là ô trắng mờ 5% trên nền tối,
+   không ăn nhập với lobby rực rỡ. Chữa bằng chính ngôn ngữ sẵn có: --vh (màu hướng
+   đã rẽ) từ chỗ chỉ tô viền nay lan vào NỀN thẻ (gradient chéo rất nhạt), ô icon
+   phát sáng theo nhánh, thẻ biến thể trên cùng có hào quang. Không thêm asset —
+   thêm ảnh nền là thêm 1 lớp precache + 1 chỗ vỡ khi offline. */
+.tree-row{background:linear-gradient(135deg,
+    color-mix(in srgb,var(--vh,#96beff) 13%,rgba(255,255,255,.04)) 0%,
+    rgba(255,255,255,.04) 55%);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--vh,#96beff) 40%,transparent),
+    0 6px 16px rgba(0,0,0,.35)}
+.tree-row .shop-ic{background:radial-gradient(circle at 50% 32%,
+    color-mix(in srgb,var(--vh,#7ab6ff) 38%,#0a1424),#0a1424 78%);
+  box-shadow:inset 0 0 10px color-mix(in srgb,var(--vh,#7ab6ff) 30%,transparent)}
+.tree-variant{background:linear-gradient(135deg,
+    color-mix(in srgb,var(--vh,#8fb8e8) 20%,rgba(255,255,255,.05)),
+    rgba(255,255,255,.03) 60%);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--vh,#8fb8e8) 55%,transparent),
+    0 0 24px color-mix(in srgb,var(--vh,#8fb8e8) 18%,transparent)}
+.tree-rebuild{box-shadow:inset 0 0 0 1px rgba(255,210,63,.3)}
+
+/* ---------- popup TIẾN HÓA AI ---------- */
+.evoai-box{max-width:340px}
+.evoai-kws{display:flex;gap:8px;justify-content:center;margin:10px 0}
+.evoai-kw{display:flex;flex-direction:column;align-items:center;gap:2px;
+  padding:7px 10px;border-radius:10px;background:rgba(255,255,255,.06);
+  box-shadow:inset 0 0 0 1px rgba(122,224,255,.3)}
+.evoai-kw i{font-style:normal;font-size:8.5px;letter-spacing:.12em;color:var(--dim)}
+.evoai-kw b{font-size:11.5px;letter-spacing:.06em;color:var(--cy)}
+.evoai-view{height:180px;margin:10px 0;border-radius:14px;display:grid;place-content:center;
+  background:radial-gradient(circle at 50% 40%,rgba(63,224,255,.12),rgba(0,0,0,.35) 75%);
+  box-shadow:inset 0 0 0 1px rgba(122,224,255,.22)}
+.evoai-view img{height:164px;width:164px;object-fit:contain;
+  filter:drop-shadow(0 6px 18px rgba(63,224,255,.35))}
+.evoai-hint{font-size:11px;color:var(--dim);max-width:230px;text-align:center;line-height:1.5}
+.evoai-spin{animation:evoaiPulse 1.2s ease-in-out infinite}
+@keyframes evoaiPulse{50%{opacity:.45}}
+.evoai-err{font-size:10.5px;color:var(--dan);margin:4px 0}
+
+/* ---------- huy hiệu HOÀN THÀNH nổi khối trên popup kết quả (21/09/2026) ----------
+   Phàn nàn thật: chữ nhỏ, rời rạc với sao, popup phẳng. Chữa: ribbon vàng AI sẵn có
+   làm nền, chữ HTML đè lên (chữ AI hay sai dấu tiếng Việt), cả khối ĐÈ LÊN MÉP TRÊN
+   panel như bộ badge victory tham chiếu. Panel phải overflow:visible để khối thò ra. */
+.panel.result{overflow:visible}
+.panel.result::before{border-radius:inherit}
+.res-crest{margin:-40px auto 2px;width:min(86%,300px);padding:20px 10px 16px;
+  /* url() trong CSS tương đối với FILE CSS (css/style.css) — phải ../ ngược ra gốc,
+     quên là 404 im lặng và ribbon biến mất (dính 21/09, tốn một vòng debug) */
+  background:url(../assets/art-game/ui-frame-ribbon-title.webp) center/100% 100% no-repeat;
+  filter:drop-shadow(0 6px 14px rgba(0,0,0,.55))}
+.res-crest h3{margin:0;font-family:var(--font-display);font-size:22px;line-height:1;
+  letter-spacing:.06em;font-weight:800;white-space:nowrap;
+  background:linear-gradient(180deg,#fff8d8,#ffd23f 55%,#ff8a2b);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 2px 0 rgba(90,40,0,.85)) drop-shadow(0 4px 6px rgba(0,0,0,.5))}
+/* thua: không huy hiệu lấp lánh — bỏ ribbon, chữ đỏ phẳng, không thò mép */
+.res-crest.lose{background:none;margin-top:0;padding:4px 0 0;filter:none}
+.res-crest.lose h3{background:none;color:var(--dan);filter:none;font-size:20px}
+/* sao dính liền ngay dưới huy hiệu thành một cụm phần thưởng */
+.panel.result .stars{margin:0 0 8px}
+
+/* ---------- bảng vàng gấp gọn: mặc định chỉ TỔNG NHẬN, bấm để xoè ---------- */
+.gold-rows.foldable{cursor:pointer}
+.gold-rows.fold li:not(.tong){display:none}
+.gold-rows.foldable .tong span::after{content:' · thu gọn ▴';font-size:9.5px;
+  color:var(--dim);letter-spacing:.02em}
+.gold-rows.foldable.fold .tong span::after{content:' · chi tiết ▾'}
+
+/* ---------- nút cập nhật app có tiến độ (21/09/2026) ---------- */
+#btnUpdate{position:relative;overflow:hidden}
+#btnUpdate:disabled{opacity:.85;cursor:default;filter:saturate(.7)}
+#btnUpdate .upd-bar{position:absolute;left:0;bottom:0;height:3px;width:0;
+  background:linear-gradient(90deg,#fff3b0,#ffd23f);border-radius:2px;
+  transition:width .3s ease;pointer-events:none}
+

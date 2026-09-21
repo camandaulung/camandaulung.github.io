@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="icon" type="image/png" href="icons/icon-192.png">
-<link rel="stylesheet" href="assets/style-874e7f1d.css">
+<link rel="stylesheet" href="assets/style-ce1c84e9.css">
 </head>
 <body>
 
@@ -439,6 +439,22 @@
     </div>
   </div>
 
+  <!-- ===== TIẾN HÓA AI (đủ bộ 3 từ khóa nhặt qua các màn) ===== -->
+  <div id="scrEvoAI" class="layer screen dim hidden">
+    <div class="gift-box evoai-box">
+      <h3>🧬 TIẾN HÓA AI</h3>
+      <p class="gift-note">Đủ bộ 3 từ khóa — AI ghép thành chiến đấu cơ của riêng bạn!</p>
+      <div class="evoai-kws" id="evoAiKws"></div>
+      <div class="evoai-view" id="evoAiView"></div>
+      <p class="evoai-err hidden" id="evoAiErr"></p>
+      <div class="res-btns">
+        <button class="btn primary" id="btnEvoAiGen">TIẾN HÓA</button>
+        <button class="btn hidden" id="btnEvoAiUse">DÙNG LUÔN</button>
+      </div>
+      <button class="btn text" id="btnEvoAiLater">ĐỂ SAU</button>
+    </div>
+  </div>
+
   <!-- ===== QUÀ TÂN THỦ ===== -->
   <div id="scrGift" class="layer screen dim hidden">
     <div class="gift-box">
@@ -523,6 +539,11 @@
         </div>
       </div>
 
+      <!-- Đổi icon đại diện cho hồ sơ ĐANG MỞ. Nằm ngoài khối tài khoản có chủ ý:
+           avatar là của HỒ SƠ cục bộ, khách chưa đăng nhập cũng đổi được. -->
+      <span class="opt-lb">ẢNH ĐẠI DIỆN</span>
+      <div class="ava-pick" id="avaSet"></div>
+
       <span class="opt-lb">CHỌN HỒ SƠ</span>
       <div id="profList"></div>
 
@@ -600,7 +621,9 @@
   <!-- ===== RESULT ===== -->
   <div id="scrResult" class="layer screen dim hidden">
     <div class="panel result">
-      <h3 id="resTitle">HOÀN THÀNH</h3>
+      <!-- Huy hiệu tiêu đề NỔI KHỐI đè lên mép panel (ref bộ badge victory 21/09).
+           Ribbon là ảnh AI sẵn có, chữ là HTML đè lên — chữ AI vẽ hay sai dấu tiếng Việt. -->
+      <div class="res-crest"><h3 id="resTitle">HOÀN THÀNH</h3></div>
       <!-- Nhãn trùm tách RIÊNG khỏi dòng địa danh. Ghép chung bằng dấu · thì tên vùng
            dài là gãy dòng, bỏ lại mỗi "TRÙM VÙNG" trơ trọi ở dòng dưới. -->
       <div class="res-where">
@@ -648,6 +671,8 @@
      Xem shared/README.md truoc khi sua. -->
 <!-- Danh tính M365 cho bản deploy *.zingplay.dev — phải nằm SAU main.js vì nó
      tự chạy ngay và cần adapter cloud đã đăng ký. Ngoài zingplay.dev thì im lặng. -->
+<!-- Gương tiến độ theo email: chữa bug đổi máy mất tiến độ (uid anonymous theo máy).
+     Phải nằm TRƯỚC lúc _ticket() của identity chạy xong — cùng lượt nạp là đủ. -->
 <!-- CHỈ CHẠY Ở MÁY DEV. build.mjs loại mọi js/dev-*.js khỏi bản phát hành,
      và chính tệp này cũng tự thoát nếu không phải localhost. -->
 <script src="../../shared/portal-config.js"></script>
@@ -657,7 +682,7 @@
 <script src="../../shared/portal-cloud.js"></script>
 <script src="../../shared/portal-rank.js"></script>
 <script src="../../shared/portal-player.js"></script>
-<script src="assets/app-ecbb8b40.js" onerror="window.__shellHong=1"></script>
+<script src="assets/app-85d5f2e4.js" onerror="window.__shellHong=1"></script>
 <script>
 /* LOP TU CUU KHI VO UNG DUNG HONG — dung xoa.
  *

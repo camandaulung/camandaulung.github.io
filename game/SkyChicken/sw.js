@@ -6,14 +6,14 @@
  *     thay vì tự đổi bản giữa lúc đang chơi
  */
 
-const CACHE = 'sky-chicken-c184003f';
+const CACHE = 'sky-chicken-36b96092';
 
 const SHELL = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
-  "./assets/style-874e7f1d.css",
-  "./assets/app-ecbb8b40.js",
+  "./assets/style-ce1c84e9.css",
+  "./assets/app-85d5f2e4.js",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./icons/icon-maskable-512.png",
@@ -40,6 +40,7 @@ const SHELL = [
   "./assets/art-game/bullet-laser.webp",
   "./assets/art-game/bullet-plasma.webp",
   "./assets/art-game/bullet-rocket.webp",
+  "./assets/art-game/counter-guard.webp",
   "./assets/art-game/drone-sniper.webp",
   "./assets/art-game/drone-swarm.webp",
   "./assets/art-game/elite-crusher.webp",
@@ -80,6 +81,9 @@ const SHELL = [
   "./assets/art-game/enemy-ufo.webp",
   "./assets/art-game/enemy-vespa.webp",
   "./assets/art-game/enemy-vulture.webp",
+  "./assets/art-game/rescue-cat-fish.webp",
+  "./assets/art-game/rescue-cat-goggles.webp",
+  "./assets/art-game/rescue-cat-grey.webp",
   "./assets/art-game/ship-player.webp",
   "./assets/art-game/ui-badge-avatar-chick.webp",
   "./assets/art-game/ui-badge-avatar-frame.webp",
@@ -148,6 +152,14 @@ const SHELL = [
   "../../shared/portal-player.js"
 ];
 
+/* Báo tiến độ tải về cho trang (21/09/2026): người chơi bấm cập nhật mà không thấy
+ * gì nhúc nhích là tưởng game lỗi. Trang nghe PRECACHE_PROGRESS để vẽ thanh %.
+ * matchAll kèm includeUncontrolled vì lúc INSTALL bản mới chưa cầm trịch trang nào. */
+function baoTienDo(done, total) {
+  self.clients.matchAll({ includeUncontrolled: true }).then(cs =>
+    cs.forEach(cl => cl.postMessage({ type: 'PRECACHE_PROGRESS', done, total })));
+}
+
 self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(CACHE)
@@ -159,9 +171,13 @@ self.addEventListener('install', e => {
       // tên mới nên luôn tải tươi. Cache mới = HTML cũ + assets mới, mà HTML cũ trỏ
       // tới tên file đã bị xoá cả ở cache lẫn trên máy chủ → 404.
       // Đã xảy ra thật trên bản phát hành của cờ vua.
-      .then(c => Promise.all(
-        SHELL.map(u => c.add(new Request(u, { cache: 'reload' })).catch(() => null))
-      ))
+      .then(c => {
+        let done = 0;
+        return Promise.all(SHELL.map(u =>
+          c.add(new Request(u, { cache: 'reload' })).catch(() => null)
+            .then(() => { done++; if (done % 5 === 0 || done === SHELL.length) baoTienDo(done, SHELL.length); })
+        ));
+      })
     // KHÔNG gọi skipWaiting ở đây: chờ người chơi bấm "tải lại" mới đổi bản
   );
 });
