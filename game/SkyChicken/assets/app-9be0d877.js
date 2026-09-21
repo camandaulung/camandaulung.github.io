@@ -4804,8 +4804,9 @@ SC.BossSkills = {
   DAY_MIN: 2, DAY_MAX: 10,
   MAN_DAU: 3, MAN_CUOI: 60,                       // trùm đầu tiên và trùm cuối chiến dịch
 
-  has(kind) { return this.LIST.indexOf(kind) >= 0; },
-  clear() { SC.Splats.clear(); },
+  // + 3 chiêu đặc trưng theo tạo hình (entity-boss-signature-skills.js)
+  has(kind) { return this.LIST.indexOf(kind) >= 0 || SC.BossSig.has(kind); },
+  clear() { SC.Splats.clear(); SC.BossSig.clear(); },
 
   soDay(b) {
     const id = (b.lv && b.lv.id) || 1;
@@ -4816,6 +4817,14 @@ SC.BossSkills = {
 
   start(b, kind, player) {
     const rage = b.phase;                          // giai đoạn càng cao càng dữ
+    // chiêu đặc trưng: module riêng tự dựng vật bay, act chỉ giữ trùm đứng gồng
+    if (SC.BossSig.has(kind)) {
+      const s = SC.BossSig.start(b, kind, player);
+      b.act = { kind, t: 0, dur: s.dur };
+      SC.FX.text(b.x, b.y - b.r - 26, s.name, '#ff5c7a');
+      SC.Audio.shield();
+      return;
+    }
     b.act = { kind, t: 0, step: 0, n: 0 };
     const a = b.act;
 
@@ -4865,7 +4874,8 @@ SC.BossSkills = {
     const a = b.act;
     if (!a) return false;
     a.t += dt;
-    this['_' + a.kind](b, a, dt, player);
+    const fn = this['_' + a.kind];               // chiêu đặc trưng không có hàm ở đây
+    if (fn) fn.call(this, b, a, dt, player);
     if (a.t >= a.dur) { b.act = null; return false; }
     return true;
   },
@@ -5150,6 +5160,293 @@ SC.BossSkillArt = {
 };
 
 ;
+/* ===== js/entity-boss-signature-skills.js ===== */
+/* entity-boss-signature-skills.js — 3 chiêu ĐẶC TRƯNG theo tạo hình từng trùm (22/09/2026)
+ *
+ *   toss  : tháo một bộ phận quăng vào người chơi, dội tường 2-5 lần (nhanh dần mỗi lần
+ *           dội) rồi bay về lắp lại. Trúng là ăn đòn rất nặng.
+ *   laser : chưởng cột laze. Nháy vạch ngắm trước, khoá hướng, 0.1-0.2s sau mới bắn —
+ *           đứng càng gần TÂM tia càng đau. Chưởng bằng miệng / tay / mắt tuỳ con.
+ *   peck  : chỉ trùm GIA CẦM. Rụt cổ, mổ tới, phóng cái mỏ bay về phía người chơi —
+ *           mỏ bay càng xa càng TO, dính càng gần tâm mỏ càng đau.
+ *
+ * Vì sao theo tạo hình: 10 trùm dùng chung 12 chiêu rải đạn thì con nào cũng giống con
+ * nào. Chiêu đặc trưng lấy từ chính hình dáng con trùm — nhện quăng chân, bạch tuộc
+ * quăng xúc tu, gà thì mổ — nhìn con trùm là đoán được nó sắp làm gì.
+ *
+ * Nối vào khuôn chiêu có kịch bản của entity-boss-skills.js: act giữ trùm đứng yên cho
+ * lúc gồng; vật bay (mỏ, bộ phận, tia laze) sống ở `list` riêng nên trùm vẫn đi lại
+ * được trong lúc bộ phận còn đang dội tường. Vẽ ở entity-boss-signature-art.js.
+ */
+
+SC.BossSig = {
+  list: [],
+
+  /* Bộ chiêu + chất liệu từng tạo hình. part = bộ phận bị quăng, from = chỗ phát laze */
+  SIG: {
+    hen:         { sk: ['peck', 'toss'], part: 'wing' },
+    eagle:       { sk: ['peck', 'laser'], part: 'feather', from: 'mouth' },
+    penguin:     { sk: ['peck', 'toss'], part: 'booster' },
+    spider:      { sk: ['toss', 'laser'], part: 'leg', from: 'eye' },
+    phoenix:     { sk: ['peck', 'laser'], part: 'feather', from: 'mouth' },
+    octopus:     { sk: ['toss', 'laser'], part: 'tentacle', from: 'hand' },
+    neonRooster: { sk: ['peck', 'laser'], part: 'wing', from: 'mouth' },
+    scrapDragon: { sk: ['toss', 'laser'], part: 'plate', from: 'mouth' },
+    stormEye:    { sk: ['laser', 'toss'], part: 'shard', from: 'eye' },
+    voidEgg:     { sk: ['peck', 'laser', 'toss'], part: 'shell', from: 'mouth' },
+    // elite: mỗi con MỘT chiêu, chừa đất cho trùm vùng
+    scarecrow: { sk: ['toss'], part: 'plate' },  scorpion: { sk: ['toss'], part: 'claw' },
+    iceBear: { sk: ['laser'], from: 'mouth' },   wasp: { sk: ['toss'], part: 'stinger' },
+    golem: { sk: ['toss'], part: 'rock' },       shark: { sk: ['laser'], from: 'mouth' },
+    droneEye: { sk: ['laser'], from: 'eye' },    crusher: { sk: ['toss'], part: 'plate' },
+    thunderbird: { sk: ['peck'] },               voidPrism: { sk: ['laser'], from: 'eye' }
+  },
+  PART_VI: { wing: 'CÁNH GIÁP', feather: 'LÔNG KIẾM', booster: 'TÊN LỬA LƯNG', leg: 'CHÂN NHỆN',
+    tentacle: 'XÚC TU', plate: 'MẢNH GIÁP', shard: 'MẢNH MÂY SÉT', shell: 'VỎ TRỨNG',
+    claw: 'CÀNG', stinger: 'NGÒI ĐỘC', rock: 'KHỐI ĐÁ' },
+
+  has(kind) { return kind === 'toss' || kind === 'laser' || kind === 'peck'; },
+  skillsFor(art) { return (this.SIG[art] && this.SIG[art].sk) || []; },
+  clear() { this.list.length = 0; },
+
+  /* 0 = trùm đầu game … 1 = cuối chiến dịch (vòng vô tận kẹp ở 1), cùng thước với
+     số dây TÁCH THÂN trong entity-boss-skills.js */
+  _u(b) {
+    const id = (b.lv && b.lv.id) || 1;
+    return SC.clamp((id - 3) / 57, 0, 1);
+  },
+
+  /* Gọi từ BossSkills.start. Trả thời lượng act (trùm đứng gồng bao lâu) + tên hô chiêu */
+  start(b, kind, player) {
+    const sig = this.SIG[b.art] || {}, u = this._u(b);
+    if (kind === 'toss') {
+      const a = SC.angTo(b.x, b.y, player.x, player.y), sp = 260 + u * 160;
+      this.list.push({ k: 'part', boss: b, part: sig.part || 'plate', x: b.x, y: b.y,
+        vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, left: Math.round(2 + u * 3),
+        mul: 1.12 + u * 0.08, rot: 0, back: false, hit: false });
+      b.missing = true;
+      return { dur: 0.45, name: 'QUĂNG ' + (this.PART_VI[sig.part] || 'MẢNH GIÁP') + '!' };
+    }
+    if (kind === 'laser') {
+      const from = sig.from || 'mouth';
+      this.list.push({ k: 'laser', boss: b, from, t: 0, warn: 0.8, gap: 0.2 - u * 0.1, beam: 0.55,
+        hw: 26 + u * 14, ang: SC.angTo(b.x, b.y, player.x, player.y), hit: false });
+      return { dur: 1.6, name: from === 'hand' ? 'CHƯỞNG LAZE!' : from === 'eye' ? 'NHÃN LAZE!' : 'KHẨU LAZE!' };
+    }
+    // peck: 1-3 cú mổ liên hoàn theo giai đoạn máu
+    const n = b.phase;
+    this.list.push({ k: 'pecker', boss: b, t: 0, n, done: 0, speed: 380 + u * 120 });
+    return { dur: 0.6 * n + 0.2, name: 'MỔ XUYÊN GIÁP!' };
+  },
+
+  /* Chỗ phát laze theo tạo hình (toạ độ thế giới) */
+  origin(o) {
+    const b = o.boss;
+    if (o.from === 'eye') return { x: b.x, y: b.y - b.r * 0.1 };
+    if (o.from === 'hand') {
+      const side = Math.cos(o.ang) < 0 ? -1 : 1;
+      return { x: b.x + side * b.r * 0.9, y: b.y + b.r * 0.4 };
+    }
+    return { x: b.x, y: b.y + b.r * 0.4 };
+  },
+
+  /* Gọi mỗi khung từ SC.Boss.update — vật bay sống độc lập với act */
+  update(b, dt, player) {
+    for (let i = this.list.length - 1; i >= 0; i--) {
+      const o = this.list[i];
+      if (o.boss !== b) { this.list.splice(i, 1); continue; }
+      if (this['_' + o.k](o, dt, player)) this.list.splice(i, 1);
+    }
+  },
+
+  /* ---------- bộ phận dội tường ---------- */
+  _part(o, dt, player) {
+    const b = o.boss;
+    o.rot += dt * 11;
+    if (!o.back) {
+      o.x += o.vx * dt; o.y += o.vy * dt;
+      let doi = false;
+      if (o.x < 20 || o.x > SC.W - 20) { o.vx = -o.vx; o.x = SC.clamp(o.x, 20, SC.W - 20); doi = true; }
+      if (o.y < 30 || o.y > SC.H - 20) { o.vy = -o.vy; o.y = SC.clamp(o.y, 30, SC.H - 20); doi = true; }
+      if (doi) {
+        o.vx *= o.mul; o.vy *= o.mul; o.left--;
+        SC.FX.burst(o.x, o.y, '#ffd23f', 8, 180, 2.4);
+        SC.addShake(3, 0.08);
+        if (o.left <= 0) o.back = true;
+      }
+    } else {                                     // bay về lắp lại, nhanh dần
+      const a = SC.angTo(o.x, o.y, b.x, b.y), sp = Math.hypot(o.vx, o.vy) * 1.05;
+      o.x += Math.cos(a) * sp * dt; o.y += Math.sin(a) * sp * dt;
+      if (SC.dist2(o.x, o.y, b.x, b.y) < (b.r * 0.6) ** 2) { b.missing = false; return true; }
+    }
+    if (!o.hit && SC.dist2(o.x, o.y, player.x, player.y) < (22 + player.r) ** 2) {
+      o.hit = true;                              // một lượt quăng chỉ phạt một lần
+      SC.BossSkills._hit(player, 34);
+    }
+    if (Math.random() < 0.5) SC.FX.trail(o.x, o.y, '#ffb45c');
+    return false;
+  },
+
+  /* ---------- cột laze ---------- */
+  _laser(o, dt, player) {
+    o.t += dt;
+    const b = o.boss;
+    if (o.t < o.warn * 0.65) {                   // bám theo người chơi rồi mới khoá
+      const want = SC.angTo(b.x, b.y, player.x, player.y);
+      o.ang += Math.atan2(Math.sin(want - o.ang), Math.cos(want - o.ang)) * Math.min(1, dt * 5);
+    }
+    const on = o.warn + o.gap;
+    if (o.t >= on && !o.fired) { o.fired = true; SC.addShake(10, 0.35); SC.Audio.bomb(); }
+    if (o.t >= on && o.t < on + o.beam && !o.hit) {
+      const p = this.origin(o), cx = Math.cos(o.ang), cy = Math.sin(o.ang);
+      const along = (player.x - p.x) * cx + (player.y - p.y) * cy;
+      const d = Math.abs((player.x - p.x) * cy - (player.y - p.y) * cx);
+      if (along > 0 && d < o.hw + player.r) {
+        o.hit = true;
+        // gần tâm tia đau gấp ~4 lần mép tia
+        SC.BossSkills._hit(player, 10 + 34 * (1 - SC.clamp(d / o.hw, 0, 1)));
+      }
+    }
+    return o.t >= on + o.beam;
+  },
+
+  /* ---------- trùm mổ: rụt cổ, lao tới, nhả mỏ ---------- */
+  _pecker(o, dt, player) {
+    const b = o.boss, CYCLE = 0.6;
+    o.t += dt;
+    const k = (o.t % CYCLE) / CYCLE;
+    b.peckY = k < 0.55 ? -12 * (k / 0.55) : 22 * Math.sin(((k - 0.55) / 0.45) * Math.PI);
+    const idx = Math.floor(o.t / CYCLE);
+    if (idx > o.done - 1 && k >= 0.6 && o.done < o.n) {
+      o.done++;
+      const a = SC.angTo(b.x, b.y + b.r * 0.5, player.x, player.y);
+      this.list.push({ k: 'beak', boss: b, x: b.x, y: b.y + b.r * 0.5, x0: b.x, y0: b.y + b.r * 0.5,
+        vx: Math.cos(a) * o.speed, vy: Math.sin(a) * o.speed, ang: a, hit: false });
+      SC.Audio.shoot();
+    }
+    if (o.done >= o.n && k > 0.95) { b.peckY = 0; return true; }
+    return false;
+  },
+
+  _beak(o, dt, player) {
+    o.x += o.vx * dt; o.y += o.vy * dt;
+    // bay càng xa càng to: 1 lúc nhả -> ~2.6 lần sau nửa màn
+    o.sc = 1 + Math.hypot(o.x - o.x0, o.y - o.y0) / 260;
+    const R = 16 * o.sc;
+    const d = Math.sqrt(SC.dist2(o.x, o.y, player.x, player.y));
+    if (!o.hit && d < R + player.r) {
+      o.hit = true;
+      SC.BossSkills._hit(player, 10 + 26 * (1 - SC.clamp(d / (R + player.r), 0, 1)));
+    }
+    return o.x < -80 || o.x > SC.W + 80 || o.y < -80 || o.y > SC.H + 80;
+  }
+};
+
+;
+/* ===== js/entity-boss-signature-art.js ===== */
+/* entity-boss-signature-art.js — vẽ 3 chiêu đặc trưng (logic ở entity-boss-signature-skills.js)
+ *
+ * Vẽ ở toạ độ THẾ GIỚI, gọi ngay sau khi SC.Boss.render xong. Nguyên tắc đọc chiêu:
+ * mọi đòn nặng phải có dấu hiệu NHÌN THẤY trước — vạch laze nháy, quả cầu tụ lực, cổ
+ * rụt lại — người chơi chết vì chậm tay chứ không được chết vì không biết.
+ */
+
+SC.BossSigArt = {
+  render(b, ctx) {
+    for (const o of SC.BossSig.list) {
+      if (o.boss !== b) continue;
+      if (o.k === 'part') this._part(ctx, o, b);
+      else if (o.k === 'laser') this._laser(ctx, o, b);
+      else if (o.k === 'beak') this._beak(ctx, o);
+    }
+  },
+
+  /* Chỗ bộ phận vừa bị tháo trên thân trùm: tia lửa hàn lách tách — nhìn là biết
+     con trùm đang "thiếu một mảnh", mảnh đó sẽ quay về. Gọi trong hệ toạ độ trùm. */
+  socket(ctx, b) {
+    if (!b.missing) return;
+    const t = b.t * 20;
+    ctx.save();
+    ctx.globalAlpha = 0.5 + 0.5 * Math.sin(t);
+    ctx.fillStyle = '#ffe28a';
+    for (let i = 0; i < 3; i++) {
+      const a = t * 0.7 + i * 2.1;
+      ctx.beginPath(); ctx.arc(b.r * 0.7 + Math.cos(a) * 5, Math.sin(a) * 5, 2, 0, 6.283); ctx.fill();
+    }
+    ctx.restore();
+  },
+
+  /* bộ phận xoay: lưỡi cong hai đầu nhọn, tô theo màu vùng của trùm */
+  _part(ctx, o, b) {
+    const S = o.part === 'rock' || o.part === 'shell' ? 20 : 26;
+    ctx.save();
+    ctx.translate(o.x, o.y); ctx.rotate(o.rot);
+    SC.draw.glow(ctx, 0, 0, S * 1.6, `hsla(${b.hue},95%,60%,.9)`, 0.35);
+    ctx.fillStyle = `hsl(${b.hue},75%,55%)`;
+    ctx.strokeStyle = '#1a1020'; ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    if (o.part === 'rock' || o.part === 'shell') {           // khối tròn gồ ghề
+      for (let i = 0; i < 7; i++) {
+        const a = i * 0.8976, R = S * (0.8 + (i % 2) * 0.25);
+        i ? ctx.lineTo(Math.cos(a) * R, Math.sin(a) * R) : ctx.moveTo(R, 0);
+      }
+    } else {                                                  // lưỡi cong kiểu boomerang
+      ctx.moveTo(-S, 0);
+      ctx.quadraticCurveTo(0, -S * 0.9, S, 0);
+      ctx.quadraticCurveTo(0, -S * 0.35, -S, 0);
+    }
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.restore();
+  },
+
+  _laser(ctx, o, b) {
+    const p = SC.BossSig.origin(o);
+    const L = SC.H * 1.6, cx = Math.cos(o.ang), cy = Math.sin(o.ang);
+    const on = o.warn + o.gap;
+    ctx.save();
+    ctx.lineCap = 'round';
+
+    // quả cầu tụ lực ở miệng/tay/mắt: phình dần suốt lúc ngắm — "anim chưởng"
+    const tu = Math.min(1, o.t / on);
+    if (o.t < on + o.beam) SC.draw.glow(ctx, p.x, p.y, 10 + tu * 26, '#ff5c7a', 0.5 + tu * 0.4);
+
+    if (o.t < o.warn) {                        // vạch ngắm nháy: báo trước hướng chưởng
+      ctx.globalAlpha = Math.sin(o.t * 40) > 0 ? 0.85 : 0.2;
+      ctx.strokeStyle = '#ff5c7a'; ctx.lineWidth = 2;
+      ctx.setLineDash([10, 8]);
+      ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x + cx * L, p.y + cy * L); ctx.stroke();
+    } else if (o.t < on) {                     // khoảng lặng 0.1-0.2s: vạch khoá, sáng rực
+      ctx.globalAlpha = 1; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x + cx * L, p.y + cy * L); ctx.stroke();
+    } else {                                   // cột laze: viền đỏ rộng + lõi trắng
+      const k = (o.t - on) / o.beam;
+      const w = o.hw * 2 * (k < 0.15 ? k / 0.15 : k > 0.8 ? (1 - k) / 0.2 : 1);
+      ctx.globalAlpha = 0.55; ctx.strokeStyle = '#ff3b5c'; ctx.lineWidth = w;
+      ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x + cx * L, p.y + cy * L); ctx.stroke();
+      ctx.globalAlpha = 0.95; ctx.strokeStyle = '#fff4f6'; ctx.lineWidth = w * 0.35;
+      ctx.stroke();
+    }
+    ctx.restore();
+  },
+
+  /* cái mỏ bay: tam giác vàng cam chĩa theo hướng bay, to dần theo quãng đường */
+  _beak(ctx, o) {
+    const s = 16 * (o.sc || 1);
+    ctx.save();
+    ctx.translate(o.x, o.y); ctx.rotate(o.ang);
+    SC.draw.glow(ctx, 0, 0, s * 1.4, '#ffb01f', 0.35);
+    ctx.fillStyle = '#ffb01f'; ctx.strokeStyle = '#5a2a00'; ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(s * 1.3, 0); ctx.lineTo(-s * 0.7, -s * 0.7); ctx.lineTo(-s * 0.4, 0); ctx.lineTo(-s * 0.7, s * 0.7);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#ffe9a8';                  // gờ sáng trên mỏ cho có khối
+    ctx.beginPath(); ctx.moveTo(s * 1.1, -s * 0.05); ctx.lineTo(-s * 0.5, -s * 0.55); ctx.lineTo(-s * 0.3, -s * 0.1);
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+};
+
+;
 /* ===== js/entity-boss.js ===== */
 /* entity-boss.js — hành vi trùm: 3 giai đoạn, bộ chiêu riêng theo vùng
  *
@@ -5162,7 +5459,12 @@ SC.Boss = function (lv) {
   this.art = lv.bossArt;
   this.biome = lv.biome;
   this.hue = SC.BIOMES[lv.biome].hue;
-  this.atkList = lv.bossAtk || ['ring', 'aimed', 'eggRain', 'minions'];
+  // + chiêu đặc trưng theo tạo hình (mổ / chưởng laze / quăng bộ phận) — mỗi trùm
+  // một bộ riêng, xem SC.BossSig.SIG
+  this.atkList = (lv.bossAtk || ['ring', 'aimed', 'eggRain', 'minions'])
+    .concat(SC.BossSig.skillsFor(lv.bossArt));
+  this.peckY = 0;        // độ rụt/lao cổ của chiêu mổ, chỉ ảnh hưởng hình vẽ
+  this.missing = false;  // đang tháo một bộ phận đi quăng
 
   this.x = SC.W / 2; this.y = -140;
   this.r = lv.finalBoss ? 64 : 54;             // elite gọn hơn trùm vùng một chút
@@ -5188,6 +5490,7 @@ SC.Boss = function (lv) {
 SC.Boss.prototype.update = function (dt, player) {
   this.t += dt;
   if (this.flash > 0) this.flash -= dt;
+  SC.BossSig.update(this, dt, player);          // mỏ, bộ phận, laze bay độc lập với act
 
   if (this.entering) {                          // màn xuất hiện
     this.y += 110 * dt;
@@ -5299,10 +5602,11 @@ SC.Boss.prototype.hurt = function (dmg) {
 
 SC.Boss.prototype.render = function (ctx) {
   ctx.save();
-  ctx.translate(this.x, this.y);
+  ctx.translate(this.x, this.y + (this.peckY || 0));   // peckY: rụt cổ / lao tới khi mổ
   if (this.flash > 0) ctx.filter = 'brightness(2.4)';
 
   SC.BossSkillArt.local(this, ctx);              // tay, mảnh tách, vòng gồng nộ
+  SC.BossSigArt.socket(ctx, this);               // chỗ bộ phận vừa bị tháo đi quăng
 
   // chiêu dịch chuyển làm thân co lại rồi phình ra
   if (this.warp !== undefined && this.warp < 1) {
@@ -5325,6 +5629,7 @@ SC.Boss.prototype.render = function (ctx) {
 
   ctx.filter = 'none';
   ctx.restore();
+  SC.BossSigArt.render(this, ctx);               // vật bay của chiêu đặc trưng (toạ độ thế giới)
 };
 
 ;
