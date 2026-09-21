@@ -8129,6 +8129,9 @@ SC.ProfileUI = {
   _reloadProgress() {
     SC.UI.progress = { stars: {}, unlocked: 1, coin: 0, upg: {}, missions: {}, times: {} };
     SC.UI.load();
+    // Tàu tiến hóa cũng là của TỪNG hồ sơ — đổi người là đổi tàu (bug 21/09:
+    // hồ sơ mới vẫn bay tàu evo của hồ sơ cũ)
+    SC.EvoAI.onProfileChange();
     SC.UI.buildMapList();
     SC.UI.syncMenu();
     // Đổi hồ sơ là đổi cả TÊN lẫn tiến độ hiện trên bảng xếp hạng -> đẩy lại ngay
@@ -9849,8 +9852,8 @@ SC.EVO_KW = {
  */
 
 SC.EvoAI = {
-  STORE: 'sc.evoShip',           // localStorage: { dataUrl, name, at }
-  DRAFT: 'sc.evoDraft',          // tấm vừa gen còn chờ quyết — sống qua F5
+  STORE: 'sc.evoShip',           // + '.<id hồ sơ>' — mỗi hồ sơ một tàu (bug 21/09:
+  DRAFT: 'sc.evoDraft',          //   key chung làm hồ sơ mới mượn tàu hồ sơ cũ)
   RELAY: 'https://lite-llm-relay.zingplay.dev',
   DEV: 'https://lite-llm-virtualkey-man.zingplay.dev/api/llm',
   CHUNK: 3,                      // mỗi chùm mấy màn thì nhặt 1 từ khóa
@@ -9887,10 +9890,16 @@ SC.EvoAI = {
     SC.UI.save();
     SC.Cloud.markDirty();
   },
-  saveDraft(pack) { try { localStorage.setItem(this.DRAFT, JSON.stringify(pack)); } catch (e) {} },
+  /* Khoá lưu THEO HỒ SƠ, cùng triết lý kho tiến độ (skychicken.progress.v1.<id>).
+     Hồ sơ chưa nạp (giai đoạn parse script) thì tạm '.0' — init() được hoãn tới
+     sau SC.Game.init() nên thực tế luôn có hồ sơ. */
+  _sk() { const p = SC.Profiles && SC.Profiles.cur(); return this.STORE + '.' + (p ? p.id : 0); },
+  _dk() { const p = SC.Profiles && SC.Profiles.cur(); return this.DRAFT + '.' + (p ? p.id : 0); },
+
+  saveDraft(pack) { try { localStorage.setItem(this._dk(), JSON.stringify(pack)); } catch (e) {} },
   loadDraft() {
     try {
-      const raw = localStorage.getItem(this.DRAFT);
+      const raw = localStorage.getItem(this._dk());
       if (!raw) return null;
       // draft đời đầu là chuỗi dataURL trần (chưa có drone) — vẫn đọc được
       return raw.charAt(0) === '{' ? JSON.parse(raw) : { ship: raw, drone: '' };
@@ -9984,38 +9993,74 @@ SC.EvoAI = {
     }
   },
 
-  /* Người chơi bấm DÙNG LUÔN: lưu cả bộ, thay tàu + phi đội, ĐỐT bộ từ khóa */
+  /* Người chơi bấm DÙNG LUÔN: lưu cả bộ CHO HỒ SƠ ĐANG MỞ, thay tàu + phi đội,
+     ĐỐT bộ từ khóa */
   accept(pack) {
     const e = this.st();
     const name = e.kw.slice(0, 3).map(k => k.vi).join(' ');
     try {
-      localStorage.setItem(this.STORE,
+      localStorage.setItem(this._sk(),
         JSON.stringify({ dataUrl: pack.ship, droneUrl: pack.drone || '', name, at: Date.now() }));
     } catch (err) { /* localStorage đầy — bộ này vẫn dùng được tới hết phiên */ }
     this._apply(pack.ship, pack.drone);
     e.kw.splice(0, 3);
     e.n++;
     e.rolls = 0;                        // bộ từ khóa mới = hạn mức gen mới
-    try { localStorage.removeItem(this.DRAFT); } catch (err) {}
+    try { localStorage.removeItem(this._dk()); } catch (err) {}
     SC.UI.save();
     SC.Cloud.markDirty();
     SC.UI.toast('TIẾN HÓA HOÀN TẤT: ' + name.toUpperCase());
   },
 
-  /* Khởi động: có bộ đã lưu thì lên tàu ngay (bản cũ chưa có droneUrl — vẫn đọc được) */
-  init() {
+  /* Trả tàu + phi đội về sprite GỐC (hồ sơ chưa tiến hóa). Tham chiếu ảnh gốc
+     chụp một lần ở init — SpriteArt.load() đã tạo sẵn các Image này. */
+  restoreDefault() {
+    if (!this._orig) return;
+    SC.SpriteArt._imgs['ship-player'] = this._orig.ship;
+    SC.SpriteArt._imgs['drone-swarm'] = this._orig.swarm;
+    SC.SpriteArt._imgs['drone-sniper'] = this._orig.sniper;
+    if (SC.ShipArt) SC.ShipArt._cache = {};
+  },
+
+  /* Gọi mỗi khi ĐỔI/TẠO/XOÁ hồ sơ (ui-profile-panel._reloadProgress): tàu là của
+     từng hồ sơ, đổi người là đổi tàu — bug 21/09: hồ sơ mới toanh vẫn bay tàu evo
+     của hồ sơ trước vì key lưu dùng chung. */
+  onProfileChange() {
     try {
-      const raw = localStorage.getItem(this.STORE);
+      const raw = localStorage.getItem(this._sk());
       if (raw) {
         const o = JSON.parse(raw);
         this._apply(o.dataUrl, o.droneUrl || '');
+        return;
       }
-    } catch (e) { /* JSON hỏng / storage tắt — bay tàu mặc định */ }
+    } catch (e) { /* đọc hỏng thì coi như chưa có tàu */ }
+    this.restoreDefault();
+  },
+
+  /* Khởi động (hoãn 1 tick cho SC.Game.init nạp hồ sơ xong): chụp tham chiếu
+     sprite gốc để còn đường quay về, di trú bản lưu key-chung đời đầu về key
+     theo hồ sơ, rồi lên tàu của hồ sơ đang mở. */
+  init() {
+    this._orig = {
+      ship: SC.SpriteArt._imgs['ship-player'],
+      swarm: SC.SpriteArt._imgs['drone-swarm'],
+      sniper: SC.SpriteArt._imgs['drone-sniper']
+    };
+    try {
+      // di trú một lần: bản 21/09 sáng lưu 'sc.evoShip' không gắn hồ sơ —
+      // gán cho hồ sơ ĐANG MỞ (người tạo ra nó) rồi xoá key cũ
+      const cu = localStorage.getItem(this.STORE);
+      if (cu && !localStorage.getItem(this._sk())) localStorage.setItem(this._sk(), cu);
+      if (cu) localStorage.removeItem(this.STORE);
+    } catch (e) {}
+    this.onProfileChange();
     return this;
   }
 };
 
-SC.EvoAI.init();
+/* Hoãn 1 tick: script này parse TRƯỚC main.js, mà khoá lưu cần biết hồ sơ nào
+   đang mở (SC.Profiles nạp trong SC.Game.init). setTimeout(0) chạy sau cả hai. */
+setTimeout(() => { SC.EvoAI.init(); }, 0);
 
 ;
 /* ===== js/system-evo-shard.js ===== */
