@@ -340,6 +340,16 @@
       display: flex; align-items: center; justify-content: flex-end;
     }
     .game-card.live { border-color: rgba(77, 255, 161, 0.34); }
+    /* link dashboard cân bằng dưới lưới thẻ — nhỏ, cùng kiểu chữ nút CHƠI NGAY */
+    .dash-link {
+      display: inline-flex; align-items: center; gap: 8px; margin-top: 16px;
+      font-family: var(--font-mono, ui-monospace, monospace); font-size: 11px;
+      letter-spacing: .14em; text-transform: uppercase; text-decoration: none;
+      color: var(--muted, #8fa3a0); padding: 6px 2px; transition: color .15s;
+    }
+    .dash-link:hover { color: #4dffa1; }
+    .dash-link svg { width: 14px; height: 14px; fill: none; stroke: currentColor;
+      stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
     .game-card.live:hover { border-color: rgba(77, 255, 161, 0.6); box-shadow: 0 20px 50px -24px rgba(77, 255, 161, 0.4); }
     .game-card.live .card-halo { background: #4dffa1; }
     .game-card.live .card-play { color: #4dffa1; }
@@ -668,6 +678,12 @@
         </article>
 
       </div>
+      <!-- Dashboard cân bằng Sky Chicken (log trận Firestore `runs`) — sky-dash/ -->
+      <a class="dash-link" href="./sky-dash/">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+        <span>Log &amp; dashboard cân bằng · Sky Chicken</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </a>
     </section>
 
     <!-- ── About (Newsreader for brand voice) ───────────────── -->
