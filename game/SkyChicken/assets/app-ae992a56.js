@@ -8790,6 +8790,9 @@ SC.Cloud = {
       moi.hist = Array.from(new Set([...(moi.hist || []), ...(cu.hist || [])]));
       if (!moi.equip && cu.equip) moi.equip = cu.equip;
       if (!moi.nick0 && cu.nick0) moi.nick0 = cu.nick0;   // tên riêng tàu nguyên bản
+      // tàu đã bán ở MỘT bên thì bán ở cả hai — gộp sổ mây cũ không được hồi sinh nó
+      moi.sold = Array.from(new Set([...(moi.sold || []), ...(cu.sold || [])]));
+      moi.owned = moi.owned.filter(o => !SC.EvoSell.isSold(moi, o));
     }
     SC.UI.save();
     SC.UI.buildMapList();
@@ -10679,6 +10682,16 @@ SC.EvoAI = {
     const e = this.st();
     if (levelId % this.CHUNK !== 0 || levelId <= e.lastLv) return null;
     e.lastLv = levelId;
+    const kw = this._rollKw(e);
+    SC.UI.save();
+    if (!silent)
+      SC.UI.toast(`TỪ KHÓA TIẾN HÓA: ${kw.vi.toUpperCase()} (${SC.EVO_KW.LABEL[kw.t]}) · ${e.kw.length % 3 || 3}/3`);
+    return kw;
+  },
+
+  /* Roll + cất MỘT từ khóa theo công thức bộ đang dở. Dùng chung cho mảnh cuối màn
+     VÀ phần thưởng bán tàu ở gara (system-evo-garage-sell.js). Chưa save. */
+  _rollKw(e) {
     /* Mảnh ĐẦU của một bộ mới -> RNG luôn CÔNG THỨC của bộ (21/09/2026): bộ thường,
        bộ lai hai con vật, hay bộ mang phong cách nghệ thuật — xem SC.EVO_KW.RECIPES. */
     const viTriBo = e.kw.length % 3;
@@ -10706,9 +10719,6 @@ SC.EvoAI = {
       break;
     }
     e.kw.push(kw);
-    SC.UI.save();
-    if (!silent)
-      SC.UI.toast(`TỪ KHÓA TIẾN HÓA: ${kw.vi.toUpperCase()} (${SC.EVO_KW.LABEL[type]}) · ${e.kw.length % 3 || 3}/3`);
     return kw;
   },
 
@@ -11023,6 +11033,8 @@ SC.EvoGarage = {
       lv: SC.UI.progress.unlocked || 1, span: 1 + ((Math.random() * 6) | 0), at: Date.now() };
     e.owned.push(o);
     e.equip = id;
+    // ghép lại đúng tổ hợp từng bán -> gỡ khỏi danh sách bán, không thì bị lọc mất
+    if (e.sold) e.sold = e.sold.filter(k => k !== ens.join('|'));
     SC.UI.save();
     // ảnh bản đẹp vào máy + ảnh thu nhỏ vào sổ (theo mây) — mất máy vẫn còn tàu
     await SC.EvoRecover.attach(o, pack.ship, pack.drone);
@@ -11110,6 +11122,7 @@ SC.EvoRecover = {
     let them = 0;
     (e.hist || []).forEach(h => {
       if (e.owned.some(o => this._key(o.ens) === h)) return;
+      if (e.sold && e.sold.indexOf(h) >= 0) return;      // đã bán ở gara — đừng hồi sinh
       const ens = h.split('|');
       e.owned.push({ id: 'h' + SC.EVO_KW._hash(h).toString(36), ens,
         names: ens.map(en => this._kwOf(en).vi), stats: SC.EvoGarage.statsOf(ens),
@@ -11228,6 +11241,59 @@ SC.EvoRecover = {
 };
 
 ;
+/* ===== js/system-evo-garage-sell.js ===== */
+/* system-evo-garage-sell.js — DỌN GARA: bán chiến đấu cơ không ưng (22/09/2026)
+ *
+ * Bán = mất tàu + mất thuộc tính ẩn của nó (thuộc tính tính động từ sổ owned nên
+ * xoá khỏi sổ là tự mất, cân bằng động cũng tự hạ theo). Nhận về: 1 TỪ KHÓA (quay
+ * máy gacha như mảnh cuối màn) + 3000 vàng.
+ *
+ * BẪY PHẢI CHẶN — tàu đã bán tự SỐNG LẠI qua hai đường:
+ *   1. EvoRecover._mergeHist dựng lại tàu từ lịch sử tổ hợp (hist) mỗi lần khởi động.
+ *   2. cloud-adapter.adopt GỘP sổ mây cũ (còn tàu) với sổ máy.
+ * Nên ghi tổ hợp đã bán vào `evo.sold` (theo mây), hai chỗ trên lọc theo nó. Hist thì
+ * GIỮ NGUYÊN — nó còn lo chống roll trùng tổ hợp cũ, đúng ý người vừa chê tàu đó.
+ * Ghép lại đúng tổ hợp đó (hiếm) thì EvoGarage.add gỡ khỏi sold.
+ */
+
+SC.EvoSell = {
+  GOLD: 3000,
+
+  key(o) { return (o.ens || []).join('|'); },
+
+  isSold(e, o) { return !!(e.sold && o.ens && e.sold.indexOf(this.key(o)) >= 0); },
+
+  /* bán được: có kênh tiến hóa, không phải tàu nguyên bản (id rỗng), có trong sổ */
+  canSell(id) {
+    return SC.EvoAI.active() && !!id && SC.EvoGarage.owned().some(o => o.id === id);
+  },
+
+  /* Trả từ khóa vừa nhận (để UI diễn gacha) hoặc null nếu không bán được. Mọi thay
+     đổi sổ sách chốt + save TRƯỚC khi diễn — F5 giữa màn quay không mất phần thưởng. */
+  sell(id) {
+    if (!this.canSell(id)) return null;
+    const e = SC.EvoAI.st();
+    const o = e.owned.find(x => x.id === id);
+    const dangBay = e.equip === id;
+
+    e.owned = e.owned.filter(x => x.id !== id);
+    if (o.ens && o.ens.length) {
+      e.sold = (e.sold || []).filter(k => k !== this.key(o));
+      e.sold.push(this.key(o));
+    }
+    SC.EvoGarage._saveImages(SC.EvoGarage.images().filter(x => x.id !== id));
+
+    SC.UI.progress.coin = (SC.UI.progress.coin || 0) + this.GOLD;
+    const kw = SC.EvoAI._rollKw(e);
+    SC.UI.save();
+    SC.Cloud.markDirty();
+    // đang bay đúng chiếc vừa bán -> về tàu nguyên bản (equip tự save + dựng lại sprite)
+    if (dangBay) SC.EvoGarage.equip(null);
+    return kw;
+  }
+};
+
+;
 /* ===== js/ui-evo-garage.js ===== */
 /* ui-evo-garage.js — màn GARA: nơi KHOE và CHỌN LẠI mọi chiến đấu cơ tiến hóa
  *
@@ -11246,6 +11312,8 @@ SC.GarageUI = {
     document.getElementById('garList').addEventListener('click', e => {
       const rc = e.target.closest('button[data-recast]');
       if (rc) { this._recast(rc); return; }
+      const sb = e.target.closest('button[data-sell]');
+      if (sb) { this.sellFlow(sb); return; }
       const b = e.target.closest('button[data-eq]');
       if (!b) {
         // bấm vào phần còn lại của thẻ = mở popup chi tiết, lướt được sang tàu khác
@@ -11303,6 +11371,39 @@ SC.GarageUI = {
     })).join('');
   },
 
+  /* BÁN: chạm lần 1 chỉ LÊN CÒ (nút đổi chữ, 3 giây tự hạ), chạm lần 2 mới bán —
+     mất tàu là không lấy lại được, một cú chạm nhầm lúc vuốt không được phép bán. */
+  sellFlow(btn) {
+    const id = btn.dataset.sell;
+    if (btn.dataset.arm !== '1') {
+      SC.Audio.click();
+      btn.dataset.arm = '1';
+      btn.classList.add('armed');
+      btn.textContent = `BÁN? +${SC.Power.fmt(SC.EvoSell.GOLD)} ◈ +1 🧬`;
+      clearTimeout(btn._t);
+      btn._t = setTimeout(() => this.disarm(btn), 3000);
+      return;
+    }
+    this.disarm(btn);
+    const kw = SC.EvoSell.sell(id);
+    if (!kw) return;
+    if (SC.GarageDetail.box) SC.GarageDetail.box.classList.add('hidden');
+    SC.Audio.power();
+    this.build();
+    // quay máy gacha như mảnh cuối màn — sổ sách đã chốt + save trong sell()
+    SC.EvoGachaUI.play(kw, () => {
+      SC.UI.toast(`ĐÃ BÁN · +${SC.Power.fmt(SC.EvoSell.GOLD)} VÀNG · +1 TỪ KHÓA`);
+      this.build();
+    });
+  },
+
+  disarm(btn) {
+    clearTimeout(btn._t);
+    btn.dataset.arm = '';
+    btn.classList.remove('armed');
+    btn.textContent = 'BÁN';
+  },
+
   /* Đúc lại ảnh cho tàu đã mất ảnh — miễn phí 1 lần, ~15 giây, giữ nguyên thuộc tính */
   async _recast(btn) {
     btn.disabled = true;
@@ -11323,7 +11424,8 @@ SC.GarageUI = {
         ? `<span class="gar-miss">ảnh chưa có<br><button class="btn small gar-recast" data-recast="${c.id}">ĐÚC LẠI</button></span>`
         : '<span class="gar-miss">ảnh đang ở<br>máy khác</span>';
     return `<div class="gar-card${c.on ? ' on' : ''}" data-i="${c.i}">
-      <div class="gar-stage">${hinh}<i class="gar-sn">${c.sn}</i></div>
+      <div class="gar-stage">${hinh}<i class="gar-sn">${c.sn}</i>${SC.EvoSell.canSell(c.id)
+        ? `<button class="gar-sell" data-sell="${c.id}">BÁN</button>` : ''}</div>
       <b class="gar-name">${c.name}</b>
       <div class="gar-chips">${c.chips}</div>
       <button class="btn ${c.on || !c.img ? 'ghost' : 'primary'} small" data-eq="${c.id}"${c.on || !c.img ? ' disabled' : ''}>
@@ -11385,6 +11487,7 @@ SC.GarageDetail = {
           aria-label="Tên chiến đấu cơ"><span aria-hidden="true">✎</span></label>
         <div class="gd-combo"></div>
         <div class="gd-stage">
+          <button class="gd-sell" data-sell="">BÁN</button>
           <button class="gd-nav prev" aria-label="Tàu trước">‹</button>
           <div class="gd-fly"><img class="gd-dr l" alt=""><img class="gd-ship" alt=""><img class="gd-dr r" alt=""></div>
           <div class="gd-miss gar-miss"></div>
@@ -11406,6 +11509,7 @@ SC.GarageDetail = {
     q('.prev').onclick = () => this.go(-1);
     q('.next').onclick = () => this.go(1);
     q('.gd-eq').onclick = () => this._equip();
+    q('.gd-sell').onclick = e => SC.GarageUI.sellFlow(e.currentTarget);
     q('.gd-miss').addEventListener('click', async e => {
       const b = e.target.closest('button[data-recast]');
       if (!b) return;
@@ -11469,6 +11573,10 @@ SC.GarageDetail = {
     const eq = (SC.UI.progress.evo && SC.UI.progress.evo.equip) || '';
     q('.gd-sn').textContent = `${it.sn} · ${i + 1}/${this.items.length}`;
     q('.gd-name input').value = this.nameOf(it);
+    const sell = q('.gd-sell');
+    sell.dataset.sell = it.id;
+    sell.classList.toggle('hidden', !SC.EvoSell.canSell(it.id));
+    SC.GarageUI.disarm(sell);
     // dòng tổ hợp gốc chỉ hiện khi đã đặt tên riêng — trùng tên chính thì thừa
     q('.gd-combo').textContent = this.nameOf(it) === it.combo ? '' : it.combo;
     q('.gd-miss').innerHTML = it.img ? '' : it.recast
@@ -11505,6 +11613,9 @@ SC.GarageDetail = {
   nameOf(it) {
     const e = SC.UI.progress.evo || {};
     const nick = it.id ? (it.o && it.o.nick) : e.nick0;
+    // BẪY ĐÃ SẬP: bản đầu cắt tên tổ hợp dài (>24 ký tự) rồi lưu thành tên riêng
+    // "SÓI · GẤU TRÚC · TINH NG" — tên riêng là khúc đầu của tên tổ hợp = tên cụt, bỏ qua
+    if (nick && nick !== it.combo && it.combo.startsWith(nick)) return it.combo;
     return nick || it.combo;
   },
 
@@ -11513,10 +11624,11 @@ SC.GarageDetail = {
     if (!it) return;
     const e = SC.EvoAI.st();
     // trim + gộp khoảng trắng; để trống = về tên tổ hợp
-    const nick = String(v || '').replace(/\s+/g, ' ').trim().slice(0, this.NICK_MAX);
+    const full = String(v || '').replace(/\s+/g, ' ').trim();
     const o = it.id ? (e.owned || []).find(x => x.id === it.id) : null;
     const cu = it.id ? (o && o.nick) || '' : e.nick0 || '';
-    const moi = nick === it.combo ? '' : nick;
+    // so với tên tổ hợp TRƯỚC khi cắt — tên tổ hợp được phép dài hơn NICK_MAX
+    const moi = full === it.combo ? '' : full.slice(0, this.NICK_MAX);
     if (moi === cu) return;
     if (it.id) { if (!o) return; if (moi) o.nick = moi; else delete o.nick; it.o = o; }
     else if (moi) e.nick0 = moi; else delete e.nick0;

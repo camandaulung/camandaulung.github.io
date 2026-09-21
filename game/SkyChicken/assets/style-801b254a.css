@@ -1512,6 +1512,14 @@ body.is-touch .rank-pos img{width:32px;height:32px}
   filter:drop-shadow(0 6px 8px rgba(0,0,0,.6))}
 .gd-pop img{pointer-events:none;-webkit-user-drag:none;user-select:none}
 .gd-stage{user-select:none;cursor:grab}
+/* nút BÁN: góc phải trên bệ, đỏ trầm — đủ thấy, không tranh với nút DÙNG */
+.gar-sell,.gd-sell{position:absolute;top:6px;right:6px;z-index:2;border:0;cursor:pointer;
+  padding:4px 9px;border-radius:8px;font:700 11px/1.3 var(--font-display);letter-spacing:.08em;
+  color:#ffb3b3;background:rgba(120,20,30,.55);box-shadow:inset 0 0 0 1px rgba(255,120,120,.4)}
+.gd-sell{top:10px;right:10px;padding:6px 12px;font-size:12px}
+.gar-sell.armed,.gd-sell.armed{color:#fff;background:#c0263a;box-shadow:0 0 14px rgba(255,60,80,.6);
+  animation:sellPulse .5s ease-in-out infinite alternate}
+@keyframes sellPulse{to{transform:scale(1.06)}}
 .gd-miss{position:absolute;inset:auto 0;text-align:center;font-size:13px}
 .gd-miss:empty{display:none}
 .gd-dr.l{left:-22%}
