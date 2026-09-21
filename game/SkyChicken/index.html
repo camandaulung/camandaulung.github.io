@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="icon" type="image/png" href="icons/icon-192.png">
-<link rel="stylesheet" href="assets/style-ed5ee1a6.css">
+<link rel="stylesheet" href="assets/style-eab72bc7.css">
 </head>
 <body>
 
@@ -210,14 +210,19 @@
 
     <div class="lobby-deploy">
       <!-- Thẻ xuất kích: mọi số liệu do ui-menu-card.js bơm vào -->
+      <!-- DOCK NGANG (22/09/2026): thông tin bên trái, XUẤT KÍCH bên phải NGAY TRONG
+           thẻ — bản dọc cũ tốn một tầng chiều cao cho nút, hai bên thì bỏ trống -->
       <div class="now-card" id="menuNow">
-        <div class="now-head">
-          <span class="now-label" id="nowLabel">TIẾP THEO</span>
-          <span class="now-chunk" id="nowChunk"></span>
+        <div class="now-info">
+          <div class="now-head">
+            <span class="now-label" id="nowLabel">TIẾP THEO</span>
+            <span class="now-chunk" id="nowChunk"></span>
+          </div>
+          <b class="now-map" id="nowMap">MÀN 01</b>
+          <span class="now-biome" id="nowBiome">ĐỒNG QUÊ · 1/6</span>
+          <span class="now-foe hidden" id="nowFoe"></span>
         </div>
-        <b class="now-map" id="nowMap">MÀN 01</b>
-        <span class="now-biome" id="nowBiome">ĐỒNG QUÊ · 1/6</span>
-        <span class="now-foe hidden" id="nowFoe"></span>
+        <button class="btn primary btn-deploy" id="btnPlay"><span>XUẤT KÍCH</span><i aria-hidden="true">›››</i></button>
 
         <div class="star-track">
           <div class="star-bar"><i id="nowStarFill"></i></div>
@@ -235,7 +240,6 @@
         </div>
       </div>
 
-      <button class="btn primary btn-deploy" id="btnPlay">XUẤT KÍCH</button>
       <p class="lobby-hook hidden" id="lobbyHook"></p>
     </div>
 
@@ -259,7 +263,9 @@
       </button>
     </div>
 
-    <p class="hint" id="menuHint">Di chuyển bằng <b>chuột</b> · Tự bắn · Tự nhặt đồ · <b>P</b> hoặc <b>Space</b> để tạm dừng</p>
+    <!-- dòng hướng dẫn điều khiển: bỏ khỏi lobby (22/09/2026) — đã có ở màn giới thiệu
+         lần đầu; giữ phần tử ẩn vì ui-screens.js còn ghi nội dung cảm ứng vào đây -->
+    <p class="hint hidden" id="menuHint">Di chuyển bằng <b>chuột</b> · Tự bắn · Tự nhặt đồ · <b>P</b> hoặc <b>Space</b> để tạm dừng</p>
   </div>
 
   <!-- ===== CÀI ĐẶT (gom hết chrome của app ra khỏi lobby) ===== -->
