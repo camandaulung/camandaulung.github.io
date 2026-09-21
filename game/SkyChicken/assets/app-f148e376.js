@@ -2286,7 +2286,7 @@ SC.SpriteArt = {
       'egg', 'plasma', 'rocket'],
     /* Mèo béo nhảy dù (thay phi công, 21/09/2026) — 3 mẫu rơi ngẫu nhiên,
      * entity-rescue.js chọn skin lúc thả dù */
-    rescue: ['cat-grey', 'cat-fish', 'cat-goggles'],
+    rescue: ['cat-fish', 'cat-goggles'],
     /* Quái khắc chế (entity-enemy-counter.js): KHIÊN NGƯỢC = gà bông ôm khiên,
        GIÁP DÀY = tổ ong phun đàn ong (chọn mẫu 21/09/2026) */
     counter: ['guard', 'brute'],
@@ -6753,8 +6753,9 @@ SC.Rescue = {
     if (this.toSpawn > 0) this.timer = 0.6;
   },
 
-  /* 3 skin mèo rơi NGẪU NHIÊN từng chiếc (chọn tay 21/09/2026 từ 5 mẫu AI) */
-  SKINS: ['cat-grey', 'cat-fish', 'cat-goggles'],
+  /* Skin mèo rơi NGẪU NHIÊN từng chiếc. 22/09/2026 bỏ cat-grey: vẽ trong game
+     nhỏ quá nhìn không ra dáng — chỉ giữ 2 con đọc shape rõ (dù xanh, mèo đen ôm cá). */
+  SKINS: ['cat-fish', 'cat-goggles'],
 
   _tha() {
     this.toSpawn--;
@@ -6809,13 +6810,13 @@ SC.Rescue = {
       // vòng sáng cho dễ thấy giữa đạn lửa
       SC.draw.glow(ctx, 0, 0, 34, '#4dff9f', 0.4);
 
-      /* Sprite mèo béo nhảy dù — vẽ TO hơn art cũ có chủ ý (76px so với ~57px):
-         đây là thứ người chơi phải muốn bay tới cứu, nhỏ quá là bị bỏ rơi.
+      /* Sprite mèo béo nhảy dù — vẽ TO hơn art cũ có chủ ý (91px, +20% lần 2 ngày
+         22/09): đây là thứ người chơi phải muốn bay tới cứu, nhỏ quá là bị bỏ rơi.
          Vòng hút r=16 GIỮ NGUYÊN — chỉ phóng hình, không đổi gameplay.
          Ảnh chưa tải xong thì rơi về hình phi công vẽ tay bên dưới. */
       const img = SC.SpriteArt.get('rescue', p.skin);
       if (img) {
-        const S = 76;
+        const S = 91;
         ctx.drawImage(img, -S / 2, -S / 2 - 4, S, S);
         ctx.restore();
         continue;
@@ -7628,9 +7629,8 @@ SC.MenuCard = {
         return `Còn <b>${left}</b> chặng nữa gặp <b>${esc(biome.bossName)}</b>`;
     }
 
-    // 2. sắp lên danh hiệu
-    const nx = SC.Power.next();
-    if (nx && nx.need <= 8) return `Còn <b>${nx.need}</b> lực chiến nữa lên <b>${esc(nx.name)}</b>`;
+    // (2. "sắp lên danh hiệu" đã DỌN LÊN thẻ hồ sơ 22/09/2026 — ui-auth-panel
+    //  syncChip hiện thường trực ⚔lực chiến + còn bao nhiêu lên hạng kế)
 
     // 3. hồ sơ khác trên máy đang đi trước mình
     const me = ui.progress.unlocked;
@@ -7802,6 +7802,10 @@ SC.Result = {
     retry.classList.toggle('primary', !win);
     retry.classList.toggle('ghost', win);
     id('btnResShop').classList.toggle('glow', SC.Tree.anyAffordable() || !!SC.Tree.pendingFork());
+    // chấm đỏ "đủ vàng nâng cấp" trên nút KỸ NĂNG (22/09) — cùng ngôn ngữ với
+    // badge ở lobby, người chơi vừa nhận vàng là thấy ngay có việc để tiêu
+    const resDot = id('resShopDot');
+    if (resDot) resDot.classList.toggle('hidden', !SC.Tree.anyAffordable() && !SC.Tree.pendingFork());
 
     this._advice(id, win, lv);
     ui.syncMenu();
@@ -8390,11 +8394,19 @@ SC.AuthPanel = {
     const [tip, cls] = u ? (this.SYNC[SC.Cloud.state] || ['', '']) : ['', ''];
     const dot = u ? `<i class="sync-dot ${cls}" title="${tip}"></i>` : '';
 
+    /* Lực chiến + đường lên danh hiệu nằm NGAY TRÊN THẺ HỒ SƠ (22/09/2026):
+       trước đó "còn X lực chiến lên Y" là dòng hook trôi nổi dưới nút XUẤT KÍCH —
+       navigation sức mạnh phải đứng cùng chỗ với danh hiệu nó dẫn tới. */
+    const nx = SC.Power.next();
+    const luc = `⚔${SC.Power.show()}`
+      + (nx ? ` <em class="pw-next">+${nx.need}→${SC.Rank.esc(nx.name)}</em>` : '');
+
     chip.innerHTML =
       `<span class="ava-wrap">${SC.Ava.ofLobby(cur)}${badge}</span>` +
       `<span class="prof-txt"><b>${SC.Rank.esc(cur.name)}</b>` +
-      `<i class="prof-rank">${dot}${SC.Power.rank()}</i></span><em>ĐỔI</em>`;
-    chip.title = u ? `${cur.name} · ${SC.Power.rank()} · ${tip}` : `${cur.name} · ${SC.Power.rank()}`;
+      `<i class="prof-rank">${dot}${SC.Power.rank()} · ${luc}</i></span><em>ĐỔI</em>`;
+    chip.title = `${cur.name} · ${SC.Power.rank()} · lực chiến ${SC.Power.show()}`
+      + (nx ? ` · còn ${nx.need} nữa lên ${nx.name}` : '') + (u ? ` · ${tip}` : '');
   },
 
   /* ---------- khối tài khoản ở màn hồ sơ ---------- */
