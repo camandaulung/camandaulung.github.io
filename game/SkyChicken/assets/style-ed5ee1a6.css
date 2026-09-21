@@ -1478,8 +1478,11 @@ body.is-touch .rank-pos img{width:32px;height:32px}
    thì chữ vỡ thành 3 dòng lộn xộn (sau khi nâng cỡ chữ 22/09) */
 .prof-txt{min-width:0}
 .prof-rank{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.prof-rank .pw-next{display:block;font-style:normal;color:var(--acc);opacity:.85;
-  overflow:hidden;text-overflow:ellipsis}
+/* 2 dòng: [tên · DANH HIỆU] / [POWER · mốc kế] — tên co "…" trước, danh hiệu giữ trọn */
+.prof-l1{display:flex;align-items:baseline;gap:7px;min-width:0}
+.prof-l1 b{min-width:0}
+.prof-chip .prof-l1 .prof-title{flex:none;color:var(--acc);letter-spacing:.12em}
+.prof-rank .pw-next{display:inline;font-style:normal;color:var(--acc);opacity:.85;letter-spacing:.06em}
 
 /* ---------- GARA chiến đấu cơ (22/09/2026) ----------
    Tinh thần gara xe: mỗi tàu một bệ, đèn rọi từ trên xuống, sàn bệ elip phát sáng.

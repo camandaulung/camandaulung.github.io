@@ -9094,14 +9094,16 @@ SC.AuthPanel = {
     // ghi hẳn chữ LỰC CHIẾN (22/09): "⚔84" trơ trọi người chơi không biết là số gì
     // Hai dòng NGẮN thay một dòng dài: thẻ ở lobby chỉ rộng ~170px, sau khi nâng cỡ
     // chữ thì "hạng · lực chiến · mốc kế" chung một dòng là vỡ hoặc tràn đè nút ĐỔI.
+    // 2 DÒNG (22/09/2026, anh Đức duyệt): dòng 1 tên + danh hiệu, dòng 2 POWER (+ mốc kế,
+    // cắt "…" nếu hẹp). Bản 3 dòng trước đẩy danh hiệu xuống đáy, đọc lệch thứ bậc.
     const P = SC.Power, pw = P.fmt(P.show());
-    const moc = P.rank() + (nx ? ` · +${P.fmt(nx.need)}→${SC.Rank.esc(nx.name)}` : '');
+    const moc = nx ? ` · +${P.fmt(nx.need)}→${SC.Rank.esc(nx.name)}` : '';
 
     chip.innerHTML =
       `<span class="ava-wrap">${SC.Ava.ofLobby(cur)}${badge}</span>` +
-      `<span class="prof-txt"><b>${SC.Rank.esc(cur.name)}</b>` +
-      `<i class="prof-rank">${dot}POWER ${pw}` +
-      `<em class="pw-next">${moc}</em></i></span><em>ĐỔI</em>`;
+      `<span class="prof-txt"><span class="prof-l1"><b>${SC.Rank.esc(cur.name)}</b>` +
+      `<em class="prof-title">${P.rank()}</em></span>` +
+      `<i class="prof-rank">${dot}POWER ${pw}<em class="pw-next">${moc}</em></i></span><em>ĐỔI</em>`;
     chip.title = `${cur.name} · ${P.rank()} · lực chiến ${pw}`
       + (nx ? ` · còn ${P.fmt(nx.need)} nữa lên ${nx.name}` : '') + (u ? ` · ${tip}` : '');
   },
