@@ -1342,8 +1342,14 @@ body.is-touch .rank-pos img{width:32px;height:32px}
 /* ---------- hàng tiến độ mảnh tiến hóa ở màn tổng kết ---------- */
 .mission-rows li.evo-frag{color:var(--ink);background:rgba(197,140,255,.1);
   box-shadow:inset 0 0 0 1px rgba(197,140,255,.3)}
+/* Đủ bộ phải NHÁY cho ra đủ bộ (nâng 21/09 lần 2) — glow tím thở theo nhịp,
+   prefers-reduced-motion ở cuối tệp tự tắt mọi animation nên không cần guard. */
 .mission-rows li.evo-frag.full{background:rgba(197,140,255,.18);
-  box-shadow:inset 0 0 0 1px rgba(197,140,255,.6),0 0 14px rgba(197,140,255,.25)}
+  animation:fragFullPulse 1.1s ease-in-out infinite}
+@keyframes fragFullPulse{
+  0%,100%{box-shadow:inset 0 0 0 1px rgba(197,140,255,.6),0 0 10px rgba(197,140,255,.2)}
+  50%{box-shadow:inset 0 0 0 2px rgba(230,200,255,.95),0 0 26px rgba(197,140,255,.6)}
+}
 .mission-rows li.evo-frag b{color:#c58cff}
 .frag-pips{display:flex;gap:5px;margin-left:auto;margin-right:8px}
 .frag-pips i{width:10px;height:12px;background:rgba(255,255,255,.14);
@@ -1373,6 +1379,31 @@ body.is-touch .rank-pos img{width:32px;height:32px}
 .panel.result .rs{padding:8px 5px;align-items:center}
 .panel.result .rs .rs-v em{display:block;font-size:8px;letter-spacing:.12em;margin-top:2px}
 .res-crest{width:min(76%,330px)}
+
+/* ---------- màn quay số mảnh tiến hóa ---------- */
+.gacha-box{display:flex;flex-direction:column;align-items:center;gap:14px;
+  padding:30px 26px;border-radius:18px;background:var(--panel);
+  box-shadow:inset 0 0 0 1px rgba(197,140,255,.45),0 0 60px rgba(197,140,255,.25)}
+.gacha-type{font-family:var(--font-display);font-size:11px;letter-spacing:.34em;color:#d9b8ff}
+.gacha-reel{min-width:240px;padding:18px 20px;border-radius:14px;text-align:center;
+  font-family:var(--font-display);font-size:26px;font-weight:800;letter-spacing:.08em;
+  color:#fff;background:rgba(0,0,0,.45);
+  box-shadow:inset 0 0 0 1px rgba(197,140,255,.35);
+  /* chữ đổi 25 lần/giây lúc quay — mờ nhẹ cho ra cảm giác trục đang xoay */
+  filter:blur(.6px)}
+.gacha-reel.lock{filter:none;color:#e6c8ff;
+  animation:gachaPop .5s cubic-bezier(.2,1.6,.4,1);
+  box-shadow:inset 0 0 0 2px rgba(230,200,255,.9),0 0 40px rgba(197,140,255,.7)}
+@keyframes gachaPop{0%{transform:scale(.7)}60%{transform:scale(1.18)}100%{transform:scale(1)}}
+.gacha-hint{font-size:10px;color:var(--dim);letter-spacing:.14em}
+
+/* ---------- hàng GEN LẠI THEO STYLE trong popup tiến hóa ---------- */
+.evoai-styles{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:8px}
+.evoai-styles span{font-size:8.5px;letter-spacing:.16em;color:var(--dim)}
+.evoai-styles button{border:0;cursor:pointer;padding:7px 10px;border-radius:8px;
+  font:700 9.5px var(--font);letter-spacing:.1em;color:var(--cy);
+  background:rgba(63,224,255,.1);box-shadow:inset 0 0 0 1px rgba(63,224,255,.35)}
+.evoai-styles button:disabled{opacity:.4;cursor:default}
 
 /* ---------- nút cập nhật app có tiến độ (21/09/2026) ---------- */
 #btnUpdate{position:relative;overflow:hidden}

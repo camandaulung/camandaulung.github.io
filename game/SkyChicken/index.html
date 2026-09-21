@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="icon" type="image/png" href="icons/icon-192.png">
-<link rel="stylesheet" href="assets/style-693d83f7.css">
+<link rel="stylesheet" href="assets/style-5992f172.css">
 </head>
 <body>
 
@@ -455,7 +455,24 @@
         <button class="btn primary" id="btnEvoAiGen">TIẾN HÓA</button>
         <button class="btn hidden" id="btnEvoAiUse">DÙNG LUÔN</button>
       </div>
+      <!-- Gen lại theo STYLE: cùng prompt gen lại hay ra na ná bản cũ, mỗi nút là
+           một cú bẻ lái đủ mạnh (data-evo-keywords.STYLES). Chỉ hiện khi đã có bản đầu. -->
+      <div class="evoai-styles hidden" id="evoAiStyles">
+        <span>GEN LẠI KIỂU</span>
+        <button data-style="chibi">CHIBI</button>
+        <button data-style="fantasy">FANTASY</button>
+        <button data-style="mecha">MECHA</button>
+      </div>
       <button class="btn text" id="btnEvoAiLater">ĐỂ SAU</button>
+    </div>
+  </div>
+
+  <!-- ===== QUAY SỐ MẢNH TIẾN HÓA (sau khi thắng màn có mảnh) ===== -->
+  <div id="scrGacha" class="layer screen dim hidden">
+    <div class="gacha-box">
+      <div class="gacha-type" id="gachaType">MẢNH CON VẬT</div>
+      <div class="gacha-reel" id="gachaReel">???</div>
+      <p class="gacha-hint">Chạm để bỏ qua</p>
     </div>
   </div>
 
@@ -686,7 +703,7 @@
 <script src="../../shared/portal-cloud.js"></script>
 <script src="../../shared/portal-rank.js"></script>
 <script src="../../shared/portal-player.js"></script>
-<script src="assets/app-bf20f7ff.js" onerror="window.__shellHong=1"></script>
+<script src="assets/app-fd662dac.js" onerror="window.__shellHong=1"></script>
 <script>
 /* LOP TU CUU KHI VO UNG DUNG HONG — dung xoa.
  *
