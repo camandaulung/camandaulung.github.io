@@ -7933,15 +7933,26 @@ SC.Combat = {
     SC.ScreenFX.flash('255,240,220', 0.22);
     SC.ScreenFX.pop('BOM!', '#ff3b5c');
     g.stats.bombs = (g.stats.bombs || 0) + 1;       // log trận (system-telemetry.js)
-    /* BOM PHẢI GIẾT ĐƯỢC QUÁI (22/09/2026, phản hồi map 57): bản cũ 60 sát thương CỐ
-       ĐỊNH trong khi máu quái nhân theo màn + lực chiến — cuối game bom chỉ gãi ngứa,
-       nút cứu nguy thành vô dụng đúng lúc cần nhất. Giờ quái thường chết hẳn, trùm ăn
-       max(160, 5% máu tối đa) — đủ đau mà không xoá trùm bằng vài quả bom. */
     for (const e of g.enemies) {
       if (e.dead) continue;
-      const dmg = e.isBoss ? Math.max(160, e.hpMax * 0.05) : e.hp + 1;
-      if (e.hurt(dmg)) this.killEnemy(g, e);
+      if (e.hurt(this.bombDmg(e, g.levelId))) this.killEnemy(g, e);
     }
+  },
+
+  /* SÁT THƯƠNG BOM = gốc + % máu tối đa (22/09/2026). Lịch sử: 60 cố định -> cuối game
+     gãi ngứa (map 57 máu quái ~500); rồi "nổ là chết hết" -> imba, dễ chán (anh Đức).
+     % máu = 90% - 30% × độ khó, độ khó = 70% tiến độ màn (1→60, vô tận = max) + 30% độ
+     trâu của loại quái (máu gốc / 60). Màn đầu gốc 40 + 90% là chết sạch; map 57 bọ cạp
+     còn ~30% máu, map 30 bọ hung còn ~3%. Trùm giữ max(160, 5% máu) — không xoá trùm
+     bằng vài quả bom. Số chỉnh ở bảng cân bằng khoá 'bomb'. */
+  BOMB: SC.bal('bomb', { base: 40, pctMax: 0.90, pctMin: 0.60, lvW: 0.7 }),
+  bombDmg(e, levelId) {
+    if (e.isBoss) return Math.max(160, e.hpMax * 0.05);
+    const B = this.BOMB;
+    const tLv = SC.clamp(((levelId || 1) - 1) / Math.max(1, SC.TOTAL_LEVELS - 1), 0, 1);
+    const tType = SC.clamp(((e.def && e.def.hp) || 10) / 60, 0, 1);
+    const hard = SC.clamp(B.lvW * tLv + (1 - B.lvW) * tType, 0, 1);
+    return B.base + (B.pctMax - (B.pctMax - B.pctMin) * hard) * e.hpMax;
   }
 };
 
