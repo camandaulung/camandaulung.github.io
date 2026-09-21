@@ -1505,7 +1505,19 @@ SC.Power = {
   den()   { return (1 + this._t() * this.S.den) * this._v(0); },   // mật độ quái
   // × cân bằng động của gara tiến hóa: tàu mới ngấm dần vào độ khó trong 1-6 màn
   hp()    { return (1 + this._t() * this.S.hp) * this._v(1) * SC.EvoGarage.enemyHpMul(SC.Game.levelId || 1); },
-  dmg()   { return (1 + this._t() * this.S.dmg) * SC.EvoGarage.enemyDmgMul(SC.Game.levelId || 1); },
+  dmg()   { return (1 + this._t() * this.S.dmg) * SC.EvoGarage.enemyDmgMul(SC.Game.levelId || 1) * this.lateEase(); },
+
+  /* HẠ SÁT THƯƠNG QUÁI CUỐI GAME (22/09/2026, phản hồi "từ màn 51 khó quá"): màn 51
+     giảm 10%, trượt tuyến tính tới 15% ở màn 60 rồi giữ 15% cho cả vòng vô tận.
+     Chỉ đụng SÁT THƯƠNG (mọi đòn trúng người chơi đều qua dmg()) — máu, mật độ, nhịp
+     bắn giữ nguyên, nên màn vẫn dài và đông như cũ, chỉ bớt "một phát bay nửa cây máu". */
+  LATE: SC.bal('power.lateDmg', { from: 51, full: 60, start: 0.90, end: 0.85 }),
+  lateEase() {
+    const L = this.LATE, id = SC.Game.levelId || 1;
+    if (id < L.from) return 1;
+    const k = SC.clamp((id - L.from) / Math.max(1, L.full - L.from), 0, 1);
+    return L.start + (L.end - L.start) * k;
+  },
   fire()  { return 1 + this._t() * this.S.fire; },                 // nhịp bắn
   spd()   { return 1 + this._t() * this.S.spd; },                  // tốc độ di chuyển
   orbit() { return this._t() * this.S.orbit; },                    // độ cong đạn địch
