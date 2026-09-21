@@ -6117,7 +6117,9 @@ SC.ShipArt = {
 
   /* Hào quang theo KHIÊN — chỉ hiện từ tiến hoá 1, là dấu hiệu đọc được từ xa */
   _aura(g, r, hue, evo) {
-    if (evo < 1) return;
+    // Đã thành biến thể thì hào quang là VFX ĐỘNG vẽ mỗi khung (system-aura-vfx.js,
+    // 22/09/2026) — nướng thêm bản tĩnh vào đây là hai lớp chồng nhau.
+    if (evo < 1 || (SC.AuraFX && SC.Tree.variant())) return;
     const mirror = SC.Tree.path('shield') === 'B';
     g.save();
     g.globalAlpha = evo >= 2 ? 0.55 : 0.32;
@@ -6193,6 +6195,173 @@ SC.ShipArt = {
     // sọc màu biến thể ở đuôi — chấm nhận dạng cuối cùng
     g.fillStyle = hue;
     g.fillRect(-r * 0.42, h * 0.2, r * 0.84, evo >= 2 ? 5 : 3);
+  }
+};
+
+;
+/* ===== js/system-aura-vfx.js ===== */
+/* system-aura-vfx.js — hào quang ĐỘNG theo từng dạng tiến hóa (22/09/2026)
+ *
+ * Trước đây hào quang nướng TĨNH vào sprite tàu (entity-ship-art._aura): 8 biến thể
+ * chỉ có 2 kiểu (vành tròn / 4 tấm vuông), và "LƯỚI SÉT" nhìn chẳng giống sét chút
+ * nào. Giờ mỗi biến thể một motif riêng, vẽ MỖI KHUNG ngay quanh tàu — sét phải chớp
+ * giật thì mới là sét, ảnh tĩnh không làm được.
+ *
+ * NHẸ CÓ CHỦ ĐÍCH: trong trận tàu chỉ ~40px, VFX dày là nhoè hết hình tàu và lẫn với
+ * đạn địch. Mỗi motif ≤ 6 nét vẽ, alpha thấp; tiến hóa 2 dày hơn tiến hóa 1 một chút.
+ *
+ * Gọi: SC.AuraFX.draw(ctx, r, t, evo) sau ctx.translate về tâm tàu, TRƯỚC khi vẽ
+ * thân tàu (hào quang nằm dưới). Dùng chung cho trận, lobby và màn tiến hóa.
+ */
+
+SC.AuraFX = {
+  /* số giả ngẫu nhiên ổn định theo seed — sét đổi hình theo nhịp, không theo khung,
+     nên nhìn là "xẹt xẹt" chứ không phải nhiễu hạt */
+  _r(n) { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); },
+
+  draw(ctx, r, t, evo) {
+    if (!evo || evo < 1) return;
+    const key = SC.Tree.variant && SC.Tree.variant();
+    const fn = key && this[key];
+    if (!fn) return;
+    const def = SC.VARIANTS[key];
+    // nhân theo alpha đang có: tàu đang nhấp nháy bất tử / đang mờ dần ở màn tiến
+    // hóa thì hào quang mờ theo, không sáng trơ ra một mình
+    const base = ctx.globalAlpha;
+    ctx.save();
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    fn.call(this, ctx, r, t, (evo >= 2 ? 1 : 0.65) * base, def.hue);
+    ctx.restore();
+  },
+
+  /* một tia sét gãy khúc từ (x1,y1) tới (x2,y2): nét rộng mờ + lõi trắng mảnh */
+  _bolt(ctx, x1, y1, x2, y2, seed, hue, a) {
+    const n = 5, dx = x2 - x1, dy = y2 - y1;
+    const len = Math.hypot(dx, dy) || 1, nx = -dy / len, ny = dx / len;
+    ctx.beginPath(); ctx.moveTo(x1, y1);
+    for (let i = 1; i < n; i++) {
+      const k = i / n, off = (this._r(seed + i) - 0.5) * len * 0.35;
+      ctx.lineTo(x1 + dx * k + nx * off, y1 + dy * k + ny * off);
+    }
+    ctx.lineTo(x2, y2);
+    ctx.globalAlpha = a * 0.55; ctx.strokeStyle = hue; ctx.lineWidth = 4.5; ctx.stroke();
+    ctx.globalAlpha = a; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.4; ctx.stroke();
+    // chấm lửa điện ở hai đầu — chỗ sét "cắm" vào thân tàu
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath(); ctx.arc(x1, y1, 2, 0, 6.283); ctx.arc(x2, y2, 2, 0, 6.283); ctx.fill();
+  },
+
+  /* ---------- 8 motif, khoá = SC.Tree.variant() ---------- */
+
+  /* LƯỚI SÉT: 2-3 tia sét xẹt giữa các điểm trên vành quanh tàu, đổi hình 14 lần/giây,
+     thỉnh thoảng tắt hẳn một nhịp — sét thật chớp chứ không cháy liên tục */
+  AAB(ctx, r, t, k) {
+    // hue biến thể #bfe9ff gần trắng, chìm mất trên nền trời — sét dùng xanh điện
+    const hue = '#5fe4ff';
+    const beat = Math.floor(t * 14);
+    const n = k >= 0.9 ? 3 : 2;
+    for (let i = 0; i < n; i++) {
+      const s = beat * 7 + i * 31;
+      if (this._r(s + 99) < 0.25) continue;
+      // bám sát thân (0.85-1.15r): sét phải bò trên vỏ tàu, bay xa là thành vết
+      // nứt giữa trời chẳng dính dáng gì tới tàu
+      const a1 = this._r(s) * 6.283, a2 = a1 + 0.8 + this._r(s + 1) * 1.3;
+      const R1 = r * (0.85 + this._r(s + 2) * 0.3), R2 = r * (0.85 + this._r(s + 3) * 0.3);
+      this._bolt(ctx, Math.cos(a1) * R1, Math.sin(a1) * R1,
+        Math.cos(a2) * R2, Math.sin(a2) * R2, s, hue, Math.min(1, 0.95 * k + 0.2));
+    }
+  },
+
+  /* BÃO ĐẠN: tàn lửa quay quanh */
+  AAA(ctx, r, t, k, hue) {
+    ctx.fillStyle = hue;
+    for (let i = 0; i < 6; i++) {
+      const a = t * 2.2 + i * 1.047, R = r * (1.35 + Math.sin(t * 3 + i) * 0.12);
+      ctx.globalAlpha = (0.35 + 0.35 * Math.sin(t * 6 + i)) * k;
+      ctx.beginPath(); ctx.arc(Math.cos(a) * R, Math.sin(a) * R, 2.2, 0, 6.283); ctx.fill();
+    }
+  },
+
+  /* MƯA KIM: kim sáng xoay quanh, mũi hướng theo chiều quay */
+  ABA(ctx, r, t, k, hue) {
+    ctx.strokeStyle = hue; ctx.lineWidth = 1.6;
+    for (let i = 0; i < 5; i++) {
+      const a = -t * 1.6 + i * 1.257, R = r * 1.4;
+      ctx.globalAlpha = 0.55 * k;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * R, Math.sin(a) * R);
+      ctx.lineTo(Math.cos(a - 0.22) * R, Math.sin(a - 0.22) * R);
+      ctx.stroke();
+    }
+  },
+
+  /* GƯƠNG BẠC: 4 mảnh gương xoay chậm, loé sáng lần lượt */
+  ABB(ctx, r, t, k, hue) {
+    for (let i = 0; i < 4; i++) {
+      ctx.save();
+      ctx.rotate(t * 0.6 + i * 1.5708);
+      const glint = Math.max(0, Math.sin(t * 2.5 - i * 1.57));
+      ctx.globalAlpha = (0.3 + glint * 0.5) * k;
+      ctx.fillStyle = glint > 0.8 ? '#ffffff' : hue;
+      ctx.beginPath();
+      ctx.moveTo(0, -r * 1.6); ctx.lineTo(r * 0.3, -r * 1.35);
+      ctx.lineTo(0, -r * 1.2); ctx.lineTo(-r * 0.3, -r * 1.35);
+      ctx.closePath(); ctx.fill();
+      ctx.restore();
+    }
+  },
+
+  /* XUYÊN PHÁ: ba vạch chevron chạy từ đuôi lên mũi — cảm giác lao thẳng */
+  BAA(ctx, r, t, k, hue) {
+    ctx.strokeStyle = hue; ctx.lineWidth = 2;
+    for (let i = 0; i < 3; i++) {
+      const p = (t * 1.2 + i / 3) % 1;
+      const y = r * 1.3 - p * r * 2.8;
+      ctx.globalAlpha = Math.sin(p * Math.PI) * 0.6 * k;
+      ctx.beginPath();
+      ctx.moveTo(-r * 0.9, y + r * 0.35); ctx.lineTo(0, y); ctx.lineTo(r * 0.9, y + r * 0.35);
+      ctx.stroke();
+    }
+  },
+
+  /* LÔI TIÊU: hai đốm ma trơi bám đuổi nhau quanh tàu, để lại vệt */
+  BAB(ctx, r, t, k, hue) {
+    ctx.fillStyle = hue;
+    for (let i = 0; i < 2; i++) {
+      for (let j = 0; j < 4; j++) {
+        const a = t * 2.6 + i * 3.14 - j * 0.18;
+        const R = r * (1.35 + Math.sin(t * 1.7 + i) * 0.15);
+        ctx.globalAlpha = (0.6 - j * 0.14) * k;
+        ctx.beginPath(); ctx.arc(Math.cos(a) * R, Math.sin(a) * R, 3 - j * 0.6, 0, 6.283); ctx.fill();
+      }
+    }
+  },
+
+  /* TỬ THẦN: vòng ngắm đỏ xoay chậm với 4 khấc */
+  BBA(ctx, r, t, k, hue) {
+    ctx.strokeStyle = hue; ctx.lineWidth = 1.6;
+    ctx.globalAlpha = (0.35 + 0.15 * Math.sin(t * 4)) * k;
+    ctx.rotate(t * 0.5);
+    for (let i = 0; i < 4; i++) {
+      const a = i * 1.5708;
+      ctx.beginPath(); ctx.arc(0, 0, r * 1.45, a + 0.2, a + 1.37); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * r * 1.3, Math.sin(a) * r * 1.3);
+      ctx.lineTo(Math.cos(a) * r * 1.6, Math.sin(a) * r * 1.6);
+      ctx.stroke();
+    }
+  },
+
+  /* HƯ KHÔNG: hạt tím bị hút xoáy vào tâm */
+  BBB(ctx, r, t, k, hue) {
+    ctx.fillStyle = hue;
+    for (let i = 0; i < 7; i++) {
+      const p = (t * 0.45 + i / 7) % 1;
+      const a = i * 0.9 + p * 4;
+      const R = r * (1.8 - p * 0.9);
+      ctx.globalAlpha = Math.sin(p * Math.PI) * 0.6 * k;
+      ctx.beginPath(); ctx.arc(Math.cos(a) * R, Math.sin(a) * R, 2.4 - p * 1.2, 0, 6.283); ctx.fill();
+    }
   }
 };
 
@@ -6331,6 +6500,9 @@ SC.Player.prototype.render = function (ctx) {
   // hệ số do SC.Game.introScale() lo, hitbox không đổi (lúc đó chưa có đạn).
   const isc = SC.Game.introScale ? SC.Game.introScale() : 1;
   if (isc !== 1) ctx.scale(isc, isc);
+
+  // hào quang động của dạng tiến hóa — dưới thân tàu, không xoay theo hướng ngắm
+  SC.AuraFX.draw(ctx, this.r, this.t, SC.Tree.evo());
 
   // Xoay cả thân theo hướng ngắm — lên, xuống, trái, phải. Quay DẦN (aimAnim chạy
   // tới aim) nên nhìn như máy bay lượn vòng, chứ đảo tức thì thì giật và không hiểu
@@ -9536,7 +9708,9 @@ SC.Evolution = {
       }
     }
 
-    if (k >= 1) cancelAnimationFrame(this._raf);
+    // KHÔNG dừng vòng vẽ khi diễn xong nữa (22/09/2026): hào quang dạng mới là VFX
+    // động (sét xẹt, gương loé…) — dừng là đứng hình đúng lúc người chơi đang ngắm.
+    // close() lo cancelAnimationFrame.
   },
 
   _ship(x, y, evo, alpha, scale) {
@@ -9546,6 +9720,8 @@ SC.Evolution = {
     ctx.save();
     ctx.globalAlpha = alpha;
     ctx.translate(x, y);
+    SC.AuraFX.draw(ctx, this.R * scale, this.t, evo);
+    ctx.globalAlpha = alpha;
     ctx.drawImage(s, -size / 2, -size / 2, size, size);
     ctx.restore();
   }
@@ -10668,6 +10844,7 @@ SC.LobbyShip = {
     ctx.beginPath();
     ctx.moveTo(-5, r * 1.1); ctx.lineTo(0, r * (1.5 + f * 0.5)); ctx.lineTo(5, r * 1.1);
     ctx.closePath(); ctx.fill();
+    SC.AuraFX.draw(ctx, r, performance.now() / 1000, SC.Tree.evo());
     SC.ShipArt.draw(ctx, r, tilt);
     ctx.restore();
   }
