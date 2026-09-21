@@ -2287,8 +2287,9 @@ SC.SpriteArt = {
     /* Mèo béo nhảy dù (thay phi công, 21/09/2026) — 3 mẫu rơi ngẫu nhiên,
      * entity-rescue.js chọn skin lúc thả dù */
     rescue: ['cat-grey', 'cat-fish', 'cat-goggles'],
-    /* Quái khắc chế KHIÊN NGƯỢC = gà bông ôm khiên vàng (entity-enemy-counter.js) */
-    counter: ['guard'],
+    /* Quái khắc chế (entity-enemy-counter.js): KHIÊN NGƯỢC = gà bông ôm khiên,
+       GIÁP DÀY = tổ ong phun đàn ong (chọn mẫu 21/09/2026) */
+    counter: ['guard', 'brute'],
   },
 
   /* Quái phải CHÚI XUỐNG phía người chơi. Tấm nào AI vẽ đầu hướng lên thì xoay
@@ -3377,6 +3378,16 @@ SC.EnemyCounter = {
   render(ctx, e) {
     const r = e.r;
     if (e.type === 'brute') {
+      // Sprite TỔ ONG (chọn 21/09/2026 từ 3 mẫu AI) — nhịp phun đàn ong ở move().
+      // Ảnh chưa tải thì rơi về hình giáp dày vẽ tay cũ, như mọi sprite khác.
+      const img = SC.SpriteArt.get('counter', 'brute');
+      if (img) {
+        const s = r * 2.6;
+        // phập phồng nhẹ theo đồng hồ tổ: sắp phun thì nở ra — người chơi ĐỌC được nhịp
+        const nhip = e.hiveT !== undefined && e.hiveT < 0.8 ? 1 + (0.8 - e.hiveT) * 0.12 : 1;
+        ctx.drawImage(img, -s * nhip / 2, -s * nhip / 2, s * nhip, s * nhip);
+        return;
+      }
       SC.draw.ink(ctx, r * 0.11);
       ctx.fillStyle = SC.draw.shade(ctx, r, r, '#3b4a63', '#cfdcee');
       ctx.beginPath(); ctx.ellipse(0, 0, r * .92, r, 0, 0, 6.283); ctx.fill(); ctx.stroke();

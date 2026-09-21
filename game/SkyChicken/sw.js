@@ -6,14 +6,14 @@
  *     thay vì tự đổi bản giữa lúc đang chơi
  */
 
-const CACHE = 'sky-chicken-669c1260';
+const CACHE = 'sky-chicken-9e596d7f';
 
 const SHELL = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
   "./assets/style-5992f172.css",
-  "./assets/app-fd662dac.js",
+  "./assets/app-4acdcf86.js",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./icons/icon-maskable-512.png",
@@ -40,6 +40,7 @@ const SHELL = [
   "./assets/art-game/bullet-laser.webp",
   "./assets/art-game/bullet-plasma.webp",
   "./assets/art-game/bullet-rocket.webp",
+  "./assets/art-game/counter-brute.webp",
   "./assets/art-game/counter-guard.webp",
   "./assets/art-game/drone-sniper.webp",
   "./assets/art-game/drone-swarm.webp",
