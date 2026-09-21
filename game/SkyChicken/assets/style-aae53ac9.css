@@ -1335,6 +1335,18 @@ body.is-touch .rank-pos img{width:32px;height:32px}
   color:var(--dim);letter-spacing:.02em}
 .gold-rows.foldable.fold .tong span::after{content:' · chi tiết ▾'}
 
+/* ---------- hàng tiến độ mảnh tiến hóa ở màn tổng kết ---------- */
+.mission-rows li.evo-frag{color:var(--ink);background:rgba(197,140,255,.1);
+  box-shadow:inset 0 0 0 1px rgba(197,140,255,.3)}
+.mission-rows li.evo-frag.full{background:rgba(197,140,255,.18);
+  box-shadow:inset 0 0 0 1px rgba(197,140,255,.6),0 0 14px rgba(197,140,255,.25)}
+.mission-rows li.evo-frag b{color:#c58cff}
+.frag-pips{display:flex;gap:5px;margin-left:auto;margin-right:8px}
+.frag-pips i{width:10px;height:12px;background:rgba(255,255,255,.14);
+  clip-path:polygon(50% 0,100% 28%,100% 72%,50% 100%,0 72%,0 28%)}
+.frag-pips i.on{background:linear-gradient(180deg,#e6c8ff,#c58cff);
+  filter:drop-shadow(0 0 5px rgba(197,140,255,.8))}
+
 /* ---------- nút cập nhật app có tiến độ (21/09/2026) ---------- */
 #btnUpdate{position:relative;overflow:hidden}
 #btnUpdate:disabled{opacity:.85;cursor:default;filter:saturate(.7)}
