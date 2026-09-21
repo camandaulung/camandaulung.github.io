@@ -6,14 +6,14 @@
  *     thay vì tự đổi bản giữa lúc đang chơi
  */
 
-const CACHE = 'sky-chicken-0a00e782';
+const CACHE = 'sky-chicken-b4471af5';
 
 const SHELL = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
   "./assets/style-39a3d055.css",
-  "./assets/app-1c9f2f8c.js",
+  "./assets/app-2b534edf.js",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./icons/icon-maskable-512.png",

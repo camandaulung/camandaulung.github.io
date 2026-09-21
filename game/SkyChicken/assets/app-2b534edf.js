@@ -9771,8 +9771,18 @@ SC.EVO_KW = {
     { vi: 'trắng băng', en: 'ice white with silver' },
   ],
 
-  /* Thứ tự nhặt: đủ một bộ ba rồi mới quay vòng lại */
+  /* Thứ tự nhặt MẶC ĐỊNH (bộ chưa có công thức riêng — tương thích tiến độ cũ) */
   ORDER: ['animal', 'trait', 'color'],
+
+  /* CÔNG THỨC bộ 3 (21/09/2026): mỗi bộ mới RNG một công thức — có bộ lai HAI
+     con vật, có bộ mang phong cách nghệ thuật riêng. system-evo-ai.award chọn
+     lúc nhặt mảnh đầu của bộ và lưu vào progress.evo.recipe. */
+  RECIPES: [
+    ['animal', 'trait', 'color'],
+    ['animal', 'animal', 'color'],
+    ['animal', 'animal', 'trait'],
+    ['animal', 'style', 'color'],
+  ],
 
   /* Chi tiết sơn/decal CÁ NHÂN (21/09/2026, goal "không ai giống ai"): 2 mục được
      chọn theo hash danh tính + số lần tiến hóa, nhồi vào prompt — hai người cùng
@@ -9805,7 +9815,7 @@ SC.EVO_KW = {
   },
 
   /* Nhãn loại để hiện trên toast/popup */
-  LABEL: { animal: 'CON VẬT', trait: 'TÍNH CÁCH', color: 'MÀU SẮC' },
+  LABEL: { animal: 'CON VẬT', trait: 'TÍNH CÁCH', color: 'MÀU SẮC', style: 'PHONG CÁCH' },
 
   roll(type) {
     const pool = this[type];
@@ -9826,25 +9836,39 @@ SC.EVO_KW = {
      na ná bản cũ — model rất "lì". Mỗi style là một cú bẻ lái đủ mạnh để ảnh
      khác hẳn, mà vẫn giữ con vật + tính cách + màu của bộ từ khóa. */
   STYLES: {
-    chibi:   { vi: 'CHIBI',   en: 'super-deformed chibi proportions, big head tiny body, ultra cute round shapes' },
-    fantasy: { vi: 'FANTASY', en: 'high fantasy style, ornate enchanted armor plating, glowing magic runes, mythical wings' },
-    mecha:   { vi: 'MECHA',   en: 'heavy mecha style, angular robot armor, hard surface panel lines, military sci-fi greebles' },
+    chibi:     { vi: 'CHIBI',     en: 'super-deformed chibi proportions, big head tiny body, ultra cute round shapes' },
+    fantasy:   { vi: 'FANTASY',   en: 'high fantasy style, ornate enchanted armor plating, glowing magic runes, mythical wings' },
+    mecha:     { vi: 'MECHA',     en: 'heavy mecha style, angular robot armor, hard surface panel lines, military sci-fi greebles' },
+    steampunk: { vi: 'STEAMPUNK', en: 'steampunk style, brass and copper plating, exposed spinning gears, rivets and steam pipes' },
+    crystal:   { vi: 'PHA LÊ',    en: 'crystalline style, translucent gemstone hull facets, glowing refracted light' },
+    origami:   { vi: 'ORIGAMI',   en: 'origami paper-craft style, folded paper facets, crisp geometric creases' },
   },
 
   /* Prompt sinh ảnh: vibe chốt với GD 21/09/2026 — toon, animal chiến đấu cơ,
      vui vẻ, game, NGẦU (game bắn máy bay phải ngầu một tí). Khung mô tả khớp
      STYLE của bộ sprite hiện tại (tools/gen-assets.mjs) để tàu mới không lạc tông. */
-  prompt(kws, style, seed) {
-    const by = {};
-    for (const k of kws) by[k.t] = k.en;
-    const dna = this._dnaOf(kws);
+  /* styleBtn = style người chơi BẤM ở nút GEN LẠI — thắng từ khóa style trong bộ
+     (lệnh trực tiếp thắng vận may). Bộ lai 2 con vật thì DNA phải giữ CẢ HAI. */
+  prompt(kws, styleBtn, seed) {
+    const animals = kws.filter(k => k.t === 'animal');
+    const trait = (kws.find(k => k.t === 'trait') || {}).en;
+    const color = (kws.find(k => k.t === 'color') || {}).en;
+    const style = styleBtn || (kws.find(k => k.t === 'style') || {}).en;
+    const a1 = animals[0] ? animals[0].en : 'rooster';
+    const dau = animals.length > 1
+      ? `a hybrid fighter aircraft fusing a ${a1} and a ${animals[1].en} into one creature-plane`
+      : `a heroic fighter aircraft styled as a ${a1}`;
+    const dna = animals.map(a => {
+      const it = a.dna ? a : this.animal.find(x => x.en === a.en);
+      return it && it.dna ? `from the ${a.en}: ${it.dna}` : '';
+    }).filter(Boolean).join('; ');
     return [
       ...(style && this.STYLES[style] ? [this.STYLES[style].en] : []),
-      `a heroic fighter aircraft styled as a ${by.animal || 'rooster'}`,
-      ...(dna ? [`the aircraft body MUST keep the ${by.animal} anatomy DNA: ${dna}`] : []),
+      dau,
+      ...(dna ? [`the aircraft body MUST keep the anatomy DNA — ${dna}`] : []),
       ...(seed ? [`unique personal livery: ${this.livery(seed)}`] : []),
-      `personality: ${by.trait || 'cheerful'} — show it clearly in the face and pose`,
-      `dominant color scheme: ${by.color || 'vivid red'}`,
+      ...(trait ? [`personality: ${trait} — show it clearly in the face and pose`] : []),
+      ...(color ? [`dominant color scheme: ${color}`] : []),
       'vibrant toon cartoon game sprite, fun but cool and battle-ready',
       'glossy plating, bold dark outlines, saturated colors, subtle neon rim light',
       'top-down view, nose pointing up, symmetrical, centered, single subject',
@@ -9855,16 +9879,19 @@ SC.EVO_KW = {
   /* Drone hộ tống CÙNG THEME với tàu (21/09/2026: tàu ong sọc mà phi đội tím mặc
      định nhìn như đi mượn). Mô tả lặp lại đúng bộ từ khóa + bắt dáng ĐƠN GIẢN:
      drone vẽ ~24px, chi tiết mấy cũng thành nhiễu. */
-  dronePrompt(kws, style) {
-    const by = {};
-    for (const k of kws) by[k.t] = k.en;
+  dronePrompt(kws, styleBtn) {
+    const animals = kws.filter(k => k.t === 'animal');
+    const trait = (kws.find(k => k.t === 'trait') || {}).en;
+    const style = styleBtn || (kws.find(k => k.t === 'style') || {}).en;
+    const ten = animals.map(a => a.en).join(' and ') || 'rooster';
     const dna = this._dnaOf(kws);
     return [
       ...(style && this.STYLES[style] ? [this.STYLES[style].en] : []),
-      `a tiny cute escort drone, companion of a ${by.animal || 'rooster'} themed fighter aircraft`,
-      `same theme: ${by.animal || 'rooster'} motif, ${by.trait || 'cheerful'} vibe`,
-      ...(dna ? [`echo the ${by.animal} DNA in miniature: ${dna}`] : []),
-      `same dominant color scheme: ${by.color || 'vivid red'}`,
+      `a tiny cute escort drone, companion of a ${ten} themed fighter aircraft`,
+      `same theme: ${ten} motif${trait ? ', ' + trait + ' vibe' : ''}`,
+      ...(dna ? [`echo the ${animals[0] ? animals[0].en : 'rooster'} DNA in miniature: ${dna}`] : []),
+      ...((kws.find(k => k.t === 'color') || {}).en
+        ? [`same dominant color scheme: ${kws.find(k => k.t === 'color').en}`] : []),
       'very simple bold silhouette readable at 24 pixels, vibrant toon cartoon game sprite',
       'glossy, bold dark outlines, subtle neon rim light',
       'top-down view, nose pointing up, centered, single subject',
@@ -9872,6 +9899,12 @@ SC.EVO_KW = {
     ].join(', ');
   }
 };
+
+/* Pool từ khóa PHONG CÁCH cho công thức [animal, style, color] — build từ STYLES
+   để nút GEN LẠI và từ khóa dùng chung một bảng mô tả; roll('style') và màn quay
+   số (SC.EVO_KW[kw.t]) tự ăn theo vì đây là mảng như animal/trait/color. */
+SC.EVO_KW.style = Object.keys(SC.EVO_KW.STYLES)
+  .map(k => ({ vi: SC.EVO_KW.STYLES[k].vi, en: k }));
 
 ;
 /* ===== js/system-evo-ai.js ===== */
@@ -9962,21 +9995,28 @@ SC.EvoAI = {
     const e = this.st();
     if (levelId % this.CHUNK !== 0 || levelId <= e.lastLv) return null;
     e.lastLv = levelId;
-    const type = SC.EVO_KW.ORDER[e.kw.length % 3];
+    /* Mảnh ĐẦU của một bộ mới -> RNG luôn CÔNG THỨC của bộ (21/09/2026): bộ thường,
+       bộ lai hai con vật, hay bộ mang phong cách nghệ thuật — xem SC.EVO_KW.RECIPES. */
+    const viTriBo = e.kw.length % 3;
+    if (viTriBo === 0)
+      e.recipe = SC.EVO_KW.RECIPES[(Math.random() * SC.EVO_KW.RECIPES.length) | 0];
+    const recipe = e.recipe || SC.EVO_KW.ORDER;
+    const type = recipe[viTriBo];
     /* RNG có kiểm soát (21/09/2026, bị bắt quả tang trùng bộ): re-roll tối đa 10
-       lần để (1) không lặp lại đúng giá trị cùng loại của BỘ NGAY TRƯỚC — đổi vị
-       liên tục, và (2) mảnh CUỐI không được chốt thành tổ hợp đã từng ghép
-       (progress.evo.hist). Hết 10 lần vẫn kẹt (hist gần phủ kín pool) thì chấp
-       nhận — thà trùng còn hơn treo. */
+       lần để (1) giá trị không xuất hiện trong BỘ NGAY TRƯỚC — đổi vị liên tục,
+       (2) bộ lai thì con vật thứ hai phải KHÁC con thứ nhất, và (3) mảnh CUỐI
+       không chốt thành tổ hợp đã từng ghép (progress.evo.hist). Hết 10 lần vẫn
+       kẹt thì chấp nhận — thà trùng còn hơn treo. */
     const hist = e.hist || [];
-    const truoc = hist[hist.length - 1];
-    const viTri = SC.EVO_KW.ORDER.indexOf(type);
+    const truoc = (hist[hist.length - 1] || '').split('|');
+    const boDang = e.kw.slice(e.kw.length - viTriBo);
     let kw;
     for (let thu = 0; thu < 10; thu++) {
       kw = SC.EVO_KW.roll(type);
-      if (truoc && truoc.split('|')[viTri] === kw.en) continue;
-      if (type === 'color' && e.kw.length % 3 === 2) {
-        const to = [e.kw[e.kw.length - 2].en, e.kw[e.kw.length - 1].en, kw.en].join('|');
+      if (truoc.indexOf(kw.en) >= 0) continue;
+      if (boDang.some(k => k.t === type && k.en === kw.en)) continue;   // gà + gà thì lai gì
+      if (viTriBo === 2) {
+        const to = [boDang[0].en, boDang[1].en, kw.en].join('|');
         if (hist.indexOf(to) >= 0) continue;
       }
       break;
