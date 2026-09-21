@@ -35,3 +35,7 @@ th:nth-child(-n+2),td:nth-child(-n+2){text-align:left}
 th{color:var(--dim);font-weight:600;position:sticky;top:0;background:var(--panel)}
 tr:hover td{background:rgba(120,160,255,.06)}
 @media (max-width:760px){.grid2{grid-template-columns:1fr}.chart{height:260px}}
+/* chưa có quyền: giấu toàn bộ số liệu, chỉ còn thanh trạng thái + nút đăng nhập */
+body.locked .kpis,body.locked .card,body.locked .grid2,body.locked .filters{display:none}
+body.locked .status{font-size:15px;color:var(--ink)}
+.status button{margin-left:10px}

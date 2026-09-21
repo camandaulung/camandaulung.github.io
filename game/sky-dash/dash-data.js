@@ -9,10 +9,30 @@ window.Dash = window.Dash || {};
 Dash.Data = {
   LIMIT: 5000,
 
-  /* Vé ẩn danh riêng cho dashboard: luật `runs` đòi đăng nhập để đọc */
+  /* PHÂN QUYỀN (22/09/2026): chỉ 2 tài khoản quản trị. Chặn THẬT ở luật Firestore
+     `runs` (firestore.rules) — danh sách ở đây chỉ để báo lỗi đẹp, sửa thì sửa cả hai. */
+  ADMINS: ['ducdm@vng.com.vn', 'minhducdl87@gmail.com'],
+
+  /* người đang đăng nhập (đợi Firebase khôi phục phiên). Phiên ẨN DANH của bản dashboard
+     cũ thì đăng xuất luôn — nó nằm chung origin với game trên caman. */
+  async user() {
+    const fb = await Portal.FB.load();
+    const u = await new Promise(res => { const off = fb.authM.onAuthStateChanged(fb.auth, x => { off(); res(x); }); });
+    if (u && u.isAnonymous) { await fb.authM.signOut(fb.auth); return null; }
+    return u;
+  },
+  isAdmin(u) { return !!(u && u.emailVerified && this.ADMINS.includes(String(u.email || '').toLowerCase())); },
+  async login() {
+    const fb = await Portal.FB.load();
+    await fb.authM.signInWithPopup(fb.auth, new fb.authM.GoogleAuthProvider());
+  },
+  async logout() { const fb = await Portal.FB.load(); await fb.authM.signOut(fb.auth); },
+
   async load(days) {
     const fb = await Portal.FB.load();
-    if (!fb.auth.currentUser) await fb.authM.signInAnonymously(fb.auth);
+    const u = await this.user();
+    if (!this.isAdmin(u)) throw Object.assign(new Error('not-admin'), { code: 'not-admin', user: u });
+    try { localStorage.setItem('skydash.admin', '1'); } catch (e) {}   // portal hiện nút dashboard
     const { collection, query, where, orderBy, limit, getDocs } = fb.fsM;
     const since = Date.now() - days * 864e5;
     const snap = await Portal.FB.limit(getDocs(query(collection(fb.db, 'runs'),

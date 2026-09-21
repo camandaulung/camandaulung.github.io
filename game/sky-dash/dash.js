@@ -28,9 +28,22 @@ Dash.UI = {
         + (this.rows.length >= Dash.Data.LIMIT ? ' · CHẠM TRẦN — thu hẹp khoảng thời gian' : '');
       this.draw();
     } catch (e) {
+      if (e && e.code === 'not-admin') return this._gate(e.user);
       st.textContent = 'Không tải được: ' + Portal.FB.err(e);
       console.error(e);
     }
+  },
+
+  /* chưa đăng nhập / không phải quản trị: chặn cả trang, chỉ còn nút đăng nhập */
+  _gate(u) {
+    document.body.classList.add('locked');
+    this.$('status').innerHTML = u
+      ? `Tài khoản <b>${this.esc(u.email || u.displayName || '?')}</b> không có quyền xem log trận.
+         <button id="btnOut">ĐỔI TÀI KHOẢN</button>`
+      : 'Trang dành cho quản trị. <button id="btnIn">ĐĂNG NHẬP GOOGLE</button>';
+    const go = async fn => { try { await fn(); location.reload(); } catch (err) { this.$('status').append(' ' + Portal.FB.err(err)); } };
+    if (this.$('btnIn')) this.$('btnIn').onclick = () => go(() => Dash.Data.login());
+    if (this.$('btnOut')) this.$('btnOut').onclick = () => go(async () => { await Dash.Data.logout(); await Dash.Data.login(); });
   },
 
   draw() {

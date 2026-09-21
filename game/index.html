@@ -347,6 +347,7 @@
       letter-spacing: .14em; text-transform: uppercase; text-decoration: none;
       color: var(--muted, #8fa3a0); padding: 6px 2px; transition: color .15s;
     }
+    .dash-link[hidden] { display: none; }   /* display:inline-flex ở trên thắng thuộc tính hidden */
     .dash-link:hover { color: #4dffa1; }
     .dash-link svg { width: 14px; height: 14px; fill: none; stroke: currentColor;
       stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
@@ -679,7 +680,7 @@
 
       </div>
       <!-- Dashboard cân bằng Sky Chicken (log trận Firestore `runs`) — sky-dash/ -->
-      <a class="dash-link" href="./sky-dash/">
+      <a class="dash-link" href="./sky-dash/" id="dashLink" hidden>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
         <span>Log &amp; dashboard cân bằng · Sky Chicken</span>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
@@ -743,6 +744,25 @@
         document.body.appendChild(s);
       });
     })();
+  </script>
+
+  <script>
+    /* Nút "Log & dashboard cân bằng": CHỈ 2 tài khoản quản trị thấy (22/09/2026). Chặn
+     * THẬT là luật Firestore `runs` — đây chỉ giấu nút. Chỉ nạp Firebase khi máy này đã
+     * từng đăng nhập (portal hoặc dashboard), khách thường không tốn ~200KB SDK.
+     * Đổi danh sách thì sửa cả firestore.rules + sky-dash/dash-data.js. */
+    window.addEventListener('load', function () {
+      var ADMINS = ['ducdm@vng.com.vn', 'minhducdl87@gmail.com'];
+      var link = document.getElementById('dashLink');
+      if (!link || !window.Portal || !Portal.FB || !Portal.FB.configured()) return;
+      if (!localStorage.getItem('portal.signedin') && !localStorage.getItem('skydash.admin')) return;
+      Portal.FB.load().then(function (fb) {
+        var off = fb.authM.onAuthStateChanged(fb.auth, function (u) {
+          off();
+          link.hidden = !(u && u.emailVerified && ADMINS.indexOf(String(u.email || '').toLowerCase()) >= 0);
+        });
+      }).catch(function () {});
+    });
   </script>
 
   <!-- Phase 4: Theme + Language + Dashboard Sync -->
