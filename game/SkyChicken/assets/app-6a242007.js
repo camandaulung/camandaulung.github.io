@@ -71,7 +71,7 @@ SC.BALANCE = {
     {"k": "power", "w": 20, "c": "#ff8a2b", "ic": "⚡"},
     {"k": "heal", "w": 13, "c": "#4dff9f", "ic": "✚"},
     {"k": "shield", "w": 11, "c": "#3fe0ff", "ic": "◇"},
-    {"k": "bomb", "w": 7, "c": "#ff3b5c", "ic": "✺"},
+    {"k": "bomb", "w": 4, "c": "#ff3b5c", "ic": "✺"},
     {"k": "gem", "w": 5, "c": "#c58cff", "ic": "★"}
   ],
   "levels": {
@@ -370,7 +370,7 @@ SC.ITEM_DEF = SC.bal('items', [
   { k:'power', w:20, c:'#ff8a2b', ic:'⚡' },
   { k:'heal',  w:13, c:'#4dff9f', ic:'✚' },
   { k:'shield',w:11, c:'#3fe0ff', ic:'◇' },
-  { k:'bomb',  w:7,  c:'#ff3b5c', ic:'✺' },
+  { k:'bomb',  w:4,  c:'#ff3b5c', ic:'✺' },   // 7 -> 4 (22/09/2026): bom rơi thưa hơn
   { k:'gem',   w:5,  c:'#c58cff', ic:'★' }
 ]);
 
@@ -3238,7 +3238,7 @@ SC.Items = {
      mà xui là không có quả nào — đúng lúc cần nhất. Hạ BOMB_PITY con liền mà chưa rơi
      bom thì con kế tiếp chắc chắn rơi bom. Đếm theo lượt hạ, không theo thời gian:
      màn thưa quái thì không ngập bom. */
-  BOMB_PITY: 18,
+  BOMB_PITY: 30,        // 18 -> 30 (22/09/2026): bom dày quá, 2 quả gần nhau là sạch round
   sinceBomb: 0,
   bombDue() { return ++this.sinceBomb > this.BOMB_PITY; },
 
@@ -7955,7 +7955,10 @@ SC.Combat = {
     const tLv = SC.clamp(((levelId || 1) - 1) / Math.max(1, SC.TOTAL_LEVELS - 1), 0, 1);
     const tType = SC.clamp(((e.def && e.def.hp) || 10) / 60, 0, 1);
     const hard = SC.clamp(B.lvW * tLv + (1 - B.lvW) * tType, 0, 1);
-    return (B.base + (B.pctMax - (B.pctMax - B.pctMin) * hard) * e.hpMax) * M;
+    // % của máu ĐANG CÒN, không phải máu tối đa (22/09/2026): theo máu tối đa thì mỗi
+    // quả >50% -> 2 quả liền luôn quét sạch round. Theo máu còn thì quả sau chỉ dọn
+    // phần sót, quái to cuối game vẫn phải cần súng kết liễu.
+    return (B.base + (B.pctMax - (B.pctMax - B.pctMin) * hard) * e.hp) * M;
   }
 };
 
