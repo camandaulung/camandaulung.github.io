@@ -1336,6 +1336,26 @@ SC.TreeStats = {
   /* Số đầu tiên trong chuỗi, để so tăng hay giảm ("1.57s" -> 1.57, "50%" -> 50) */
   _num(v) { const m = String(v).match(/-?[\d.]+/); return m ? +m[0] : NaN; },
 
+  /* CHỈ SỐ ĐẦU TÀU (22/09/2026) — of() luôn xếp chỉ số quan trọng nhất lên đầu
+     (sát thương/giây, máu tối đa, độ bền), nên lấy [0] là xong.
+     Vì sao cần: thẻ nhánh cũ in cả BA dòng chỉ số, nhân 5 nhánh là 15 dòng số chen
+     với 5 tên + 5 mô tả — màn hình điện thoại thành một bức tường chữ, phải cuộn
+     3 lần mới hết cây. Giờ mặc định chỉ khoe dòng này, hai dòng kia nằm trong phần
+     bung ra khi chạm thẻ. */
+  headline(key) {
+    const [ten, nay, sau] = this.of(key)[0];
+    const doi = String(nay) !== String(sau);
+    const a = this._num(nay), b = this._num(sau);
+    return { ten, nay, sau, doi, xuong: doi && b < a };
+  },
+
+  /* Chip "14 → 29" cạnh tên nhánh. Không đổi thì chỉ hiện một số, đỡ một mũi tên thừa */
+  chip(key) {
+    const h = this.headline(key);
+    return `<span class="tree-hl${h.doi ? (h.xuong ? ' down' : ' up') : ''}" title="${h.ten}">`
+      + `${h.nay}${h.doi ? `<i>→</i>${h.sau}` : ''}</span>`;
+  },
+
   /* Dựng HTML ba dòng "nhãn  nay → sau".
      Tô xanh khi TĂNG, tô đỏ khi GIẢM — có chỉ số cố ý đi xuống (giáp hạng nặng càng
      cấp cao càng lách kém), tô xanh hết thì người chơi tưởng cái gì cũng tốt lên. */
@@ -5741,17 +5761,43 @@ SC.Boss.prototype.render = function (ctx) {
  *   - Chỉ đếm quái ĐÁNG BẮN: con đã ra ngoài khung hình không được kéo hướng súng.
  *
  * p.face (-1 lên / 1 xuống) vẫn còn, suy ra từ p.aim, để phần mã cũ đọc nó không vỡ.
+ *
+ * ---- BẨN NHẤT TỪNG DÍNH (22/09/2026): XOAY NGANG QUÁ DỄ ----
+ * Phàn nàn thật: "quái còn xa cả 1/4 màn hình mà máy bay đã xoay ngang". Ba lỗi
+ * chồng nhau, sửa hết ba mới hết triệu chứng:
+ *   1. Luật đổi hướng CHỈ có so sánh TƯƠNG ĐỐI (w[mới] > w[cũ] × NEED). Trên đầu
+ *      trống thì w[cũ] = 0, nên BẤT KỲ con nào ở sườn — dù xa 400px — cũng thắng
+ *      tuyệt đối. Đây là lỗi nặng nhất. Chữa: thêm ngưỡng TUYỆT ĐỐI `MIN`.
+ *   2. Trọng lượng theo khoảng cách quá thoải (1/(1+d/260)): ở 240px (đúng 1/4 của
+ *      SC.H = 960) một con vẫn còn 0.52 "sức nặng". Chữa: bình phương + NEAR xuống
+ *      180 -> ở 240px chỉ còn 0.36.
+ *   3. Chia phe bằng |dx| ≥ |dy| tức là cắt ở đúng 45°: con chếch 50° đã bị tính là
+ *      "ở sườn" dù bắn thẳng vẫn trúng. Chữa: phải lệch quá SIDE_TAN (~55°).
+ * Kèm theo: rời hướng LÊN thì đắt (NEED_OUT), quay về hướng LÊN thì rẻ (NEED_BACK),
+ * và sạch màn thì TỰ VỀ MŨI LÊN chứ không đứng nghiêng chờ con tiếp theo.
  */
 
 SC.Facing = {
   GAP: 90,        // quái phải lệch hơn ngần này pixel mới được tính về một phía
   HOLD: 0.35,     // giây tối thiểu giữa hai lần đổi hướng
-  NEED: 1.6,      // hướng mới phải "nặng" gấp ngần này lần mới được đổi
+  NEED: 1.6,      // đổi giữa hai hướng KHÔNG phải hướng lên
+  NEED_OUT: 2.2,  // RỜI hướng lên: đắt, vì mặc định bắn thẳng đã đúng phần lớn thời gian
+  NEED_BACK: 1.15,// QUAY VỀ hướng lên: rẻ, về nhà lúc nào cũng dễ hơn đi
+  MIN: 0.55,      // ngưỡng TUYỆT ĐỐI: dưới mức này thì không hướng nào được cướp súng
   TURN: 7.0,      // tốc độ quay thân (rad/giây)
-  NEAR: 260,      // khoảng cách (px) mà tại đó trọng lượng một con còn một nửa
+  NEAR: 180,      // khoảng cách (px) mà tại đó trọng lượng một con còn một nửa
+  SIDE_TAN: 1.43, // |dx| phải > |dy| × ngần này mới tính là "ở sườn" (~55° so với trục dọc)
 
-  /* Bốn phương theo thứ tự: lên · phải · xuống · trái */
-  DIRS: [0, Math.PI / 2, Math.PI, -Math.PI / 2],
+  /* GÓC NGHIÊNG TỐI ĐA hai bên (22/09/2026, tuỳ chọn trong CÀI ĐẶT):
+       45 — máy bay chỉ NGHIÊNG 45°, mũi vẫn chếch lên, đọc dáng dễ hơn nhiều
+       90 — quay hẳn ngang như bản cũ, súng chĩa đúng sườn nhưng nhìn "gãy" tư thế
+     Chỉ số bên mảng DIRS giữ nguyên [lên · phải · xuống · trái] nên toàn bộ phần
+     cân trọng lượng bên dưới không cần biết đang ở chế độ nào. */
+  SIDE_DEG: { 45: Math.PI / 4, 90: Math.PI / 2 },
+  dirs() {
+    const s = this.SIDE_DEG[(SC.Settings && SC.Settings.tilt) || 90] || Math.PI / 2;
+    return [0, s, Math.PI, -s];
+  },
 
   reset(p) {
     p.aim = 0; p.aimAnim = 0; p.faceT = 0;
@@ -5784,56 +5830,73 @@ SC.Facing = {
       return;
     }
 
-    // cân trọng lượng mục tiêu ở bốn phía
-    const w = [0, 0, 0, 0];
-    const weigh = e => {
-      if (!e || e.dead || e.y < -30 || e.y > SC.H + 30) return;   // ngoài khung -> bỏ
-      const dx = e.x - p.x, dy = e.y - p.y;
-      // trùm nặng gấp 4 con thường: đang đánh trùm thì đừng để lũ quái con kéo súng đi
-      let k = e.isBoss ? 4 : 1;
-      // CÀNG GẦN CÀNG NẶNG. Không có phần này thì đám quái mới đổ xuống từ mép trên
-      // luôn áp đảo, và máy bay gần như không bao giờ quay ngang — đo được chỉ 0-3%
-      // thời lượng, tức là tính năng có cũng như không. Một con áp sát bên hông nguy
-      // hiểm hơn mười con còn ở tít trên đầu.
-      k *= 1 / (1 + Math.sqrt(dx * dx + dy * dy) / this.NEAR);
-      // Phương nào trội hơn thì con đó thuộc về phương ấy. So |dx| với |dy| chứ không
-      // chia góc đều: quái chếch 45° thì hướng nào cũng bắn tới, không đáng để xoay.
-      if (Math.abs(dy) >= Math.abs(dx)) {
-        if (dy < -this.GAP) w[0] += k;
-        else if (dy > this.GAP) w[2] += k;
-      } else {
-        if (dx > this.GAP) w[1] += k;
-        else if (dx < -this.GAP) w[3] += k;
-      }
-    };
-    for (const e of enemies) weigh(e);
-    if (boss && !boss.dead && enemies.indexOf(boss) < 0) weigh(boss);
+    const DIRS = this.dirs();
+    const w = this._weigh(p, enemies, boss);
 
     if (p.faceT > 0) { p.face = Math.cos(p.aim) < 0 ? 1 : -1; return; }
 
     // Hướng đang dùng. Vừa hạ trùm xong thì p.aim còn là một góc bất kỳ (chế độ khoá
-    // trùm ngắm liên tục), nên phải quy về phương gần nhất trước khi so sánh.
-    let cur = this.DIRS.indexOf(p.aim);
+    // trùm ngắm liên tục), và đổi tuỳ chọn nghiêng giữa trận cũng làm p.aim lạc khỏi
+    // bảng — nên luôn quy về phương gần nhất trước khi so sánh.
+    let cur = DIRS.indexOf(p.aim);
     if (cur < 0) {
       cur = 0;
       let bd = 9;
-      this.DIRS.forEach((a, i) => {
+      DIRS.forEach((a, i) => {
         let g = Math.abs(a - p.aim);
         if (g > Math.PI) g = 6.283 - g;
         if (g < bd) { bd = g; cur = i; }
       });
-      p.aim = this.DIRS[cur];
+      p.aim = DIRS[cur];
     }
     let best = cur;
     for (let i = 0; i < 4; i++) if (w[i] > w[best]) best = i;
 
-    if (best !== cur && w[best] > w[cur] * this.NEED && w[best] > 0) {
-      p.aim = this.DIRS[best];
+    /* SẠCH MÀN THÌ VỀ MŨI LÊN. Không có nhánh này, hạ xong con quái ở sườn là máy bay
+       đứng nghiêng mãi tới khi có con khác đủ nặng — người chơi thấy như máy bay bị
+       kẹt, và loạt đạn đầu của wave sau bay ra ngoài. */
+    if (w[best] < this.MIN) {
+      if (cur !== 0) { p.aim = DIRS[0]; p.faceT = this.HOLD; }
+      p.face = Math.cos(p.aim) < 0 ? 1 : -1;
+      return;
+    }
+
+    // rời hướng lên thì đắt, về hướng lên thì rẻ — xem khối chú thích đầu file
+    const need = cur === 0 ? this.NEED_OUT : (best === 0 ? this.NEED_BACK : this.NEED);
+    if (best !== cur && w[best] > w[cur] * need) {
+      p.aim = DIRS[best];
       p.faceT = this.HOLD;
       SC.FX.burst(p.x, p.y, '#7ae0ff', 8, 150, 1.6);   // khói xoay, để thấy rõ đã đổi hướng
     }
     // face cũ suy ra từ góc: mã nào chưa chuyển sang p.aim vẫn chạy đúng
     p.face = Math.cos(p.aim) < 0 ? 1 : -1;
+  },
+
+  /* Cân trọng lượng mục tiêu ở bốn phía. Tách hàm riêng để đoạn quyết định ở trên
+     đọc được trong một màn hình — và để chỉnh số ở đây không phải dò giữa hai việc. */
+  _weigh(p, enemies, boss) {
+    const w = [0, 0, 0, 0];
+    const one = e => {
+      if (!e || e.dead || e.y < -30 || e.y > SC.H + 30) return;   // ngoài khung -> bỏ
+      const dx = e.x - p.x, dy = e.y - p.y;
+      // trùm nặng gấp 4 con thường: đang đánh trùm thì đừng để lũ quái con kéo súng đi
+      let k = e.isBoss ? 4 : 1;
+      /* CÀNG GẦN CÀNG NẶNG, và nặng theo BÌNH PHƯƠNG khoảng cách. Bản tuyến tính cũ
+         quá thoải: con ở 1/4 màn hình vẫn giữ hơn nửa sức nặng nên một mình nó kéo
+         được súng sang ngang. Một con áp sát bên hông nguy hiểm hơn mười con còn ở
+         tít trên đầu — đường cong phải nói đúng điều đó. */
+      const t = Math.sqrt(dx * dx + dy * dy) / this.NEAR;
+      k *= 1 / (1 + t * t);
+      /* Chia phe: phải lệch khỏi trục dọc quá ~55° mới tính là "ở sườn". Cắt ở đúng
+         45° như bản cũ thì con chếch 50° — bắn thẳng vẫn trúng — cũng đòi xoay người. */
+      const ax = Math.abs(dx), ay = Math.abs(dy);
+      if (ax > ay * this.SIDE_TAN && ax > this.GAP) w[dx > 0 ? 1 : 3] += k;
+      else if (dy < -this.GAP) w[0] += k;
+      else if (dy > this.GAP) w[2] += k;
+    };
+    for (const e of enemies) one(e);
+    if (boss && !boss.dead && enemies.indexOf(boss) < 0) one(boss);
+    return w;
   }
 };
 
@@ -7954,10 +8017,23 @@ SC.Combat = {
      trâu của loại quái (máu gốc / 60). Màn đầu gốc 40 + 90% là chết sạch; map 57 bọ cạp
      còn ~30% máu, map 30 bọ hung còn ~3%. Trùm giữ max(160, 5% máu) — không xoá trùm
      bằng vài quả bom. Số chỉnh ở bảng cân bằng khoá 'bomb'. */
-  /* mul: hạ sức bom toàn phần. 0.9 ("bom mạnh quá") rồi 0.8 (22/09/2026, anh Đức:
-     "2 quả bom là sạch cả round") — quả đầu để lại 40-50% máu, quả 2 không còn quét
-     sạch quái to cuối game. */
-  BOMB: SC.bal('bomb', { base: 40, pctMax: 0.90, pctMin: 0.60, lvW: 0.7, mul: 0.8 }),
+  /* mul: hạ sức bom toàn phần. 0.9 ("bom mạnh quá") -> 0.8 (22/09/2026, anh Đức:
+     "2 quả bom là sạch cả round") -> 0.76 (22/09/2026, anh Đức muốn bom về ~30%
+     tổng sát thương; dashboard sky-dash đang đo 33%).
+     *
+     ĐỌC KỸ TRƯỚC KHI CHỈNH TIẾP — `mul` KHÔNG phải cái cần để kéo tỉ trọng 33%->30%:
+     telemetry chỉ cộng phần máu THẬT SỰ mất (`truoc - max(0, e.hp)` ở bomb() trên),
+     tức là ĐÃ CẮT OVERKILL. Mà bom một phát chết gọn quái thường tới tận map ~40
+     (map 30: bom 66 vs quái 60 máu). Ở khoảng đó hạ mul KHÔNG đổi một điểm sát
+     thương ghi nhận nào — quái vẫn chết, vẫn cộng đúng ngần ấy máu. Nên 0.8 -> 0.76
+     chỉ ăn vào map 45+ (map 57: quái còn 28% -> 32% máu sau một quả), tỉ trọng
+     tổng nhúc nhích rất ít, KHÔNG về 30% được.
+     Muốn kéo tỉ trọng TOÀN CỤC thì phải giảm SỐ BOM, không phải sức bom: trọng số
+     rơi `items[].k='bomb'.w` (đang 4) hoặc `SC.Item.BOMB_PITY` (đang 30). Đo được
+     2,52 quả/trận ở mức hiện tại; xuống ~2,2 quả/trận là về đúng 30%.
+     Và 33% là TRUNG BÌNH: map 10 đo 58%, map 3 chỉ 8% — lệch đó là do đường cong
+     `hard` theo màn, cắt mul hay cắt drop đều không phẳng được. */
+  BOMB: SC.bal('bomb', { base: 40, pctMax: 0.90, pctMin: 0.60, lvW: 0.7, mul: 0.76 }),
   bombDmg(e, levelId) {
     const B = this.BOMB, M = B.mul || 1;
     if (e.isBoss) return Math.max(160, e.hpMax * 0.05) * M;
@@ -8093,21 +8169,31 @@ SC.Settings = {
   KEY: 'skychicken.settings',
   shake: true,
 
+  /* GÓC NGHIÊNG TỐI ĐA khi máy bay quay súng sang sườn (22/09/2026) — 45 hoặc 90,
+     đọc ở system-facing.dirs(). MẶC ĐỊNH 45: phàn nàn thật là quay hẳn ngang nhìn
+     "gãy" tư thế và khó đọc mũi tàu. Muốn trả lại cảm giác cũ thì đổi số này. */
+  tilt: 45,
+
   load() {
     try {
       const raw = localStorage.getItem(this.KEY);
       // chỉ nhận đúng khoá mình biết, tránh dữ liệu hỏng đè lên hàm của module
-      if (raw) { const o = JSON.parse(raw); if (typeof o.shake === 'boolean') this.shake = o.shake; }
+      if (raw) {
+        const o = JSON.parse(raw);
+        if (typeof o.shake === 'boolean') this.shake = o.shake;
+        if (o.tilt === 45 || o.tilt === 90) this.tilt = o.tilt;
+      }
     } catch (e) { /* localStorage bị chặn thì dùng mặc định */ }
   },
 
   save() {
-    try { localStorage.setItem(this.KEY, JSON.stringify({ shake: this.shake })); } catch (e) {}
+    try { localStorage.setItem(this.KEY, JSON.stringify({ shake: this.shake, tilt: this.tilt })); } catch (e) {}
   },
 
   bind(on) {
     on('btnShake', () => this.toggleShake());
     on('btnShake2', () => this.toggleShake());
+    on('btnTilt', () => this.toggleTilt());
     on('btnFull', () => SC.View.toggleFullscreen());
     on('btnReset', () => this.reset());
 
@@ -8133,6 +8219,15 @@ SC.Settings = {
     SC.UI.toast(this.shake ? 'RUNG MÀN HÌNH: BẬT' : 'RUNG MÀN HÌNH: TẮT');
   },
 
+  /* Đổi qua lại 45° ↔ 90°. Đổi giữa trận cũng không sao: p.aim lạc khỏi bảng hướng
+     thì system-facing tự quy về phương gần nhất ở nhịp sau. */
+  toggleTilt() {
+    this.tilt = this.tilt === 45 ? 90 : 45;
+    this.save();
+    this.sync();
+    SC.UI.toast(this.tilt === 45 ? 'XOAY SÚNG: NGHIÊNG 45°' : 'XOAY SÚNG: NGANG 90°');
+  },
+
   /* Chỉ đổi class, KHÔNG ghi đè textContent: nhãn và icon SVG nằm sẵn trong HTML,
      ghi textContent là xoá mất luôn cả hai (bài học từ bản dùng emoji). */
   sync() {
@@ -8140,6 +8235,9 @@ SC.Settings = {
       const b = document.getElementById(id);
       if (b) b.classList.toggle('off', !this.shake);
     }
+    // nhãn ở đây là một <span> RIÊNG, ghi được mà không đụng icon (xem chú thích trên)
+    const t = document.getElementById('btnTiltLabel');
+    if (t) t.textContent = this.tilt === 45 ? 'NGHIÊNG 45°' : 'NGANG 90°';
   },
 
   syncFullscreen() {
@@ -8799,6 +8897,12 @@ SC.ProfileUI = {
     const p = SC.Profiles.summaries()[i];
     if (!confirm(`Xoá hồ sơ "${p.name}" (màn ${p.level}, ★${p.stars})? Không khôi phục được.`)) return;
     const wasMe = p.isMe;
+    /* Dọn dấu vết trên mây TRƯỚC khi remove(): sau đó hồ sơ đã rời danh sách, không
+       còn lấy được id để dựng đúng khoá tài liệu. Không await — xoá cục bộ phải xong
+       ngay, dọn mây chạy nền (system-profile-cleanup.js).
+       Truyền THẲNG { id: p.id } lấy từ chính dòng vừa xác nhận xoá, không tra lại
+       theo chỉ số: đây là mã XOÁ, lệch một ô là mất dòng BXH của hồ sơ khác. */
+    if (SC.ProfileCleanup) SC.ProfileCleanup.purge({ id: p.id });
     SC.Profiles.remove(i);
     if (wasMe) this._reloadProgress();     // đang đứng ở hồ sơ vừa xoá -> nạp hồ sơ mới
     this.build();
@@ -8909,20 +9013,31 @@ SC.Cloud = {
   rank(tab) {
     const [field, dir] = this.ORDER[tab];
     return Portal.Rank.top('scores', field, { dir, limit: 100 }).then(rows => {
-      /* KHỬ TRÙNG LẶP M365 (bug thấy trên banga 21/09/2026): uid ẩn danh sống theo
-         TRÌNH DUYỆT, nên một người chơi trên 2 máy = 2 dòng cùng m365Email. Bảng đã
-         sắp theo thành tích — dòng ĐẦU TIÊN của mỗi email là dòng tốt nhất, các dòng
-         sau bỏ khỏi hiển thị (bản ghi trong Firestore vẫn còn, chỉ là không chiếm
-         chỗ trên bảng). Dòng không có email (đăng nhập Google, khách) giữ nguyên.
-         Lọc xong phải đánh lại pos, không thì bảng hiện 1-2-4-5.
-         Khoá = email + TÊN PHI CÔNG (22/09/2026): chỉ theo email thì mọi HỒ SƠ khác
-         của cùng một người bị ẩn sạch — cùng tên hồ sơ trên hai máy mới là trùng. */
+      /* KHỬ TRÙNG LẶP (bug thấy trên banga 21/09/2026): uid ẩn danh sống theo TRÌNH
+         DUYỆT, nên một người chơi trên 2 máy = 2 dòng cùng m365Email. Bảng đã sắp
+         theo thành tích — dòng ĐẦU TIÊN của mỗi khoá là dòng tốt nhất, các dòng sau
+         bỏ khỏi hiển thị (bản ghi trong Firestore vẫn còn, chỉ là không chiếm chỗ
+         trên bảng). Lọc xong phải đánh lại pos, không thì bảng hiện 1-2-4-5.
+         Khoá = TÀI KHOẢN + TÊN PHI CÔNG: cùng tên trên cùng tài khoản mới là trùng,
+         còn hai hồ sơ KHÁC TÊN vẫn được hai dòng (mỗi hồ sơ tự kiếm chỗ của mình).
+
+         BẢN CŨ CHỈ XÉT m365Email và cho "dòng không có email đi thẳng" — lúc viết
+         thì đúng, vì mỗi tài khoản chỉ có một dòng. Nhưng từ 22/09/2026 `scoreId`
+         tách MỖI HỒ SƠ MỘT DÒNG (`{uid}`, `{uid}_p2`, `{uid}_p3`), nên người đăng
+         nhập GOOGLE trên portal — không bao giờ có m365Email — lọt lưới hoàn toàn:
+         ba hồ sơ trùng tên là ba dòng y hệt nhau nằm cạnh nhau (ảnh chụp 22/09).
+         Nay không có email thì lấy UID GỐC làm khoá (bỏ đuôi `_p{n}` của hồ sơ 2-3).
+         uid Google ổn định giữa các máy nên khoá này gom đúng; uid ẩn danh thì không,
+         nhưng dòng ẩn danh luôn có email nên đã đi nhánh trên rồi.
+         `r.uid` là ID TÀI LIỆU do Portal.Rank gắn vào — tài liệu scores KHÔNG có
+         trường `uid` nên không bị `d.data()` đè (đã kiểm). */
       const seen = new Set();
       return rows
         .filter(r => {
-          const em = (r.m365Email || '').toLowerCase();
-          if (!em) return true;
-          const k = em + '|' + String(r.name || '').trim().toLowerCase();
+          const acc = (r.m365Email || '').toLowerCase()
+            || String(r.uid || '').replace(/_p\d+$/, '');
+          if (!acc) return true;
+          const k = acc + '|' + String(r.name || '').trim().toLowerCase();
           if (seen.has(k)) return false;
           seen.add(k);
           return true;
@@ -8967,6 +9082,9 @@ SC.Cloud = {
     SC.UI.buildMapList();
     SC.UI.syncMenu();
     if (SC.EvoGarage) SC.EvoGarage.applyEquipped();   // tàu đang chọn theo sổ vừa gộp
+    /* Tiến độ vừa về có thể biến một "hồ sơ mới tinh" thành tài khoản cũ — popup quà
+       tân thủ đang mở phải rút lại (bug live 22/09/2026, system-newbie-gate.js) */
+    if (SC.NewbieGate) SC.NewbieGate.recheck();
     SC.UI.toast('ĐÃ TẢI TIẾN ĐỘ VỀ');
   },
 
@@ -9862,6 +9980,141 @@ SC.Brief = {
 };
 
 ;
+/* ===== js/ui-tree-card.js ===== */
+/* ui-tree-card.js — dựng MỘT thẻ nhánh của cây kỹ năng (tách khỏi ui-tree.js)
+ *
+ * Tách ra vì ui-tree.js đã chạm trần 200 dòng, và vì đợt dọn giao diện 22/09/2026
+ * dồn gần hết thay đổi vào đúng phần dựng thẻ này.
+ *
+ * ---- VÌ SAO THẺ ĐỔI DÁNG (22/09/2026) ----
+ * Ảnh chụp màn hình thật trên điện thoại: 5 thẻ, mỗi thẻ 6 dòng chữ (tên · mô tả ·
+ * ba dòng chỉ số) — màn hình chỉ chứa nổi 4 thẻ, phải cuộn ba lần mới xem hết cây,
+ * và nhìn xuống thì chỉ thấy một bức tường số xám. Chữa theo ba hướng:
+ *   1. GIẢM CHỮ: mặc định chỉ khoe CHỈ SỐ ĐẦU TÀU ("14 → 29") ngay cạnh tên. Hai
+ *      dòng còn lại nằm trong phần bung ra — chạm thẻ mới mở. Thẻ từ 6 dòng còn 2.
+ *   2. MÀU SÁNG: mỗi nhánh một màu riêng (--bh) thay vì xanh navy dùng chung, nút
+ *      giá thành viên kẹo có gờ dưới — ngôn ngữ nút của game casual.
+ *   3. CHẠM ĐƯỢC: nút giá rộng cố định, cao >=44px (chuẩn chạm iOS HIG); trước đây
+ *      nút co theo độ dài số tiền nên "◈ 55" và "◈ 25.200" lệch hẳn nhau.
+ *
+ * BẪY: chạm để bung dùng ĐÚNG MỘT nút <button class="tree-body">, KHÔNG phải onclick
+ * trên cả .tree-row — nút giá nằm trong thẻ, lồng nút trong nút là HTML sai và Safari
+ * nuốt luôn cú chạm vào nút giá.
+ */
+
+SC.TreeCard = {
+  /* Màu riêng từng nhánh — casual thì mỗi thứ phải có một danh tính màu, nhìn phát
+     biết ngay đang ở nhánh nào mà không cần đọc chữ. Nhánh đã rẽ hướng thì màu của
+     hướng (p.color) thắng, vì lúc đó danh tính là "Xuyên giáp"/"Bão đạn" chứ không
+     còn là "vũ khí" chung chung nữa. */
+  HUE: { wpn: '#ff8a4c', drone: '#4cc9ff', shield: '#5ce6a8', armor: '#ff7a9c', gold: '#ffc83f' },
+
+  /* Icon nhánh: ảnh AI theo hướng đã rẽ (wpn-a, wpn-b...), chưa rẽ dùng icon gốc.
+     Ảnh lỗi/chưa deploy thì rơi về glyph chữ cũ — không bao giờ ô icon trống. */
+  icon(key, path, glyph) {
+    const f = 'assets/art-game/ui-icon-' + key + (path ? '-' + path.toLowerCase() : '') + '.webp';
+    return `<div class="shop-ic"><img src="${f}" alt="" loading="lazy"
+      onerror="this.parentNode.textContent='${glyph}'"></div>`;
+  },
+
+  /* Chuỗi mốc: đã mua / chỗ rẽ / mốc tiến hoá / chưa mua.
+     Vượt bảng thì thôi vẽ chấm — 30 chấm một hàng thì đếm không nổi mà cũng tràn
+     màn hình — chỉ ghi con số cộng thêm. */
+  track(key, lv) {
+    const max = SC.Tree.max(key);
+    let s = '<div class="tree-track">';
+    for (let i = 1; i <= max; i++) {
+      const cls = [i <= lv ? 'on' : '', i === SC.Tree.FORK_LV ? 'fork' : '',
+        i === SC.Tree.EVO1 || i === SC.Tree.EVO2 ? 'evo' : ''].filter(Boolean).join(' ');
+      s += `<i class="${cls}"></i>`;
+    }
+    if (lv > max) s += `<b class="tree-plus">+${lv - max}</b>`;
+    return s + '</div>';
+  },
+
+  /* ---------- một thẻ nhánh ---------- */
+  branch(key) {
+    const d = SC.TREE[key];
+    const lv = SC.Tree.lv(key), path = SC.Tree.path(key);
+    const p = path ? d.paths[path] : null;
+    const cost = SC.Tree.cost(key);
+    const afford = SC.Tree.canBuy(key);
+    const needFork = SC.Tree.needsFork(key);
+    const beyond = SC.Tree.beyond(key);       // đã vượt bảng giá -> cấp vô hạn
+
+    const row = document.createElement('div');
+    row.className = 'tree-row' + (beyond ? ' beyond' : '');
+    row.style.setProperty('--bh', (p && p.color) || this.HUE[key] || '#96beff');
+    if (p) row.style.setProperty('--vh', p.color);
+
+    // Mô tả: mốc ĐANG có. Vượt bảng thì nói rõ nó vẫn cộng đúng như bước cuối cùng,
+    // nếu không người chơi sẽ tưởng mua tiếp là ném vàng đi.
+    const tiers = p ? p.tiers : d.paths.A.tiers;
+    const desc = lv < 1 ? d.short
+      : needFork ? 'Đang chờ chọn hướng đi'
+      : lv <= tiers.length ? tiers[lv - 1]
+      : tiers[tiers.length - 1] + ` · +${lv - tiers.length} bậc`;
+
+    row.innerHTML = `
+      <div class="tree-top">
+        ${this.icon(key, path, d.ic)}
+        <button class="tree-body" type="button" aria-expanded="false">
+          <div class="tree-name">${d.name}${p ? ` <em>${SC.Rank.esc(p.name)}</em>` : ''}${
+            beyond ? ` <i class="tree-lv">Lv ${lv}</i>` : ''}${
+            needFork ? '' : SC.TreeStats.chip(key)}</div>
+          ${this.track(key, lv)}
+          <div class="shop-desc">${SC.Rank.esc(desc)}</div>
+        </button>
+        <button class="shop-buy${needFork ? ' fork' : afford ? '' : ' poor'}">${
+          needFork ? 'CHỌN' : '◈ ' + SC.TreeUI.num(cost)
+        }</button>
+      </div>
+      ${needFork ? '' : `<div class="tree-more hidden">${SC.TreeStats.html(key)}</div>`}`;
+
+    const btn = row.querySelector('.shop-buy');
+    btn.onclick = needFork ? () => SC.Fork.open(key) : () => SC.TreeUI.buy(key);
+
+    const body = row.querySelector('.tree-body');
+    const more = row.querySelector('.tree-more');
+    if (more) body.onclick = () => {
+      const mo = more.classList.toggle('hidden');
+      body.setAttribute('aria-expanded', String(!mo));
+      SC.Audio.click();
+    };
+    else body.onclick = () => SC.Fork.open(key);   // nhánh chờ rẽ: chạm đâu cũng mở hộp chọn
+
+    // Nút "đổi hướng có trả phí" của bản trước đã bỏ: từ khi có XÂY LẠI CẢ CÂY miễn
+    // phí (hoàn 100% vàng), trả tiền để đổi một nhánh là trả tiền cho thứ vốn đã
+    // miễn phí — một cái bẫy trong giao diện chứ không phải một lựa chọn.
+    return row;
+  },
+
+  /* Nhánh THU VÀNG đứng ngoài cây — không có hướng để rẽ, không tính vào biến thể */
+  gold() {
+    const d = SC.TREE_EXTRA.gold, lv = SC.Tree.goldLv(), cost = SC.Tree.goldCost();
+    const row = document.createElement('div');
+    row.className = 'tree-row extra' + (cost === null ? ' maxed' : '');
+    row.style.setProperty('--bh', this.HUE.gold);
+    row.innerHTML = `
+      <div class="tree-top">
+        ${this.icon('gold', null, d.ic)}
+        <div class="tree-body static">
+          <div class="tree-name">${d.name}</div>
+          <div class="tree-track">${
+            Array.from({ length: d.max }, (_, i) => `<i class="${i < lv ? 'on' : ''}"></i>`).join('')
+          }</div>
+          <div class="shop-desc">${d.desc(lv)}</div>
+        </div>
+        <button class="shop-buy${cost === null ? ' done' : SC.Tree.canBuyGold() ? '' : ' poor'}">${
+          cost === null ? 'TỐI ĐA' : '◈ ' + SC.TreeUI.num(cost)
+        }</button>
+      </div>`;
+    if (cost !== null) row.querySelector('.shop-buy').onclick = () => SC.TreeUI.buyGold();
+    return row;
+  }
+};
+
+;
 /* ===== js/ui-tree.js ===== */
 /* ui-tree.js — màn cây kỹ năng: 4 thẻ nhánh, thẻ biến thể, thanh tiến hoá
  *
@@ -9893,20 +10146,12 @@ SC.TreeUI = {
 
   num(n) { return n.toLocaleString('vi-VN'); },
 
-  /* Icon nhánh: ảnh AI theo hướng đã rẽ (wpn-a, wpn-b...), chưa rẽ dùng icon gốc.
-     Ảnh lỗi/chưa deploy thì rơi về glyph chữ cũ — không bao giờ ô icon trống. */
-  _icon(key, path, glyph) {
-    const f = 'assets/art-game/ui-icon-' + key + (path ? '-' + path.toLowerCase() : '') + '.webp';
-    return `<div class="shop-ic"><img src="${f}" alt="" loading="lazy"
-      onerror="this.parentNode.textContent='${glyph}'"></div>`;
-  },
-
   build() {
     const wrap = document.getElementById('treeList');
     if (!wrap) return;
     wrap.innerHTML = this._variantCard();
-    for (const k of SC.TREE_KEYS) wrap.appendChild(this._branch(k));
-    wrap.appendChild(this._gold());
+    for (const k of SC.TREE_KEYS) wrap.appendChild(SC.TreeCard.branch(k));
+    wrap.appendChild(SC.TreeCard.gold());
     const evo = SC.GarageUI.treeCard();          // mục TIẾN HÓA (chỉ kênh zingplay)
     if (evo) wrap.appendChild(evo);
     wrap.appendChild(this._rebuild());
@@ -9924,100 +10169,22 @@ SC.TreeUI = {
     const v = SC.Variant.def();
     const ev = SC.Tree.evoProgress();
     const hue = SC.Variant.hue();
+    /* CHỮ NGẮN LẠI (22/09/2026): câu cũ "Tiến hoá 1: 0/4 nhánh đạt cấp 3" đọc như
+       một dòng log. Người chơi chỉ cần thấy ngay 0/4; thanh tiến độ ngay dưới nói
+       phần còn lại rõ hơn mọi câu chữ. */
     const bar = ev
-      ? `<div class="tree-evo"><span>Tiến hoá ${ev.evo}: ${ev.done}/4 nhánh đạt cấp ${ev.need}</span>
-         <i><b style="width:${ev.done / 4 * 100}%"></b></i></div>`
+      /* "cấp N" dùng <em> chứ KHÔNG <i>: rule gốc `.tree-evo i` là THANH tiến độ
+         (display:block, height:4px, overflow:hidden) nên chữ nhét vào <i> bị bóp
+         thành một vệt 4px cắt cụt — dính đúng lần đầu dựng lại thẻ này. */
+      ? `<div class="tree-evo"><span>TIẾN HOÁ ${ev.evo} <b>${ev.done}/4</b> <em>cấp ${ev.need}</em></span>
+         <i class="bar"><b style="width:${ev.done / 4 * 100}%"></b></i></div>`
       : '<div class="tree-evo done"><span>ĐÃ ĐẠT DẠNG CUỐI</span></div>';
 
     return `<div class="tree-variant" style="--vh:${hue}">
       <div class="tv-name">${v ? SC.Rank.esc(v.name) : 'CHƯA THÀNH HÌNH'}</div>
-      <div class="tv-tag">${v ? SC.Rank.esc(v.tag) : 'Chọn hướng cho cả ba nhánh để lộ biến thể'}</div>
+      <div class="tv-tag">${v ? SC.Rank.esc(v.tag) : 'Rẽ hướng cả ba nhánh để lộ biến thể'}</div>
       ${bar}
     </div>`;
-  },
-
-  /* ---------- một thẻ nhánh ---------- */
-  _branch(key) {
-    const d = SC.TREE[key];
-    const lv = SC.Tree.lv(key), path = SC.Tree.path(key);
-    const p = path ? d.paths[path] : null;
-    const cost = SC.Tree.cost(key);
-    const afford = SC.Tree.canBuy(key);
-    const needFork = SC.Tree.needsFork(key);
-    const beyond = SC.Tree.beyond(key);       // đã vượt bảng giá -> cấp vô hạn
-
-    const row = document.createElement('div');
-    row.className = 'tree-row' + (beyond ? ' beyond' : '');
-    if (p) row.style.setProperty('--vh', p.color);
-
-    // Mô tả: mốc ĐANG có. Vượt bảng thì nói rõ nó vẫn cộng đúng như bước cuối cùng,
-    // nếu không người chơi sẽ tưởng mua tiếp là ném vàng đi.
-    const tiers = p ? p.tiers : d.paths.A.tiers;
-    const desc = lv < 1 ? d.short
-      : needFork ? 'Đang chờ chọn hướng đi'
-      : lv <= tiers.length ? tiers[lv - 1]
-      : tiers[tiers.length - 1] + ` · cộng thêm ${lv - tiers.length} bậc`;
-
-    row.innerHTML = `
-      <div class="tree-top">
-        ${this._icon(key, path, d.ic)}
-        <div class="shop-mid">
-          <div class="tree-name">${d.name}${p ? ` <em>${SC.Rank.esc(p.name)}</em>` : ''}${
-            beyond ? ` <i class="tree-lv">Lv ${lv}</i>` : ''}</div>
-          ${this._track(key, lv, path)}
-          <div class="shop-desc">${SC.Rank.esc(desc)}</div>
-          ${needFork ? '' : SC.TreeStats.html(key)}
-        </div>
-        <button class="shop-buy${needFork ? ' fork' : afford ? '' : ' poor'}">${
-          needFork ? 'CHỌN' : '◈ ' + this.num(cost)
-        }</button>
-      </div>`;
-
-    const btn = row.querySelector('.shop-buy');
-    btn.onclick = needFork ? () => SC.Fork.open(key) : () => this.buy(key);
-
-    // Nút "đổi hướng có trả phí" của bản trước đã bỏ: từ khi có XÂY LẠI CẢ CÂY miễn
-    // phí (hoàn 100% vàng), trả tiền để đổi một nhánh là trả tiền cho thứ vốn đã
-    // miễn phí — một cái bẫy trong giao diện chứ không phải một lựa chọn.
-    return row;
-  },
-
-  /* Chuỗi mốc: đã mua / chỗ rẽ / mốc tiến hoá / chưa mua.
-     Vượt bảng thì thôi vẽ chấm — 30 chấm một hàng thì đếm không nổi mà cũng tràn
-     màn hình — chỉ ghi con số cộng thêm. */
-  _track(key, lv, path) {
-    const max = SC.Tree.max(key);
-    let s = '<div class="tree-track">';
-    for (let i = 1; i <= max; i++) {
-      const cls = [i <= lv ? 'on' : '', i === SC.Tree.FORK_LV ? 'fork' : '',
-        i === SC.Tree.EVO1 || i === SC.Tree.EVO2 ? 'evo' : ''].filter(Boolean).join(' ');
-      s += `<i class="${cls}"></i>`;
-    }
-    if (lv > max) s += `<b class="tree-plus">+${lv - max}</b>`;
-    return s + '</div>';
-  },
-
-  /* Nhánh THU VÀNG đứng ngoài cây — không có hướng để rẽ, không tính vào biến thể */
-  _gold() {
-    const d = SC.TREE_EXTRA.gold, lv = SC.Tree.goldLv(), cost = SC.Tree.goldCost();
-    const row = document.createElement('div');
-    row.className = 'tree-row extra' + (cost === null ? ' maxed' : '');
-    row.innerHTML = `
-      <div class="tree-top">
-        ${this._icon('gold', null, d.ic)}
-        <div class="shop-mid">
-          <div class="tree-name">${d.name}</div>
-          <div class="tree-track">${
-            Array.from({ length: d.max }, (_, i) => `<i class="${i < lv ? 'on' : ''}"></i>`).join('')
-          }</div>
-          <div class="shop-desc">${d.desc(lv)}</div>
-        </div>
-        <button class="shop-buy${cost === null ? ' done' : SC.Tree.canBuyGold() ? '' : ' poor'}">${
-          cost === null ? 'TỐI ĐA' : '◈ ' + this.num(cost)
-        }</button>
-      </div>`;
-    if (cost !== null) row.querySelector('.shop-buy').onclick = () => this.buyGold();
-    return row;
   },
 
   /* Xây lại cả cây — CÓ PHÍ lũy tiến (xem system-tree.rebuild). Đặt CUỐI danh sách
@@ -10026,10 +10193,10 @@ SC.TreeUI = {
     const back = SC.Tree.refundAll();
     const el = document.createElement('button');
     el.className = 'tree-rebuild' + (back > 0 ? '' : ' poor');
-    const pct = Math.round(SC.Tree.resetFeePct() * 100);
+    // chữ ngắn lại: phí và tiền hoàn là hai con số, không cần thêm "PHÍ"/"hoàn"/"%"
     el.innerHTML = back > 0
-      ? `XÂY LẠI CẢ CÂY · PHÍ ◈${this.num(SC.Tree.resetFee())} (${pct}%) <em>hoàn ◈${this.num(back)}</em>`
-      : 'XÂY LẠI CẢ CÂY · chưa đầu tư gì';
+      ? `XÂY LẠI CÂY · ◈${this.num(SC.Tree.resetFee())} <em>+◈${this.num(back)}</em>`
+      : 'XÂY LẠI CÂY · chưa đầu tư gì';
     if (back > 0) el.onclick = () => SC.Fork.confirmRebuild();
     return el;
   },
@@ -10789,6 +10956,20 @@ SC.EVO_KW = {
     origami:   { vi: 'ORIGAMI',   en: 'origami paper-craft style, folded paper facets, crisp geometric creases' },
   },
 
+  /* Mô tả style để nhét vào prompt (22/09/2026 — nút KHÁC cho người chơi TỰ NHẬP).
+     - Khóa có trong STYLES: trả mô tả dựng sẵn (nút CHIBI/FANTASY/MECHA và cả từ
+       khóa 'style' roll được ở gacha đều là khóa).
+     - Còn lại: chữ người chơi gõ. CẮT 60 ký tự, bỏ xuống dòng + dấu nháy + dấu
+       phẩy — prompt là chuỗi nối bằng ', ' nên để lọt mấy ký tự đó là người chơi
+       viết được mệnh đề riêng, đè cả phần "flat transparent background, no text"
+       ở cuối. Đây là khoá cửa duy nhất, đừng bỏ. */
+  styleText(s) {
+    if (!s) return '';
+    if (this.STYLES[s]) return this.STYLES[s].en;
+    const t = String(s).replace(/[\r\n",]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60);
+    return t ? `art style: ${t}` : '';
+  },
+
   /* Prompt sinh ảnh: vibe chốt với GD 21/09/2026 — toon, animal chiến đấu cơ,
      vui vẻ, game, NGẦU (game bắn máy bay phải ngầu một tí). Khung mô tả khớp
      STYLE của bộ sprite hiện tại (tools/gen-assets.mjs) để tàu mới không lạc tông. */
@@ -10819,7 +11000,7 @@ SC.EVO_KW = {
         + 'nose pointing up, two wings spread left and right',
       ...(attempt >= 2 ? ['STRICTLY an aircraft silhouette seen from above, never a standing creature, '
         + 'no legs, no arms, no full animal body, no human rider'] : []),
-      ...(style && this.STYLES[style] ? [this.STYLES[style].en] : []),
+      ...(this.styleText(style) ? [this.styleText(style)] : []),
       `the aircraft is themed as ${theme}${cls ? ` ${cls.en} class` : ''}: the animal head forms `
         + 'the nose and cockpit, its features blend into the fuselage, wings and tail',
       ...(dna ? [`recognizable animal DNA built into the plane shape — ${dna}`] : []),
@@ -10847,7 +11028,7 @@ SC.EVO_KW = {
     const ten = animals.map(a => a.en).join(' and ') || 'rooster';
     const dna = this._dnaOf(kws);
     return [
-      ...(style && this.STYLES[style] ? [this.STYLES[style].en] : []),
+      ...(this.styleText(style) ? [this.styleText(style)] : []),
       `a tiny escort drone, companion of a ${ten}${cls ? ' ' + cls.en + ' class' : ''} themed fighter aircraft`,
       ...(cls ? [`one small ${cls.en} emblem or weapon motif`] : []),
       `same theme: ${ten} motif${trait ? ', ' + trait + ' vibe' : ''}`,
@@ -11032,7 +11213,7 @@ Object.assign(SC.EVO_KW, {
       'top-down view from directly above, vertical shoot-em-up game sprite of a modern sci-fi FIGHTER JET, '
         + 'nose pointing up, two wings spread left and right',
       ...(attempt >= 2 ? ['STRICTLY a single aircraft silhouette seen from above, clean readable shape'] : []),
-      ...(style && this.STYLES[style] ? [this.STYLES[style].en] : []),
+      ...(this.styleText(style) ? [this.styleText(style)] : []),
       `airframe type: ${fr.en} — ${this._dnaKw(fr)}`,
       // class = bộ vũ khí/giáp của vai trò, gắn lên thân tàu (không có người)
       ...(cls ? [`${cls.en} combat role loadout built into the jet: ${this._dnaKw(cls)}`] : []),
@@ -11053,7 +11234,7 @@ Object.assign(SC.EVO_KW, {
     const color = (kws.find(k => k.t === 'color') || {}).en;
     const style = styleBtn || (kws.find(k => k.t === 'style') || {}).en;
     return [
-      ...(style && this.STYLES[style] ? [this.STYLES[style].en] : []),
+      ...(this.styleText(style) ? [this.styleText(style)] : []),
       `a tiny unmanned escort drone matching a ${fr.en} fighter jet, same design language in miniature`,
       ...(color ? [`same dominant color scheme: ${color}`] : []),
       'very simple bold silhouette readable at 24 pixels',
@@ -11115,135 +11296,6 @@ SC.EvoAI = {
   },
 
   ready() { return this.active() && this.st().kw.length >= 3; },
-
-  /* ---------- hạn mức gen (ảnh tốn tiền thật) ----------
-     Số lượt ĐÃ ĐỐT nằm trong progress.evo.rolls và được save NGAY TRƯỚC khi gọi
-     mạng — F5 giữa chừng vẫn mất lượt, không reset được bộ đếm (anti-cheat 21/09).
-     Tấm gen dở lưu DRAFT nên F5 xong mở popup vẫn còn nguyên tàu chờ quyết. */
-  rollsLeft() { return Math.max(0, this.MAX_GEN - (this.st().rolls || 0)); },
-  spendRoll() {
-    const e = this.st();
-    e.rolls = (e.rolls || 0) + 1;
-    SC.UI.save();
-    SC.Cloud.markDirty();
-  },
-  /* Khoá lưu THEO HỒ SƠ, cùng triết lý kho tiến độ (skychicken.progress.v1.<id>).
-     Hồ sơ chưa nạp (giai đoạn parse script) thì tạm '.0' — init() được hoãn tới
-     sau SC.Game.init() nên thực tế luôn có hồ sơ. */
-  _sk() { const p = SC.Profiles && SC.Profiles.cur(); return this.STORE + '.' + (p ? p.id : 0); },
-  _dk() { const p = SC.Profiles && SC.Profiles.cur(); return this.DRAFT + '.' + (p ? p.id : 0); },
-
-  saveDraft(pack) { try { localStorage.setItem(this._dk(), JSON.stringify(pack)); } catch (e) {} },
-  loadDraft() {
-    try {
-      const raw = localStorage.getItem(this._dk());
-      if (!raw) return null;
-      // draft đời đầu là chuỗi dataURL trần (chưa có drone) — vẫn đọc được
-      return raw.charAt(0) === '{' ? JSON.parse(raw) : { ship: raw, drone: '' };
-    } catch (e) { return null; }
-  },
-
-  /* Gọi từ system-level-finish khi THẮNG màn. Chỉ màn chia hết cho CHUNK, và mỗi
-     màn chỉ phát một lần (cày lại màn cũ không ra thêm — lastLv chặn). */
-  /* Cấp một từ khóa cho màn levelId nếu đủ điều kiện. `silent` = roll KÍN —
-     kết quả chốt và LƯU ngay (F5 giữa màn gacha không đổi được vận mệnh), nhưng
-     tên thì để màn quay số (ui-evo-gacha.js) vén màn cho kịch tính. Trả kw/null. */
-  award(levelId, silent) {
-    if (!this.active()) return null;     // kênh không gen được thì đừng nhặt từ khóa
-    const e = this.st();
-    if (levelId % this.CHUNK !== 0 || levelId <= e.lastLv) return null;
-    e.lastLv = levelId;
-    const kw = this._rollKw(e);
-    SC.UI.save();
-    if (!silent)
-      SC.UI.toast(`TỪ KHÓA TIẾN HÓA: ${kw.vi.toUpperCase()} (${SC.EVO_KW.LABEL[kw.t]}) · ${e.kw.length % 3 || 3}/3`);
-    return kw;
-  },
-
-  /* Roll + cất MỘT từ khóa theo công thức bộ đang dở. Dùng chung cho mảnh cuối màn
-     VÀ phần thưởng bán tàu ở gara (system-evo-garage-sell.js). Chưa save. */
-  _rollKw(e) {
-    /* Mảnh ĐẦU của một bộ mới -> RNG luôn CÔNG THỨC của bộ (21/09/2026): bộ thường,
-       bộ lai hai con vật, hay bộ mang phong cách nghệ thuật — xem SC.EVO_KW.RECIPES. */
-    const viTriBo = e.kw.length % 3;
-    if (viTriBo === 0)
-      e.recipe = SC.EVO_KW.pickRecipe();
-    const recipe = e.recipe || SC.EVO_KW.ORDER;
-    const type = recipe[viTriBo];
-    /* RNG có kiểm soát (21/09/2026, bị bắt quả tang trùng bộ): re-roll tối đa 10
-       lần để (1) giá trị không xuất hiện trong BỘ NGAY TRƯỚC — đổi vị liên tục,
-       (2) bộ lai thì con vật thứ hai phải KHÁC con thứ nhất, và (3) mảnh CUỐI
-       không chốt thành tổ hợp đã từng ghép (progress.evo.hist). Hết 10 lần vẫn
-       kẹt thì chấp nhận — thà trùng còn hơn treo. */
-    const hist = e.hist || [];
-    const truoc = (hist[hist.length - 1] || '').split('|');
-    const boDang = e.kw.slice(e.kw.length - viTriBo);
-    let kw;
-    for (let thu = 0; thu < 10; thu++) {
-      kw = SC.EVO_KW.roll(type);
-      if (truoc.indexOf(kw.en) >= 0) continue;
-      if (boDang.some(k => k.t === type && k.en === kw.en)) continue;   // gà + gà thì lai gì
-      if (viTriBo === 2) {
-        const to = [boDang[0].en, boDang[1].en, kw.en].join('|');
-        if (hist.indexOf(to) >= 0) continue;
-      }
-      break;
-    }
-    e.kw.push(kw);
-    return kw;
-  },
-
-  onWin(levelId) { this.award(levelId, false); },
-
-  /* ---------- sinh ảnh ---------- */
-  _endpoint() {
-    let tk = '';
-    try { tk = localStorage.getItem('sc.vkmToken') || ''; } catch (e) {}
-    return tk
-      ? { url: this.DEV + '/v1/images/generations', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + tk } }
-      // nhãn text/plain + cookie: xem chú thích đầu file, đừng "sửa lại cho đúng"
-      : { url: this.RELAY + '/v1/images/generations', headers: { 'content-type': 'text/plain' }, credentials: 'include' };
-  },
-
-  /* Mỗi lượt gen ra CẢ BỘ: tàu + drone hộ tống cùng theme (21/09/2026 — tàu mới
-     mà phi đội cũ thì lệch tông). Hai ảnh chạy song song, một cái hỏng là hỏng cả
-     lượt — thà vậy còn hơn nửa bộ lệch nhau. 2×$0.007/lượt, vẫn trong hạn mức. */
-  /* kwsOverride: đúc lại ảnh cho tàu CŨ đã mất ảnh (system-evo-garage-recover.js) */
-  async generate(signal, style, kwsOverride) {
-    const kws = kwsOverride || this.st().kw.slice(0, 3);
-    const ep = this._endpoint();
-    /* Seed cá nhân cho lớp áo (livery): danh tính + hồ sơ + số lần tiến hóa —
-       cùng bộ từ khóa nhưng khác người/khác lần là tàu khác nhau. */
-    const prof = SC.Profiles.cur() || {};
-    const seed = ((SC.M365 && SC.M365.info && SC.M365.info.email) || prof.name || 'phi cong')
-      + '#' + (prof.id || 0) + '·' + (this.st().n || 0);
-    const [ship, drone] = await Promise.all([
-      // rolls đã trừ trước khi gọi mạng: 1 = lượt đầu, ≥2 = gen lại -> prompt siết top-down
-      this._genOne(ep, SC.EVO_KW.prompt(kws, style, seed, this.st().rolls || 1), signal),
-      this._genOne(ep, SC.EVO_KW.dronePrompt(kws, style), signal)
-    ]);
-    return { ship, drone };
-  },
-
-  async _genOne(ep, prompt, signal) {
-    const res = await fetch(ep.url, {
-      method: 'POST', headers: ep.headers, credentials: ep.credentials,
-      body: JSON.stringify({ model: 'gpt-image-2.5-flare', prompt }),
-      signal
-    });
-    const text = await res.text();
-    if (!res.ok) {
-      let code = '', msg = text.slice(0, 200);
-      try { const j = JSON.parse(text); code = j.code || (j.error && j.error.code) || ''; msg = j.message || (j.error && j.error.message) || msg; } catch (e) {}
-      if (code === 'game_not_registered')
-        throw new Error('Game chưa được duyệt trên Innovation Center — nhờ người vận hành đăng ký origin này');
-      throw new Error(msg || ('HTTP ' + res.status));
-    }
-    const j = JSON.parse(text);
-    const b64 = j.data && j.data[0] && j.data[0].b64_json;
-    if (!b64) throw new Error('Hạ tầng trả link thay vì ảnh');
-    return 'data:image/png;base64,' + b64;
-  },
 
   /* ---------- dùng ảnh làm máy bay ---------- */
 
@@ -11329,6 +11381,183 @@ SC.EvoAI = {
 if (document.readyState === 'loading')
   document.addEventListener('DOMContentLoaded', () => SC.EvoAI.init());
 else setTimeout(() => SC.EvoAI.init(), 0);
+
+;
+/* ===== js/system-evo-ai-net.js ===== */
+/* system-evo-ai-net.js — HẠN MỨC GEN · BẢN NHÁP · PHÁT TỪ KHÓA · GỌI MẠNG
+ *
+ * Tách khỏi system-evo-ai.js (22/09/2026) vì tệp đó đã 294 dòng, quá trần 200 dòng
+ * của dự án. Ranh giới: tệp GỐC giữ phần "ảnh thành máy bay" (_apply / accept /
+ * restoreDefault / init); tệp NÀY giữ mọi thứ dẫn tới lúc có ảnh — đếm lượt, cất
+ * bản nháp, phát từ khóa qua màn, và cú fetch. Sửa chính sách trừ/hoàn lượt thì
+ * chỉ cần đọc đúng tệp này.
+ *
+ * Object.assign vào SC.EvoAI đã có sẵn (giống data-evo-fighter-jet-prompt.js gắn
+ * vào SC.EVO_KW). Thẻ <script> PHẢI đứng NGAY SAU system-evo-ai.js: sớm hơn thì
+ * SC.EvoAI chưa tồn tại -> TypeError lúc parse, build không báo (xem CLAUDE.md).
+ */
+
+Object.assign(SC.EvoAI, {
+  /* ---------- hạn mức gen (ảnh tốn tiền thật) ----------
+     Số lượt ĐÃ ĐỐT nằm trong progress.evo.rolls và được save NGAY TRƯỚC khi gọi
+     mạng — F5 giữa chừng vẫn mất lượt, không reset được bộ đếm (anti-cheat 21/09).
+     Tấm gen dở lưu DRAFT nên F5 xong mở popup vẫn còn nguyên tàu chờ quyết. */
+  rollsLeft() { return Math.max(0, this.MAX_GEN - (this.st().rolls || 0)); },
+  spendRoll() {
+    const e = this.st();
+    e.rolls = (e.rolls || 0) + 1;
+    SC.UI.save();
+    SC.Cloud.markDirty();
+  },
+
+  /* ---------- CỔNG MẠNG (22/09/2026) ----------
+     BUG THẬT: máy đang offline mà bấm gen vẫn TRỪ LƯỢT rồi báo "gen thất bại".
+     fetch hỏng ngay tại máy, server chưa hề nhận request, chưa tốn một xu — mất
+     lượt là mất oan. Luật mới: MỌI lời gọi gen phải qua online() TRƯỚC khi
+     spendRoll(). Chưa có mạng thì không gen, không trừ, và nói rõ đang mất mạng.
+     navigator.onLine chỉ biết "có đường ra card mạng", không biết có internet
+     thật (wifi cổng đăng nhập vẫn báo true) — nên nó chỉ chặn được ca chắc chắn
+     hỏng; ca còn lại vẫn rơi vào catch bên dưới. Vậy là đủ cho triệu chứng
+     người chơi gặp (máy bay, thang máy, rớt 4G). */
+  online() { return navigator.onLine !== false; },
+  OFFLINE: 'Đang mất mạng — chưa gen, chưa trừ lượt. Có mạng rồi bấm lại.',
+
+  /* Hoàn lượt. CHỈ dùng khi chắc chắn server CHƯA trả lời lấy một chữ (net.acked
+     = false) VÀ máy đang mất mạng — tức request chết ở đoạn đường nhà mình.
+     Lỗi mạng kiểu khác thì KHÔNG hoàn: server có thể đã gen xong (tiền đã tốn)
+     mà response rơi giữa đường, hoàn lượt là mở đường farm ảnh miễn phí. */
+  refundRoll() {
+    const e = this.st();
+    if (!e.rolls) return;
+    e.rolls--;
+    SC.UI.save();
+    SC.Cloud.markDirty();
+  },
+  /* Gọi trong catch: lượt này có đáng được trả lại không */
+  lostOffline(net) { return !(net && net.acked) && !this.online(); },
+  /* Khoá lưu THEO HỒ SƠ, cùng triết lý kho tiến độ (skychicken.progress.v1.<id>).
+     Hồ sơ chưa nạp (giai đoạn parse script) thì tạm '.0' — init() được hoãn tới
+     sau SC.Game.init() nên thực tế luôn có hồ sơ. */
+  _sk() { const p = SC.Profiles && SC.Profiles.cur(); return this.STORE + '.' + (p ? p.id : 0); },
+  _dk() { const p = SC.Profiles && SC.Profiles.cur(); return this.DRAFT + '.' + (p ? p.id : 0); },
+
+  saveDraft(pack) { try { localStorage.setItem(this._dk(), JSON.stringify(pack)); } catch (e) {} },
+  loadDraft() {
+    try {
+      const raw = localStorage.getItem(this._dk());
+      if (!raw) return null;
+      // draft đời đầu là chuỗi dataURL trần (chưa có drone) — vẫn đọc được
+      return raw.charAt(0) === '{' ? JSON.parse(raw) : { ship: raw, drone: '' };
+    } catch (e) { return null; }
+  },
+
+  /* Gọi từ system-level-finish khi THẮNG màn. Chỉ màn chia hết cho CHUNK, và mỗi
+     màn chỉ phát một lần (cày lại màn cũ không ra thêm — lastLv chặn). */
+  /* Cấp một từ khóa cho màn levelId nếu đủ điều kiện. `silent` = roll KÍN —
+     kết quả chốt và LƯU ngay (F5 giữa màn gacha không đổi được vận mệnh), nhưng
+     tên thì để màn quay số (ui-evo-gacha.js) vén màn cho kịch tính. Trả kw/null. */
+  award(levelId, silent) {
+    if (!this.active()) return null;     // kênh không gen được thì đừng nhặt từ khóa
+    const e = this.st();
+    if (levelId % this.CHUNK !== 0 || levelId <= e.lastLv) return null;
+    e.lastLv = levelId;
+    const kw = this._rollKw(e);
+    SC.UI.save();
+    if (!silent)
+      SC.UI.toast(`TỪ KHÓA TIẾN HÓA: ${kw.vi.toUpperCase()} (${SC.EVO_KW.LABEL[kw.t]}) · ${e.kw.length % 3 || 3}/3`);
+    return kw;
+  },
+
+  /* Roll + cất MỘT từ khóa theo công thức bộ đang dở. Dùng chung cho mảnh cuối màn
+     VÀ phần thưởng bán tàu ở gara (system-evo-garage-sell.js). Chưa save. */
+  _rollKw(e) {
+    /* Mảnh ĐẦU của một bộ mới -> RNG luôn CÔNG THỨC của bộ (21/09/2026): bộ thường,
+       bộ lai hai con vật, hay bộ mang phong cách nghệ thuật — xem SC.EVO_KW.RECIPES. */
+    const viTriBo = e.kw.length % 3;
+    if (viTriBo === 0)
+      e.recipe = SC.EVO_KW.pickRecipe();
+    const recipe = e.recipe || SC.EVO_KW.ORDER;
+    const type = recipe[viTriBo];
+    /* RNG có kiểm soát (21/09/2026, bị bắt quả tang trùng bộ): re-roll tối đa 10
+       lần để (1) giá trị không xuất hiện trong BỘ NGAY TRƯỚC — đổi vị liên tục,
+       (2) bộ lai thì con vật thứ hai phải KHÁC con thứ nhất, và (3) mảnh CUỐI
+       không chốt thành tổ hợp đã từng ghép (progress.evo.hist). Hết 10 lần vẫn
+       kẹt thì chấp nhận — thà trùng còn hơn treo. */
+    const hist = e.hist || [];
+    const truoc = (hist[hist.length - 1] || '').split('|');
+    const boDang = e.kw.slice(e.kw.length - viTriBo);
+    let kw;
+    for (let thu = 0; thu < 10; thu++) {
+      kw = SC.EVO_KW.roll(type);
+      if (truoc.indexOf(kw.en) >= 0) continue;
+      if (boDang.some(k => k.t === type && k.en === kw.en)) continue;   // gà + gà thì lai gì
+      if (viTriBo === 2) {
+        const to = [boDang[0].en, boDang[1].en, kw.en].join('|');
+        if (hist.indexOf(to) >= 0) continue;
+      }
+      break;
+    }
+    e.kw.push(kw);
+    return kw;
+  },
+
+  onWin(levelId) { this.award(levelId, false); },
+
+  /* ---------- sinh ảnh ---------- */
+  _endpoint() {
+    let tk = '';
+    try { tk = localStorage.getItem('sc.vkmToken') || ''; } catch (e) {}
+    return tk
+      ? { url: this.DEV + '/v1/images/generations', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + tk } }
+      // nhãn text/plain + cookie: xem chú thích đầu file, đừng "sửa lại cho đúng"
+      : { url: this.RELAY + '/v1/images/generations', headers: { 'content-type': 'text/plain' }, credentials: 'include' };
+  },
+
+  /* Mỗi lượt gen ra CẢ BỘ: tàu + drone hộ tống cùng theme (21/09/2026 — tàu mới
+     mà phi đội cũ thì lệch tông). Hai ảnh chạy song song, một cái hỏng là hỏng cả
+     lượt — thà vậy còn hơn nửa bộ lệch nhau. 2×$0.007/lượt, vẫn trong hạn mức. */
+  /* kwsOverride: đúc lại ảnh cho tàu CŨ đã mất ảnh (system-evo-garage-recover.js)
+     net: hộp trạng thái đường truyền do người gọi đưa vào — _genOne bật net.acked
+     ngay khi server trả HEADER đầu tiên. Người gọi nhìn cờ đó để biết lượt đã
+     thật sự "đi đến nơi" chưa (xem refundRoll). */
+  async generate(signal, style, kwsOverride, net) {
+    if (!this.online()) throw new Error(this.OFFLINE);
+    const kws = kwsOverride || this.st().kw.slice(0, 3);
+    const ep = this._endpoint();
+    /* Seed cá nhân cho lớp áo (livery): danh tính + hồ sơ + số lần tiến hóa —
+       cùng bộ từ khóa nhưng khác người/khác lần là tàu khác nhau. */
+    const prof = SC.Profiles.cur() || {};
+    const seed = ((SC.M365 && SC.M365.info && SC.M365.info.email) || prof.name || 'phi cong')
+      + '#' + (prof.id || 0) + '·' + (this.st().n || 0);
+    const [ship, drone] = await Promise.all([
+      // rolls đã trừ trước khi gọi mạng: 1 = lượt đầu, ≥2 = gen lại -> prompt siết top-down
+      this._genOne(ep, SC.EVO_KW.prompt(kws, style, seed, this.st().rolls || 1), signal, net),
+      this._genOne(ep, SC.EVO_KW.dronePrompt(kws, style), signal, net)
+    ]);
+    return { ship, drone };
+  },
+
+  async _genOne(ep, prompt, signal, net) {
+    const res = await fetch(ep.url, {
+      method: 'POST', headers: ep.headers, credentials: ep.credentials,
+      body: JSON.stringify({ model: 'gpt-image-2.5-flare', prompt }),
+      signal
+    });
+    if (net) net.acked = true;        // server ĐÃ lên tiếng -> lượt coi như đã tiêu
+    const text = await res.text();
+    if (!res.ok) {
+      let code = '', msg = text.slice(0, 200);
+      try { const j = JSON.parse(text); code = j.code || (j.error && j.error.code) || ''; msg = j.message || (j.error && j.error.message) || msg; } catch (e) {}
+      if (code === 'game_not_registered')
+        throw new Error('Game chưa được duyệt trên Innovation Center — nhờ người vận hành đăng ký origin này');
+      throw new Error(msg || ('HTTP ' + res.status));
+    }
+    const j = JSON.parse(text);
+    const b64 = j.data && j.data[0] && j.data[0].b64_json;
+    if (!b64) throw new Error('Hạ tầng trả link thay vì ảnh');
+    return 'data:image/png;base64,' + b64;
+  },
+});
 
 ;
 /* ===== js/system-evo-shard.js ===== */
@@ -11696,6 +11925,8 @@ SC.EvoRecover = {
     const e = SC.EvoAI.st();
     const o = (e.owned || []).find(x => x.id === id);
     if (!o || !this.canRecast(o)) return false;
+    // CỔNG MẠNG (22/09/2026): offline thì đừng tiêu mất lượt đúc duy nhất của tàu này
+    if (!SC.EvoAI.online()) throw new Error(SC.EvoAI.OFFLINE);
     o.recast = 1;                          // đánh dấu TRƯỚC khi gọi mạng: F5 không đúc thêm được
     SC.UI.save();
     let pack;
@@ -12191,7 +12422,8 @@ SC.GarageUI = {
       await SC.EvoRecover.recast(btn.dataset.recast);
       SC.UI.toast('ĐÃ ĐÚC LẠI CHIẾN ĐẤU CƠ');
     } catch (e) {
-      SC.UI.toast('CHƯA ĐÚC ĐƯỢC — THỬ LẠI SAU');
+      // mất mạng thì nói thẳng là mất mạng — "thử lại sau" làm người chơi tưởng máy hỏng
+      SC.UI.toast(SC.EvoAI.online() ? 'CHƯA ĐÚC ĐƯỢC — THỬ LẠI SAU' : 'MẤT MẠNG — CHƯA ĐÚC, CHƯA MẤT LƯỢT');
     }
     this.build();
   },
@@ -12527,22 +12759,50 @@ SC.EvoGachaUI = {
  * TỐN TIỀN THẬT 2×$0.007/lượt, quota 10$/tháng) nên: không bao giờ gen tự động, và
  * mỗi bộ từ khóa chỉ có MAX_GEN lượt (1 đầu + 3 gen lại — chốt 21/09/2026). Lượt đã
  * đốt nằm trong progress (F5 không reset), bộ gen dở nằm DRAFT localStorage (F5
- * không mất bộ đang chờ quyết). */
+ * không mất bộ đang chờ quyết).
+ *
+ * GEN LẠI = 4 NÚT KIỂU (22/09/2026, thay nút "GEN LẠI" cũ): gen lại y nguyên prompt
+ * cũ hay ra ảnh na ná, người chơi đốt lượt rồi tưởng máy hỏng. Nên bỏ hẳn nút trắng
+ * trơn — muốn gen lại thì phải CHỌN HƯỚNG. Nút KHÁC mở ô tự gõ (SC.EVO_KW.styleText
+ * lo phần cắt gọt chữ trước khi nhét vào prompt).
+ *
+ * MẤT MẠNG = KHÔNG TRỪ LƯỢT (22/09/2026): xem cổng SC.EvoAI.online() — bug thật là
+ * bấm gen lúc offline vẫn trừ lượt rồi báo "gen thất bại".
+ */
 
 SC.EvoAIUI = {
   _pack: null,   // { ship, drone } đang chờ người chơi quyết
   _busy: false,
+  _other: '',    // chữ style người chơi gõ lần gần nhất — giữ trong phiên cho dễ sửa
 
   init(on) {
     on('btnEvoAiGen', () => this.gen());
     on('btnEvoAiUse', () => this.use());
     on('btnEvoAiLater', () => SC.UI.hideOverlay('evoai'));
-    // Gen lại theo STYLE — mỗi nút một cú bẻ lái để kết quả khác hẳn bản cũ
+    // Gen lại theo KIỂU — mỗi nút một cú bẻ lái để kết quả khác hẳn bản cũ
     document.getElementById('evoAiStyles').addEventListener('click', e => {
       const b = e.target.closest('button[data-style]');
       if (!b) return;
       SC.Audio.click();
+      if (b.dataset.style === '__other') return this._openOther();
       this.gen(b.dataset.style);
+    });
+    // ô tự nhập: submit (Enter trên bàn phím ảo cũng vào đây) mới gen
+    document.getElementById('evoAiOther').addEventListener('submit', e => {
+      e.preventDefault();
+      const v = document.getElementById('evoAiOtherIn').value.trim();
+      if (!v) return;
+      this._other = v;
+      SC.Audio.click();
+      this.gen(v);
+    });
+    /* Mạng về thì mở khóa lại ngay — bắt người chơi tự đóng mở popup mới thấy nút
+       sống lại là kiểu UX đánh đố. */
+    window.addEventListener('online', () => {
+      if (SC.UI.el.evoai && !SC.UI.el.evoai.classList.contains('hidden') && !this._busy) {
+        this._err('');
+        this._btns();
+      }
     });
   },
 
@@ -12553,18 +12813,18 @@ SC.EvoAIUI = {
     ).join('');
     this._busy = false;
     this._err('');
+    this._hideOther();
     this._pack = SC.EvoAI.loadDraft();         // F5 xong vẫn còn bộ chờ quyết
     if (this._pack && this._pack.ship) {
       this._view(this._preview(this._pack));
-      this._btns(this._genLabel(), SC.EvoAI.rollsLeft() > 0, true);
     } else {
       this._pack = null;
       // Quả trứng thay text box (21/09): thứ sắp nở ra tàu thì phải trông như
       // một quả trứng đang chờ, không phải một đoạn hướng dẫn sử dụng.
       this._view('<div class="evo-egg">🥚</div>'
-        + '<span class="evoai-hint">Bấm TIẾN HÓA để ấp trứng — AI ghép chiến đấu cơ + phi đội (~15 giây)</span>');
-      this._btns(this._genLabel(), true, false);
+        + '<span class="evoai-hint">Bấm TIẾN HÓA — AI ấp ra tàu + phi đội (~15 giây)</span>');
     }
+    this._btns();
     SC.UI.showOverlay('evoai');
   },
 
@@ -12574,31 +12834,48 @@ SC.EvoAIUI = {
       + (pack.drone ? `<img class="evoai-drone" src="${pack.drone}" alt="Drone hộ tống">` : '');
   },
 
-  /* Nhãn nút gen nói luôn còn mấy lượt — hết hạn mức phải NHÌN THẤY chứ không phải
-     bấm rồi mới biết không được. */
-  _genLabel() {
-    const left = SC.EvoAI.rollsLeft();
-    if (left >= SC.EvoAI.MAX_GEN) return 'TIẾN HÓA';
-    return left > 0 ? `GEN LẠI (CÒN ${left})` : 'HẾT LƯỢT GEN';
-  },
-
   _view(html) { document.getElementById('evoAiView').innerHTML = html; },
   _err(msg) {
     const el = document.getElementById('evoAiErr');
     el.textContent = msg;
     el.classList.toggle('hidden', !msg);
   },
-  _btns(genLabel, genEnabled, canUse) {
+
+  _openOther() {
+    const f = document.getElementById('evoAiOther');
+    f.classList.remove('hidden');
+    const i = document.getElementById('evoAiOtherIn');
+    i.value = this._other;
+    i.focus();
+  },
+  _hideOther() { document.getElementById('evoAiOther').classList.add('hidden'); },
+
+  /* Một chỗ duy nhất quyết ai hiện ai ẩn — trước đây ba lời gọi _btns() truyền tay
+     ba bộ tham số khác nhau, thêm một trạng thái là lệch một chỗ. */
+  _btns() {
+    const left = SC.EvoAI.rollsLeft();
+    const online = SC.EvoAI.online();
+    const co = !!(this._pack && this._pack.ship);
+
+    /* Nút lớn CHỈ dùng cho lượt ĐẦU (hoặc "gen vớt" khi draft mất vì storage đầy —
+       không có nó thì người chơi kẹt bộ từ khóa vĩnh viễn). Đã có tàu chờ quyết thì
+       gen lại là việc của 4 nút KIỂU bên dưới. */
     const g = document.getElementById('btnEvoAiGen');
-    g.textContent = genLabel;
-    g.disabled = this._busy || !genEnabled;
-    document.getElementById('btnEvoAiUse').classList.toggle('hidden', !canUse);
-    /* Hàng style chỉ hiện khi ĐÃ có bản đầu (gen đầu giữ theme gốc cho chuẩn) và
-       còn lượt — mỗi nút style tốn một lượt như GEN LẠI thường. */
+    g.classList.toggle('hidden', co);
+    g.textContent = this._busy ? 'ĐANG ẤP TRỨNG…'
+      : !online ? 'CHƯA CÓ MẠNG'
+        : left >= SC.EvoAI.MAX_GEN ? 'TIẾN HÓA' : 'ẤP LẠI';
+    g.disabled = this._busy || !online;
+
+    document.getElementById('btnEvoAiUse').classList.toggle('hidden', !co);
+
     const st = document.getElementById('evoAiStyles');
-    const stOn = !!this._pack && genEnabled && !this._busy;
+    const stOn = co && left > 0 && !this._busy;
     st.classList.toggle('hidden', !stOn);
-    st.querySelectorAll('button').forEach(b => { b.disabled = !stOn; });
+    if (!stOn) return this._hideOther();
+    document.getElementById('evoAiStyleHead').textContent =
+      online ? `GEN LẠI THEO KIỂU · CÒN ${left}` : 'CHƯA CÓ MẠNG — CHƯA TRỪ LƯỢT';
+    st.querySelectorAll('button,input').forEach(b => { b.disabled = !online; });
   },
 
   async gen(style) {
@@ -12607,16 +12884,26 @@ SC.EvoAIUI = {
     // storage đầy) — không thì người chơi kẹt bộ từ khóa vĩnh viễn. Có bộ chờ
     // thì hết lượt là hết, dùng hoặc để sau.
     if (SC.EvoAI.rollsLeft() <= 0 && this._pack) return;
+    /* CỔNG MẠNG — chặn TRƯỚC spendRoll. Đây là cả cái bug: offline mà vẫn trừ lượt
+       rồi báo thất bại, trong khi server chưa nhận được gì. */
+    if (!SC.EvoAI.online()) {
+      this._err(SC.EvoAI.OFFLINE);
+      this._btns();
+      return;
+    }
     this._busy = true;
     this._err('');
+    this._hideOther();
     // trứng lắc + nứt trong suốt ~15s chờ gen — thay cho dòng chữ đợi chán ngắt
     this._view('<div class="evo-egg hatching">🥚</div>'
       + '<span class="evoai-hint evoai-spin">ĐANG ẤP TRỨNG…</span>');
-    this._btns('ĐANG ẤP TRỨNG…', false, false);
+    this._btns();
     // Trừ lượt TRƯỚC khi gọi mạng — F5 giữa chừng vẫn mất lượt (anti-cheat)
-    if (SC.EvoAI.rollsLeft() > 0) SC.EvoAI.spendRoll();
+    const daTru = SC.EvoAI.rollsLeft() > 0;
+    if (daTru) SC.EvoAI.spendRoll();
+    const net = {};                      // net.acked = server đã trả lời (xem EvoAI.generate)
     try {
-      const pack = await SC.EvoAI.generate(undefined, style);
+      const pack = await SC.EvoAI.generate(undefined, style, null, net);
       this._pack = pack;
       SC.EvoAI.saveDraft(pack);
       // NỞ: gà con bung ra một nhịp rồi mới lộ tàu — phần thưởng phải có màn chào sân
@@ -12625,15 +12912,18 @@ SC.EvoAIUI = {
       await new Promise(r => setTimeout(r, 550));
       this._view(this._preview(pack));
       this._busy = false;
-      this._btns(this._genLabel(), SC.EvoAI.rollsLeft() > 0, true);
+      this._btns();
     } catch (e) {
       this._busy = false;
+      // Rớt mạng GIỮA CHỪNG mà server chưa kịp trả một chữ -> trả lại lượt. Mọi lỗi
+      // khác KHÔNG hoàn: server có thể ĐÃ gen xong (tiền đã tốn) mà response rơi
+      // giữa đường — hoàn lượt là mở đường farm ảnh miễn phí.
+      const hoan = daTru && SC.EvoAI.lostOffline(net);
+      if (hoan) SC.EvoAI.refundRoll();
       this._view('<div class="evo-egg">🥚</div>'
         + '<span class="evoai-hint">Trứng chưa nở được — thử lại sau</span>');
-      this._err((e && e.message) || 'Lỗi mạng');
-      // lỗi mạng không hoàn lượt: server có thể ĐÃ gen xong (tiền đã tốn) mà
-      // response rơi giữa đường — hoàn lượt là mở đường farm ảnh miễn phí
-      this._btns(this._genLabel(), SC.EvoAI.rollsLeft() > 0, false);
+      this._err(hoan ? SC.EvoAI.OFFLINE : ((e && e.message) || 'Lỗi mạng'));
+      this._btns();
     }
   },
 
@@ -12707,6 +12997,13 @@ SC.EvoStarter = {
 
   async choose(kind) {
     if (this.busy || !this.eligible() || !this.RECIPE[kind]) return;
+    /* CỔNG MẠNG (22/09/2026): chặn TRƯỚC khi roll từ khóa + grant quà. Offline mà
+       vẫn chạy tiếp là tiêu luôn quà vàng và chốt bộ từ khóa cho một tấm ảnh không
+       bao giờ về — người chơi mở lại thấy "đang dở" mà chẳng có tàu. */
+    if (!SC.EvoAI.online()) {
+      this._err(SC.EvoAI.OFFLINE);
+      return;
+    }
     const e = SC.EvoAI.st();
     // đang dở cùng loại -> dùng lại bộ cũ; khác loại / chưa có -> roll bộ mới
     let kws = e.starter && e.starter.k === kind ? e.starter.kws : null;
@@ -12974,6 +13271,97 @@ SC.LobbyShip = {
 };
 
 ;
+/* ===== js/system-newbie-gate.js ===== */
+/* system-newbie-gate.js — CHỐT CHẶN quà tân thủ: đợi biết rõ tài khoản mới hay cũ
+ *
+ * BUG LIVE (22/09/2026, banga.zingplay.dev): đăng nhập tài khoản CŨ trên MÁY KHÁC là
+ * lần nào cũng ăn popup "QUÀ TÂN THỦ" + mời gen tàu AI tân thủ, dù tài khoản đã chơi
+ * cả chục màn.
+ *
+ * NGUYÊN NHÂN — thứ tự khởi động:
+ *   ui-screens.init()  ──> SC.UI.load()            đọc kho tiến độ CỦA MÁY NÀY
+ *                     ──> SC.Gift.check()          hỏi "hồ sơ mới tinh?" -> ĐÚNG
+ *                     ──> SC.EvoStarter.check()    hỏi "chưa có tàu?"    -> ĐÚNG
+ *   ... vài giây sau ──> onAuthStateChanged -> Portal.Cloud.pull() -> adopt()
+ *                        (và trên banga còn thêm gương email M365Sync.restore())
+ * Máy mới thì kho cục bộ TRỐNG, nên tại thời điểm hỏi, câu trả lời "mới tinh" là
+ * đúng sự thật MÀ SAI Ý. Tiến độ thật còn đang trên đường về. Hai hàm check() có
+ * hoãn 700/900ms rồi hỏi lại, nhưng một vòng Firestore qua 4G thừa sức lâu hơn thế —
+ * huống hồ trên banga còn phải đợi pull xong MỚI tới lượt đọc gương email.
+ *
+ * CÁCH CHỮA — hai lớp, vì không lớp nào một mình đủ:
+ *   1. HOÃN CÂU HỎI tới khi đám mây lắng: chờ Portal.Cloud rời trạng thái 'pull',
+ *      và trên banga chờ cả gương email. Mượn đúng mẹo của M365Sync._waitPullSettled:
+ *      phải có GRACE đầu, vì ngay lúc boot state vẫn là 'off' (chưa ai đăng nhập) —
+ *      tin nó ngay thì lại hỏi sớm y như cũ. Có trần MAX: mạng chết thì người chơi
+ *      MỚI THẬT vẫn phải nhận được quà.
+ *   2. RÚT LẠI khi tiến độ về muộn: trên portal công khai, người chơi bấm đăng nhập
+ *      SAU khi lobby đã hiện — lúc đó popup có thể đang mở. cloud-adapter.adopt()
+ *      gọi recheck() để đóng popup nếu hoá ra là tài khoản cũ.
+ *
+ * KHÔNG sửa shared/portal-cloud.js: đây là đặc thù luồng quà của riêng Sky Chicken,
+ * mà sửa shared/ còn kéo theo build + deploy lại MỌI game (mỗi game precache riêng).
+ */
+
+SC.NewbieGate = {
+  GRACE: 1200,    // ms đầu KHÔNG tin trạng thái 'off' — đợi onAuthStateChanged nổ
+  MAX: 15000,     // trần chờ: quá thì cứ hỏi, thà tặng nhầm còn hơn treo người chơi mới
+  STEP: 250,
+  _fired: false,
+  _t0: 0,
+
+  /* Kênh này có đường lấy tiến độ từ mây không. Chưa cấu hình Firebase (mở file
+     tĩnh, bản demo) thì kho cục bộ LÀ sự thật, hỏi ngay được. */
+  _coMay() {
+    return !!(window.Portal && Portal.FB && Portal.FB.configured());
+  },
+
+  /* Còn nguồn tiến độ nào đang trên đường về không */
+  _dangVe() {
+    if (Portal.Cloud.state() === 'pull') return true;
+    /* banga: gương theo email mới là nguồn thật của máy mới (uid anonymous sống
+       theo trình duyệt — xem system-m365-progress-sync.js). Chỉ đợi khi module đó
+       thực sự có khoá; đọc gương hỏng thì _readyKey mãi rỗng nên trần MAX gỡ kẹt. */
+    if (SC.M365Sync && SC.M365Sync._key() && !SC.M365Sync._readyKey) return true;
+    return false;
+  },
+
+  /* Gọi ở cuối ui-screens.init() THAY CHO Gift.check() + EvoStarter.check() */
+  start() {
+    this._t0 = Date.now();
+    if (!this._coMay()) return this._hoi();
+    const thu = () => {
+      if (this._fired) return;
+      const qua = Date.now() - this._t0;
+      if (qua >= this.MAX) return this._hoi();
+      if (qua < this.GRACE || this._dangVe()) return setTimeout(thu, this.STEP);
+      this._hoi();
+    };
+    setTimeout(thu, this.GRACE);
+  },
+
+  _hoi() {
+    if (this._fired) return;
+    this._fired = true;
+    SC.Gift.check();
+    SC.EvoStarter.check();
+  },
+
+  /* Tiến độ về MUỘN (đăng nhập tay sau khi lobby đã hiện): popup có thể đang mở cho
+     một tài khoản hoá ra là cũ -> đóng lại.
+     KHÔNG đóng khi đang ấp tàu: cắt giữa chừng là mất màn nở của tấm ảnh VỪA TỐN
+     TIỀN THẬT, mà cờ starter thì lát nữa lấy theo bản mây cũng xong. */
+  recheck() {
+    if (SC.EvoStarter && SC.EvoStarter.busy) return;
+    const mo = SC.UI.el.gift && !SC.UI.el.gift.classList.contains('hidden');
+    if (mo && !SC.Gift.eligible() && !SC.EvoStarter.eligible()) SC.UI.hideOverlay('gift');
+    /* Chưa kịp hỏi mà tiến độ đã về thì khỏi phải chờ hết GRACE/MAX nữa —
+       hai hàm check() tự kiểm eligible() lần nữa nên tài khoản cũ im lặng. */
+    if (!this._fired && !this._dangVe()) this._hoi();
+  }
+};
+
+;
 /* ===== js/ui-screens.js ===== */
 /* ui-screens.js — quản lý màn hình DOM: menu, chọn map, HUD, tạm dừng, kết quả + lưu tiến độ */
 
@@ -13017,8 +13405,11 @@ SC.UI = {
     SC.TreeMigrate.run();    // hồ sơ cũ: hoàn vàng, dựng cây rỗng, cho chọn lại hướng
     this.buildMapList();
     this.bind();
-    SC.Gift.check();          // hồ sơ mới tinh -> mời nhận quà tân thủ
-    SC.EvoStarter.check();    // zingplay: người chơi cũ chưa có tàu AI tân thủ -> mời riêng
+    /* QUÀ TÂN THỦ đi qua CHỐT CHẶN, không hỏi thẳng ở đây nữa: lúc này kho tiến độ
+       mới chỉ là của MÁY NÀY, tiến độ thật của tài khoản còn đang kéo từ mây về —
+       hỏi sớm là tài khoản cũ trên máy mới cũng bị mời nhận quà tân thủ (bug live
+       22/09/2026, xem system-newbie-gate.js). */
+    SC.NewbieGate.start();
   },
 
   bind() {
@@ -14112,6 +14503,69 @@ SC.M365Sync = {
         console.warn('[m365-sync] không treo được gương:', (e && e.code) || e);
       }
     }, 3000);
+  }
+};
+
+;
+/* ===== js/system-profile-cleanup.js ===== */
+/* system-profile-cleanup.js — xoá hồ sơ thì DỌN LUÔN dấu vết trên mây (22/09/2026)
+ *
+ * BUG: `SC.Profiles.remove()` chỉ `localStorage.removeItem()` — ba tài liệu trên mây
+ * của hồ sơ đó (`scores/`, `users/`, gương `m365Users/`) ở lại VĨNH VIỄN. Dòng BXH
+ * của một hồ sơ không còn tồn tại trên máy nào vẫn chiếm chỗ, mang tên và thành tích
+ * cũ — đúng phần "duplicate" anh Đức thấy trên bảng, và không cách nào dọn từ trong
+ * game. (Nguyên nhân CHÍNH của duplicate là khử trùng lặp bỏ sót dòng đăng nhập
+ * Google — đã chữa ở cloud-adapter.rank(); đây là nguyên nhân thứ hai.)
+ *
+ * CẦN DÁN LẠI firestore.rules: lệnh xoá KHÔNG mang `request.resource`, nên mọi điều
+ * kiện `request.resource.data...` ở `allow write` đều sai và lệnh bị từ chối. Đã thêm
+ * `allow delete` riêng cho `scores/` và `m365Users/` — chưa dán lên Console thì hàm
+ * này ăn permission-denied, NUỐT LẶNG và hồ sơ vẫn xoá xong ở máy (xem catch dưới).
+ * `users/` thì không cần: khối luật của nó vốn là `allow read, write` trơn.
+ *
+ * AN TOÀN LÀ TRÊN HẾT — đây là mã XOÁ dữ liệu người chơi:
+ *   - id tính từ CHÍNH hồ sơ bị xoá (truyền `prof` vào), KHÔNG lấy hồ sơ đang mở.
+ *     `SC.Cloud.scoreId(uid, prof)` và `SC.M365Sync._key()` đều mặc định dùng hồ sơ
+ *     hiện tại — gọi trần là xoá nhầm dòng của người còn đang chơi.
+ *   - chỉ chạy khi CÓ vé đăng nhập; không vé thì chẳng có gì trên mây để dọn.
+ *   - không chặn luồng xoá cục bộ: gọi xong là quên, hỏng cũng chỉ cảnh báo console.
+ */
+
+SC.ProfileCleanup = {
+  /* Khoá gương email của MỘT hồ sơ bất kỳ — bản sao của M365Sync._key() nhưng nhận
+     prof từ ngoài. Hồ sơ 1 = email trần, hồ sơ 2-3 = email_p{id}. */
+  _mirrorKey(prof) {
+    const b = SC.M365Sync && SC.M365Sync._base ? SC.M365Sync._base() : '';
+    if (!b || !prof) return '';
+    return prof.id !== 1 ? `${b}_p${prof.id}` : b;
+  },
+
+  /* Gọi NGAY TRƯỚC SC.Profiles.remove() — cần prof còn trong danh sách để lấy id */
+  async purge(prof) {
+    if (!prof || !window.Portal || !Portal.FB || !Portal.FB.configured()) return;
+    const u = Portal.Auth && Portal.Auth.user;
+    if (!u) return;
+    const sid = SC.Cloud.scoreId(u.uid, prof);      // '{uid}' hoặc '{uid}_p{id}'
+    const mk = this._mirrorKey(prof);
+    try {
+      const fb = await Portal.FB.load();
+      const { doc, deleteDoc } = fb.fsM;
+      /* allSettled chứ không all: luật chưa dán thì scores/ bị từ chối, mà users/
+         thì xoá được — all() sẽ bỏ dở nửa chừng, để lại đúng thứ khó dọn nhất. */
+      const r = await Promise.allSettled([
+        deleteDoc(doc(fb.db, 'scores', sid)),
+        deleteDoc(doc(fb.db, 'users', sid)),
+        ...(mk ? [deleteDoc(doc(fb.db, 'm365Users', mk))] : [])
+      ]);
+      const hong = r.filter(x => x.status === 'rejected');
+      if (hong.length)
+        console.warn('[profile-cleanup] chưa dọn hết dấu vết trên mây '
+          + '(nhiều khả năng firestore.rules chưa dán bản có allow delete):',
+          hong.map(x => (x.reason && x.reason.code) || x.reason));
+      else if (Portal.Rank) Portal.Rank.clearCache();   // BXH hiện lại không còn dòng ma
+    } catch (e) {
+      console.warn('[profile-cleanup] bỏ qua dọn mây:', (e && e.code) || e);
+    }
   }
 };
 

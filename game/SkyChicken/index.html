@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="icon" type="image/png" href="icons/icon-192.png">
-<link rel="stylesheet" href="assets/style-395f8180.css">
+<link rel="stylesheet" href="assets/style-6d2493bc.css">
 </head>
 <body>
 
@@ -294,6 +294,14 @@
         </button>
       </div>
 
+      <!-- Góc xoay súng (22/09/2026): quay hẳn 90° nhìn "gãy" tư thế máy bay, nên
+           mặc định là nghiêng 45°. Ai quen bản cũ thì bấm về NGANG 90°. -->
+      <span class="opt-lb">ĐIỀU KHIỂN</span>
+      <button class="btn ghost opt-wide" id="btnTilt">
+        <span>XOAY SÚNG: <b id="btnTiltLabel">NGHIÊNG 45°</b></span>
+      </button>
+      <p class="opt-note">Máy bay chỉ xoay khi quái đã áp sát sườn.</p>
+
       <span class="opt-lb">MÀN HÌNH</span>
       <button class="btn ghost opt-wide ic-swap" id="btnFull">
         <svg class="ic ic-on" aria-hidden="true"><use href="#i-expand"/></svg>
@@ -313,15 +321,14 @@
       <p class="opt-note" id="optAppNote">Đang chạy bản mới nhất.</p>
 
       <span class="opt-lb">TÀI KHOẢN</span>
-      <p class="opt-note">Tài khoản và sao lưu đám mây nằm trong màn <b>Hồ sơ phi công</b> —
-        bấm thẻ tên ở góc trên lobby.</p>
+      <p class="opt-note">Xem ở <b>Hồ sơ phi công</b> — chạm thẻ tên góc trên lobby.</p>
 
       <span class="opt-lb danger-lb">VÙNG NGUY HIỂM</span>
       <button class="btn ghost opt-wide danger" id="btnReset">
         <svg class="ic" aria-hidden="true"><use href="#i-trash"/></svg>
         <span>XÓA TIẾN ĐỘ HỒ SƠ NÀY</span>
       </button>
-      <p class="opt-note">Xoá sạch sao, vàng và nâng cấp của hồ sơ đang mở. Không hoàn tác được.</p>
+      <p class="opt-note">Xoá sao, vàng, nâng cấp của hồ sơ này. Không hoàn tác.</p>
     </div>
   </div>
 
@@ -427,7 +434,7 @@
       <span class="total-star gold"><img class="ci" src="assets/art-game/ui-icon-gold.webp" alt="" onerror="if(this.r)this.replaceWith('◈');else{this.r=1;this.src=this.src}"> <b id="treeCoin">0</b></span>
     </div>
     <div class="shop-scroll" id="treeList"></div>
-    <p class="shop-note">Mỗi nhánh rẽ đôi ở cấp 2 — chọn một hướng, hướng kia khoá lại</p>
+    <p class="shop-note">Cấp 2 rẽ đôi — chọn một hướng, hướng kia khoá lại</p>
   </div>
 
   <!-- ===== SỔ TAY BIẾN THỂ ===== -->
@@ -469,7 +476,7 @@
   <div id="scrEvoAI" class="layer screen dim hidden">
     <div class="gift-box evoai-box">
       <h3>🧬 TIẾN HÓA AI</h3>
-      <p class="gift-note">Đủ bộ 3 từ khóa — AI ghép thành chiến đấu cơ của riêng bạn!</p>
+      <p class="gift-note">Đủ 3 từ khóa — AI ghép chiến đấu cơ riêng cho bạn!</p>
       <div class="evoai-kws" id="evoAiKws"></div>
       <div class="evoai-view" id="evoAiView"></div>
       <p class="evoai-err hidden" id="evoAiErr"></p>
@@ -477,13 +484,22 @@
         <button class="btn primary" id="btnEvoAiGen">TIẾN HÓA</button>
         <button class="btn hidden" id="btnEvoAiUse">DÙNG LUÔN</button>
       </div>
-      <!-- Gen lại theo STYLE: cùng prompt gen lại hay ra na ná bản cũ, mỗi nút là
-           một cú bẻ lái đủ mạnh (data-evo-keywords.STYLES). Chỉ hiện khi đã có bản đầu. -->
+      <!-- GEN LẠI = 4 NÚT KIỂU (22/09/2026). Nút "GEN LẠI" trắng trơn đã BỎ: gen lại
+           đúng prompt cũ hay ra ảnh na ná, người chơi đốt lượt mà tưởng máy hỏng. Giờ
+           muốn gen lại là phải CHỌN MỘT HƯỚNG — 3 kiểu dựng sẵn + KHÁC để tự gõ. -->
       <div class="evoai-styles hidden" id="evoAiStyles">
-        <span>GEN LẠI KIỂU</span>
-        <button data-style="chibi">CHIBI</button>
-        <button data-style="fantasy">FANTASY</button>
-        <button data-style="mecha">MECHA</button>
+        <span id="evoAiStyleHead">GEN LẠI THEO KIỂU</span>
+        <div class="evoai-style-grid">
+          <button data-style="chibi">CHIBI</button>
+          <button data-style="fantasy">FANTASY</button>
+          <button data-style="mecha">MECHA</button>
+          <button data-style="__other" id="btnEvoAiOther">KHÁC…</button>
+        </div>
+        <form class="evoai-other hidden" id="evoAiOther" autocomplete="off">
+          <input id="evoAiOtherIn" type="text" maxlength="60" enterkeyhint="go"
+                 placeholder="cyberpunk, tranh Đông Hồ…">
+          <button type="submit" class="btn primary small">GEN</button>
+        </form>
       </div>
       <button class="btn text" id="btnEvoAiLater">ĐỂ SAU</button>
     </div>
@@ -512,10 +528,10 @@
       <div class="gift-ic"><img class="gift-img" src="assets/art-game/ui-badge-gift-chest.webp" alt="" onerror="if(this.r)this.replaceWith('◈');else{this.r=1;this.src=this.src}"></div>
       <h3>QUÀ TÂN THỦ</h3>
       <p class="gift-amt">◈ <b id="giftAmount">200</b></p>
-      <p class="gift-note">Đủ để mở hai cấp đầu của cây kỹ năng —<br>và chọn hướng đi cho phi đội của mình.</p>
+      <p class="gift-note">Đủ mở hai cấp đầu của cây kỹ năng.</p>
       <!-- tàu AI tân thủ — chỉ kênh zingplay (ui-evo-starter.js) -->
       <div class="gift-evo hidden" id="giftEvo">
-        <h4>+ 1 CHIẾN ĐẤU CƠ AI CỦA RIÊNG BẠN</h4>
+        <h4>+ 1 CHIẾN ĐẤU CƠ AI</h4>
         <div class="gift-evo-view evoai-view" id="giftEvoView"></div>
         <div class="gift-evo-pick" id="giftEvoPick">
           <button class="btn small" data-starter="fighter">✈️ MÁY BAY<br>CHIẾN ĐẤU</button>
@@ -735,6 +751,8 @@
 </div>
 <!-- Ma dung chung ca cong game. Duong dan TUONG DOI de chay duoc o sub-path.
      Xem shared/README.md truoc khi sua. -->
+<!-- PHAI ngay sau system-evo-ai.js: Object.assign vao SC.EvoAI da ton tai -->
+<!-- chot chan qua tan thu: phai co truoc ui-screens.init() goi NewbieGate.start() -->
 <!-- Danh tính M365 cho bản deploy *.zingplay.dev — phải nằm SAU main.js vì nó
      tự chạy ngay và cần adapter cloud đã đăng ký. Ngoài zingplay.dev thì im lặng. -->
 <!-- Gương tiến độ theo email: chữa bug đổi máy mất tiến độ (uid anonymous theo máy).
@@ -748,7 +766,7 @@
 <script src="../../shared/portal-cloud.js"></script>
 <script src="../../shared/portal-rank.js"></script>
 <script src="../../shared/portal-player.js"></script>
-<script src="assets/app-193f27be.js" onerror="window.__shellHong=1"></script>
+<script src="assets/app-c018b247.js" onerror="window.__shellHong=1"></script>
 <script>
 /* LOP TU CUU KHI VO UNG DUNG HONG — dung xoa.
  *

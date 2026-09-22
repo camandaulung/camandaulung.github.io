@@ -1461,13 +1461,27 @@ body.is-touch .rank-pos img{width:32px;height:32px}
 .gacha-machine .gacha-reel.lock{animation:none;box-shadow:none;color:#fff;
   text-shadow:0 0 8px #fff,0 0 22px rgba(230,200,255,.95)}
 
-/* ---------- hàng GEN LẠI THEO STYLE trong popup tiến hóa ---------- */
-.evoai-styles{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:8px}
-.evoai-styles span{font-size:11px;letter-spacing:.16em;color:var(--dim)}
-.evoai-styles button{border:0;cursor:pointer;padding:7px 10px;border-radius:8px;
-  font:700 11px var(--font);letter-spacing:.1em;color:var(--cy);
-  background:rgba(63,224,255,.1);box-shadow:inset 0 0 0 1px rgba(63,224,255,.35)}
-.evoai-styles button:disabled{opacity:.4;cursor:default}
+/* ---------- GEN LẠI THEO KIỂU: 4 nút là giao diện CHÍNH (22/09/2026) ----------
+   Trước đây 3 nút nhỏ xíu nép dưới nút "GEN LẠI". Nút đó đã bỏ (gen lại y nguyên
+   prompt cũ ra ảnh na ná — đốt lượt vô ích), nên 4 nút này lên làm nhân vật chính:
+   lưới 2×2, đủ to để bấm bằng ngón cái (>=44px chiều cao, chuẩn chạm iOS HIG). */
+.evoai-styles{margin-top:10px}
+.evoai-styles>span{display:block;font-size:12px;letter-spacing:.16em;color:var(--dim);margin-bottom:8px}
+.evoai-style-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.evoai-style-grid button{border:0;cursor:pointer;min-height:44px;padding:11px 8px;border-radius:12px;
+  font:700 13px var(--font);letter-spacing:.1em;color:#08222b;
+  background:linear-gradient(180deg,#9ff0ff,#3fe0ff);box-shadow:0 3px 0 #1f7f99}
+.evoai-style-grid button:active{transform:translateY(2px);box-shadow:0 1px 0 #1f7f99}
+.evoai-style-grid button:disabled{opacity:.4;cursor:default;transform:none}
+/* nút KHÁC nhạt hơn 3 kiểu dựng sẵn — nó mở ô nhập chứ không gen ngay */
+.evoai-style-grid #btnEvoAiOther{color:var(--cy);background:rgba(63,224,255,.12);
+  box-shadow:inset 0 0 0 1px rgba(63,224,255,.45)}
+.evoai-other{display:flex;gap:6px;margin-top:8px}
+.evoai-other input{flex:1;min-width:0;border:0;border-radius:10px;padding:11px 12px;
+  font:400 14px var(--font);color:#fff;background:rgba(255,255,255,.08);
+  box-shadow:inset 0 0 0 1px rgba(63,224,255,.35)}
+.evoai-other input::placeholder{color:var(--dim)}
+.evoai-other .btn{flex:none;width:76px;min-height:44px;padding:0;border-radius:12px}
 
 /* chấm đỏ "đủ vàng nâng cấp" trên nút KỸ NĂNG ở bảng kết quả (22/09/2026) */
 #btnResShop{position:relative}
@@ -1676,3 +1690,159 @@ body.is-touch .prof-chip .prof-l1 .prof-title{font-size:13px;letter-spacing:.06e
 .res-sub .btn-dot{top:6px;right:8px}
 body.is-touch .res-sub{min-height:54px;font-size:16px;letter-spacing:.05em}
 body.is-touch .res-sub .ic{width:28px;height:28px}
+
+/* ---------- SOÁT CỠ CHỮ MOBILE ĐỢT 22/09/2026 ----------
+ * Soát bằng script (mọi rule có font-size < 16px mà KHÔNG có bản body.is-touch):
+ * ra 34 chỗ, gần như trọn cụm tính năng dựng hai ngày 21-22/09 — popup TIẾN HÓA,
+ * máy gacha, GARA + popup chi tiết, quà tân thủ. Quy ước 16px ở khối "bù cỡ chữ"
+ * phía trên chỉ được áp cho các màn CŨ, màn mới dựng xong là quên.
+ *
+ * CẢNH BÁO CÒN NỢ: 16px viết ở đây chỉ hiện ~11.1px THẬT (xem bảng quy đổi ở khối
+ * bù cỡ chữ — #ui bị scale 0.694 trên máy 375px). Muốn sàn 16px THẬT thì phải viết
+ * 23px, và phải rút chữ/dựng lại bố cục kèm theo, không chỉ đổi số.
+ *
+ * Kèm theo: mọi dòng MÔ TẢ cắt cứng 2 DÒNG (-webkit-line-clamp). Trước đây câu dài
+ * đẩy nút xuống dưới mép màn, người chơi không thấy nút mà cũng không biết là phải
+ * cuộn. Cắt ở CSS chỉ là lưới an toàn — chữ vẫn phải viết cho ngắn. */
+
+/* popup TIẾN HÓA AI */
+body.is-touch .evoai-kw i{font-size:17px;letter-spacing:.04em}
+body.is-touch .evoai-kw b{font-size:17px}
+body.is-touch .evoai-kws{flex-wrap:wrap}
+body.is-touch .evoai-hint{font-size:16px;max-width:none}
+body.is-touch .evoai-err{font-size:16px}
+body.is-touch .evoai-styles>span{font-size:16px}
+body.is-touch .evoai-style-grid button{font-size:16px}
+body.is-touch .evoai-other input{font-size:17px}
+/* máy gacha */
+body.is-touch .gacha-type{font-size:17px}
+body.is-touch .gacha-hint{font-size:16px}
+/* GARA + popup chi tiết */
+body.is-touch .gar-perks span{font-size:16px}
+body.is-touch .gar-perks b{font-size:18px}
+body.is-touch .gar-sn{font-size:16px}
+body.is-touch .gar-miss{font-size:16px}
+body.is-touch .gar-miss .gar-recast{font-size:16px}
+body.is-touch .gar-name{font-size:16px}
+body.is-touch .gar-chip{font-size:16px}
+body.is-touch .gar-card .btn{font-size:16px}
+body.is-touch .gd-sn{font-size:16px}
+body.is-touch .gd-combo{font-size:16px}
+body.is-touch .gd-sell{font-size:16px}
+body.is-touch .gd-miss{font-size:16px}
+body.is-touch .gd-cell em{font-size:16px}
+body.is-touch .gd-stats span{font-size:16px}
+/* quà tân thủ */
+body.is-touch .gift-evo h4{font-size:17px}
+body.is-touch .gift-evo-pick .btn{font-size:16px}
+body.is-touch .gift-evo-err{font-size:16px}
+/* rơi rớt ở các màn cũ */
+body.is-touch .pw-lb{font-size:16px}
+body.is-touch .now-evo{font-size:16px}
+body.is-touch .link-hoso{font-size:17px}
+body.is-touch .gold-rows.foldable .tong span::after{font-size:16px}
+body.is-touch .panel.result .rs .rs-v em{font-size:16px}
+body.is-touch .btn-deploy i{font-size:16px}
+body.is-touch .res-btns .btn{font-size:16px}
+body.is-touch .rank-pos.top{font-size:17px}
+body.is-touch .sn-pins i{font-size:17px}
+body.is-touch #rotateHint p{font-size:17px}
+
+/* MÔ TẢ: tối đa 2 dòng, ở mọi khung. line-clamp cần display:-webkit-box — giữ
+   nguyên mấy thuộc tính -webkit-, bỏ một cái là clamp im lặng không chạy. */
+/* .gar-miss KHÔNG nằm đây: nó bọc cả nút ĐÚC LẠI, ép -webkit-box là nút tụt hàng. */
+.gift-note,.opt-note,.evoai-hint,.gacha-hint,.tv-tag,.res-advice{
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+
+/* ================= CÂY KỸ NĂNG — DỌN GIAO DIỆN 22/09/2026 =================
+ * Ảnh chụp thật trên điện thoại cho thấy ba vấn đề, sửa theo đúng ba hướng:
+ *   1. ĐẶC CHỮ — 5 thẻ × 6 dòng chữ, màn hình chứa nổi 4 thẻ. Nay mặc định mỗi thẻ
+ *      2 dòng (tên + chỉ số đầu tàu, rồi mô tả), ba dòng chỉ số nằm trong .tree-more
+ *      chỉ bung khi chạm. Xem chú thích ở ui-tree-card.js.
+ *   2. TỐI VÀ MỘT MÀU — cả màn navy #1b2a3f, năm nhánh cùng một viền xanh xám, nhìn
+ *      như bảng cấu hình chứ không như một game casual. Nay nền sáng và ấm hơn, mỗi
+ *      nhánh một màu riêng (--bh, đặt ở ui-tree-card.HUE) ăn vào viền + icon + vệt
+ *      sáng trái thẻ; nhìn phát nhận ra nhánh, không cần đọc.
+ *   3. NÚT LỆCH NHAU — .shop-buy co theo độ dài số tiền nên "◈ 55" bé tí còn
+ *      "◈ 25.200" dài ngoẵng, hàng nút nhấp nhô. Nay rộng CỐ ĐỊNH + cao tối thiểu
+ *      44px (chuẩn chạm iOS HIG).
+ * Khối này đặt CUỐI TỆP để đè khối cây kỹ năng gốc ở trên mà không phải sửa xen kẽ
+ * vào đó — cùng độ đặc hiệu thì rule sau thắng. */
+
+#scrTree{background:radial-gradient(120% 75% at 50% 0%,#2b3f63,#0a1124 72%)}
+
+/* ---- thẻ biến thể: nhẹ chữ, đậm màu ---- */
+.tree-variant{padding:14px 15px;border-radius:18px;
+  background:linear-gradient(180deg,
+    color-mix(in srgb,var(--vh,#8fb8e8) 22%,transparent),rgba(255,255,255,.05));
+  box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--vh,#8fb8e8) 60%,transparent)}
+.tv-name{font-size:17px;letter-spacing:.16em;
+  color:color-mix(in srgb,var(--vh,#8fb8e8) 70%,#fff)}
+.tv-tag{font-size:12px;margin-top:4px;color:#b9cbe8}
+/* một dòng gọn: "TIẾN HOÁ 1  0/4  cấp 3" — số to, chữ phụ mờ */
+.tree-evo{margin-top:10px;font-size:12px;letter-spacing:.06em;color:#b9cbe8}
+.tree-evo b{font-size:15px;color:#fff;margin:0 3px}
+.tree-evo em{font-style:normal;opacity:.7}
+.tree-evo i.bar{display:block;height:7px;border-radius:4px;margin-top:6px;opacity:1;
+  background:rgba(0,0,0,.3);overflow:hidden}
+.tree-evo i.bar b{display:block;height:100%;margin:0;border-radius:4px;
+  background:linear-gradient(90deg,#ffd23f,var(--vh,#ff8a2b))}
+
+/* ---- thẻ nhánh ---- */
+.tree-row{position:relative;overflow:hidden;border-radius:18px;padding:11px 12px;
+  background:linear-gradient(180deg,rgba(255,255,255,.12),rgba(255,255,255,.05));
+  box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--bh,#96beff) 42%,transparent)}
+/* vệt màu nhận dạng nhánh, bám mép trái — đọc được cả khi lướt nhanh */
+.tree-row::before{content:'';position:absolute;left:0;top:0;bottom:0;width:5px;
+  background:var(--bh,#96beff)}
+.tree-row.maxed{box-shadow:inset 0 0 0 1.5px rgba(255,200,63,.75);
+  background:linear-gradient(180deg,rgba(255,200,63,.18),rgba(255,200,63,.06))}
+.tree-top{gap:11px}
+/* thân thẻ là NÚT (chạm để bung chỉ số) nhưng phải trông y như chữ thường */
+.tree-body{flex:1;min-width:0;border:0;background:none;padding:0;margin:0;
+  text-align:left;font:inherit;color:inherit;cursor:pointer}
+.tree-body.static{cursor:default}
+.tree-name{display:flex;align-items:center;flex-wrap:wrap;gap:6px;
+  font-size:14px;letter-spacing:.1em;color:#fff}
+.tree-name em{font-size:13px;color:color-mix(in srgb,var(--bh,#8fb8e8) 60%,#fff)}
+.shop-desc{color:#a9bdd8}
+
+/* CHỈ SỐ ĐẦU TÀU cạnh tên: cái duy nhất người chơi cần để quyết mua hay không */
+.tree-hl{margin-left:auto;flex:none;padding:3px 9px;border-radius:9px;
+  font-size:13px;font-weight:700;letter-spacing:.02em;color:#cfe0ff;
+  background:rgba(0,0,0,.28)}
+.tree-hl i{font-style:normal;margin:0 3px;opacity:.65}
+.tree-hl.up{color:#9df5c4;background:rgba(92,230,168,.16)}
+.tree-hl.down{color:#ffb3c2;background:rgba(255,122,156,.16)}
+
+/* chấm mốc: to hơn cho dễ đếm trên điện thoại, mốc đã mua ăn màu nhánh */
+.tree-track{gap:7px;margin:8px 0 6px}
+.tree-track i{width:11px;height:11px;background:rgba(255,255,255,.2)}
+.tree-track i.on{background:var(--bh,#ffd23f);box-shadow:0 0 7px color-mix(in srgb,var(--bh,#ffd23f) 60%,transparent)}
+.tree-track i.fork{width:13px;height:13px}
+
+/* ba dòng chỉ số: ẩn mặc định, chạm thẻ mới bung */
+.tree-more{margin-top:2px}
+.tree-more.hidden{display:none}
+
+/* ---- nút giá: viên kẹo, rộng CỐ ĐỊNH, cao >=44px ---- */
+.tree-row .shop-buy{flex:none;width:96px;min-height:44px;border-radius:13px;
+  font-size:14px;letter-spacing:.02em}
+.tree-row .shop-buy.poor{opacity:.45}
+.tree-row .shop-buy.done{background:rgba(255,255,255,.12);color:#b9cbe8;box-shadow:none}
+
+/* ---- xây lại cây: vẫn là lối thoát, nhưng đừng trông như lỗi ---- */
+.tree-rebuild{font-size:13px;color:#a9bdd8;border-radius:13px;padding:13px;
+  box-shadow:inset 0 0 0 1px rgba(122,224,255,.3)}
+
+/* Bản cảm ứng — theo sàn 16px của khối "bù cỡ chữ" (nhắc lại: 16px viết ra chỉ
+   hiện ~11.1px THẬT, xem bảng quy đổi ở đó). */
+body.is-touch .tv-name{font-size:19px}
+body.is-touch .tv-tag{font-size:16px}
+body.is-touch .tree-evo{font-size:16px}
+body.is-touch .tree-evo b{font-size:19px}
+body.is-touch .tree-name{font-size:17px}
+body.is-touch .tree-name em{font-size:16px}
+body.is-touch .tree-hl{font-size:17px}
+body.is-touch .tree-row .shop-buy{width:112px;font-size:17px}
+body.is-touch .tree-rebuild{font-size:16px}
