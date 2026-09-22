@@ -71,7 +71,7 @@ SC.BALANCE = {
     {"k": "power", "w": 20, "c": "#ff8a2b", "ic": "⚡"},
     {"k": "heal", "w": 13, "c": "#4dff9f", "ic": "✚"},
     {"k": "shield", "w": 11, "c": "#3fe0ff", "ic": "◇"},
-    {"k": "bomb", "w": 4, "c": "#ff3b5c", "ic": "✺"},
+    {"k": "bomb", "w": 3.5, "c": "#ff3b5c", "ic": "✺"},
     {"k": "gem", "w": 5, "c": "#c58cff", "ic": "★"}
   ],
   "levels": {
@@ -3258,7 +3258,14 @@ SC.Items = {
      mà xui là không có quả nào — đúng lúc cần nhất. Hạ BOMB_PITY con liền mà chưa rơi
      bom thì con kế tiếp chắc chắn rơi bom. Đếm theo lượt hạ, không theo thời gian:
      màn thưa quái thì không ngập bom. */
-  BOMB_PITY: 30,        // 18 -> 30 (22/09/2026): bom dày quá, 2 quả gần nhau là sạch round
+  /* 18 -> 30 ("bom dày quá, 2 quả gần nhau là sạch round") -> 34 (22/09/2026, anh Đức
+     muốn bom về ~30% tổng sát thương; dashboard đo 33%).
+     PHẢI CHỈNH KÈM trọng số rơi `items[].k='bomb'.w` — hai cần gạt này BÙ NHAU chứ
+     không cộng dồn: hạ trọng số thì bom ngẫu nhiên thưa đi, bảo hiểm lại nổ dày hơn
+     để bù, nên sửa MỘT bên gần như không nhúc nhích. Mô phỏng đúng cơ chế ở
+     system-combat.kill(): w 4->3.5 một mình còn 32,3%; pity 30->34 một mình còn 31,1%;
+     CẢ HAI mới về 30,4% (2,52 -> 2,23 quả/trận). */
+  BOMB_PITY: 34,
   sinceBomb: 0,
   bombDue() { return ++this.sinceBomb > this.BOMB_PITY; },
 
@@ -8028,9 +8035,12 @@ SC.Combat = {
      thương ghi nhận nào — quái vẫn chết, vẫn cộng đúng ngần ấy máu. Nên 0.8 -> 0.76
      chỉ ăn vào map 45+ (map 57: quái còn 28% -> 32% máu sau một quả), tỉ trọng
      tổng nhúc nhích rất ít, KHÔNG về 30% được.
-     Muốn kéo tỉ trọng TOÀN CỤC thì phải giảm SỐ BOM, không phải sức bom: trọng số
-     rơi `items[].k='bomb'.w` (đang 4) hoặc `SC.Item.BOMB_PITY` (đang 30). Đo được
-     2,52 quả/trận ở mức hiện tại; xuống ~2,2 quả/trận là về đúng 30%.
+     Muốn kéo tỉ trọng TOÀN CỤC thì phải giảm SỐ BOM, không phải sức bom. ĐÃ LÀM
+     22/09/2026: trọng số rơi `items[].k='bomb'.w` 4 -> 3,5 VÀ `SC.Items.BOMB_PITY`
+     30 -> 34, đưa 2,52 -> 2,23 quả/trận (dự báo tỉ trọng 33% -> 30,4%).
+     PHẢI SỬA CẢ HAI: hai cần gạt BÙ NHAU chứ không cộng dồn — hạ trọng số thì bom
+     ngẫu nhiên thưa đi, bảo hiểm lại nổ dày hơn để bù. Mô phỏng đúng cơ chế
+     `kill()`: w một mình còn 32,3%, pity một mình còn 31,1%, cả hai mới về 30,4%.
      Và 33% là TRUNG BÌNH: map 10 đo 58%, map 3 chỉ 8% — lệch đó là do đường cong
      `hard` theo màn, cắt mul hay cắt drop đều không phẳng được. */
   BOMB: SC.bal('bomb', { base: 40, pctMax: 0.90, pctMin: 0.60, lvW: 0.7, mul: 0.76 }),
