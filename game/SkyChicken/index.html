@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="icon" type="image/png" href="icons/icon-192.png">
-<link rel="stylesheet" href="assets/style-6d2493bc.css">
+<link rel="stylesheet" href="assets/style-c9ae534b.css">
 </head>
 <body>
 
@@ -753,6 +753,8 @@
      Xem shared/README.md truoc khi sua. -->
 <!-- PHAI ngay sau system-evo-ai.js: Object.assign vao SC.EvoAI da ton tai -->
 <!-- chot chan qua tan thu: phai co truoc ui-screens.init() goi NewbieGate.start() -->
+<!-- Sau ui-screens.js (cần SC.UI.el), trước main.js (main gọi hai hàm init này).
+     OverlayGuard dùng SC.BackStack.MAP nên phải đứng SAU back-stack. -->
 <!-- Danh tính M365 cho bản deploy *.zingplay.dev — phải nằm SAU main.js vì nó
      tự chạy ngay và cần adapter cloud đã đăng ký. Ngoài zingplay.dev thì im lặng. -->
 <!-- Gương tiến độ theo email: chữa bug đổi máy mất tiến độ (uid anonymous theo máy).
@@ -766,7 +768,7 @@
 <script src="../../shared/portal-cloud.js"></script>
 <script src="../../shared/portal-rank.js"></script>
 <script src="../../shared/portal-player.js"></script>
-<script src="assets/app-0b211f3b.js" onerror="window.__shellHong=1"></script>
+<script src="assets/app-83d8c45b.js" onerror="window.__shellHong=1"></script>
 <script>
 /* LOP TU CUU KHI VO UNG DUNG HONG — dung xoa.
  *

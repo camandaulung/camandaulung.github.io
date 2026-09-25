@@ -1645,14 +1645,28 @@ SC.Missions = {
 /* ===== js/system-viewport.js ===== */
 /* system-viewport.js — co giãn đa nền tảng: chiều cao ảo động, DPR, safe-area, xoay máy
  *
- * Bề ngang ảo luôn = 540 để cân bằng gameplay giống nhau trên mọi máy;
- * chiều cao ảo (SC.H) giãn theo tỉ lệ màn hình nên điện thoại dài không bị viền đen. */
+ * Bề ngang ảo của GAMEPLAY luôn = 540 để cân bằng giống nhau trên mọi máy;
+ * chiều cao ảo (SC.H) giãn theo tỉ lệ màn hình nên điện thoại dài không bị viền đen.
+ *
+ * HAI HỆ ĐO, ĐỪNG TRỘN (đổi 25/09/2026):
+ *   - canvas/gameplay: đơn vị ảo, bề ngang cố định 540, `scale` = px CSS trên 1 đơn vị.
+ *   - lớp DOM #ui: đơn vị RIÊNG, `uiW` × `uiScale`.
+ * Trước đây #ui dùng chung con số 540 rồi bù bằng transform scale(cssW/540). Hậu quả:
+ * trên máy 375px hệ số là 0.694 nên MỌI con số px trong CSS đều nói dối — `font-size:16px`
+ * ra 11.1px THẬT, `height:44px` ra 30.6px THẬT. Đã đắp 172 luật `body.is-touch` bù cỡ chữ
+ * hồi 22/09 mà 163 luật vẫn hụt sàn, vì bù kiểu đó không bao giờ đuổi kịp.
+ * Nay `uiScale` KHÔNG BAO GIỜ NHỎ HƠN 1: điện thoại thì 1:1 (px CSS = px thật), màn rộng
+ * hơn UI_REF thì phóng to đều. Nhờ vậy con số trong style.css là SÀN của px thật. */
 
 SC.View = {
-  scale: 1,        // px CSS trên 1 đơn vị ảo
+  UI_REF: 390,     // bề ngang mốc của lớp #ui — style.css được canh theo đúng số này
+  scale: 1,        // px CSS trên 1 đơn vị ảo (canvas)
+  uiW: 390,        // bề ngang lớp #ui, tính bằng đơn vị UI
+  uiScale: 1,      // px CSS trên 1 đơn vị UI — LUÔN >= 1
   cssW: 540, cssH: 960,
   dpr: 1,
-  safe: { top: 0, bottom: 0 },   // safe-area quy đổi sang đơn vị ảo
+  safe: { top: 0, bottom: 0 },   // safe-area quy đổi sang đơn vị ảo (canvas)
+  safeUi: { top: 0, bottom: 0 }, // safe-area quy đổi sang đơn vị UI (DOM)
   touch: false,                  // thiết bị cảm ứng (pointer thô)
   landscape: false,
   onResize: null,                // callback cho game (dựng lại nền…)
@@ -1691,9 +1705,20 @@ SC.View = {
      style.css. Trừ phần khung sân khấu đã hụt sẵn do căn giữa. */
   _syncSafe() {
     const s = this._readSafe(), g = this._gap || 0;
-    this.safe.top = Math.max(0, s.top - g) / this.scale;
-    this.safe.bottom = Math.max(0, s.bottom - g) / this.scale;
+    const t = Math.max(0, s.top - g), b = Math.max(0, s.bottom - g);
+    this.safe.top = t / this.scale;                     // đơn vị ảo (canvas)
+    this.safe.bottom = b / this.scale;
+    this.safeUi.top = t / this.uiScale;                 // đơn vị UI (DOM)
+    this.safeUi.bottom = b / this.uiScale;
   },
+
+  /* Đơn vị ảo (canvas) -> đơn vị UI (DOM). Từ 25/09/2026 hai hệ này KHÁC NHAU, nên mọi
+     chỗ đặt vị trí phần tử DOM theo toạ độ vật thể trong game phải đi qua đây. */
+  w2u(v) { return v * this.scale / this.uiScale; },
+
+  /* Đơn vị UI (DOM) -> đơn vị ảo (canvas). Dùng khi ĐO một phần tử DOM rồi vẽ lên
+     canvas theo số đo đó — xem ui-lobby-ship.js. */
+  u2w(v) { return v * this.uiScale / this.scale; },
 
   /* Kiểm tra kích thước cửa sổ mỗi khung hình — bắt được cả trường hợp
      khung xem bị ẩn lúc tải (innerWidth = 0) rồi mới hiện ra sau. */
@@ -1746,16 +1771,27 @@ SC.View = {
     this.canvas.style.width = cssW + 'px';
     this.canvas.style.height = cssH + 'px';
 
-    // lớp UI: giữ nguyên kích thước ảo rồi scale để khớp canvas
-    this.ui.style.width = SC.W + 'px';
-    this.ui.style.height = SC.H + 'px';
-    this.ui.style.transform = 'scale(' + this.scale + ')';
+    // Lớp UI: hệ đo riêng. Máy hẹp hơn UI_REF thì 1:1 (px CSS = px thật, không thu nhỏ
+    // chữ nữa); máy rộng hơn thì phóng to đều để bố cục không loãng ra trên máy tính.
+    // KẸP SÀN 1 là toàn bộ ý nghĩa của khối này — bỏ kẹp là quay lại chữ 11px.
+    this.uiScale = Math.max(1, cssW / this.UI_REF);
+    this.uiW = Math.round(cssW / this.uiScale);
+    const uiH = Math.round(cssH / this.uiScale);
+    this.ui.style.width = this.uiW + 'px';
+    this.ui.style.height = uiH + 'px';
+    this.ui.style.transform = this.uiScale === 1 ? 'none' : 'scale(' + this.uiScale + ')';
 
     // Khung sân khấu căn giữa nên phía trên đã hụt sẵn ngần này — CSS trừ đi để
     // không né tai thỏ hai lần. Hai biến này là tất cả những gì CSS cần từ JS.
     this._gap = Math.max(0, (vh - cssH) / 2);
-    this.ui.style.setProperty('--vscale', this.scale);
+    // --vscale là hệ số của CHÍNH lớp #ui (không phải của canvas) vì nó chỉ dùng để quy
+    // env(safe-area-inset-*) — số đo px THẬT — về đơn vị UI. Lẫn hai hệ ở đây là HUD
+    // né tai thỏ sai một khoảng bằng tỉ số giữa hai hệ.
+    this.ui.style.setProperty('--vscale', this.uiScale);
     this.ui.style.setProperty('--stage-top', this._gap + 'px');
+    // Bề ngang lớp UI, cho CSS dùng THAY CHO vw. `vw` đo cửa sổ thật nên trên máy tính
+    // (uiScale > 1) nó vừa lớn hơn khung sân khấu vừa bị nhân thêm lần nữa.
+    this.ui.style.setProperty('--uiw', this.uiW + 'px');
     this._syncSafe();
 
     if (this.onResize) this.onResize();
@@ -9743,10 +9779,18 @@ SC.Rank = {
  * nên nhìn liền mạch như một con đường chạy suốt. */
 
 SC.MapSelect = {
-  NODE_GAP: 108,      // khoảng cách dọc giữa hai chặng (đơn vị ảo)
-  AMP: 150,           // biên độ zigzag
-  TOP: 62,            // chừa lề trên để nút không nhô ra khỏi dải nền của vùng
+  /* Số đo theo ĐƠN VỊ UI (xem hai hệ đo ở system-viewport.js). Từ 25/09/2026 lớp #ui
+     rộng đúng bằng màn hình chứ không cố định 540 nữa, nên bề ngang phải hỏi
+     SC.View.uiW lúc chạy — viết cứng 540/270 là đường zigzag lệch hẳn sang phải trên
+     điện thoại và tràn ra ngoài. */
+  NODE_GAP: 78,       // khoảng cách dọc giữa hai chặng
+  AMP_R: 0.278,       // biên độ zigzag, theo TỈ LỆ bề ngang lớp UI
+  TOP: 45,            // chừa lề trên để nút không nhô ra khỏi dải nền của vùng
+  PAD: 25,            // chừa lề dưới
   peek: {},           // vùng khoá nào người chơi đã tự bung ra xem trước
+
+  _w() { return SC.View.uiW || SC.View.UI_REF; },
+  _h(per) { return per * this.NODE_GAP + this.TOP + this.PAD; },
 
   build(ui) {
     const wrap = ui.el.mapList;
@@ -9810,7 +9854,8 @@ SC.MapSelect = {
      từ khi vùng rút còn 6 chặng nó chỉ đi hết hơn nửa chu kỳ, dồn cả 6 nút về nửa
      phải và bỏ trống hẳn một phần ba bên trái. */
   _x(k) {
-    return 270 + Math.sin(k * Math.PI / 2) * this.AMP;
+    const w = this._w();
+    return w / 2 + Math.sin(k * Math.PI / 2) * w * this.AMP_R;
   },
 
   _region(ui, biome, bi, levels) {
@@ -9863,7 +9908,7 @@ SC.MapSelect = {
 
     const path = document.createElement('div');
     path.className = 'saga-path';
-    path.style.height = (per * this.NODE_GAP + this.TOP + 34) + 'px';
+    path.style.height = this._h(per) + 'px';
     path.appendChild(this._trail(per));
     levels.forEach((lv, k) => path.appendChild(this._node(ui, lv, k)));
     box.appendChild(path);
@@ -9883,7 +9928,7 @@ SC.MapSelect = {
   _trail(per) {
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('class', 'saga-trail');
-    svg.setAttribute('viewBox', `0 0 540 ${per * this.NODE_GAP + this.TOP + 34}`);
+    svg.setAttribute('viewBox', `0 0 ${this._w()} ${this._h(per)}`);
     svg.setAttribute('preserveAspectRatio', 'none');
     let d = '';
     for (let k = 0; k < per; k++) {
@@ -9891,7 +9936,7 @@ SC.MapSelect = {
       d += (k ? ' L' : 'M') + x.toFixed(1) + ' ' + y;
     }
     svg.innerHTML = `<path d="${d}" fill="none" stroke="currentColor"
-      stroke-width="7" stroke-linecap="round" stroke-dasharray="2 16"/>`;
+      stroke-width="5" stroke-linecap="round" stroke-dasharray="1.5 12"/>`;
     return svg;
   },
 
@@ -13175,12 +13220,14 @@ SC.LobbyShip = {
   y: 0,               // tâm sân bay, đơn vị khung ảo — layout() tính lại
   ready: false,
 
-  /* Đọc vị trí ô .lobby-stage. #ui có kích thước đúng bằng khung ảo (system-viewport.js)
-     nên offsetTop/offsetHeight của phần tử con CHÍNH LÀ toạ độ ảo, khỏi quy đổi. */
+  /* Đọc vị trí ô .lobby-stage rồi quy về toạ độ ẢO để vẽ lên canvas.
+     TỪ 25/09/2026 PHẢI QUY ĐỔI: #ui có hệ đo riêng, không còn trùng khung ảo 540
+     (system-viewport.js). Bản cũ dùng thẳng offsetTop vì hai hệ tình cờ bằng nhau —
+     giữ nguyên là máy bay lobby vẽ lệch lên trên, đè vào logo trên máy màn ngắn. */
   layout() {
     const el = document.getElementById('shipStage');
     if (!el || !el.offsetHeight) { this.ready = false; return; }
-    this.y = el.offsetTop + el.offsetHeight / 2;
+    this.y = SC.View.u2w(el.offsetTop + el.offsetHeight / 2);
     this.ready = true;
   },
 
@@ -13585,17 +13632,20 @@ Object.assign(SC.UI, {
   },
   setBossHP(p) { this.el.bossFill.style.width = (p * 100) + '%'; },
 
-  /* Ghim thanh máu ngay dưới chân trùm. #ui có kích thước đúng bằng khung ảo 540×H
-     nên toạ độ ảo dùng thẳng làm px, khỏi quy đổi (cùng mẹo với ui-lobby-ship.js).
+  /* Ghim thanh máu ngay dưới chân trùm.
+     TỪ 25/09/2026 #ui KHÔNG còn cùng hệ đo với canvas (xem system-viewport.js), nên
+     toạ độ trùm — đơn vị ảo — phải đi qua SC.View.w2u(). Bản cũ dùng thẳng vì hai hệ
+     tình cờ trùng nhau; giữ nguyên là thanh máu lệch khỏi trùm đúng một tỉ số.
      Kẹp trong khung để lúc trùm lượn sát mép hay dịch chuyển ra ngoài, thanh máu
      vẫn đọc được chứ không trôi mất. */
   moveBoss(b) {
     const el = this.el.bossBar;
     // Mốc kẹp phải cộng thêm safe-area: trùm bay sát đỉnh màn thì thanh máu đội
     // thẳng lên tai thỏ, mà đó lại đúng lúc cần đọc máu nhất.
-    const sf = SC.View.safe;
-    el.style.left = SC.clamp(b.x, 100, SC.W - 100) + 'px';
-    el.style.top = SC.clamp(b.y + b.r + 12, 60 + sf.top, SC.H - 120 - sf.bottom) + 'px';
+    const V = SC.View, sf = V.safeUi;
+    const w = V.uiW, h = V.w2u(SC.H);
+    el.style.left = SC.clamp(V.w2u(b.x), 72, w - 72) + 'px';
+    el.style.top = SC.clamp(V.w2u(b.y + b.r + 12), 44 + sf.top, h - 87 - sf.bottom) + 'px';
     // trùm đang dịch chuyển (warp) thì làm mờ đi cho khớp với thân đang biến mất
     el.style.opacity = b.warp !== undefined && b.warp < 1 ? 0.25 : 1;
   },
@@ -13950,6 +14000,159 @@ SC.Finish = {
 };
 
 ;
+/* ===== js/system-back-stack.js ===== */
+/* system-back-stack.js — nút BACK của Android (25/09/2026)
+ *
+ * VÌ SAO CÓ FILE NÀY: manifest đặt `display:standalone`, nên bản cài về máy chạy
+ * trong khung riêng, không có thanh địa chỉ. Trước đây không có một dòng `popstate`
+ * nào trong cả 117 file JS — người chơi đang ở cây kỹ năng bấm Back là THOÁT HẲN
+ * GAME chứ không phải về lobby. Đó là phản xạ mặc định của mọi người dùng Android,
+ * và nó đang ăn thẳng vào mặt.
+ *
+ * CÁCH LÀM: giữ luôn một "vé" thừa trong lịch sử trình duyệt. Back ăn vé đó, ta xử
+ * lý rồi ĐẨY VÉ MỚI vào — nên lúc nào cũng còn cái để ăn, trang không bao giờ bị
+ * rời. Chỉ ở lobby, khi người chơi xác nhận thoát lần hai, mới thôi đẩy vé.
+ *
+ * QUY TẮC VÀNG: Back KHÔNG BAO GIỜ được không-làm-gì. Kể cả hộp thoại bắt buộc chọn
+ * (rẽ nhánh cây kỹ năng, gộp tiến độ) cũng phải nói cho người chơi biết vì sao chưa
+ * đóng được, chứ không im lặng nuốt cú bấm. */
+
+SC.BackStack = {
+  /* Màn phủ -> nút đóng an toàn. Thứ tự trong bảng CHÍNH LÀ thứ tự ưu tiên: màn nào
+     nằm trên cùng về mặt z-index thì đứng trước. `null` = hộp thoại bắt buộc chọn,
+     không có đường lùi (xem GIU_NGUYEN bên dưới). */
+  MAP: [
+    ['merge', null],            // gộp tiến độ: chọn nhầm là mất tiến độ, phải tự quyết
+    ['fork', 'btnForkBack'],
+    ['gift', 'btnGiftOk'],
+    ['evoai', 'btnEvoAiLater'],
+    ['gacha', null],            // đang quay, để yên cho nó quay xong
+    ['setup', 'btnSetupClose'],
+    ['evo', 'btnEvoOk'],
+    ['result', 'btnResMenu'],
+    ['brief', 'btnBriefBack'],
+    ['pause', 'btnResume'],
+    ['victory', 'btnVicMenu']
+  ],
+
+  /* Màn TOÀN PHẦN (không phải màn phủ): Back đưa về lobby. */
+  FULL: ['maps', 'tree', 'codex', 'rank', 'profile', 'options', 'garage'],
+
+  GIU_NGUYEN: 'Chọn một mục ở trên đã nhé.',
+
+  init(ui, game) {
+    this.ui = ui; this.game = game;
+    this._thoat = 0;
+    history.pushState({ sc: 1 }, '');
+    addEventListener('popstate', () => this._back());
+  },
+
+  _hien(k) {
+    const el = this.ui.el[k];
+    return el && !el.classList.contains('hidden');
+  },
+
+  _back() {
+    let roi = false;
+    try { roi = this._xuLy(); } catch (e) { /* hỏng gì cũng KHÔNG được để thoát game */ }
+    // Đẩy vé mới vào ngay, trừ khi đã quyết định cho rời trang.
+    if (!roi) history.pushState({ sc: 1 }, '');
+  },
+
+  /* Trả về true nếu ĐỒNG Ý cho trình duyệt rời trang (chỉ khi xác nhận thoát). */
+  _xuLy() {
+    // 1. Màn phủ trên cùng
+    for (const [k, nut] of this.MAP) {
+      if (!this._hien(k)) continue;
+      if (!nut) { this.ui.toast && this.ui.toast(this.GIU_NGUYEN); return false; }
+      const b = document.getElementById(nut);
+      if (b && !b.disabled) b.click();
+      return false;
+    }
+
+    // 2. Màn toàn phần -> về lobby
+    for (const k of this.FULL) {
+      if (this._hien(k)) { this.ui.show('menu'); return false; }
+    }
+
+    // 3. Đang chơi -> tạm dừng (KHÔNG thoát thẳng: người chơi mất cả màn dở)
+    if (this.game && this.game.state === 'play') { this.game.pause(true); return false; }
+
+    // 4. Ở lobby: bấm hai lần trong 2 giây mới thoát. Một lần là lỡ tay.
+    const gio = Date.now();
+    if (gio - this._thoat < 2000) return true;
+    this._thoat = gio;
+    this.ui.toast && this.ui.toast('Bấm lần nữa để thoát game');
+    return false;
+  }
+};
+
+;
+/* ===== js/system-overlay-guard.js ===== */
+/* system-overlay-guard.js — hai phản xạ di động cho mọi màn phủ (25/09/2026)
+ *
+ * (1) CHẠM RA NGOÀI ĐỂ ĐÓNG. Trước đây 12 màn phủ đều bắt phải tìm đúng nút; trên
+ *     điện thoại, chạm vào vùng tối quanh hộp thoại là phản xạ chuẩn.
+ *
+ * (2) CHỐT CHẶN CHẠM 350ms. Chạm hai nhịp nhanh thì nhịp thứ hai rơi trúng nút của
+ *     popup vừa hiện ra. Ở game này nhịp thứ hai đó có thể là nút ĐỐT LƯỢT GEN
+ *     (tốn tiền thật, hạn mức 4 lượt/bộ) hoặc nút BÁN TÀU (mất hẳn tàu). Khoá cứng
+ *     350ms là rẻ hơn nhiều so với đi hỏi từng chỗ gọi popup.
+ *
+ * Dùng chung bảng nút đóng của SC.BackStack — một nguồn sự thật, thêm màn phủ mới
+ * thì khai một chỗ. Màn nào khai `null` (bắt buộc chọn) thì KHÔNG đóng bằng chạm
+ * ngoài, đúng như Back cũng không đóng được. */
+
+SC.OverlayGuard = {
+  KHOA: 350,      // ms
+
+  init(ui) {
+    this.ui = ui;
+    this._dong = {};                       // id màn -> mốc thời gian mở
+
+    for (const [k] of SC.BackStack.MAP) {
+      const el = ui.el[k];
+      if (!el) continue;
+      this._theoDoi(k, el);
+      // Chạm ra ngoài: chỉ tính khi điểm chạm rơi ĐÚNG vào lớp phủ, không phải
+      // vào hộp thoại con. Dùng pointerdown + kiểm lại ở pointerup để vuốt từ
+      // trong hộp ra ngoài không bị coi là "chạm ngoài".
+      el.addEventListener('pointerdown', e => { el._scFrom = e.target; });
+      el.addEventListener('pointerup', e => {
+        if (e.target !== el || el._scFrom !== el) return;
+        if (this.dangKhoa(k)) return;
+        this.dong(k);
+      });
+    }
+  },
+
+  /* Lớp phủ nào vừa bỏ `hidden` thì đóng dấu thời gian và chặn chạm cho tới khi hết
+     khoá. Theo dõi bằng MutationObserver để KHÔNG phải sửa 20 chỗ gọi showOverlay. */
+  _theoDoi(k, el) {
+    const mo = new MutationObserver(() => {
+      const hien = !el.classList.contains('hidden');
+      if (hien && !el._scHien) { this._dong[k] = performance.now(); this._chan(el); }
+      el._scHien = hien;
+    });
+    mo.observe(el, { attributes: true, attributeFilter: ['class'] });
+  },
+
+  _chan(el) {
+    el.style.pointerEvents = 'none';
+    setTimeout(() => { el.style.pointerEvents = ''; }, this.KHOA);
+  },
+
+  dangKhoa(k) { return performance.now() - (this._dong[k] || 0) < this.KHOA; },
+
+  dong(k) {
+    const cap = SC.BackStack.MAP.find(x => x[0] === k);
+    if (!cap || !cap[1]) return;           // hộp thoại bắt buộc chọn: để nguyên
+    const b = document.getElementById(cap[1]);
+    if (b && !b.disabled) b.click();
+  }
+};
+
+;
 /* ===== js/main.js ===== */
 /* main.js — vòng lặp game, nhập chuột, va chạm, dòng chảy màn chơi */
 
@@ -13983,6 +14186,10 @@ SC.Game = {
     SC.Audio.init();
     SC.UI.init();
     SC.Input.init(this.canvas, this);
+    // Sau UI.init vì cần SC.UI.el; trước show('menu') để vé lịch sử đầu tiên nằm
+    // đúng ở lobby (xem system-back-stack.js).
+    SC.BackStack.init(SC.UI, this);
+    SC.OverlayGuard.init(SC.UI);
     SC.PWA.register();
     SC.UI.show('menu');
     this.last = performance.now();
