@@ -99,7 +99,13 @@ Dash.UI = {
       + box('% hạ gục từ bom', this.pct(k.killPct), 'số quái chết vì bom ÷ tổng số quái hạ', k.killPct > 0.3 ? 'bad' : '')
       + box('Bom / trận', this.num(k.perRun, 2), 'số bom trung bình mỗi trận')
       + box('Thắng: có bom − không bom', pp(k.uplift), 'tỉ lệ thắng trận có ≥1 bom trừ trận không bom — có nhiễu: trận dài nhặt nhiều bom hơn', k.uplift > 0.2 ? 'bad' : '')
-      + box('Trận thắng có bom cứu nguy', this.pct(k.clutchWin), 'bom nổ lúc máu < 35% trong các trận THẮNG');
+      + box('Trận thắng có bom cứu nguy', this.pct(k.clutchWin), 'bom nổ lúc máu < 35% trong các trận THẮNG')
+      /* Nói RA số bản ghi bị loại, không lọc lặng lẽ: nếu nó chiếm phần lớn thì mấy
+         con số bên trên tính trên mẫu nhỏ hơn nhiều so với người đọc tưởng — mà đó
+         đúng là lúc dễ chỉnh cân bằng sai nhất. Xem Dash.Data.dmgOk(). */
+      + (k.boDi ? box('Bản ghi bị loại', k.boDi,
+          'trận có `dmg` không đáng tin (dmg/kill < 2) — client bị can thiệp; đã loại khỏi MỌI số ở khu này',
+          'bad') : '');
     const L = b.levels;
     this._chart('cBomb', {
       type: 'bar',

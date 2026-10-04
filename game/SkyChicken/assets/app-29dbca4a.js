@@ -1545,8 +1545,17 @@ SC.Power = {
      HỌC, không phải hạ độ khó cả game.
      Nên chỉ chạm SÁT THƯƠNG và chỉ 3 màn đầu — máu quái, mật độ, nhịp bắn giữ
      nguyên để nhịp màn không đổi. Đối xứng với lateEase ở trên, dùng chung hàm.
-     Tự tắt từ màn 4, nơi log đã cho thấy 100% thắng và hp còn 1,00. */
-  EARLY: SC.bal('power.earlyDmg', { from: 1, full: 4, start: 0.70, end: 1.00 }),
+     Tự tắt từ màn 4, nơi log đã cho thấy 100% thắng và hp còn 1,00.
+
+     04/10/2026 — SIẾT TIẾP VỀ 0,50 (anh Đức chốt mục tiêu WIN RATE 95% ở màn 1).
+     Cỡ số lấy từ chính 4 trận thua: họ chết sau 6/7/9/10 đòn (máu 100, mỗi đòn ~12,5),
+     đa số ngã ở wave 3 trên 4. Ngoại suy cho trọn màn thì họ ăn ~84-240 máu, nên mức
+     0,70 của bản trước chỉ cứu được khoảng một nửa. 0,50 đưa cả nhóm về dưới hoặc sát
+     ngưỡng 100 máu. Còn một lực đẩy nữa không tính được bằng công thức: không chết thì
+     có thêm thời gian làm quen tay, bắn trúng nhiều hơn, đạn bay về phía mình ít đi.
+     ĐÂY LÀ DỰ BÁO, KHÔNG PHẢI SỐ ĐO. Phải xuất log lại sau ~1 tuần mà soi: chưa tới
+     95% thì hạ tiếp `start`; vọt lên 100% và máu còn luôn 1,00 thì nới lên 0,60. */
+  EARLY: SC.bal('power.earlyDmg', { from: 1, full: 4, start: 0.50, end: 1.00 }),
   earlyEase() {
     const id = SC.Game.levelId || 1;
     if (id >= this.EARLY.full) return 1;
@@ -3327,13 +3336,13 @@ SC.Items = {
      để bù, nên sửa MỘT bên gần như không nhúc nhích. Mô phỏng đúng cơ chế ở
      system-combat.kill(): w 4->3.5 một mình còn 32,3%; pity 30->34 một mình còn 31,1%;
      CẢ HAI mới về 30,4% (2,52 -> 2,23 quả/trận).
-     04/10/2026 — ĐO LẠI TRÊN LOG THẬT: cả hai cùng lúc là QUÁ TAY. Mục tiêu 30% mà
-     thực tế còn 22,2% (55 trận sạch) / 23,9% (cả 90 trận). Mô hình hụt vì nó giả định
-     tỉ trọng bom đều giữa các màn, trong khi log cho thấy nó dao động rất mạnh theo
-     màn. Nên LÙI pity về 30, GIỮ w 3,5 và mul 0,76 — nửa bước, rồi đo lại chứ không
-     chỉnh dồn hai nhịp (đúng bài học của chính lần nerf này).
-     CẢNH BÁO khi đọc lại số: 39% bản ghi trong đợt log đó có `dmg` sai ~40 lần
-     (xem mục "log trận" trong CLAUDE.md) — lọc trước khi kết luận. */
+     04/10/2026 — ĐO LẠI TRÊN LOG THẬT: **28,0%** (61 trận, sau khi `Dash.Data.dmgOk`
+     loại 32 bản ghi có `dmg` rác). Hơi dưới mục tiêu 30% nên LÙI pity 34 -> 30, GIỮ
+     w 3,5 và mul 0,76: số bom ×1,09 -> dự báo ~29,8%, đúng đích.
+     ĐÍNH CHÍNH: lần đọc đầu em báo 22,2% — sai, do dùng ngưỡng lọc chặt hơn (<3 thay
+     vì <2) và gộp khác. Nerf 22/09 KHÔNG quá tay nhiều như tưởng.
+     CẢNH BÁO khi đọc lại số: 39% bản ghi đợt đó có `dmg` sai ~40 lần vì client bị can
+     thiệp — dashboard nay tự lọc (`dmgOk`) và hiện ô "Bản ghi bị loại". */
   BOMB_PITY: 30,        // 34 -> 30 (04/10/2026): nerf 22/09 QUA TAY, xem chú thích dưới
   sinceBomb: 0,
   bombDue() { return ++this.sinceBomb > this.BOMB_PITY; },

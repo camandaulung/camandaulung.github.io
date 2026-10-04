@@ -42,6 +42,27 @@ Dash.Data = {
 
   avg(a) { return a.length ? a.reduce((s, x) => s + x, 0) / a.length : null; },
 
+  /* BẢN GHI SÁT THƯƠNG KHÔNG ĐÁNG TIN (04/10/2026) — LỌC TRƯỚC MỌI PHÉP TÍNH THEO dmg.
+   *
+   * Đợt log đầu tháng 10 có 39% bản ghi (35/90) báo `dmg` nhỏ hơn thực tế ~40 lần:
+   * `dmg` xấp xỉ BẰNG `kills` (1,0-1,8 sát thương mỗi con) trong khi quái màn đó có
+   * 10-510 máu. Cùng màn 10-16, người khác ghi 36-55 dmg/kill.
+   *
+   * ĐÃ TRUY VÀ LOẠI TRỪ LỖI CODE: chỉ có 2 chỗ trừ máu quái (Enemy.hurt, Boss.hurt),
+   * cả hai đều gọi Telemetry.dealt đúng; mọi lời gọi hurt() đều truyền sát thương
+   * thật; dealt() chưa sửa lần nào từ lúc ra đời; defector không đụng máu. Dựng LẠI
+   * ĐÚNG build của client đó (tree 2-2-2-2, biến thể AAA, evo 0) rồi chạy màn 42:
+   * ghi được 176 dmg/kill — hoàn toàn bình thường. Nên đây là client bị can thiệp,
+   * không phải lỗi game.
+   *
+   * Ngưỡng 2: con quái yếu nhất trong bảng có 2 máu, nên dmg/kill < 2 là bất khả thi
+   * kể cả khi mọi đòn đều đánh thừa (dealt() đã cắt overkill). Để 2 chứ không để 3
+   * cho chắc tay — thà bỏ sót vài bản ghi rác còn hơn vứt nhầm bản ghi thật.
+   *
+   * CHỈ loại khỏi phần SÁT THƯƠNG. Win rate, máu còn, số đòn trúng vẫn tính đủ:
+   * trận đó có diễn ra thật, và mấy chỉ số kia không dính tới dmg. */
+  dmgOk(r) { return !(r.kills >= 10 && r.v >= 2 && r.dmg / r.kills < 2); },
+
   /* rows -> { kpi, levels: Map(lv -> số liệu), waves: {lose theo wave}, hard[] } */
   crunch(rows, opt) {
     // kênh 'test' = bản ghi kiểm luật / QA, không bao giờ tính vào số liệu
@@ -95,7 +116,9 @@ Dash.Data = {
        thắng có bom CỨU NGUY (nổ lúc máu < 35%). Chênh lệch có nhiễu: trận dài nhặt được
        nhiều bom hơn — đọc cùng số trận, đừng đọc một mình. */
   bomb(R) {
-    const B = R.filter(r => r.v >= 2);
+    // bỏ bản ghi sát thương không đáng tin — xem dmgOk()
+    const B = R.filter(r => r.v >= 2 && this.dmgOk(r));
+    const boDi = R.filter(r => r.v >= 2 && !this.dmgOk(r)).length;
     const sum = (a, k) => a.reduce((s, r) => s + (r[k] || 0), 0);
     const wr = a => (a.length ? a.filter(r => r.res === 'win').length / a.length : null);
     const withB = B.filter(r => r.bombs > 0), noB = B.filter(r => !r.bombs);
@@ -106,7 +129,8 @@ Dash.Data = {
       killPct: sum(B, 'kills') ? sum(B, 'bKill') / sum(B, 'kills') : null,
       perRun: this.avg(B.map(r => r.bombs || 0)),
       uplift: withB.length && noB.length ? wr(withB) - wr(noB) : null,
-      clutchWin: wins.length ? wins.filter(r => r.bClutch > 0).length / wins.length : null
+      clutchWin: wins.length ? wins.filter(r => r.bClutch > 0).length / wins.length : null,
+      boDi                     // số bản ghi bị loại vì `dmg` không đáng tin
     };
     const by = new Map();
     for (const r of B) {
