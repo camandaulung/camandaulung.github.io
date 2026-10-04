@@ -1526,7 +1526,29 @@ SC.Power = {
   den()   { return (1 + this._t() * this.S.den) * this._v(0); },   // mật độ quái
   // × cân bằng động của gara tiến hóa: tàu mới ngấm dần vào độ khó trong 1-6 màn
   hp()    { return (1 + this._t() * this.S.hp) * this._v(1) * SC.EvoGarage.enemyHpMul(SC.Game.levelId || 1); },
-  dmg()   { return (1 + this._t() * this.S.dmg) * SC.EvoGarage.enemyDmgMul(SC.Game.levelId || 1) * this.lateEase(); },
+  dmg()   { return (1 + this._t() * this.S.dmg) * SC.EvoGarage.enemyDmgMul(SC.Game.levelId || 1)
+    * this.lateEase() * this.earlyEase(); },
+
+  /* NÂNG ĐỠ MÀN ĐẦU (04/10/2026) — đo trên log trận thật, không phải cảm giác.
+     20 trận màn 1 của 19 người khác nhau: THUA 20%. Đây là màn DUY NHẤT có tỉ lệ
+     thua đáng kể, mà nó lại là màn đầu tiên người chơi mới chạm vào.
+     Soi hai nhóm thì rõ là chuyện TAY NGHỀ, không phải quái trâu:
+       thua : chính xác 20% · trúng 8,0 đòn · hạ 12 con
+       thắng: chính xác 34% · trúng 1,3 đòn · hạ 31 con
+     Người thua không bị quái dày máu chặn — họ chưa biết ngắm và né, ăn đủ 8 đòn
+     (máu 100, mỗi đòn ~12) là hết. Cùng một người chơi lại lần hai là thắng ngay
+     (pk 1ep8d1e: 9% -> 36% chính xác; zsblf3: 18% -> 24%). Tức là cần NỚI CHỖ ĐỂ
+     HỌC, không phải hạ độ khó cả game.
+     Nên chỉ chạm SÁT THƯƠNG và chỉ 3 màn đầu — máu quái, mật độ, nhịp bắn giữ
+     nguyên để nhịp màn không đổi. Đối xứng với lateEase ở trên, dùng chung hàm.
+     Tự tắt từ màn 4, nơi log đã cho thấy 100% thắng và hp còn 1,00. */
+  EARLY: SC.bal('power.earlyDmg', { from: 1, full: 4, start: 0.70, end: 1.00 }),
+  earlyEase() {
+    const id = SC.Game.levelId || 1;
+    if (id >= this.EARLY.full) return 1;
+    const k = SC.clamp((id - this.EARLY.from) / Math.max(1, this.EARLY.full - this.EARLY.from), 0, 1);
+    return this.EARLY.start + (this.EARLY.end - this.EARLY.start) * k;
+  },
 
   /* HẠ SÁT THƯƠNG QUÁI CUỐI GAME (22/09/2026, phản hồi "từ màn 51 khó quá"): màn 51
      giảm 10%, trượt tuyến tính tới 15% ở màn 60 rồi giữ 15% cho cả vòng vô tận.
@@ -3300,8 +3322,15 @@ SC.Items = {
      không cộng dồn: hạ trọng số thì bom ngẫu nhiên thưa đi, bảo hiểm lại nổ dày hơn
      để bù, nên sửa MỘT bên gần như không nhúc nhích. Mô phỏng đúng cơ chế ở
      system-combat.kill(): w 4->3.5 một mình còn 32,3%; pity 30->34 một mình còn 31,1%;
-     CẢ HAI mới về 30,4% (2,52 -> 2,23 quả/trận). */
-  BOMB_PITY: 34,
+     CẢ HAI mới về 30,4% (2,52 -> 2,23 quả/trận).
+     04/10/2026 — ĐO LẠI TRÊN LOG THẬT: cả hai cùng lúc là QUÁ TAY. Mục tiêu 30% mà
+     thực tế còn 22,2% (55 trận sạch) / 23,9% (cả 90 trận). Mô hình hụt vì nó giả định
+     tỉ trọng bom đều giữa các màn, trong khi log cho thấy nó dao động rất mạnh theo
+     màn. Nên LÙI pity về 30, GIỮ w 3,5 và mul 0,76 — nửa bước, rồi đo lại chứ không
+     chỉnh dồn hai nhịp (đúng bài học của chính lần nerf này).
+     CẢNH BÁO khi đọc lại số: 39% bản ghi trong đợt log đó có `dmg` sai ~40 lần
+     (xem mục "log trận" trong CLAUDE.md) — lọc trước khi kết luận. */
+  BOMB_PITY: 30,        // 34 -> 30 (04/10/2026): nerf 22/09 QUA TAY, xem chú thích dưới
   sinceBomb: 0,
   bombDue() { return ++this.sinceBomb > this.BOMB_PITY; },
 
