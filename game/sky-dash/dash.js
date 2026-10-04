@@ -13,6 +13,7 @@ Dash.UI = {
     ['fCh', 'fQuit'].forEach(id => this.$(id).addEventListener('change', () => this.draw()));
     this.$('fDays').addEventListener('change', () => this.reload());
     this.$('btnReload').addEventListener('click', () => this.reload());
+    this.$('btnExport').addEventListener('click', () => this.exportRaw());
     Chart.defaults.color = '#9fb3d9';
     Chart.defaults.borderColor = 'rgba(120,160,255,.12)';
     Chart.defaults.font.family = 'system-ui, sans-serif';
@@ -44,6 +45,40 @@ Dash.UI = {
     const go = async fn => { try { await fn(); location.reload(); } catch (err) { this.$('status').append(' ' + Portal.FB.err(err)); } };
     if (this.$('btnIn')) this.$('btnIn').onclick = () => go(() => Dash.Data.login());
     if (this.$('btnOut')) this.$('btnOut').onclick = () => go(async () => { await Dash.Data.logout(); await Dash.Data.login(); });
+  },
+
+  /* XUẤT LOG THÔ (04/10/2026) — để mang số liệu ra ngoài mà phân tích cân bằng.
+   *
+   * Vì sao xuất THÔ chứ không xuất bảng đã gộp: `crunch()` đã quy về trung bình theo
+   * màn, mà việc cân bằng lại cần cắt theo chiều khác (theo lực chiến, theo wave chết,
+   * theo cây kỹ năng...). Có bản ghi gốc thì gộp kiểu nào cũng được; có bảng gộp rồi
+   * thì không quay ngược lại được.
+   *
+   * AN TOÀN: `runs` không chứa tên hay email — định danh duy nhất là `pk`, băm từ uid
+   * (xem system-telemetry.js). Nên file xuất ra chia sẻ được, nhưng vẫn là số liệu nội
+   * bộ: đừng đăng công khai.
+   *
+   * Xuất ĐÚNG những gì đang tải (theo ô Thời gian), KHÔNG lọc theo kênh / bỏ ngang —
+   * hai ô đó chỉ là cách NHÌN, lọc sẵn lúc xuất là tự tay vứt mất dữ liệu người đọc
+   * file có thể cần. Bộ lọc được ghi vào phần `view` để biết lúc xuất đang xem gì. */
+  exportRaw() {
+    if (!this.rows.length) return void (this.$('status').textContent = 'Chưa có bản ghi nào để xuất.');
+    const goi = {
+      game: 'sky-chicken', collection: 'runs',
+      exportedAt: new Date().toISOString(),
+      days: +this.$('fDays').value,
+      count: this.rows.length,
+      capped: this.rows.length >= Dash.Data.LIMIT,   // chạm trần 5000 -> số liệu bị cắt
+      view: { ch: this.$('fCh').value || 'all', quit: this.$('fQuit').checked },
+      rows: this.rows
+    };
+    const ten = `sky-runs-${new Date().toISOString().slice(0, 10)}-${goi.days}d-${goi.count}.json`;
+    const url = URL.createObjectURL(new Blob([JSON.stringify(goi)], { type: 'application/json' }));
+    const a = Object.assign(document.createElement('a'), { href: url, download: ten });
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);   // thu hồi muộn: Safari cần blob sống qua cú click
+    this.$('status').textContent = `Đã xuất ${goi.count.toLocaleString('vi-VN')} bản ghi → ${ten}`
+      + (goi.capped ? ' · CHẠM TRẦN, thu hẹp thời gian để lấy đủ' : '');
   },
 
   draw() {
