@@ -631,12 +631,16 @@ SC.Endless = {
     });
   },
 
-  /* Nhãn ngắn cho lobby và bảng kết quả */
-  label(id) {
-    return this.active(id)
-      ? `VÒNG ${this.cycle(id) + 1} · MÀN ${this.baseId(id)}`
-      : 'MÀN ' + String(id).padStart(2, '0');
-  }
+  /* Nhãn ngắn cho lobby và bảng kết quả.
+     MỘT HỆ ĐÁNH SỐ DUY NHẤT — SỐ TUYỆT ĐỐI (04/10/2026). Bản cũ sang vòng vô tận thì
+     đổi sang đếm theo vòng ("VÒNG 2 · MÀN 26"), trong khi MỌI chỗ khác vẫn dùng số
+     tuyệt đối: thẻ lobby `nowMap`, dòng mảnh tiến hóa ("mảnh kế rơi ở MÀN 87"), và
+     chính `highestLevel` đẩy lên bảng xếp hạng. Hậu quả thấy ngay trên màn kết quả:
+     tiêu đề ghi "MÀN 26" còn dòng mảnh ngay dưới ghi "MÀN 87" — cùng một màn, hai
+     con số, người chơi không biết tin cái nào (anh Đức bắt được 04/10).
+     Bỏ hẳn cách đếm theo vòng: qua màn 60 là biết đang ở vòng vô tận rồi, không cần
+     nhãn nói thêm. Muốn biết vòng mấy thì `cycle(id)` vẫn còn đó cho phần tính toán. */
+  label(id) { return 'MÀN ' + String(id).padStart(2, '0'); }
 };
 
 /* Mọi nơi cần dữ liệu map đều đi qua đây thay vì SC.LEVELS[id-1], nhờ vậy vòng vô tận
@@ -9648,13 +9652,11 @@ SC.Rank = {
     stars: () => 'Tính cả sao kiếm được ở vòng vô tận.'
   },
 
-  /* Nhãn màn cho bảng: trong chiến dịch thì "Màn 42", sang vòng vô tận thì
-     "Vòng 2 · Màn 5" — con số tuyệt đối vẫn là thứ dùng để xếp hạng. */
-  lv(n) {
-    return SC.Endless && SC.Endless.active(n)
-      ? `Vòng ${SC.Endless.cycle(n) + 1} · ${SC.Endless.baseId(n)}`
-      : 'Màn ' + n;
-  },
+  /* Nhãn màn cho bảng — SỐ TUYỆT ĐỐI, cùng hệ với mọi chỗ khác (04/10/2026).
+     Bản cũ ghi "Vòng 2 · 5" cho vòng vô tận, mà bảng lại SẮP THEO SỐ TUYỆT ĐỐI —
+     nên hàng trên có thể ghi số nhỏ hơn hàng dưới, nhìn như bảng sắp sai. Xem lý do
+     đầy đủ ở `SC.Endless.label`. */
+  lv(n) { return 'Màn ' + n; },
 
   /* Lấy số màn từ dữ liệu, đừng chép cứng — đổi levelsPerBiome trong Excel là
      câu này sai ngay, mà nó lại là câu người chơi đọc nhiều nhất ở tab Tốc độ. */
