@@ -3168,6 +3168,46 @@ CC.Pieces = (function () {
 })();
 
 ;
+/* ===== js/board-wood-texture.js ===== */
+/* board-wood-texture.js — vân gỗ cho ô bàn cờ (art/wood-light.webp, wood-dark.webp)
+ *
+ * Pattern `userSpaceOnUse` trải MỘT tấm vân cho cả bàn 800×800 chứ không lặp mỗi ô:
+ * thớ gỗ chạy liền qua các ô cùng màu như bàn gỗ khảm thật. Lặp từng ô thì 32 ô
+ * giống hệt nhau, mắt nhận ra ngay là hoa văn dán.
+ *
+ * Ô tối xoay vân 90° — hai loại gỗ khảm ngược thớ, tách ô sáng/tối rõ hơn khi nhìn
+ * lướt trên màn nhỏ.
+ *
+ * LƯỚI ĐỠ: lớp màu phẳng nằm dưới ảnh trong pattern, VÀ CSS ghi `fill: url(#..) màu`
+ * — thiếu ảnh hay thiếu pattern thì ô vẫn đúng màu cũ.
+ */
+
+CC.BoardWood = (function () {
+  const s = (t, a, c) => CC.util.svg(t, a, c);
+
+  /* `opacity` cho màu phẳng cũ ăn qua lớp vân: ảnh vân sáng AI ra ngả VÀNG, phủ 85%
+   * thì ô sáng thành vàng chanh, lệch hẳn tông kem của quân trắng (soi 10/10/2026). */
+  function pattern(id, file, baseClass, rotate, opacity) {
+    return s('pattern', {
+      id, patternUnits: 'userSpaceOnUse', width: 800, height: 800,
+      patternTransform: rotate ? 'rotate(90 400 400)' : null
+    }, [
+      s('rect', { class: baseClass, width: 800, height: 800 }),
+      s('image', { href: 'art/' + file, width: 800, height: 800, preserveAspectRatio: 'none', opacity })
+    ]);
+  }
+
+  return {
+    defs() {
+      return s('defs', null, [
+        pattern('wood-l', 'wood-light.webp', 'wood-base-l', false, 0.5),
+        pattern('wood-d', 'wood-dark.webp', 'wood-base-d', true, 0.8)
+      ]);
+    }
+  };
+})();
+
+;
 /* ===== js/board-svg-render.js ===== */
 /* board-svg-render.js — dung ban co SVG va dong bo quan theo the co
  *
@@ -3291,6 +3331,7 @@ CC.Board = (function () {
         viewBox: '0 0 ' + (8 * SQ) + ' ' + (8 * SQ),
         xmlns: 'http://www.w3.org/2000/svg'
       });
+      svg.appendChild(CC.BoardWood.defs());
       ['squares', 'coords', 'marks', 'pieces', 'dots', 'drag'].forEach(name => {
         layers[name] = CC.util.svg('g', { class: 'layer layer-' + name });
         svg.appendChild(layers[name]);
@@ -5821,6 +5862,83 @@ CC.CatFaces = (function () {
 })();
 
 ;
+/* ===== js/cat-art-raster.js ===== */
+/* cat-art-raster.js — mèo vẽ bằng ảnh AI (art/cat-<id>-<mood>.webp)
+ *
+ * Ảnh sinh bằng tools/gen-assets.mjs, nén bằng tools/make-game-art.mjs. 8 biểu cảm
+ * của một con là ẢNH SỬA CHẶT từ cùng một chân dung nên trùng khít nhau — đổi nét
+ * mặt chỉ là đổi `href`, con mèo không nhảy chỗ.
+ *
+ * VÌ SAO BỌC ẢNH TRONG ĐÚNG KHUNG SVG CŨ (viewBox 0 0 200 210):
+ * cat-fx-effects.js vẽ zzz / lấp lánh / mồ hôi / dấu hỏi theo toạ độ của khung đó,
+ * và cat-animations.css gắn lớp mood-* lên thẻ gốc (rung khi hoảng, nhảy khi mừng).
+ * Giữ khung = hai hệ đó chạy nguyên, không sửa dòng nào.
+ *
+ * LƯỚI ĐỠ: ảnh không tải được (cài lần đầu rớt mạng, cache bị xoá dở) thì quay về
+ * mèo SVG vẽ tay. Mèo không bao giờ được biến mất khỏi màn hình.
+ */
+
+CC.CatArt = (function () {
+  const MOODS = ['idle', 'think', 'smug', 'panic', 'sad', 'sleepy', 'cheer', 'confused'];
+  const broken = {};       // id -> true: ảnh con này hỏng, dùng SVG suốt phiên
+  const warmed = {};       // id -> true: đã nạp trước 8 biểu cảm
+
+  const url = (id, mood) => 'art/cat-' + id + '-' + (MOODS.indexOf(mood) >= 0 ? mood : 'idle') + '.webp';
+
+  /* Nạp trước cả 8 tấm ngay khi dựng con mèo. Không nạp thì lần đầu mèo hoảng giữa
+   * ván, ảnh panic còn đang tải — khung mèo trống trơn đúng lúc kịch tính nhất. */
+  function warm(id) {
+    if (warmed[id]) return;
+    warmed[id] = true;
+    MOODS.forEach(m => { const i = new Image(); i.decoding = 'async'; i.src = url(id, m); });
+  }
+
+  return {
+    url,
+
+    /* Dựng mèo ảnh. Trả null nếu con này đã hỏng ảnh — người gọi dùng SVG.
+     * onFail chạy khi ảnh hỏng SAU KHI đã dựng (lỗi tải đến muộn). */
+    mount(container, p, onFail) {
+      if (broken[p.id]) return null;
+      const svg = CC.util.svg('svg', {
+        class: 'cat cat-art', id: 'cat-svg', viewBox: '0 0 200 210',
+        xmlns: 'http://www.w3.org/2000/svg', role: 'img',
+        'data-cat': p.id, 'aria-label': 'Mèo ' + p.name
+      });
+      const img = CC.util.svg('image', {
+        class: 'cat-art-img', x: 0, y: 0, width: 200, height: 208,
+        preserveAspectRatio: 'xMidYMax meet', href: url(p.id, 'idle')
+      });
+      img.addEventListener('error', () => { broken[p.id] = true; if (onFail) onFail(); }, { once: true });
+      svg.appendChild(img);
+      svg.appendChild(CC.util.svg('g', { id: 'cat-fx', class: 'cat-fx' }));
+      container.appendChild(svg);
+      warm(p.id);
+      return svg;
+    },
+
+    paint(svg, mood) {
+      const img = svg.querySelector('.cat-art-img');
+      if (img) img.setAttribute('href', url(svg.getAttribute('data-cat'), mood));
+    },
+
+    /* Ảnh đại diện ở thẻ chọn đối thủ. CSS phóng to + neo phía trên để lấy phần đầu. */
+    avatar(p, size) {
+      if (broken[p.id]) return CC.CatBody.face(p, size);
+      const img = CC.util.el('img', {
+        class: 'cat-avatar-img', src: url(p.id, 'idle'), alt: '',
+        width: size, height: size, decoding: 'async'
+      });
+      img.addEventListener('error', () => {
+        broken[p.id] = true;
+        img.replaceWith(CC.CatBody.face(p, size));
+      }, { once: true });
+      return img;
+    }
+  };
+})();
+
+;
 /* ===== js/cat-mood-table.js ===== */
 /* cat-mood-table.js — bang 8 trang thai cua Leo (du lieu thuan)
  *
@@ -6016,8 +6134,10 @@ CC.Cat = (function () {
     if (svgRoot && builtFor === p.id) return;
 
     if (svgRoot) svgRoot.remove();
-    svgRoot = CC.CatBody.mount(host, p);
-    faceGroup = svgRoot.querySelector('#cat-face');
+    // Ảnh AI trước, SVG vẽ tay làm lưới đỡ. Ảnh hỏng đến muộn → dựng lại bằng SVG.
+    const art = CC.CatArt.mount(host, p, () => { builtFor = null; build(); });
+    svgRoot = art || CC.CatBody.mount(host, p);
+    faceGroup = art ? null : svgRoot.querySelector('#cat-face');
     builtFor = p.id;
     CC.CatFx.init(svgRoot);
     applyNow('idle');
@@ -6030,9 +6150,10 @@ CC.Cat = (function () {
 
   function paint(name) {
     const m = CC.CatMoods.get(name);
-    CC.CatFaces.render(faceGroup, m);
+    if (faceGroup) CC.CatFaces.render(faceGroup, m);
+    else CC.CatArt.paint(svgRoot, name);
     // Lop CSS dieu khien tu the than/tai/duoi
-    svgRoot.setAttribute('class', 'cat ' + (m.cls || ''));
+    svgRoot.setAttribute('class', 'cat ' + (faceGroup ? '' : 'cat-art ') + (m.cls || ''));
     CC.CatFx.show(m.fx || null);
   }
 
@@ -6061,7 +6182,8 @@ CC.Cat = (function () {
     clearTimeout(blinkTimer);
     blinkTimer = setTimeout(() => {
       if (document.hidden) { scheduleBlink(); return; }
-      if ((cur === 'idle' || cur === 'think') && !blinking) {
+      // Mèo ảnh không chớp: không có tấm nhắm mắt riêng, mượn `sleepy` thì như ngủ gật.
+      if ((cur === 'idle' || cur === 'think') && !blinking && faceGroup) {
         blinking = true;
         const m = CC.CatMoods.get(cur);
         CC.CatFaces.render(faceGroup, Object.assign({}, m, { eyes: 'closed' }));
@@ -8122,7 +8244,7 @@ CC.EloPicker = (function () {
     /* Anh dai dien la KHUON MAT that cua con meo do, khong phai bieu tuong chung.
      * Nguoi choi nhan ra doi thu ngay tu man chon, truoc khi vao van. */
     const avatar = CC.util.el('div', { class: 'elo-avatar' });
-    avatar.appendChild(CC.CatBody.face(cat, 54));
+    avatar.appendChild(CC.CatArt.avatar(cat, 54));
 
     const info = CC.util.el('div', { class: 'elo-info' }, [
       CC.util.el('div', { class: 'elo-name', text: cat.name }),

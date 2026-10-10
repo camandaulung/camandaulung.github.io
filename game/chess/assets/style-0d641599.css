@@ -935,3 +935,88 @@ button.ml-san:hover { background: rgba(255,255,255,.08); }
 @media (prefers-reduced-motion: reduce) {
   .fx-burst, .fx-check-pulse, .fx-promote, .fx-confetti { display: none; }
 }
+
+/* ===== css/art-skin.css ===== */
+/* art-skin.css — lớp áo ảnh AI (art/*.webp, sinh bằng tools/gen-assets.mjs)
+ *
+ * Tách riêng khỏi style.css: gỡ cả lớp áo chỉ là bỏ một thẻ <link>, mọi thứ quay về
+ * giao diện vẽ tay cũ. Đường dẫn `../art/` đúng ở CẢ HAI chỗ: css/ khi chạy dev và
+ * assets/ sau khi build.mjs nối CSS — hai thư mục cùng nằm một tầng dưới gốc game.
+ */
+
+/* ---------- nền phòng khách ----------
+ * Lớp cố định riêng chứ không `background-attachment: fixed`: iOS Safari bỏ qua fixed
+ * và vẽ lại nền theo từng nhịp cuộn. body phải trong suốt, không thì nền của body
+ * (vẽ SAU lớp z-index âm) che mất tranh. */
+body { background: transparent; }
+body::before {
+  content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  /* Phủ tối 80-92%: chữ thoại và bàn cờ nằm đè lên, tranh chỉ được là KHÔNG KHÍ.
+   * Đèn bàn trong tranh sáng nhất ở giữa — đúng chỗ bàn cờ — nên phủ dày hơn ở đó. */
+  background:
+    radial-gradient(ellipse at 50% 45%, rgba(27, 21, 16, .55), rgba(27, 21, 16, 0) 70%),
+    linear-gradient(rgba(27, 21, 16, .78), rgba(27, 21, 16, .9)),
+    url(../art/bg-portrait.webp) center / cover no-repeat,
+    var(--bg);
+}
+@media (min-aspect-ratio: 1/1) {
+  body::before {
+    background:
+      radial-gradient(ellipse at 50% 45%, rgba(27, 21, 16, .55), rgba(27, 21, 16, 0) 70%),
+      linear-gradient(rgba(27, 21, 16, .78), rgba(27, 21, 16, .9)),
+      url(../art/bg-landscape.webp) center / cover no-repeat,
+      var(--bg);
+  }
+}
+@media (prefers-color-scheme: light) {
+  body::before {
+    background:
+      linear-gradient(rgba(245, 237, 224, .86), rgba(245, 237, 224, .93)),
+      url(../art/bg-portrait.webp) center / cover no-repeat,
+      var(--bg);
+  }
+}
+
+/* ---------- biểu tượng màn menu (thay emoji 🐱) ---------- */
+.menu-cat img {
+  display: block; margin: 0 auto;
+  width: 132px; height: auto;
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, .35));
+}
+
+/* ---------- bàn cờ vân gỗ (pattern ở js/board-wood-texture.js) ----------
+ * Màu sau url() là lưới đỡ khi pattern không có — ô vẫn đúng màu phẳng cũ. */
+.sq-light { fill: url(#wood-l) var(--sq-light); }
+.sq-dark { fill: url(#wood-d) var(--sq-dark); }
+.wood-base-l { fill: var(--sq-light); }
+.wood-base-d { fill: var(--sq-dark); }
+
+/* ---------- ảnh đại diện ở thẻ chọn đối thủ ----------
+ * Ảnh là cả con mèo ngồi (dọc ~3:4). Phủ kín ô tròn, neo mép trên, phóng 1.4 lần
+ * từ đỉnh đầu → ô 54px chỉ còn khuôn mặt, đúng như mặt SVG cũ. */
+/* Ô tròn có đèn rọi từ trên: nền --bg2 phẳng tối làm Mực/Đại Ka (lông đen) chìm mất mặt. */
+.elo-avatar { background: radial-gradient(circle at 50% 35%, #6b5238, #2e2419 75%); }
+.elo-avatar .cat-avatar-img {
+  display: block; width: 100%; height: 100%;
+  object-fit: cover; object-position: 50% 0;
+  transform: scale(1.4); transform-origin: 50% 6%;
+}
+
+/* ---------- mèo ảnh trong ván ----------
+ * Quầng sáng kem quanh viền: Mực và Đại Ka lông tối, đặt thẳng lên nền nâu là chìm
+ * mất dáng (đã soi bằng mắt 10/10/2026). Thêm quầng cho CẢ 8 con để không con nào
+ * trông "dán" khác con nào. */
+.cat-art { filter: drop-shadow(0 0 3px rgba(243, 227, 200, .45)) drop-shadow(0 4px 6px rgba(0, 0, 0, .35)); }
+@media (prefers-color-scheme: light) {
+  .cat-art { filter: drop-shadow(0 4px 6px rgba(43, 33, 24, .25)); }
+}
+
+/* Thở: không có thân/đuôi/tai rời như SVG nên cả tấm ảnh phập phồng từ chân lên. */
+.cat-art-img { transform-origin: 50% 100%; animation: breathe 3.2s ease-in-out infinite; }
+.cat-art.mood-sleepy .cat-art-img { animation-duration: 5s; }
+.cat-art.mood-sad .cat-art-img { animation: none; transform: translateY(3px) scaleY(.98); }
+/* Rung khi hoảng (mood-panic) và nhảy khi mừng (mood-cheer) gắn ở thẻ gốc trong
+ * cat-animations.css — mèo ảnh hưởng nguyên, không cần khai lại. */
+
+/* Zzz và dấu hỏi tô màu mực của bộ lông SVG — trên nền tối thì gần như vô hình. */
+.cat-art .fx-z, .cat-art .fx-question text { fill: var(--text); }
