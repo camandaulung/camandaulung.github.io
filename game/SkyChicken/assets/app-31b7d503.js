@@ -376,7 +376,11 @@ SC.ITEM_DEF = SC.bal('items', [
 
 ;
 /* ===== js/data-enemy-types.js ===== */
-/* data-enemy-types.js — 22 loại quái: máy bay chiến đấu tạo hình theo côn trùng và chim
+/* data-enemy-types.js — 22 loại quái: QUÂN ĐOÀN GÀ khoác giáp/máy bay theo côn trùng và chim
+ *
+ * Đổi tên 10/10/2026 (rework art style B): mọi quái thường vẽ lại thành GÀ mặc giáp theo
+ * loài cũ (ong bắp cày → GÀ ONG...). Khoá (gnat, hornet...) GIỮ NGUYÊN — Sổ tay, telemetry,
+ * xlsx cân bằng đều tra theo khoá. Chỉ đổi chữ hiện ra.
  *
  * 60 map mà chỉ 6 loại quái thì tới map 20 người chơi đã thuộc lòng mọi thứ. Ở đây mở
  * dần: vào game có 3 loại, cứ 3 map mở thêm 1 loại -> 3 + 19 = 22 loại, loại cuối
@@ -399,30 +403,30 @@ SC.ITEM_DEF = SC.bal('items', [
   };
 
   // ---- ba loại có sẵn từ map 1 ----
-  add('fly',    'GÀ CHIP CHIP',  3,  15, 66,  10, .30, 0,   'sine',   ['ins', 92,  1, 0, 0]);
-  add('gnat',   'MUỖI VẰN',      2,  12, 124, 7,  .18, 0,   'drop',   ['ins', 200, 0, 1, 0]);
-  add('hornet', 'ONG BẮP CÀY',   10, 21, 46,  26, .46, 2.2, 'hover',  ['ins', 46,  1, 2, 0], ['dart', 1, 0, 300]);
+  add('fly',    'GÀ CHIP CHIP',   3,  15, 66,  10, .30, 0,   'sine',   ['ins', 92,  1, 0, 0]);
+  add('gnat',   'GÀ MUỖI',        2,  12, 124, 7,  .18, 0,   'drop',   ['ins', 200, 0, 1, 0]);
+  add('hornet', 'GÀ ONG',         10, 21, 46,  26, .46, 2.2, 'hover',  ['ins', 46,  1, 2, 0], ['dart', 1, 0, 300]);
 
   // ---- mở dần, cứ 3 map một loại ----
-  add('beetle', 'GÀ MINION',     26, 26, 30,  48, .70, 0,   'push',   ['ins', 24,  2, 3, 1]);
-  add('dfly',   'CHUỒN CHUỒN',   12, 22, 54,  32, .50, 1.7, 'strafe', ['ins', 176, 3, 1, 0], ['laser', 1, 0, 420]);
-  add('moth',   'BƯỚM ĐÊM',      8,  20, 58,  24, .40, 0,   'weave',  ['ins', 276, 2, 0, 0]);
-  add('sparrow','CHIM SẺ',       7,  17, 96,  22, .34, 0,   'dive',   ['bird', 32, 0, 0, 0]);
-  add('locust', 'CHÂU CHẤU',     14, 20, 62,  34, .48, 2.4, 'hop',    ['ins', 74,  1, 1, 0], ['arrow', 1, 0, 380]);
-  add('mantis', 'BỌ NGỰA',       20, 23, 44,  44, .56, 2.0, 'hover',  ['ins', 112, 3, 2, 1], ['dart', 3, .28, 280]);
-  add('hawk',   'CHIM ƯNG',      18, 24, 88,  46, .55, 2.6, 'dive',   ['bird', 18, 1, 1, 0], ['arrow', 2, .14, 430]);
-  add('ffly',   'ĐOM ĐÓM',       11, 18, 70,  30, .44, 2.8, 'sine',   ['ins', 58,  0, 0, 0], ['blast', 1, 0, 240]);
-  add('scarab', 'BỌ CÁNH CỨNG',  34, 27, 28,  58, .78, 2.6, 'push',   ['ins', 150, 2, 3, 1], ['bounce', 2, .40, 300]);
-  add('vespa',  'ONG VÒ VẼ',     16, 20, 74,  38, .50, 1.6, 'strafe', ['ins', 40,  1, 2, 1], ['dart', 2, .20, 340]);
-  add('crow',   'GÀ MÁY',        22, 23, 92,  50, .58, 2.4, 'dive',   ['bird', 260, 2, 2, 0], ['blast', 1, 0, 300]);
-  add('cicada', 'VE SẦU',        28, 24, 40,  56, .62, 1.9, 'hover',  ['ins', 128, 3, 1, 0], ['laser', 2, .18, 460]);
-  add('owl',    'CÚ MÈO',        32, 26, 38,  64, .70, 3.0, 'hover',  ['bird', 36, 3, 3, 1], ['boomer', 2, .55, 260]);
-  add('stag',   'BỌ SỪNG',       46, 29, 26,  76, .84, 3.2, 'push',   ['ins', 12,  2, 3, 1], ['rocket', 1, 0, 200]);
-  add('falcon', 'CHIM CẮT',      30, 22, 116, 68, .60, 2.2, 'dive',   ['bird', 200, 1, 1, 1], ['arrow', 3, .12, 520]);
-  add('queen',  'ONG CHÚA',      52, 28, 36,  88, .86, 2.0, 'hover',  ['ins', 48,  3, 2, 1], ['dart', 5, .34, 310]);
-  add('vulture','KỀN KỀN',       58, 30, 44,  96, .88, 3.0, 'strafe', ['bird', 22, 2, 3, 1], ['rocket', 2, .26, 210]);
-  add('scorp',  'BÒ CẠP BAY',    64, 29, 34,  104, .90, 2.6, 'push',  ['ins', 8,   3, 3, 1], ['boomer', 3, .60, 280]);
-  add('phoenix','PHƯỢNG LỬA',    72, 31, 52,  120, .92, 1.8, 'weave', ['bird', 6, 3, 3, 1], ['blast', 3, .30, 330]);
+  add('beetle', 'GÀ MINION',      26, 26, 30,  48, .70, 0,   'push',   ['ins', 24,  2, 3, 1]);
+  add('dfly',   'GÀ CHUỒN CHUỒN', 12, 22, 54,  32, .50, 1.7, 'strafe', ['ins', 176, 3, 1, 0], ['laser', 1, 0, 420]);
+  add('moth',   'GÀ BƯỚM ĐÊM',    8,  20, 58,  24, .40, 0,   'weave',  ['ins', 276, 2, 0, 0]);
+  add('sparrow','GÀ TRE',         7,  17, 96,  22, .34, 0,   'dive',   ['bird', 32, 0, 0, 0]);
+  add('locust', 'GÀ CHÂU CHẤU',   14, 20, 62,  34, .48, 2.4, 'hop',    ['ins', 74,  1, 1, 0], ['arrow', 1, 0, 380]);
+  add('mantis', 'GÀ BỌ NGỰA',     20, 23, 44,  44, .56, 2.0, 'hover',  ['ins', 112, 3, 2, 1], ['dart', 3, .28, 280]);
+  add('hawk',   'GÀ CHỌI',        18, 24, 88,  46, .55, 2.6, 'dive',   ['bird', 18, 1, 1, 0], ['arrow', 2, .14, 430]);
+  add('ffly',   'GÀ ĐOM ĐÓM',     11, 18, 70,  30, .44, 2.8, 'sine',   ['ins', 58,  0, 0, 0], ['blast', 1, 0, 240]);
+  add('scarab', 'GÀ CÁNH CỨNG',   34, 27, 28,  58, .78, 2.6, 'push',   ['ins', 150, 2, 3, 1], ['bounce', 2, .40, 300]);
+  add('vespa',  'GÀ VÒ VẼ',       16, 20, 74,  38, .50, 1.6, 'strafe', ['ins', 40,  1, 2, 1], ['dart', 2, .20, 340]);
+  add('crow',   'GÀ MÁY',         22, 23, 92,  50, .58, 2.4, 'dive',   ['bird', 260, 2, 2, 0], ['blast', 1, 0, 300]);
+  add('cicada', 'GÀ VE SẦU',      28, 24, 40,  56, .62, 1.9, 'hover',  ['ins', 128, 3, 1, 0], ['laser', 2, .18, 460]);
+  add('owl',    'GÀ CÚ MÈO',      32, 26, 38,  64, .70, 3.0, 'hover',  ['bird', 36, 3, 3, 1], ['boomer', 2, .55, 260]);
+  add('stag',   'GÀ BỌ SỪNG',     46, 29, 26,  76, .84, 3.2, 'push',   ['ins', 12,  2, 3, 1], ['rocket', 1, 0, 200]);
+  add('falcon', 'GÀ CẮT',         30, 22, 116, 68, .60, 2.2, 'dive',   ['bird', 200, 1, 1, 1], ['arrow', 3, .12, 520]);
+  add('queen',  'GÀ ONG CHÚA',    52, 28, 36,  88, .86, 2.0, 'hover',  ['ins', 48,  3, 2, 1], ['dart', 5, .34, 310]);
+  add('vulture','GÀ KỀN KỀN',     58, 30, 44,  96, .88, 3.0, 'strafe', ['bird', 22, 2, 3, 1], ['rocket', 2, .26, 210]);
+  add('scorp',  'GÀ BÒ CẠP',      64, 29, 34,  104, .90, 2.6, 'push',  ['ins', 8,   3, 3, 1], ['boomer', 3, .60, 280]);
+  add('phoenix','GÀ PHƯỢNG LỬA',  72, 31, 52,  120, .92, 1.8, 'weave', ['bird', 6, 3, 3, 1], ['blast', 3, .30, 330]);
 
   SC.ENEMY_TYPES = T;
   /* Thứ tự mở khoá = thứ tự khai báo ở trên. Ba loại đầu có ngay từ map 1. */
@@ -2412,6 +2416,12 @@ SC.SpriteArt = {
     /* Quái khắc chế (entity-enemy-counter.js): KHIÊN NGƯỢC = gà bông ôm khiên,
        GIÁP DÀY = tổ ong phun đàn ong (chọn mẫu 21/09/2026) */
     counter: ['guard', 'brute'],
+    /* Rework style B (10/10/2026): FX texture (system-fx-sprites.js), vật phẩm rơi
+       (entity-item.js), lớp parallax mỗi vùng (system-background-decor.js) */
+    fx: ['fireball-a', 'fireball-b', 'fireball-c', 'smoke', 'spark', 'shockwave', 'muzzle', 'hit', 'feather'],
+    item: ['coin', 'power', 'heal', 'shield', 'bomb', 'gem'],
+    decor: ['farm', 'dune', 'frost', 'toxic', 'magma', 'ocean', 'neon', 'scrap', 'storm', 'void']
+      .reduce((a, v) => a.concat(v + '-cloud', v + '-prop'), []),
   },
 
   /* Quái phải CHÚI XUỐNG phía người chơi. Tấm nào AI vẽ đầu hướng lên thì xoay
@@ -2419,10 +2429,10 @@ SC.SpriteArt = {
    * _orient-check.png. Không flip: hawk/scorp/tank/fly đã chúi xuống sẵn,
    * chick/ufo nhìn thẳng nên xoay là ngược đầu.
    * 21/09/2026: BỎ crow + beetle khỏi FLIP — art đổi từ côn trùng (đầu hướng lên)
-   * sang gà máy/gà minion vẽ NHÌN THẲNG, giữ FLIP là treo ngược đầu gà. */
-  FLIP: ['gnat', 'phoenix', 'scarab', 'egg', 'hen', 'cicada',
-    'dfly', 'dive', 'falcon', 'ffly', 'hornet', 'locust', 'mantis', 'moth',
-    'owl', 'queen', 'sparrow', 'stag', 'vespa', 'vulture'],
+   * sang gà máy/gà minion vẽ NHÌN THẲNG, giữ FLIP là treo ngược đầu gà.
+   * 10/10/2026 (style B): prompt mới vẽ MỌI con nhìn thẳng, dive vẽ sẵn mũi chúi xuống
+   * → danh sách RỖNG. Thêm lại khoá nào thì soi _orient-check.png trước. */
+  FLIP: [],
 
   _imgs: {},
 
@@ -2432,7 +2442,9 @@ SC.SpriteArt = {
         const img = new Image();
         img.src = this.BASE + kind + '-' + key + '.webp';
         img.onload = () => {
-          // xoá cache buffer để nướng lại bằng sprite (xem BẪY ở đầu file)
+          // xoá cache buffer để nướng lại bằng sprite (xem BẪY ở đầu file). fx/item/decor
+          // vẽ thẳng mỗi khung, không nướng — khỏi xoá 45 lần vô ích lúc mới vào game
+          if (kind === 'fx' || kind === 'item' || kind === 'decor') return;
           if (SC.EnemySprite) SC.EnemySprite._cache = {};
           if (SC.ShipArt) SC.ShipArt._cache = {};
         };
@@ -2449,6 +2461,43 @@ SC.SpriteArt = {
   },
 
   flipped(key) { return this.FLIP.indexOf(key) >= 0; },
+
+  /* Bóng đổ mềm: bản đen mờ của chính sprite, dựng MỘT LẦN mỗi ảnh — filter blur mỗi
+     khung trên ảnh trùm 384px là thứ giết khung hình trên máy yếu. `c.pad` = lề thêm
+     (theo tỉ lệ cạnh ảnh) để chỗ mờ không bị cắt, người vẽ bù lại khi đặt. */
+  shadow(img) {
+    if (img._sh) return img._sh;
+    const w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+    const pad = Math.ceil(w * 0.06), c = document.createElement('canvas');
+    c.width = w + pad * 2; c.height = h + pad * 2;
+    const g = c.getContext('2d');
+    g.filter = 'brightness(0) blur(' + Math.max(2, Math.round(w / 48)) + 'px)';
+    g.drawImage(img, pad, pad, w, h);
+    c.pad = pad / w;
+    return (img._sh = c);
+  },
+
+  /* Vẽ bóng dưới một sprite cỡ `s` ở gốc toạ độ: lệch xuống-phải + thu nhỏ cho cảm giác
+     đang bay cao trên mặt đất (nền nhìn từ trên xuống). */
+  drawShadow(ctx, img, s, k) {
+    const sh = this.shadow(img), S = s * 0.8 * (1 + sh.pad * 2);
+    ctx.save();
+    ctx.globalAlpha = k == null ? 0.3 : k;
+    ctx.drawImage(sh, s * 0.12 - S / 2, s * 0.22 - S / 2, S, S);
+    ctx.restore();
+  },
+};
+
+/* Cỡ VẼ so với trước rework (10/10/2026). CHỈ phóng hình — hitbox `r` giữ nguyên nên cân
+ * bằng không đổi. Chụp trước rework: tàu ~35px trên màn 414 (8% bề ngang), nhân vật chính
+ * như cái chấm; game bắn máy bay di động thường để tàu 12-15%. Gom một chỗ để chỉnh bằng
+ * mắt mà không lục 4 file. */
+SC.ArtScale = {
+  ship: 1.6, boss: 1.1,
+  /* Quái phóng THEO BÁN KÍNH, không đều: 1.2 đều cho mọi con làm gà minion (r=26) dính
+     chùm thành một mảng trong đội hình, trong khi muỗi (r=12) vẫn bé. Con nhỏ ×1.3, con
+     to ~×1.05 → khoảng cỡ co lại, con nào cũng đọc được mà đội hình không dính nhau. */
+  enemy(r) { return SC.clamp(1.36 - (r - 12) * 0.018, 1.02, 1.3); },
 };
 
 SC.SpriteArt.load();
@@ -2466,6 +2515,16 @@ SC.FX = {
   clear() {
     this.parts.length = 0; this.texts.length = 0;
     this.bolts.length = 0; this.rings.length = 0;
+    SC.FXS.clear();
+  },
+
+  /* Quái gục — gom mọi hiệu ứng vào một chỗ (10/10/2026): hạt chấm + lông gà như cũ
+     (ít hơn, vì texture nổ đã gánh phần "to") + cầu lửa/khói/sóng xung kích texture. */
+  kill(e) {
+    const big = !!e.isBoss;
+    this.burst(e.x, e.y, big ? '#ff8a2b' : '#ffe28a', big ? 50 : 12, big ? 420 : 250, big ? 6 : 3.4);
+    this.feathers(e.x, e.y, '#fff6d8', big ? 24 : 8);
+    SC.FXS.explode(e.x, e.y, e.r, big);
   },
 
   /* Tia sét nối hai điểm — dùng cho hiệu ứng SÉT LAN của đạn.
@@ -2556,9 +2615,25 @@ SC.FX = {
       if ((this.bolts[i].life -= dt) <= 0) this.bolts.splice(i, 1);
     for (let i = this.rings.length - 1; i >= 0; i--)
       if ((this.rings[i].life -= dt) <= 0) this.rings.splice(i, 1);
+    SC.FXS.update(dt);
   },
 
   render(ctx) {
+    SC.FXS.render(ctx);                 // texture nổ/khói nằm DƯỚI hạt chấm và chữ điểm
+    // Lông gà có sprite thì vẽ ở chế độ THƯỜNG: cộng màu một chiếc lông trắng là ra đốm
+    // sáng loá, mất dáng lông.
+    const fe = SC.SpriteArt.get('fx', 'feather');
+    if (fe) {
+      ctx.save();
+      for (const p of this.parts) {
+        if (!p.feather) continue;
+        ctx.globalAlpha = SC.clamp(p.life / p.max, 0, 1);
+        ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+        ctx.drawImage(fe, -p.s * 2.2, -p.s * 2.2, p.s * 4.4, p.s * 4.4);
+        ctx.restore();
+      }
+      ctx.restore();
+    }
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     for (const p of this.parts) {
@@ -2566,6 +2641,7 @@ SC.FX = {
       ctx.globalAlpha = a;
       ctx.fillStyle = p.c;
       if (p.feather) {
+        if (fe) continue;
         ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
         ctx.beginPath(); ctx.ellipse(0, 0, p.s * 1.8, p.s * 0.7, 0, 0, 6.283); ctx.fill();
         ctx.restore();
@@ -2603,6 +2679,112 @@ SC.FX = {
     }
     ctx.restore();
   }
+};
+
+;
+/* ===== js/system-fx-sprites.js ===== */
+/* system-fx-sprites.js — hạt hiệu ứng dùng TEXTURE AI (assets/art-game/fx-*.webp)
+ *
+ * VÌ SAO CÓ (rework style B 10/10/2026): nổ cũ chỉ là chấm tròn arc() — ảnh chụp trận
+ * không thấy nổ đâu. Mỗi texture là MỘT ảnh tĩnh, chuyển động do code lo (phóng to, mờ
+ * dần, xoay, trôi) — không dùng flipbook vì AI vẽ các khung không khớp nhau.
+ *
+ * Thiếu ảnh (chưa tải / offline lần đầu) thì không vẽ gì: hạt chấm cũ của SC.FX vẫn chạy
+ * song song nên màn hình không bao giờ "câm". Vẽ DƯỚI hạt chấm (SC.FX.render gọi trước).
+ */
+
+SC.FXS = {
+  list: [],
+  /* Trần riêng, tách khỏi SC.FX.MAX: một ảnh lớn đắt hơn một chấm. Chạm trần bỏ hạt CŨ
+     NHẤT — hạt mới luôn là thứ người chơi đang nhìn. */
+  MAX: 140,
+  _hitT: 0,
+
+  clear() { this.list.length = 0; },
+
+  /* o: s0/s1 = cạnh lúc sinh/lúc tắt (đơn vị ảo), life (giây), rot, spin, a (alpha đầu),
+     add (cộng màu), vx/vy, tint (chỉ cho texture TRẮNG: spark, shockwave) */
+  spawn(key, x, y, o) {
+    const img = SC.SpriteArt.get('fx', key);
+    if (!img) return;
+    if (this.list.length >= this.MAX) this.list.shift();
+    this.list.push({
+      img: o.tint ? this._tint(img, o.tint) : img, x, y,
+      vx: o.vx || 0, vy: o.vy || 0, s0: o.s0, s1: o.s1 == null ? o.s0 : o.s1,
+      life: o.life, max: o.life, rot: o.rot == null ? Math.random() * 6.283 : o.rot,
+      spin: o.spin || 0, a: o.a == null ? 1 : o.a, add: !!o.add
+    });
+  },
+
+  /* Nhuộm texture trắng: dựng MỘT LẦN mỗi (ảnh, màu) — source-atop trên canvas đệm */
+  _tints: {},
+  _tint(img, col) {
+    const k = img.src + col;
+    if (this._tints[k]) return this._tints[k];
+    const c = document.createElement('canvas');
+    c.width = img.naturalWidth; c.height = img.naturalHeight;
+    const g = c.getContext('2d');
+    g.drawImage(img, 0, 0);
+    g.globalCompositeOperation = 'source-atop'; g.globalAlpha = 0.65;
+    g.fillStyle = col; g.fillRect(0, 0, c.width, c.height);
+    return (this._tints[k] = c);
+  },
+
+  /* Quái gục: cầu lửa + khói + sóng xung kích + tia sáng. r = bán kính thân quái. */
+  explode(x, y, r, big) {
+    const k = big ? 1.5 : 1;
+    const fb = ['fireball-a', 'fireball-b', 'fireball-c'][(Math.random() * 3) | 0];
+    this.spawn('shockwave', x, y, { s0: r * 0.8, s1: r * 4.2 * k, life: 0.32, add: true, a: 0.85, tint: '#ffd27a' });
+    this.spawn(fb, x, y, { s0: r * 1.3 * k, s1: r * 3.4 * k, life: 0.42 * k, spin: SC.rnd(-1.5, 1.5) });
+    for (let i = 0; i < (big ? 4 : 2); i++) {
+      const a = Math.random() * 6.283;
+      this.spawn('smoke', x + Math.cos(a) * r * 0.6, y + Math.sin(a) * r * 0.6, {
+        s0: r * 1.1 * k, s1: r * 2.6 * k, life: 0.8, a: 0.55,
+        vx: Math.cos(a) * 30, vy: Math.sin(a) * 30 - 20, spin: SC.rnd(-0.8, 0.8)
+      });
+    }
+    this.spawn('spark', x, y, { s0: r * 3.2 * k, s1: r * 0.5, life: 0.18, add: true, rot: 0 });
+    if (big) for (let i = 0; i < 5; i++)       // trùm: chuỗi nổ phụ rải quanh thân
+      this.spawn(fb, x + SC.rnd(-r, r), y + SC.rnd(-r * 0.7, r * 0.7),
+        { s0: r * 0.5, s1: r * 1.6, life: SC.rnd(0.35, 0.6), spin: SC.rnd(-2, 2) });
+  },
+
+  /* Tia lửa khi đạn trúng: tự hãm 1 lần/40ms — đạn tràn bắn 30+ viên/giây trúng cùng
+     một con, sinh mỗi viên một ảnh là nuốt hết trần MAX trong nửa giây. */
+  hit(x, y) {
+    const now = performance.now() / 1000;
+    if (now - this._hitT < 0.04) return;
+    this._hitT = now;
+    this.spawn('hit', x, y, { s0: 26, s1: 12, life: 0.12, add: true });
+  },
+
+  /* Lửa đầu nòng: một lần mỗi loạt bắn, mũi chĩa theo hướng ngắm */
+  muzzle(x, y, ang) {
+    this.spawn('muzzle', x, y, { s0: 30, s1: 22, life: 0.06, add: true, rot: ang });
+  },
+
+  update(dt) {
+    for (let i = this.list.length - 1; i >= 0; i--) {
+      const p = this.list[i];
+      if ((p.life -= dt) <= 0) { this.list.splice(i, 1); continue; }
+      p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.spin * dt;
+    }
+  },
+
+  render(ctx) {
+    if (!this.list.length) return;
+    ctx.save();
+    for (const p of this.list) {
+      const t = 1 - p.life / p.max;                    // 0 → 1 theo tuổi
+      const s = p.s0 + (p.s1 - p.s0) * (1 - (1 - t) * (1 - t));   // nở nhanh rồi chậm lại
+      ctx.globalCompositeOperation = p.add ? 'lighter' : 'source-over';
+      ctx.globalAlpha = p.a * (t < 0.6 ? 1 : 1 - (t - 0.6) / 0.4);
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+      ctx.drawImage(p.img, -s / 2, -s / 2, s, s);
+      ctx.restore();
+    }
+    ctx.restore();
+  },
 };
 
 ;
@@ -2789,6 +2971,7 @@ SC.BG = {
     for (const s of this.stars) { s.y += s.sp * dt; if (s.y > SC.H) { s.y = -4; s.x = SC.rnd(0, SC.W); } s.tw += dt * 3; }
     for (const c of this.clouds) { c.y += c.sp * dt; if (c.y - c.s > SC.H) { c.y = -c.s * 2; c.x = SC.rnd(-60, SC.W + 60); } }
     for (const h of this.hills) h.off += h.sp * dt;
+    SC.BGDecor.update(dt);
   },
 
   render(ctx) {
@@ -2799,7 +2982,7 @@ SC.BG = {
     ctx.fillStyle = g; ctx.fillRect(0, 0, SC.W, SC.H);
     // đã có ảnh AI (mây vẽ sẵn trong ảnh) thì mây elip vẽ tay chỉ còn làm lớp gần mờ —
     // để nguyên độ đậm là hai kiểu mây chồng nhau, lộ ngay mảng elip giả
-    const cloudK = this._art(ctx, b.id) ? 0.4 : 1;
+    const art = this._art(ctx, b.id), cloudK = art ? 0.4 : 1;
 
     // sao
     ctx.save();
@@ -2809,6 +2992,10 @@ SC.BG = {
       ctx.fillRect(s.x, s.y, s.s, s.s);
     }
     ctx.restore();
+
+    // Có ảnh nền + decor (10/10/2026) thì BỎ HẲN đồi răng cưa và mây elip: ảnh chụp trận
+    // cũ, hai thứ đó chính là dải xanh đục hai mép và mảng sương giả giữa màn.
+    if (art && SC.BGDecor.render(ctx, b.id)) return;
 
     // đồi nền cuộn dọc (vẽ 2 bản để nối liền vô tận)
     for (const h of this.hills) {
@@ -2832,7 +3019,7 @@ SC.BG = {
   },
 
   /* Nền AI mỗi vùng (assets/art-game/bg-<id>.webp) — lớp XA NHẤT, cuộn chậm hơn đồi
-     để còn chiều sâu. Ảnh đã được tools/make-bg-loops.py crossfade đầu-cuối nên xếp
+     để còn chiều sâu. Ảnh đã được tools/make-bg-loops.mjs crossfade đầu-cuối nên xếp
      chồng dọc không lộ đường nối, và đã chặn độ sáng cho tối hơn máy bay.
      Chưa tải xong / thiếu file thì chỉ còn gradient trời — không bao giờ màn đen. */
   ART_SPEED: 18,
@@ -2867,6 +3054,77 @@ SC.BG = {
     ctx.lineTo(SC.W, oy + SC.H); ctx.closePath(); ctx.fill();
     ctx.globalAlpha = 1;
   }
+};
+
+;
+/* ===== js/system-background-decor.js ===== */
+/* system-background-decor.js — lớp PARALLAX GIỮA nền vùng và trận đấu (10/10/2026)
+ *
+ * VÌ SAO CÓ: nền cũ chỉ một tấm ảnh cuộn 18px/s + mây elip vẽ tay — ảnh chụp trận thấy
+ * rõ mảng elip giả và cả màn phẳng lì. Mỗi vùng thêm 2 ảnh trong suốt (một "mây", một
+ * "vật": khinh khí cầu, tảng băng, sứa...) trôi NHANH hơn nền nhiều lần → mắt đọc ra
+ * chiều sâu như đang bay cao thật. Vẽ trong SC.BG.render nên luôn nằm DƯỚI quái và đạn.
+ *
+ * Ít mảnh, mờ vừa phải: decor mà dày là che đạn quái — thứ người chơi phải nhìn để né.
+ */
+
+SC.BGDecor = {
+  N: 3,                       // số mảnh sống cùng lúc
+  list: [],
+  id: null,
+
+  reset(id) {
+    this.id = id;
+    this.list.length = 0;
+    // rải sẵn dọc màn hình để vào trận đã có chiều sâu, không đợi mảnh đầu trôi xuống
+    for (let i = 0; i < this.N; i++) this.list.push(this._spawn(SC.rnd(-0.2, 1) * SC.H));
+  },
+
+  /* Chỉnh sau ảnh chụp trận đầu (10/10/2026): mây 220-340 đặc 0.45-0.7 chiếm cả mảng màn,
+     đá dung nham 110-170 nhìn như CHƯỚNG NGẠI VẬT. Nay mây mỏng như hơi sương, vật nhỏ, tối
+     hơn một chút và mỗi lúc tối đa MỘT vật — decor phải lùi về sau, không tranh với quái. */
+  _spawn(y) {
+    const prop = !this.list.some(d => d.k === 'prop') && Math.random() < 0.4;
+    return {
+      k: prop ? 'prop' : 'cloud',
+      x: prop ? (Math.random() < 0.5 ? SC.rnd(20, 120) : SC.rnd(SC.W - 120, SC.W - 20)) : SC.rnd(-40, SC.W + 40),
+      y,
+      s: prop ? SC.rnd(70, 105) : SC.rnd(170, 260),            // cạnh dài, đơn vị ảo
+      sp: prop ? SC.rnd(85, 105) : SC.rnd(60, 90),             // nền 18px/s
+      a: prop ? 0.72 : SC.rnd(0.22, 0.38),
+      flip: Math.random() < 0.5
+    };
+  },
+
+  update(dt) {
+    for (let i = 0; i < this.list.length; i++) {
+      const d = this.list[i];
+      d.y += d.sp * dt;
+      // gỡ mảnh cũ TRƯỚC khi sinh: _spawn đếm "đã có vật chưa" trên chính danh sách này
+      if (d.y - d.s > SC.H) { this.list[i] = { k: '' }; this.list[i] = this._spawn(-SC.rnd(80, 260)); }
+    }
+  },
+
+  /* Trả false khi vùng này chưa có ảnh decor — người gọi giữ lớp mây vẽ tay làm thay */
+  render(ctx, id) {
+    if (id !== this.id) this.reset(id);
+    const any = SC.SpriteArt.get('decor', id + '-cloud') || SC.SpriteArt.get('decor', id + '-prop');
+    if (!any) return false;
+    ctx.save();
+    for (const d of this.list) {
+      const img = SC.SpriteArt.get('decor', id + '-' + d.k);
+      if (!img) continue;
+      const k = d.s / Math.max(img.naturalWidth, img.naturalHeight);
+      const w = img.naturalWidth * k, h = img.naturalHeight * k;
+      ctx.globalAlpha = d.a;
+      ctx.save(); ctx.translate(d.x, d.y);
+      if (d.flip) ctx.scale(-1, 1);                     // lật ngang cho đỡ lặp lại
+      ctx.drawImage(img, -w / 2, -h / 2, w, h);
+      ctx.restore();
+    }
+    ctx.restore();
+    return true;
+  },
 };
 
 ;
@@ -3115,6 +3373,112 @@ SC.FoeBullet = {
 };
 
 ;
+/* ===== js/entity-bullet-mine-art.js ===== */
+/* entity-bullet-mine-art.js — vẽ ĐẠN TA (tách khỏi entity-bullet.js đã chạm 199 dòng)
+ *
+ * VÌ SAO VIẾT LẠI (rework style B 10/10/2026): ảnh chụp trận cũ — đạn là hạt cam 6×20
+ * một dòng thưa, không có cảm giác "xả đạn". Nay ~2× cỡ, lõi trắng nóng, vệt đuôi.
+ *
+ * Lõi đạn dựng SẴN vào canvas một lần mỗi dáng (gradient dựng mỗi khung cho 200 viên là
+ * thứ giết khung hình), mỗi viên chỉ còn một drawImage. Lõi vẽ ở chế độ THƯỜNG, chỉ quầng
+ * sáng mới cộng màu ('lighter'): nền mới sáng hơn, cộng màu cả lõi là đạn cháy trắng mất
+ * màu cam — mà màu đạn là tín hiệu nhánh vũ khí (cam = tràn đạn, xanh = xuyên phá).
+ * Đạn vẫn XOAY THEO HƯỚNG BAY (bắn được sang hai bên — vẽ dọc cứng là đạn bay kiểu cua bò).
+ */
+
+SC.MineArt = {
+  RES: 3,                      // canvas đệm nét gấp 3 đơn vị ảo (DPR điện thoại 2-3)
+  _tex: {},
+
+  /* Mỗi dáng: khung [rộng, cao] theo đơn vị ảo, tâm viên đạn ở (rộng/2, oy) */
+  SHAPES: {
+    shot: { w: 16, h: 52, oy: 16 },
+    lance: { w: 18, h: 76, oy: 40 },
+  },
+
+  tex(kind) {
+    if (this._tex[kind]) return this._tex[kind];
+    const S = this.SHAPES[kind], R = this.RES;
+    const c = document.createElement('canvas');
+    c.width = S.w * R; c.height = S.h * R;
+    const g = c.getContext('2d');
+    g.scale(R, R); g.translate(S.w / 2, S.oy);
+    if (kind === 'shot') {
+      // vệt đuôi mờ dần phía sau — mắt đọc ra tốc độ
+      const tg = g.createLinearGradient(0, 6, 0, 36);
+      tg.addColorStop(0, 'rgba(255,140,40,.75)'); tg.addColorStop(1, 'rgba(255,120,30,0)');
+      g.fillStyle = tg;
+      g.beginPath(); g.moveTo(-3.6, 6); g.lineTo(0, 36); g.lineTo(3.6, 6); g.closePath(); g.fill();
+      // thân viên nang cam, mép sẫm để còn nổi trên nền sáng
+      const bg = g.createLinearGradient(0, -12, 0, 14);
+      bg.addColorStop(0, '#ffd27a'); bg.addColorStop(1, '#ff7a1a');
+      g.fillStyle = bg; g.strokeStyle = 'rgba(150,50,0,.85)'; g.lineWidth = 1;
+      g.beginPath(); g.ellipse(0, 1, 5, 13, 0, 0, 6.283); g.fill(); g.stroke();
+      g.fillStyle = '#fffbe6';                      // lõi trắng nóng
+      g.beginPath(); g.ellipse(0, -3, 2.4, 7, 0, 0, 6.283); g.fill();
+    } else {
+      // giáo năng lượng: dài, mảnh, mũi trắng chuyển xanh, đuôi tan vào không khí
+      const lg = g.createLinearGradient(0, -38, 0, 34);
+      lg.addColorStop(0, '#ffffff'); lg.addColorStop(0.35, '#9ef0ff');
+      lg.addColorStop(0.7, 'rgba(60,190,255,.8)'); lg.addColorStop(1, 'rgba(60,190,255,0)');
+      g.fillStyle = lg;
+      g.beginPath(); g.moveTo(0, -38); g.lineTo(6.5, 4); g.lineTo(0, 34); g.lineTo(-6.5, 4); g.closePath(); g.fill();
+      g.fillStyle = '#ffffff';
+      g.beginPath(); g.moveTo(0, -34); g.lineTo(2.2, -2); g.lineTo(0, 12); g.lineTo(-2.2, -2); g.closePath(); g.fill();
+    }
+    return (this._tex[kind] = c);
+  },
+
+  _blit(ctx, b, kind) {
+    const S = this.SHAPES[kind];
+    ctx.save();
+    ctx.translate(b.x, b.y); ctx.rotate(Math.atan2(b.vy, b.vx) + Math.PI / 2);
+    ctx.drawImage(this.tex(kind), -S.w / 2, -S.oy, S.w, S.h);
+    ctx.restore();
+  },
+
+  render(ctx, list) {
+    // lượt 1: quầng sáng cộng màu dưới lõi
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    for (const b of list) {
+      ctx.globalAlpha = this._alpha(b);
+      if (b.kind === 'lance') SC.draw.glow(ctx, b.x, b.y, 34, '#5ad0ff', .6);
+      else if (b.kind === 'laser') SC.draw.glow(ctx, b.x, b.y, 28, '#3fe0ff', .55);
+      else if (b.kind === 'missile') SC.draw.glow(ctx, b.x, b.y, 20, '#ff9a2b', .6);
+      else SC.draw.glow(ctx, b.x, b.y, 22, '#ff8a1f', .6);
+    }
+    ctx.restore();
+    // lượt 2: lõi ở chế độ thường (giữ màu)
+    ctx.save();
+    for (const b of list) {
+      ctx.globalAlpha = this._alpha(b);
+      if (b.kind === 'lance') this._blit(ctx, b, 'lance');
+      else if (b.kind === 'missile' || b.kind === 'laser') this._plain(ctx, b);
+      else this._blit(ctx, b, 'shot');
+    }
+    ctx.restore();
+  },
+
+  /* Đạn TRÀN ĐẠN có tầm giới hạn: mờ dần ở cuối tầm để người chơi ĐỌC ĐƯỢC vì sao nó
+     tắt, thay vì tưởng game lỗi. Đạn đã dội tường cũng nhạt dần. */
+  _alpha(b) {
+    return Math.min(b.ttl ? SC.clamp(b.life / 0.18, 0.15, 1) : 1, b.bounced ? 1 - b.bounced * 0.22 : 1);
+  },
+
+  _plain(ctx, b) {
+    ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(Math.atan2(b.vy, b.vx) + Math.PI / 2);
+    if (b.kind === 'missile') {
+      ctx.fillStyle = '#ffd23f'; ctx.fillRect(-3.5, -9, 7, 18);
+      ctx.fillStyle = '#ff7a1a'; ctx.fillRect(-2, 9, 4, 6);          // lửa đuôi
+    } else {
+      ctx.fillStyle = 'rgba(160,245,255,.95)'; ctx.fillRect(-4, -22, 8, 44);
+      ctx.fillStyle = '#ffffff'; ctx.fillRect(-1.5, -20, 3, 40);
+    }
+    ctx.restore();
+  },
+};
+
+;
 /* ===== js/entity-bullet.js ===== */
 /* entity-bullet.js — đạn người chơi (kể cả tên lửa dò tìm) và đạn địch */
 
@@ -3231,53 +3595,8 @@ SC.Bullets = {
   },
 
   render(ctx) {
-    /* đạn ta */
-    ctx.save(); ctx.globalCompositeOperation = 'lighter';
-    for (const b of this.mine) {
-      // Đạn TRÀN ĐẠN có tầm giới hạn: mờ dần ở cuối tầm để người chơi ĐỌC ĐƯỢC
-      // vì sao nó tắt, thay vì tưởng game lỗi. Đạn đã dội tường cũng nhạt dần.
-      ctx.globalAlpha = Math.min(
-        b.ttl ? SC.clamp(b.life / 0.18, 0.15, 1) : 1,
-        b.bounced ? 1 - b.bounced * 0.22 : 1
-      );
-      if (b.kind === 'lance') {
-        // giáo năng lượng: dài, mảnh, xuyên qua cả hàng
-        ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(Math.atan2(b.vy, b.vx) + Math.PI / 2);
-        SC.draw.glow(ctx, 0, 0, 24, '#5ad0ff', .6);
-        const g = ctx.createLinearGradient(0, -26, 0, 18);
-        g.addColorStop(0, '#ffffff'); g.addColorStop(0.4, '#7ae8ff'); g.addColorStop(1, 'rgba(90,208,255,0)');
-        ctx.fillStyle = g;
-        ctx.beginPath();
-        ctx.moveTo(0, -26); ctx.lineTo(4.5, 6); ctx.lineTo(0, 18); ctx.lineTo(-4.5, 6);
-        ctx.closePath(); ctx.fill();
-        ctx.restore();
-      } else if (b.kind === 'missile') {
-        ctx.fillStyle = '#ffd23f';
-        ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(Math.atan2(b.vy, b.vx) + Math.PI / 2);
-        ctx.fillRect(-2.5, -7, 5, 14); ctx.restore();
-        SC.draw.glow(ctx, b.x, b.y, 14, '#ff9a2b', .55);
-      } else if (b.kind === 'laser') {
-        ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(Math.atan2(b.vy, b.vx) + Math.PI / 2);
-        ctx.fillStyle = 'rgba(120,240,255,.9)';
-        ctx.fillRect(-3, -16, 6, 32);
-        ctx.restore();
-        SC.draw.glow(ctx, b.x, b.y, 20, '#3fe0ff', .5);
-      } else {
-        SC.draw.glow(ctx, b.x, b.y, 15, '#ff8a1f', .65);
-        // Lõi đạn vẽ ở chế độ thường để giữ đúng màu cam vàng, và XOAY THEO HƯỚNG BAY:
-        // từ khi máy bay bắn được sang hai bên, viên đạn vẽ dọc cứng sẽ nằm ngang thân
-        // mà đầu vẫn chĩa lên — nhìn như đạn bay ngang kiểu cua bò.
-        ctx.save();
-        ctx.globalCompositeOperation = 'source-over';
-        ctx.translate(b.x, b.y); ctx.rotate(Math.atan2(b.vy, b.vx) + Math.PI / 2);
-        ctx.fillStyle = '#ff9d1f';
-        ctx.beginPath(); ctx.ellipse(0, 3, 3, 10, 0, 0, 6.283); ctx.fill();
-        ctx.fillStyle = '#fff3c2';
-        ctx.beginPath(); ctx.ellipse(0, -2, 1.8, 5, 0, 0, 6.283); ctx.fill();
-        ctx.restore();
-      }
-    }
-    ctx.restore();
+    /* đạn ta — xem entity-bullet-mine-art.js (texture dựng sẵn, quầng cộng màu) */
+    SC.MineArt.render(ctx, this.mine);
 
     /* đạn địch — có sprite AI thì dùng (kể cả egg/plasma/rocket đời đầu),
        chưa tải xong thì rơi về art thủ tục bên dưới */
@@ -3400,6 +3719,10 @@ SC.Items = {
       ctx.translate(it.x, it.y);
       ctx.rotate(Math.sin(it.rot) * 0.25);
       ctx.scale(pulse, pulse);
+
+      // Sprite AI (10/10/2026) thay viên nang 22px có ký tự — thiếu ảnh thì về viên nang
+      const img = SC.SpriteArt.get('item', d.k);
+      if (img) { ctx.drawImage(img, -15, -15, 30, 30); ctx.restore(); continue; }
 
       // viên nang chứa vật phẩm
       ctx.fillStyle = 'rgba(8,14,28,.85)';
@@ -4081,7 +4404,11 @@ SC.Enemy.prototype._tank = function (ctx) {
 
 SC.EnemySprite = {
   FRAMES: 6,          // số khung đập cánh; 6 là đủ mượt mà mắt không thấy giật
-  PAD: 2.4,           // ảnh rộng gấp ngần này bán kính, chừa chỗ cho cánh và đuôi
+  /* ảnh rộng gấp ngần này bán kính, chừa chỗ cho cánh, đuôi. 2.4 -> 3.4 (10/10/2026): sprite
+     vẽ to SC.ArtScale.enemy(r) lần + bóng đổ lệch xuống-phải nướng chung buffer. ĐỪNG lấy
+     PAD làm cỡ sprite — cỡ sprite là hằng riêng (SPRITE) ở _paint. */
+  PAD: 3.4,          // 3.4: con nhỏ phóng tới 1.3× + bóng lệch 0.22s vẫn không bị cắt mép
+  SPRITE: 4.08,       // cạnh sprite / r trước rework = 2.4 × 2 × 0.85 (PAD cũ × đường kính × độ thu)
   _cache: {},
 
   /* Quái khắc chế vẽ trạng thái động (lá chắn loé lên khi chặn được đạn) nên không
@@ -4122,7 +4449,7 @@ SC.EnemySprite = {
     // tàu phản bội (system-defector-spawn.js): ảnh gen mũi hướng LÊN -> xoay 180° cho
     // chúi xuống phía người chơi như mọi quái khác
     if (e.dz) {
-      const s = e.r * this.PAD * 2 * 0.95;
+      const s = e.r * 4.56 * SC.ArtScale.enemy(e.r);     // 4.56 = 2.4 × 2 × 0.95 (cỡ cũ)
       g.save();
       g.rotate(Math.PI);
       g.scale(1 + flap * 0.03, 1 - flap * 0.03);
@@ -4132,7 +4459,9 @@ SC.EnemySprite = {
     }
     const img = SC.SpriteArt && SC.SpriteArt.get('enemy', e.type);
     if (img) {
-      const s = e.r * this.PAD * 2 * 0.85;
+      const s = e.r * this.SPRITE * SC.ArtScale.enemy(e.r);
+      // bóng đổ nướng chung buffer: tốn đúng một lần lúc dựng, không tốn thêm mỗi khung
+      SC.SpriteArt.drawShadow(g, img, s, 0.32);
       g.save();
       if (SC.SpriteArt.flipped(e.type)) g.rotate(Math.PI);
       // nhịp vỗ cánh giả: bóp nhẹ theo flap để 6 khung cache vẫn khác nhau
@@ -4164,9 +4493,11 @@ SC.EnemySprite = {
     const s = this.get(e, this.frame(e.flap));
     const size = e.r * this.PAD * 2;
     ctx.save();
-    ctx.translate(e.x, e.y);
+    // nhấp nhô nhẹ: sprite AI là ảnh tĩnh, 6 khung "vỗ cánh" chỉ là bóp méo — thêm nhịp
+    // trôi lên xuống cho con nào cũng như đang lơ lửng thật. Lệch pha theo e.t riêng.
+    ctx.translate(e.x, e.y + Math.sin(e.t * 3) * e.r * 0.06);
     if (e.def.move === 'dive' && e.locked) ctx.rotate(e.locked - Math.PI / 2);
-    if (e.flash > 0) ctx.filter = 'brightness(2.6)';
+    if (e.flash > 0) { ctx.filter = 'brightness(2.6)'; ctx.scale(1.08, 0.92); }   // nảy khi trúng
     ctx.drawImage(s, -size / 2, -size / 2, size, size);
     ctx.filter = 'none';
     ctx.restore();
@@ -4195,8 +4526,9 @@ SC.BossArt = {
   /* Sprite tĩnh nên bù hai thứ art thủ tục vốn có: nhịp thở (scale nhẹ theo t)
      và tín hiệu nổi điên theo giai đoạn (quầng vàng/đỏ quanh thân). */
   _sprite(ctx, img, r, t, phase) {
-    const s = r * 2.9;                       // cánh xoè ngoài bán kính thân
+    const s = r * 2.9 * SC.ArtScale.boss;    // cánh xoè ngoài bán kính thân
     const b = 1 + Math.sin(t * 2.1) * 0.02;
+    SC.SpriteArt.drawShadow(ctx, img, s, 0.28);   // bóng dựng sẵn một lần mỗi ảnh
     ctx.save();
     ctx.scale(b, 1 / b);
     if (phase >= 2) {
@@ -6230,6 +6562,8 @@ SC.Gun = {
       else b.ttl = b.life = (SC.H * this.rangeA()) / this.SPEED;   // TẦM NGẮN, nới dần theo cấp
       SC.Mods.attach(b);
     }
+    // lửa đầu nòng: một lần mỗi loạt, đúng chỗ đạn sinh ra
+    SC.FXS.muzzle(p.x + sA * p.r * 1.4, p.y - cA * p.r * 1.4, A);
   },
 
   /* ---------- đo đạc, dùng cho mô phỏng cân bằng ----------
@@ -6646,7 +6980,8 @@ SC.ShipArt = {
     if (img) {
       // 2.3 -> 2.8 (21/09/2026): trên điện thoại tàu bé quá nhìn không ra asset.
       // Chỉ phóng HÌNH — hitbox vẫn theo r, buffer PAD 2.6 (đường kính 5.2r) dư chỗ.
-      const s = r * 2.8;
+      // × ArtScale.ship (10/10/2026): 2.8 × 1.6 = 4.48r vẫn nằm trong buffer PAD 2.6 (5.2r)
+      const s = r * 2.8 * SC.ArtScale.ship;
       g.drawImage(img, -s / 2, -s / 2, s, s);
       g.globalCompositeOperation = 'source-atop';
       g.globalAlpha = 0.2;
@@ -7065,11 +7400,12 @@ SC.Player.prototype.render = function (ctx) {
   ctx.scale(SC.Bank.squeeze(this), 1);
 
   // lửa động cơ
-  const f = 1 + Math.sin(this.t * 30) * 0.22;
-  SC.draw.glow(ctx, 0, this.r * 1.5, 20 * f, '#5ad0ff', 0.7);
+  // dời theo cỡ vẽ tàu (SC.ArtScale.ship) — không thì lửa phụt ra giữa bụng tàu
+  const f = 1 + Math.sin(this.t * 30) * 0.22, k = SC.ArtScale.ship;
+  SC.draw.glow(ctx, 0, this.r * 1.5 * k, 20 * f * k, '#5ad0ff', 0.7);
   ctx.fillStyle = 'rgba(140,230,255,.9)';
   ctx.beginPath();
-  ctx.moveTo(-5, this.r * 1.1); ctx.lineTo(0, this.r * (1.5 + f * 0.55)); ctx.lineTo(5, this.r * 1.1);
+  ctx.moveTo(-5 * k, this.r * 1.1 * k); ctx.lineTo(0, this.r * (1.5 + f * 0.55) * k); ctx.lineTo(5 * k, this.r * 1.1 * k);
   ctx.closePath(); ctx.fill();
 
   // hình dáng dựng theo tổ hợp nhánh đã chọn — xem entity-ship-art.js
@@ -7981,6 +8317,7 @@ SC.Combat = {
     // lùi về mặt ngoài của quái, nhưng không lùi quá vị trí thật của viên đạn
     const back = Math.min(d, e.r);
     const x = e.x + dx / d * back, y = e.y + dy / d * back;
+    SC.FXS.hit(x, y);                    // tia lửa texture, tự hãm nhịp (system-fx-sprites.js)
 
     if (!e.isBoss) {
       SC.FX.burst(x, y, '#ffe28a', 5, 130, 2);
@@ -8017,9 +8354,7 @@ SC.Combat = {
     if (SC.Waves.done && !g.enemies.some(x => !x.dead) && !(g.boss && !g.boss.dead))
       SC.EvoShard.onLastKill(e.x, e.y);
 
-    const col = e.isBoss ? '#ff8a2b' : '#ffe28a';
-    SC.FX.burst(e.x, e.y, col, e.isBoss ? 70 : 18, e.isBoss ? 420 : 250, e.isBoss ? 6 : 3.4);
-    SC.FX.feathers(e.x, e.y, '#fff6d8', e.isBoss ? 24 : 7);
+    SC.FX.kill(e);                       // hạt + lông gà + nổ texture (system-particles.js)
     SC.addShake(e.isBoss ? 26 : 5, e.isBoss ? .8 : .12);
     SC.Audio.explode(e.isBoss);
     if (e.isBoss) SC.Input.vibrate(90);
@@ -10732,7 +11067,9 @@ SC.Evolution = {
   _ship(x, y, evo, alpha, scale) {
     const ctx = this.ctx;
     const s = SC.ShipArt.sprite(this.R, Math.max(0, evo));
-    const size = this.R * SC.ShipArt.PAD * 2 * scale;
+    // ÷ ArtScale.ship: buffer đã chứa tàu phóng cho lúc chơi (10/10/2026) — màn tiến hoá
+    // giữ cỡ cũ so với hào quang, không thì tàu trùm lên vòng aura đang trình diễn
+    const size = this.R * SC.ShipArt.PAD * 2 * scale / SC.ArtScale.ship;
     ctx.save();
     ctx.globalAlpha = alpha;
     ctx.translate(x, y);
@@ -11074,10 +11411,11 @@ SC.EVO_KW = {
      trúc ra hẳn một CON THÚ đứng dang tay — nhìn ghê và không giống máy bay trong
      game bắn máy bay dọc. Giờ góc nhìn TOP-DOWN + "là máy bay trước, con vật sau"
      đứng ĐẦU prompt; gen lại (attempt ≥ 2) còn siết chặt hơn nữa. */
-  /* VIBE 22/09/2026: art style bài Yu-Gi-Oh (quái thú DUNG HỢP) — khớp đúng cơ chế
-     ghép từ khóa, thay cho tông toon hoạt hình cũ. Vẫn là sprite máy bay top-down. */
-  VIBE: 'Yu-Gi-Oh! Duel Monsters card illustration art style, epic fusion-monster design, '
-    + 'ornate mythic armor with gold trim, dramatic anime inking, intense glowing energy accents',
+  /* VIBE 22/09/2026: art bài Yu-Gi-Oh (quái thú DUNG HỢP). 10/10/2026 (style B): GIỮ ý dung
+     hợp, đổi chất liệu sang 3D toy bóng như mọi asset — nét anime cạnh quái 3D toy là lệch
+     thế giới. Chuỗi Yu-Gi-Oh cũ còn trong git (commit trước 10/10/2026) nếu muốn quay lại. */
+  VIBE: 'premium mobile game sprite rendered as a stylized 3D toy like Clash Royale and Angry Birds 2, epic fusion-monster design, '
+    + 'glossy vinyl and painted metal armor with gold trim, soft studio lighting, intense glowing energy accents, vibrant saturated colors',
 
   prompt(kws, styleBtn, seed, attempt) {
     if (this.isFighter(kws)) return this.fighterPrompt(kws, styleBtn, seed, attempt);
@@ -11293,8 +11631,11 @@ SC.EVO_KW.LABEL.frame = 'KHUNG MÁY';
  */
 
 Object.assign(SC.EVO_KW, {
-  FIGHTER_VIBE: 'premium 2D mobile shoot-em-up game art, clean toon cel-shading, glossy metal panels, '
-    + 'crisp bold dark outlines, saturated colors, glowing engine exhaust and subtle neon rim light',
+  /* 10/10/2026: đổi theo style B của tàu gốc (tools/gen-assets-style-b.mjs). Bản cũ:
+     'premium 2D mobile shoot-em-up game art, clean toon cel-shading, glossy metal panels, crisp
+     bold dark outlines, saturated colors, glowing engine exhaust and subtle neon rim light' */
+  FIGHTER_VIBE: 'premium mobile shoot-em-up sprite rendered as a stylized 3D toy, glossy vinyl and painted metal panels, '
+    + 'soft studio lighting, chunky rounded proportions, saturated colors, glowing engine exhaust',
 
   isFighter(kws) { return kws.some(k => k.t === 'frame') && !kws.some(k => k.t === 'animal'); },
 
@@ -13362,7 +13703,9 @@ SC.LobbyShip = {
     ctx.moveTo(-5, r * 1.1); ctx.lineTo(0, r * (1.5 + f * 0.5)); ctx.lineTo(5, r * 1.1);
     ctx.closePath(); ctx.fill();
     SC.AuraFX.draw(ctx, r, performance.now() / 1000, SC.Tree.evo());
-    SC.ShipArt.draw(ctx, r, tilt);
+    // ShipArt tự phóng thêm SC.ArtScale.ship (10/10/2026, cho lúc CHƠI) — lobby đã chốt cỡ
+    // riêng bằng ×3.6 ở trên, không bù lại là tàu to gấp rưỡi, đè logo trên máy màn ngắn
+    SC.ShipArt.draw(ctx, r / SC.ArtScale.ship, tilt);
     ctx.restore();
   }
 };

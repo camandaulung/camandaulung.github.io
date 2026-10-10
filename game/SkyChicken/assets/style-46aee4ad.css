@@ -1245,7 +1245,7 @@ body .timer{font-size:14px}
 .boss-wrap span{background:url(../assets/art-game/ui-frame-plate-boss-name.webp) center/100% 100% no-repeat;
   box-shadow:none;padding:3.6px 13px}
 .boss-bar{height:8.7px;border:2.9px solid transparent;border-radius:4.3px;
-  border-image:url(../assets/art-game/ui-frame-bar-boss.webp) 46% 13% / 2.9px 9.4px stretch;
+  border-image:url(../assets/art-game/ui-frame-bar-boss.webp) 46% 19% / 2.9px 9.4px stretch;   /* 19%: vòng gai 2 đầu ảnh style B rộng ~97/512px */
   background:rgba(8,12,24,.9);box-shadow:0 0 11.6px rgba(255,60,90,.35)}
 
 /* sao kết quả/briefing: đổi clip-path sang ảnh, giữ nguyên animation nảy.
@@ -1258,12 +1258,12 @@ body .timer{font-size:14px}
 /* panel chuẩn (pause/result/brief/merge/setup): khung 9-slice, lòng kính của ảnh
  * thay cho nền --panel. Quầng nhuộm vùng của .panel.result vẫn vẽ đè bên trong. */
 .panel{border:11.6px solid transparent;
-  border-image:url(../assets/art-game/ui-frame-panel.webp) 120 fill / 11.6px stretch;
+  border-image:url(../assets/art-game/ui-frame-panel.webp) 80 fill / 11.6px stretch;   /* 80: góc bo + đinh tán ảnh style B (512x298) */
   background:none;padding:8.7px 7.2px 11.6px}
 
 /* hộp quà: khung vàng + rương thay glyph ◈ */
 .gift-box{border:13px solid transparent;
-  border-image:url(../assets/art-game/ui-frame-panel-gold.webp) 130 fill / 13px stretch;
+  border-image:url(../assets/art-game/ui-frame-panel-gold.webp) 84 fill / 13px stretch;   /* 84: góc hoa văn ảnh style B (512x265) */
   background:none;padding:8.7px 5.8px calc(5.8px + var(--safe-bottom))}
 .gift-img{width:60.7px;height:60.7px;object-fit:contain;display:block;margin:0 auto;
   filter:drop-shadow(0 5.8px 14.4px rgba(255,190,60,.35))}
@@ -1438,13 +1438,14 @@ body .rank-pos img{width:23.1px;height:23.1px}
 .gacha-hint{font-size:12px;color:var(--dim);letter-spacing:.14em}
 
 /* MÁY SLOT BÍ THUẬT (22/09/2026) — ảnh làm khung, hộp cũ bỏ nền để máy tự đứng.
-   Ô chữ đặt theo % đo trên ảnh 720x314 (cửa sổ đen x146-575, y119-199); đổi ảnh
-   máy thì PHẢI đo lại, lệch vài % là chữ tràn ra viền vàng. */
+   Ô chữ đặt theo % đo trên ảnh — 10/10/2026 (style B) ảnh 720x394, số % do
+   tools/make-game-sprites.mjs TỰ ĐO và in ra (blackWindow) lúc convert; đổi ảnh máy thì
+   chép lại số in ra, lệch vài % là chữ tràn ra viền vàng. */
 .gacha-box:has(.gacha-machine){background:none;box-shadow:none;padding:0 5.8px}
-.gacha-machine{position:relative;width:min(var(--uiw) * .94,361.1px);aspect-ratio:720/314}
+.gacha-machine{position:relative;width:min(var(--uiw) * .94,361.1px);aspect-ratio:720/394}
 .gacha-machine img{position:absolute;inset:0;width:100%;height:100%;z-index:1;
   filter:drop-shadow(0 11.6px 21.7px rgba(0,0,0,.7))}
-.gacha-machine .gacha-reel{position:absolute;z-index:2;left:20.3%;top:37.9%;width:59.7%;height:25.8%;
+.gacha-machine .gacha-reel{position:absolute;z-index:2;left:21.1%;top:27.7%;width:47.4%;height:51.3%;
   min-width:0;padding:0;display:grid;place-items:center;overflow:hidden;border-radius:4.3px;
   font-size:clamp(12px,calc(var(--uiw) * .048),20px);white-space:nowrap;background:none;box-shadow:none;
   text-shadow:0 0 8.7px rgba(197,140,255,.9)}
