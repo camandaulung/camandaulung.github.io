@@ -2171,7 +2171,6 @@ body .prof-chip .prof-txt>.prof-title{font-size:13px}
 /* thẻ hẹp (điện thoại): chữ POWER thành ⚡ — đủ chỗ cho DANH HIỆU; màn rộng vẫn ghi hẳn chữ
    (22/09: "⚔84" trơ trọi người chơi không hiểu — nên chỉ đổi khi thật sự thiếu chỗ) */
 @container (max-width: 345px){ .prof-chip .pw-l{display:none} .prof-chip .pw-i{display:inline} }
-@container (max-width: 270px){ .prof-chip .prof-txt>.prof-title{display:none} }
 .prof-next{position:absolute;left:10px;right:10px;bottom:3px;height:3px;border-radius:2px;background:rgba(255,255,255,.08)}
 .prof-next::after{content:'';display:block;height:100%;width:var(--p);border-radius:inherit;
   background:linear-gradient(90deg,#ffab1f,#ffe27a);box-shadow:0 0 6px rgba(255,210,63,.6)}
@@ -2191,3 +2190,22 @@ body .prof-chip .prof-txt>.prof-title{font-size:13px}
 
 /* nút TẢI LẠI sau câu "phiên đăng nhập hết hạn" ở popup tiến hóa (system-evo-ai-session.js) */
 .evo-relog{display:block;margin:6px auto 0;min-height:44px;padding:0 22px}
+
+/* ---------- HÀNG TRÊN LOBBY MỘT HÀNG (12/10/2026, anh Đức: "nút setting vẫn lọt 1 mình ở trên") ----------
+   [‹] [thẻ phi công ··········] [⚙]. Bản 25/09 cho thẻ xuống hàng riêng vì thẻ khi đó HAI dòng chữ dài
+   ~175px; nay thẻ còn MỘT dòng (ui-auth-panel) và thiếu chỗ thì danh hiệu tự ẩn chứ không cắt tên — nên
+   gộp lại một hàng, lobby có thêm chỗ cho máy bay. Nút về Portal thu còn "‹" (vùng chạm vẫn 44px). */
+.lobby-top{flex-wrap:nowrap}
+.lobby-top .prof-chip{order:0;flex:1 1 auto;min-height:44px}   /* máy 320 + RẤT LỚN từng chỉ 40px */
+.lobby-top .icon-btn{margin-left:0;flex:none;width:44px;height:44px}
+.lobby-top .portal-back{min-width:44px;padding-left:0;padding-right:0;font-size:20px;line-height:1}
+.lobby-top .portal-back .pb-l{display:none}
+/* các nấc bỏ dần của ui-prof-chip-fit.js: huy hiệu đủ ô cho emoji (không ellipsis), ĐỔI -> "›", tên nhỏ lại */
+.lobby-top .prof-chip .prof-txt>.prof-title.ic{flex-shrink:0;overflow:visible;text-overflow:clip;letter-spacing:0;
+  min-width:1.3em;text-align:center}
+body .lobby-top .prof-chip.no-doi>em{font-size:26px;line-height:1;letter-spacing:0}
+body .lobby-top .prof-chip.tight .prof-txt>b{font-size:12px;letter-spacing:0}
+/* nấc cuối (ui-prof-chip-fit): bỏ hết vẫn cắt TÊN -> thẻ xuống hàng riêng, ‹ trái ⚙ phải ở hàng trên */
+.lobby-top.row2{flex-wrap:wrap}
+.lobby-top.row2 .prof-chip{order:3;flex:1 1 100%}
+.lobby-top.row2 .icon-btn{margin-left:auto}

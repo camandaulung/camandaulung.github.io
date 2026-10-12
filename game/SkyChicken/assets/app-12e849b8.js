@@ -1565,6 +1565,9 @@ SC.Power = {
   /* Bậc danh hiệu — để ở một chỗ duy nhất vì cả rank() lẫn next() đều đọc,
      và lobby dùng next() để nhắc "còn mấy điểm nữa lên hạng". */
   TIERS: [[0, 'TÂN BINH'], [25, 'CỨNG CÁP'], [45, 'THIỆN CHIẾN'], [65, 'TINH NHUỆ'], [85, 'HUYỀN THOẠI']],
+  /* huy hiệu cùng thứ tự TIERS — thẻ phi công lobby hẹp không chứa nổi chữ danh hiệu thì hiện cái này */
+  TIER_IC: ['🔰', '🛡️', '⚔️', '🎖️', '👑'],
+  rankIc() { const p = this.total(); let i = 0; this.TIERS.forEach(([need], k) => { if (p >= need) i = k; }); return this.TIER_IC[i]; },
 
   rank() {
     const p = this.total();
@@ -11607,6 +11610,66 @@ SC.CloudRoster = {
 };
 
 ;
+/* ===== js/ui-prof-chip-fit.js ===== */
+/* ui-prof-chip-fit.js — ÉP THẺ PHI CÔNG lobby VỪA MỘT HÀNG với nút ⚙ (12/10/2026)
+ *
+ * Hàng trên lobby giờ là [‹] [thẻ] [⚙] (anh Đức: "nút setting vẫn lọt 1 mình ở trên"). Chỗ cho chữ
+ * trong thẻ chỉ còn ~140px ở máy 375px, mà "PHI CÔNG 1" (78) + "⚡18.800" (75) đã quá. Để flex tự co
+ * thì ra "PHI C… HUYỀN TH…" — cắt cả TÊN lẫn danh hiệu (soát giao diện 24 màn bắt được). CSS không
+ * xếp được ƯU TIÊN TUYỆT ĐỐI, nên đo thật rồi bỏ dần, ít quan trọng trước:
+ *   1. chữ danh hiệu -> huy hiệu (👑…, SC.Power.rankIc)   2. bỏ luôn huy hiệu
+ *   3. chữ ĐỔI -> mũi "›" (cả thẻ vẫn là nút; mũi giữ dấu hiệu "bấm được")   4. chữ tên nhỏ lại
+ * TÊN (phân biệt 3 hồ sơ) và POWER là hai thứ KHÔNG được mất — bỏ hết 4 nấc vẫn cắt tên (bản portal có
+ * thêm nút ‹, máy hẹp, tên dài) thì THẺ XUỐNG HÀNG RIÊNG như bản 25/09 (`.row2`) rồi đo lại từ đầu.
+ * Banga không có nút ‹ nên cả 54 tổ hợp đo (3 bề ngang × 3 cỡ chữ × 3 tên) đều vừa một hàng.
+ * Đo bằng scrollWidth/clientWidth (cùng một hệ px nên zoom của #ui không ảnh hưởng) — container
+ * query thì dính bẫy: ngưỡng tính theo px TRƯỚC zoom cỡ chữ, đặt 200px lại khớp chỗ khác hẳn.
+ * fit() tự trả về trạng thái đầy đủ trước khi đo nên gọi lại bao nhiêu lần cũng được: ResizeObserver
+ * gọi khi HÀNG đổi bề ngang (xoay máy, đổi cỡ chữ).
+ */
+
+SC.ProfChipFit = {
+  fit(chip) {
+    const row = chip.parentElement;
+    if (!chip.clientWidth || !row) return;                  // thẻ đang ẩn: chưa đo được
+    row.classList.remove('row2');
+    if (this._squeeze(chip)) return;
+    row.classList.add('row2');
+    this._squeeze(chip);
+  },
+
+  /* bỏ dần 4 nấc; true = vừa (tên + POWER nguyên vẹn) */
+  _squeeze(chip) {
+    const ti = chip.querySelector('.prof-title'), nm = chip.querySelector('.prof-txt > b'), doi = chip.querySelector(':scope > em');
+    if (!ti || !nm || !doi) return true;
+    if (!ti.dataset.full) ti.dataset.full = ti.textContent;
+    ti.textContent = ti.dataset.full; ti.classList.remove('ic'); ti.style.display = '';
+    chip.classList.remove('no-doi', 'tight'); doi.textContent = 'ĐỔI';
+    const over = e => e.scrollWidth > e.clientWidth + 1, bad = () => over(nm) || over(chip);
+    if (over(ti) || bad()) { ti.textContent = SC.Power.rankIc(); ti.classList.add('ic'); }
+    if (bad()) ti.style.display = 'none';
+    // đổi CHỮ thật chứ không giấu bằng font-size:0 — soát giao diện coi chữ 0px là chữ quá nhỏ (đúng thế)
+    if (bad()) { chip.classList.add('no-doi'); doi.textContent = '›'; }
+    if (bad()) chip.classList.add('tight');
+    return !bad();
+  },
+
+  /* một lần cho mỗi thẻ (syncMenu dựng lại RUỘT thẻ, không thay chính thẻ). Canh bề ngang của
+     CẢ HÀNG, không phải của thẻ: fit() bật/tắt .row2 làm thẻ đổi cỡ -> canh thẻ là đo lại vô tận */
+  watch(chip) {
+    const row = chip.parentElement;
+    if (this._ro || !row || !window.ResizeObserver) return;
+    let w = 0;
+    this._ro = new ResizeObserver(() => {
+      if (Math.abs(row.clientWidth - w) < 1) return;
+      w = row.clientWidth;
+      this.fit(chip);
+    });
+    this._ro.observe(row);
+  }
+};
+
+;
 /* ===== js/ui-auth-panel.js ===== */
 /* ui-auth-panel.js — khối đăng nhập ở menu và hộp thoại chọn tiến độ khi lệch nhau */
 
@@ -11685,16 +11748,11 @@ SC.AuthPanel = {
     const [tip, cls] = u ? (this.SYNC[SC.Cloud.state] || ['', '']) : ['', ''];
     const dot = u ? `<i class="sync-dot ${cls}" title="${tip}"></i>` : '';
 
-    /* Lực chiến + đường lên danh hiệu nằm NGAY TRÊN THẺ HỒ SƠ (22/09/2026):
-       trước đó "còn X lực chiến lên Y" là dòng hook trôi nổi dưới nút XUẤT KÍCH —
-       navigation sức mạnh phải đứng cùng chỗ với danh hiệu nó dẫn tới. */
+    /* Lực chiến + đường lên danh hiệu nằm NGAY TRÊN THẺ HỒ SƠ (22/09/2026): navigation sức mạnh
+       phải đứng cùng chỗ với danh hiệu nó dẫn tới (trước là dòng hook trôi dưới nút XUẤT KÍCH). */
     const nx = SC.Power.next();
-    // ghi hẳn chữ LỰC CHIẾN (22/09): "⚔84" trơ trọi người chơi không biết là số gì
-    // Hai dòng NGẮN thay một dòng dài: thẻ ở lobby chỉ rộng ~170px, sau khi nâng cỡ
-    // chữ thì "hạng · lực chiến · mốc kế" chung một dòng là vỡ hoặc tràn đè nút ĐỔI.
-    // MỘT DÒNG (12/10/2026, anh Đức: "merge 2 dòng này thành 1"): tên · DANH HIỆU · POWER.
-    // Mốc lên hạng kế ("+X→Y", trước là đuôi dòng 2) thành VỆT TIẾN ĐỘ mảnh ở đáy thẻ — chữ
-    // đầy đủ vẫn ở tooltip. Hẹp thì danh hiệu nhường trước, rồi tên; POWER không bao giờ cắt.
+    // MỘT DÒNG (12/10/2026, anh Đức): tên · DANH HIỆU · POWER; mốc lên hạng kế ("+X→Y") thành VỆT TIẾN
+    // ĐỘ mảnh ở đáy thẻ (chữ đủ ở tooltip). Hẹp thì danh hiệu nhường trước, rồi tên; POWER không cắt.
     const P = SC.Power, pw = P.fmt(P.show()), p = P.total(), T = P.TIERS;
     const i = T.findIndex(t => p < t[0]);                 // bậc kế; -1 = đã đỉnh
     const prog = i > 0 ? (p - T[i - 1][0]) / (T[i][0] - T[i - 1][0]) : 1;
@@ -11704,8 +11762,8 @@ SC.AuthPanel = {
       `<span class="prof-txt"><b>${SC.Rank.esc(cur.name)}</b><em class="prof-title">${P.rank()}</em>` +
       `<i class="prof-rank">${dot}<span class="pw-l">POWER </span><span class="pw-i">⚡</span>${pw}</i></span><em>ĐỔI</em>` +
       `<i class="prof-next" style="--p:${Math.round(SC.clamp(prog, 0, 1) * 100)}%"></i>`;
-    // không đủ chỗ thì BỎ hẳn danh hiệu — để CSS tự co là ra "PHI CÔN… HUYỀN TH…" cắt cả hai
-    requestAnimationFrame(() => { const ti = chip.querySelector('.prof-title'); if (ti && ti.clientWidth && ti.scrollWidth > ti.clientWidth + 1) ti.style.display = 'none'; });
+    // chung hàng với ⚙ thì thiếu chỗ: bỏ dần danh hiệu -> chữ ĐỔI, TÊN + POWER không mất (ui-prof-chip-fit.js)
+    requestAnimationFrame(() => SC.ProfChipFit.fit(chip)); SC.ProfChipFit.watch(chip);
     chip.title = `${cur.name} · ${P.rank()} · lực chiến ${pw}`
       + (nx ? ` · còn ${P.fmt(nx.need)} nữa lên ${nx.name}` : '') + (u ? ` · ${tip}` : '');
   },
