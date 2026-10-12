@@ -2031,3 +2031,25 @@ body .fork-box h3{letter-spacing:.06em}
 #hud .see-thru{opacity:.28}
 .fx-canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0}
 #scrVictory>.vic-scroll,#scrResult>.panel{position:relative;z-index:1}
+
+/* ============ MÀN TẢI VÀO GAME + TỰ CẬP NHẬT (12/10/2026) ============
+ * Nằm NGOÀI #ui (không theo uiScale) nên px ở đây là px thật — chữ đủ to cho người lớn tuổi.
+ * .busy = chưa biết % (đang kiểm tra / vào game): vạch sáng chạy qua lại. Có % thì thanh đầy dần.
+ * .done = mờ dần 0,35s rồi JS gắn .hidden. */
+.boot-loader{position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:22px;padding:24px;background:radial-gradient(120% 80% at 50% 30%,#1d2c52,#05070f 70%);
+  transition:opacity .35s ease}
+.boot-loader.done{opacity:0;pointer-events:none}
+.bl-logo{width:min(72vw,340px);height:auto;filter:drop-shadow(0 10px 26px rgba(255,170,40,.35))}
+.bl-bar{position:relative;width:min(72vw,300px);height:12px;border-radius:999px;overflow:hidden;
+  background:rgba(255,255,255,.12);box-shadow:inset 0 0 0 1px rgba(255,255,255,.18)}
+.bl-bar i{position:absolute;left:0;top:0;bottom:0;width:0;border-radius:999px;
+  background:linear-gradient(90deg,#ffd23f,#ff8a1f);transition:width .25s ease}
+.bl-bar.busy i{width:34%;animation:blBusy 1.1s ease-in-out infinite alternate}
+.bl-msg{margin:0;font:800 18px/1.3 'Segoe UI',system-ui,sans-serif;letter-spacing:.08em;color:#eef5ff;
+  text-align:center;text-shadow:0 2px 6px rgba(0,0,0,.6)}
+@keyframes blBusy{from{left:0}to{left:66%}}
+@media (prefers-reduced-motion: no-preference){
+  .bl-logo{animation:blFloat 2.4s ease-in-out infinite alternate}
+}
+@keyframes blFloat{to{transform:translateY(-8px)}}

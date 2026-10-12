@@ -15284,6 +15284,8 @@ SC.UI = {
     // SC.Music.start(vùng) thay; màn tổng kết chiến dịch có bài riêng
     if (which === 'victory') SC.Music.finale();
     else if (which !== 'game') SC.Music.lobby();
+    // về lobby mà có bản mới tải xong giữa phiên -> áp dụng ngay (không bao giờ giữa trận)
+    if (which === 'menu') SC.AutoUpdate.atLobby();
   },
 
   /* Thẻ trong danh sách cuộn trượt vào LẦN LƯỢT khi vừa mở màn (CSS .stagger). Gỡ class
@@ -15480,10 +15482,160 @@ Object.assign(SC.UI, {
 });
 
 ;
+/* ===== js/system-auto-update.js ===== */
+/* system-auto-update.js — TỰ CẬP NHẬT Ở MÀN HÌNH VÀO GAME (12/10/2026)
+ *
+ * Yêu cầu anh Đức: "user update ở màn hình loading vào game, không phải ở Cài đặt — cứ đăng
+ * nhập là auto update đến bản mới nhất". Ảnh chụp trước đợt này: nút "ĐANG TẢI BẢN MỚI… 91%"
+ * nằm lẫn trong CÀI ĐẶT, tải xong còn phải bấm CẬP NHẬT NGAY — đa số người chơi không bao giờ
+ * vào đó, cứ chơi mãi bản cũ (service worker mới đứng CHỜ vô thời hạn).
+ *
+ * Luồng lúc mở game (màn #bootLoader trong index.html, che trọn màn tới khi xong):
+ *   1. Không có SW / mở file:// / ?nosw / cài LẦN ĐẦU (chưa có controller) / mất mạng -> vào luôn.
+ *      Người mới không phải chờ tải 12MB precache: tải ngầm sau lưng.
+ *   2. Đã có bản tải sẵn từ lần trước (reg.waiting) -> đổi bản ngay, tải lại trang.
+ *   3. Hỏi máy chủ (reg.update, trần CHECK_MS). Có bản mới -> thanh % (PRECACHE_PROGRESS từ
+ *      sw-template; chỉ tải file ĐỔI nhờ bảng băm) -> xong thì đổi bản + tải lại. Mạng chậm quá
+ *      DL_MS -> vào chơi, tải tiếp ngầm, xong thì áp dụng ở LOBBY (bước 4).
+ *   4. Bản mới về GIỮA PHIÊN (mở lại app từ nền, tab để lâu): KHÔNG BAO GIỜ đổi giữa trận —
+ *      đợi người chơi về lobby, hiện lại màn tải, đẩy tiến độ lên mây xong mới tải lại.
+ * Chốt chống vòng lặp: đổi bản quá 2 lần trong 60 giây (SW hỏng, deploy dồn dập) thì thôi, vào game.
+ */
+
+SC.AutoUpdate = {
+  CHECK_MS: 3500,       // trần thời gian hỏi máy chủ có bản mới không
+  DL_MS: 30000,         // trần thời gian ngồi chờ tải bản mới ở màn tải
+  MIN_MS: 600,          // màn tải hiện tối thiểu — ngắn hơn là chớp một cái rất khó chịu
+  pending: null,        // worker mới đã tải xong giữa phiên -> áp dụng khi về lobby
+  booting: true,
+  _t0: performance.now(),
+
+  /* ---------- màn tải ---------- */
+  _el(id) { return document.getElementById(id); },
+  show(msg, pct) {
+    const L = this._el('bootLoader');
+    if (!L) return;
+    L.classList.remove('hidden', 'done');
+    this.msg(msg, pct);
+  },
+  msg(text, pct) {
+    const m = this._el('blMsg'), f = this._el('blFill'), bar = this._el('blBar');
+    if (m && text) m.textContent = text;
+    if (bar) bar.classList.toggle('busy', pct == null);      // chưa biết % -> vạch chạy qua lại
+    if (f) f.style.width = pct == null ? '' : Math.round(pct * 100) + '%';
+  },
+  enter() {
+    if (!this.booting) return;
+    this.booting = false;
+    const wait = Math.max(0, this.MIN_MS - (performance.now() - this._t0));
+    setTimeout(() => {
+      const L = this._el('bootLoader');
+      if (!L) return;
+      L.classList.add('done');                                // mờ dần (CSS), rồi ẩn hẳn
+      setTimeout(() => L.classList.add('hidden'), 400);
+    }, wait);
+  },
+
+  /* ---------- lúc mở game ---------- */
+  async boot(reg) {
+    this.reg = reg;
+    this._listen();
+    const sw = navigator.serviceWorker;
+    if (!sw.controller || this._tooMany()) return this.enter();
+    if (reg.waiting) return this.swap(reg.waiting);
+    if (!navigator.onLine) return this.enter();
+    this.msg('ĐANG KIỂM TRA BẢN MỚI…');
+    const found = await Promise.race([
+      reg.update().then(() => reg.installing || reg.waiting).catch(() => null),
+      new Promise(r => setTimeout(() => r(null), this.CHECK_MS))
+    ]);
+    if (reg.waiting) return this.swap(reg.waiting);
+    if (!found) return this.enter();
+    this.msg('ĐANG TẢI BẢN MỚI… 0%', 0);
+    const ok = await this._installed(found, this.DL_MS);
+    if (ok && reg.waiting) return this.swap(reg.waiting);
+    this.enter();                 // mạng chậm: vào chơi, tải tiếp ngầm, áp dụng ở lobby
+  },
+
+  _installed(w, ms) {
+    return new Promise(res => {
+      if (w.state === 'installed') return res(true);
+      const t = setTimeout(() => res(false), ms);
+      w.addEventListener('statechange', () => {
+        if (w.state === 'installed') { clearTimeout(t); res(true); }
+        if (w.state === 'redundant') { clearTimeout(t); res(false); }
+      });
+    });
+  },
+
+  /* tiến độ precache + bản mới về giữa phiên */
+  _listen() {
+    const sw = navigator.serviceWorker;
+    sw.addEventListener('message', e => {
+      const d = e.data;
+      if (!d || d.type !== 'PRECACHE_PROGRESS' || !sw.controller) return;
+      const k = d.total ? d.done / d.total : 0;
+      if (this.booting || this._applying) this.msg(`ĐANG TẢI BẢN MỚI… ${Math.round(k * 100)}%`, k);
+    });
+    this.reg.addEventListener('updatefound', () => {
+      const nw = this.reg.installing;
+      if (!nw || !sw.controller) return;                      // cài lần đầu: không phải cập nhật
+      nw.addEventListener('statechange', () => {
+        if (nw.state === 'installed' && !this.booting) { this.pending = nw; this.atLobby(); }
+      });
+    });
+  },
+
+  /* gọi từ SC.UI.show('menu'): đang ở lobby + có bản chờ -> áp dụng ngay */
+  atLobby() {
+    if (!this.pending || this._applying || SC.Game.state !== 'menu') return;
+    const menu = this._el('scrMenu');
+    if (!menu || menu.classList.contains('hidden')) return;
+    this.applyNow();
+  },
+
+  async applyNow() {
+    const w = this.pending || (this.reg && this.reg.waiting);
+    if (!w) { location.reload(); return; }
+    this._applying = true;
+    this.show('ĐANG CẬP NHẬT BẢN MỚI…', 1);
+    // tiến độ đang chờ đẩy lên mây (gom 3 giây) — đẩy NGAY, trần 1,5 giây, rồi mới tải lại
+    try { await Promise.race([Portal.Cloud.push(), new Promise(r => setTimeout(r, 1500))]); } catch (e) { }
+    this.swap(w);
+  },
+
+  swap(w) {
+    this.show('ĐANG CẬP NHẬT…', 1);
+    this._count();
+    w.postMessage({ type: 'SKIP_WAITING' });   // controllerchange (system-pwa) tải lại trang
+    // CHỐT TỰ CỨU: worker chờ có thể đã chết (bị bản mới hơn đè) -> không bao giờ có
+    // controllerchange. 4 giây chưa đổi thì tải lại thẳng — HTML đi mạng trước nên vẫn ra bản mới.
+    setTimeout(() => location.reload(), 4000);
+  },
+
+  /* chống vòng lặp tải lại: đếm số lần đổi bản trong 60 giây (theo phiên trình duyệt) */
+  _count() {
+    try {
+      const now = Date.now(), s = JSON.parse(sessionStorage.getItem('sc.updSwap') || '{"n":0,"t":0}');
+      const n = now - s.t < 60000 ? s.n + 1 : 1;
+      sessionStorage.setItem('sc.updSwap', JSON.stringify({ n, t: now }));
+    } catch (e) { }
+  },
+  _tooMany() {
+    try {
+      const s = JSON.parse(sessionStorage.getItem('sc.updSwap') || '{"n":0,"t":0}');
+      return s.n >= 2 && Date.now() - s.t < 60000;
+    } catch (e) { return false; }
+  }
+};
+
+;
 /* ===== js/system-pwa.js ===== */
 /* system-pwa.js — đăng ký service worker + nút "cài về máy"
  *
- * Service Worker chỉ chạy trên http/https, mở bằng file:// sẽ bỏ qua êm. */
+ * Service Worker chỉ chạy trên http/https, mở bằng file:// sẽ bỏ qua êm.
+ * CẬP NHẬT BẢN MỚI: từ 12/10/2026 do system-auto-update.js lo trọn (màn tải lúc vào game) —
+ * nút "CẬP NHẬT NGAY" trong Cài đặt đã bỏ, người chơi không phải làm gì. */
 
 SC.PWA = {
   deferred: null,     // sự kiện beforeinstallprompt để hiện nút cài sau
@@ -15494,29 +15646,23 @@ SC.PWA = {
     if (dev && navigator.serviceWorker) {
       navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister()));
       caches.keys().then(ks => ks.forEach(k => caches.delete(k)));
+      SC.AutoUpdate.enter();
       return;
     }
     const ok = 'serviceWorker' in navigator &&
       (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1');
     if (ok) {
-      navigator.serviceWorker.register('sw.js')
-        .then(reg => {
-          this._reg = reg;
-          /* MỞ LẠNH = BẢN MỚI NHẤT (yêu cầu 21/09/2026): F5 không được trình duyệt
-             tính là "đóng tab", nên bản SW mới có thể KẸT Ở TRẠNG THÁI CHỜ qua vô số
-             lần mở lại — người chơi cứ tưởng mình đã ở bản mới. Vừa boot mà thấy có
-             bản chờ thì kích hoạt LUÔN: lúc này còn ở lobby, đổi bản là miễn phí
-             (controllerchange bên dưới tải lại trang trong giây đầu tiên). */
-          if (reg.waiting && navigator.serviceWorker.controller) {
-            this._bootSwap = true;               // đừng chớp nút CẬP NHẬT trong giây swap
-            reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-          }
-          this._watchUpdate(reg);
-        })
-        .catch(() => {});
+      // updateViaCache:'none' — hỏi bản sw.js mới KHÔNG qua HTTP cache (GitHub Pages max-age=600)
+      navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' })
+        .then(reg => { this._reg = reg; SC.AutoUpdate.boot(reg); })
+        .catch(() => SC.AutoUpdate.enter());
 
-      // bản mới đã tiếp quản -> tải lại một lần duy nhất
+      // bản mới đã tiếp quản -> tải lại một lần duy nhất. CHỈ khi trang VỐN đã có controller
+      // (= cập nhật). Cài LẦN ĐẦU, clients.claim() cũng bắn controllerchange — bản cũ tải lại
+      // trang người chơi mới ~1 giây sau khi vào, vô ích (đo được 12/10/2026).
+      let hadCtrl = !!navigator.serviceWorker.controller;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!hadCtrl) { hadCtrl = true; return; }
         if (this._reloading) return;
         this._reloading = true;
         location.reload();
@@ -15524,11 +15670,11 @@ SC.PWA = {
 
       /* App cài PC hay bị "mở lại từ nền" — không có navigation nào xảy ra nên
          trình duyệt chẳng buồn kiểm tra bản mới. Quay lại thấy tab/app là chủ động
-         hỏi máy chủ một lần; có bản mới thì đường chấm-đỏ-bánh-răng lo phần còn lại. */
+         hỏi máy chủ một lần; có bản mới thì tải ngầm, về LOBBY là tự áp dụng (AutoUpdate). */
       document.addEventListener('visibilitychange', () => {
         if (!document.hidden && this._reg) this._reg.update().catch(() => {});
       });
-    }
+    } else SC.AutoUpdate.enter();          // không có SW (file://, http lạ): vào game luôn
 
     // Chrome/Edge: chặn hộp thoại mặc định, tự hiện nút trong menu
     window.addEventListener('beforeinstallprompt', e => {
@@ -15543,76 +15689,9 @@ SC.PWA = {
     });
   },
 
-  /* Nút cập nhật có BA trạng thái NHÌN THẤY ĐƯỢC (phàn nàn thật 21/09/2026: bấm
-     mà im lặng là người chơi tưởng lỗi):
-       1. đang tải bản mới  -> hiện % (sw-template đếm từng file precache gửi về)
-       2. tải xong          -> "CẬP NHẬT NGAY", bấm được
-       3. đang áp dụng      -> khoá nút + chốt tự cứu 4 giây
-     Chấm đỏ bánh răng sáng suốt cả 1 và 2 — nó báo "có bản mới", kể cả đang tải. */
-  _updBtn(label, pct, enabled) {
-    const b = document.getElementById('btnUpdate');
-    if (!b) return;
-    b.classList.remove('hidden');
-    b.disabled = !enabled;
-    const s = b.querySelector('span');
-    if (s) s.textContent = label;
-    let bar = b.querySelector('.upd-bar');
-    if (!bar) { bar = document.createElement('i'); bar.className = 'upd-bar'; b.appendChild(bar); }
-    bar.style.width = Math.round((pct || 0) * 100) + '%';
-    bar.classList.toggle('hidden', pct == null);
-    this.syncBanner();
-  },
-
-  /* Rình bản mới. Không tự đổi bản giữa lúc đang chơi — chỉ mời, người chơi
-     bấm mới tải lại. Nút hiện ở menu chứ không chen ngang màn chơi. */
-  _watchUpdate(reg) {
-    const offer = worker => {
-      this.waiting = worker;
-      this._updBtn('CẬP NHẬT NGAY', null, true);
-      if (SC.Game.state === 'menu') SC.UI.toast('CÓ BẢN CẬP NHẬT MỚI');
-    };
-
-    // boot-swap đang tự kích hoạt bản chờ (xem register) thì khỏi mời — trang sắp
-    // tải lại trong giây này rồi
-    if (reg.waiting && navigator.serviceWorker.controller && !this._bootSwap) offer(reg.waiting);
-
-    reg.addEventListener('updatefound', () => {
-      const nw = reg.installing;
-      // không có controller = cài LẦN ĐẦU chứ không phải cập nhật — im lặng
-      if (!nw || !navigator.serviceWorker.controller) return;
-      this._updBtn('ĐANG TẢI BẢN MỚI… 0%', 0, false);
-      nw.addEventListener('statechange', () => {
-        if (nw.state === 'installed') offer(nw);
-        // tải hỏng giữa chừng (mất mạng) -> thu nút về, đừng treo mãi ở x%
-        if (nw.state === 'redundant' && !this.waiting) {
-          const b = document.getElementById('btnUpdate');
-          if (b) b.classList.add('hidden');
-          this.syncBanner();
-        }
-      });
-    });
-
-    // sw-template đếm từng file precache và bắn PRECACHE_PROGRESS về đây
-    navigator.serviceWorker.addEventListener('message', e => {
-      const d = e.data;
-      if (!d || d.type !== 'PRECACHE_PROGRESS') return;
-      if (!navigator.serviceWorker.controller || this.waiting) return;   // cài lần đầu / đã tải xong
-      const k = d.total ? d.done / d.total : 0;
-      this._updBtn(`ĐANG TẢI BẢN MỚI… ${Math.round(k * 100)}%`, k, false);
-    });
-  },
-
-  /* Người chơi đồng ý cập nhật */
-  applyUpdate() {
-    if (!this.waiting) { location.reload(); return; }
-    this._updBtn('ĐANG ÁP DỤNG…', 1, false);
-    this.waiting.postMessage({ type: 'SKIP_WAITING' });
-    /* CHỐT TỰ CỨU: worker chờ có thể đã CHẾT (deploy dồn dập, bản chờ bị bản mới hơn
-       đè thành redundant) — postMessage vào xác thì không bao giờ có controllerchange,
-       và "bấm không phản ứng gì" chính là phàn nàn 21/09. Sau 4 giây chưa đổi bản thì
-       tải lại thẳng: navigation đi MẠNG TRƯỚC (sw-template) nên vẫn ra bản mới nhất. */
-    setTimeout(() => { if (!this._reloading) location.reload(); }, 4000);
-  },
+  /* Nút btnUpdate (Cài đặt) giữ lại cho bản HTML cũ còn trỏ tới — giờ chỉ gọi thẳng đường tự cập
+     nhật. Lịch sử 21/09: nút 3 trạng thái (% / CẬP NHẬT NGAY / đang áp dụng) — đã thay bằng màn tải. */
+  applyUpdate() { SC.AutoUpdate.applyNow(); },
 
   showButton(show) {
     const b = document.getElementById('btnInstall');

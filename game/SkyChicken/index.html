@@ -11,9 +11,18 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="icon" type="image/png" href="icons/icon-192.png">
-<link rel="stylesheet" href="assets/style-da71010c.css">
+<link rel="stylesheet" href="assets/style-393081c7.css">
 </head>
 <body>
+<!-- MÀN TẢI VÀO GAME (12/10/2026): hiện NGAY khi HTML về, trước cả lúc JS chạy. Kiểm tra bản
+     mới + tải + tự cập nhật diễn ra ở đây — system-auto-update.js. Chốt cứu cuối: 45 giây vẫn
+     chưa xong (JS hỏng, mạng treo) thì tự ẩn, không bao giờ kẹt người chơi ở màn này. -->
+<div id="bootLoader" class="boot-loader" role="status" aria-live="polite">
+  <img class="bl-logo" src="assets/art-game/ui-logo-sky-chicken.webp" alt="SKY CHICKEN" onerror="this.remove()">
+  <div class="bl-bar busy" id="blBar"><i id="blFill"></i></div>
+  <p class="bl-msg" id="blMsg">ĐANG VÀO GAME…</p>
+</div>
+<script>setTimeout(function () { var l = document.getElementById('bootLoader'); if (l) l.classList.add('hidden'); }, 45000);</script>
 
 <!-- ===== Bộ icon dùng chung (monoline, ăn currentColor nên đổi màu theo state) =====
      Chỉ thay cho emoji MÀU. Các ký hiệu hình học ◈ ★ ⚔ ⚡ ✦ ◇ ✈ vẫn giữ nguyên vì
@@ -782,7 +791,7 @@
 <script src="../../shared/portal-cloud.js"></script>
 <script src="../../shared/portal-rank.js"></script>
 <script src="../../shared/portal-player.js"></script>
-<script src="assets/app-77672b1d.js" onerror="window.__shellHong=1"></script>
+<script src="assets/app-66e20ebd.js" onerror="window.__shellHong=1"></script>
 <script>
 /* LOP TU CUU KHI VO UNG DUNG HONG — dung xoa.
  *
