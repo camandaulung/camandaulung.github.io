@@ -1605,6 +1605,18 @@ SC.Power = {
  *       ra ~18-25 sát thương/giây -> gần MỘT PHÚT đứng giữa mưa chiêu.
  *   Người chơi mới chưa hiểu "phải đi ngang chặn quái" — đúng thứ màn đầu phải dạy từ từ.
  *
+ * 12/10/2026 (chiều) — log 64 trận / 7 ngày: MÀN 3 VẪN 3/15 THẮNG (20%) sau đợt sáng, 10 trận mới
+ *   nhất 3/10. Màn 2 và 4-19 ~100% -> đúng một bức tường. Người thua: luôn vào tới trùm, lọt 10-35
+ *   quái, trúng 4-12 đòn, CÂY 0-0-0-0 (một người thua 6 lần liền không nâng gì); người thắng còn
+ *   19-62% máu, ~1.050 sát thương trong 67-96s (~15/giây). Ba nguyên nhân chồng nhau:
+ *     · màn 3 = trùm ĐẦU TIÊN + nhịp "KHÓ" (đông x1,3) — đông nhất trong 6 màn đầu;
+ *     · trùm 843 máu ở ~15 sát thương/giây = gần 1 phút đứng giữa chiêu;
+ *     · VIỆN BINH trùm gọi ra (_minions) bay thẳng xuống đáy -> THỦNG LƯỚI trừ máu âm thầm đúng
+ *       lúc người mới đang dồn hết sức bắn trùm.
+ *   Sửa: máu trùm start 0,60 -> 0,25 (màn 3 x0,50 = 575, màn 6 x0,875); EARLY_DEN màn 3 x0,8;
+ *   viện binh KHÔNG trừ máu khi lọt đáy ở màn < full (entity-player.leak, cờ e.summoned).
+ *   Kèm (ui-result): thua mà đủ vàng nâng cấp -> nút KỸ NĂNG thành nút chính, sáng nhấp nháy.
+ *
  * ĐÂY LÀ DỰ BÁO TRÊN MẪU NHỎ (màn 1-3 chỉ có MỘT người chơi, 9 trận). Xuất log lại sau
  * ~1 tuần: màn 3 vẫn dưới 90% thì hạ tiếp `bossHp.start`; màn 1-3 thắng mà máu còn luôn
  * 1,00 thì nới `leak.start` lên trước (lọt lưới là bài học di chuyển, không được xoá hẳn).
@@ -1616,8 +1628,12 @@ Object.assign(SC.Power, {
   EARLY: SC.bal('power.earlyDmg', { from: 1, full: 7, start: 0.50, end: 1.00 }),
   /* sát thương THỦNG LƯỚI (Player.leak) — 4,5% máu × hệ số này: màn 1 ~1,4%, màn 3 ~2,4% */
   EARLY_LEAK: SC.bal('power.earlyLeak', { from: 1, full: 7, start: 0.30, end: 1.00 }),
-  /* máu trùm — chỉ hai trận trùm vùng 1: màn 3 (elite) ×0,73, màn 6 (trùm vùng) ×0,93 */
-  EARLY_BOSS: SC.bal('power.earlyBossHp', { from: 1, full: 7, start: 0.60, end: 1.00 }),
+  /* máu trùm — chỉ hai trận trùm vùng 1: màn 3 (elite) ×0,50, màn 6 (trùm vùng) ×0,875
+     (12/10 chiều: start 0,60 -> 0,25 — màn 3 vẫn 20% thắng, xem đầu tệp) */
+  EARLY_BOSS: SC.bal('power.earlyBossHp', { from: 1, full: 7, start: 0.25, end: 1.00 }),
+  /* số quái mỗi wave THEO TỪNG MÀN (không nội suy): chỉ màn 3 — trùm đầu tiên rơi đúng nhịp
+     "KHÓ" đông x1,3. Bớt 20% thì quái ít lọt lưới hơn và vào trùm còn nhiều máu hơn. */
+  EARLY_DEN: SC.bal('power.earlyDensity', { 3: 0.80 }),
 
   _ramp(E) {
     const id = SC.Game.levelId || 1;
@@ -1628,7 +1644,10 @@ Object.assign(SC.Power, {
 
   earlyEase()   { return this._ramp(this.EARLY); },
   leakEase()    { return this._ramp(this.EARLY_LEAK); },
-  earlyBossHp() { return this._ramp(this.EARLY_BOSS); }
+  earlyBossHp() { return this._ramp(this.EARLY_BOSS); },
+  earlyDensity() { return this.EARLY_DEN[SC.Game.levelId || 1] || 1; },
+  /* viện binh trùm gọi ra có trừ máu khi lọt đáy không — màn đầu thì KHÔNG (xem đầu tệp) */
+  summonLeaks() { return (SC.Game.levelId || 1) >= this.EARLY_LEAK.full; }
 });
 
 ;
@@ -2011,9 +2030,10 @@ SC.Audio = {
     } catch (e) { /* localStorage bị chặn thì dùng mặc định */ }
 
     const unlock = () => {
+      this.unlocked = true;
       this._ensure();
       if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
-      if (this.ctx) { SC.AudioSamples.loadAll(); SC.MusicTracks.preload(); SC.Voice.loadAll(); }   // tải file mẫu một lần
+      if (this.ctx) { SC.AudioSamples.loadAll(); SC.MusicTracks.preload(); SC.MusicTracks.kick(); SC.Voice.loadAll(); }   // tải file mẫu một lần
     };
     ['pointerdown', 'keydown', 'touchstart'].forEach(e =>
       window.addEventListener(e, unlock, { passive: true }));
@@ -2025,8 +2045,14 @@ SC.Audio = {
     });
   },
 
+  /* CHƯA CÓ CỬ CHỈ ĐẦU TIÊN THÌ KHÔNG TẠO AudioContext (12/10/2026, log banga): popup QUÀ
+     TÂN THỦ tự mở 0,7s sau khi vào và kêu Audio.gem() -> tạo context khi người chơi chưa chạm
+     -> Chrome cảnh báo "AudioContext was not allowed to start" (người chơi MỚI nào cũng dính).
+     Trước cử chỉ đầu trình duyệt đằng nào cũng không cho phát — im lặng là đúng, không mất gì. */
+  unlocked: false,
   _ensure() {
     if (this.ctx) return this.ctx;
+    if (!this.unlocked) return null;
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return null;
     this.buildGraph(new AC());
@@ -2363,7 +2389,7 @@ SC.Music = {
 
 SC.AUDIO_SFX = {
   shoot:      { n: 3, g: 0.22, p: 0.06, cd: 70, max: 0.22 },
-  hit:        { n: 3, g: 0.25, p: 0.08, cd: 45, max: 0.18 },
+  hit:        { n: 2, g: 0.25, p: 0.08, cd: 45, max: 0.18 },   // bản 2 cũ gần câm đã bỏ, đánh số lại
   pop:        { n: 4, g: 0.5,  p: 0.07, cd: 30, max: 0.7 },
   squawk:     { n: 3, g: 0.45, p: 0.1,  cd: 260, max: 0.6, chance: 0.35 },
   'boom-big': { n: 2, g: 0.85, p: 0.04, cd: 120 },
@@ -2560,7 +2586,10 @@ SC.MusicTracks = {
 
   _load(id) {
     if (this.buf[id] || this._loading[id] || !SC.AUDIO_MUSIC.tracks[id]) return;
-    const c = SC.Audio._ensure();
+    // KHÔNG _ensure() ở đây: lobby gọi want() ngay lúc mở game, TRƯỚC cử chỉ đầu tiên — tạo
+    // AudioContext lúc đó là Chrome cảnh báo "not allowed to start" (log banga 12/10). Chưa có
+    // context thì thôi; lần chạm đầu (system-audio unlock) gọi kick() tải + phát bài đang chờ.
+    const c = SC.Audio.ctx;
     if (!c) return;
     this._loading[id] = fetch(this._url(id))
       .then(r => (r.ok ? r.arrayBuffer() : Promise.reject(r.status)))
@@ -2640,7 +2669,10 @@ SC.MusicTracks = {
   },
 
   /* tải trước kèn thắng/thua lúc mở khoá — lúc cần phát thì không còn kịp tải */
-  preload() { this._load('j-clear'); this._load('j-lose'); }
+  preload() { this._load('j-clear'); this._load('j-lose'); },
+
+  /* gọi ở cử chỉ mở khoá đầu tiên: bài đang chờ (lobby lúc mở game) giờ mới tải + phát được */
+  kick() { if (this.wanted && !this.cur) this.want(this.wanted); }
 };
 
 ;
@@ -3419,6 +3451,7 @@ SC.BossMoment = {
     // trùm vừa hết máu (lúc đó thân trùm còn đang giật, vàng bay ra là lộ "đồ diễn")
     for (let i = 0; i < 16; i++)
       SC.Items.drop(b.x + SC.rnd(-60, 60), b.y + SC.rnd(-30, 30), i % 4 === 0 ? 'gem' : 'coin');
+    SC.EvoShard.onLastKill(b.x, b.y);     // màn 3×n: mảnh 🧬 rơi cùng mưa vàng
     SC.ScreenFX.pop('HẠ GỤC!', '#ffd23f');
     SC.Voice.say('v-kill', 0.15, true);
     SC.UI.toast(b.name, true);
@@ -5431,6 +5464,12 @@ SC.Enemy.prototype.update = function (dt, player, lv) {
 
   // bay lọt khỏi màn hình: vẫn xoá nhưng đánh dấu để chấm nhiệm vụ "không cho thoát"
   if (this.y > SC.H + 70) { this.dead = true; this.escaped = true; }
+  // Rời màn qua CẠNH hoặc ĐỈNH thì dọn luôn, KHÔNG tính lọt lưới. Bug thật map 9 (12/10/2026):
+  // 'dive' khoá góc vào tàu đang bay CAO đánh trùm -> lao ngang/lên mãi, không bao giờ chạm đáy,
+  // danh sách quái không bao giờ rỗng -> hạ trùm xong màn treo vĩnh viễn. Chỉ xét con ĐÃ vào màn:
+  // quái mới sinh còn nằm trên đỉnh (y âm) chờ ra quân. Lề 120 > biên lượn xa nhất (weave ±112).
+  if (this.y > 0) this.seen = true;
+  if (this.seen && (this.y < -120 || this.x < -120 || this.x > SC.W + 120)) this.dead = true;
 };
 
 /* Quái lơ lửng bình thường cứ đứng bắn, nhưng khi màn đã hết wave mà chúng vẫn
@@ -7292,9 +7331,9 @@ SC.Boss.prototype._eggRain = function () {
 SC.Boss.prototype._minions = function () {
   const n = 2 + this.phase;
   for (let i = 0; i < n; i++) {
-    SC.Game.enemies.push(new SC.Enemy(
-      this.phase > 1 ? 'dive' : 'chick',
-      this.x + SC.rnd(-70, 70), this.y + 20, this.lv));
+    const m = new SC.Enemy(this.phase > 1 ? 'dive' : 'chick', this.x + SC.rnd(-70, 70), this.y + 20, this.lv);
+    m.summoned = true;              // viện binh: màn đầu lọt đáy không trừ máu (Player.leak)
+    SC.Game.enemies.push(m);
   }
   SC.FX.text(this.x, this.y - 70, 'GỌI VIỆN BINH!', '#ff8a5c');
 };
@@ -8524,6 +8563,7 @@ SC.Player.prototype.update = function (dt) {
  */
 SC.Player.prototype.leak = function (e) {
   if (this.dead || e.isBoss) return false;
+  if (e.summoned && !SC.Power.summonLeaks()) return false;   // viện binh trùm ở màn đầu (early-ease)
   // × leakEase: 6 màn đầu thủng lưới nhẹ hơn — người mới chưa biết đi ngang chặn quái,
   // log 12/10 cho thấy đây mới là thứ giết họ ở màn 3 (system-power-early-ease.js).
   // Sàn 3 -> 2 vì màn 1 4,5% × 0,3 = 1,35 sẽ bị sàn 3 nuốt mất phần nới.
@@ -8975,33 +9015,39 @@ SC.Rescue = {
   list: [],
   toSpawn: 0,      // số dù còn phải thả
   timer: 0,        // đếm ngược tới lần thả kế tiếp
-  hurry: false,    // hết quái rồi: thả nhanh và rơi nhanh cho khỏi bắt đợi
+  homing: false,   // hết quái rồi: mèo còn lại BAY THẲNG về tàu (xem home())
 
   /* need = số phi công nhiệm vụ yêu cầu; luôn thả dư 1 cho dễ thở */
   start(need) {
     this.list.length = 0;
     this.toSpawn = need > 0 ? need + 1 : 0;
     this.timer = 4;
-    this.hurry = false;
+    this.homing = false;
   },
 
-  clear() { this.list.length = 0; this.toSpawn = 0; this.hurry = false; },
+  clear() { this.list.length = 0; this.toSpawn = 0; this.homing = false; },
 
-  /* Hết quái là hết nhịp chơi — dù thả THÊM lúc này chỉ bắt người chơi đứng đợi
-     (phàn nàn thật 21/09/2026: cuối màn toàn phải chờ dù rơi). Cắt phần đuôi chưa
-     thả, CHỈ GIỮ đúng số còn thiếu cho nhiệm vụ: đã cứu đủ (hoặc dù đang rơi đủ)
-     thì không thả thêm chiếc nào; còn thiếu thì vẫn thả (hurry) để khỏi kẹt sao.
-     Chiếc "+1 dễ thở" vì vậy chỉ tồn tại KHI CÒN ĐANG ĐÁNH. */
+  /* HẾT QUÁI = HẾT CHỜ (12/10/2026, "đừng để mèo rơi cuối map nữa"): bản cũ thả nốt dù
+     "hurry" rồi bắt người chơi đứng nhìn dù rơi 5-10 giây. Giờ mèo còn lơ lửng BAY THẲNG
+     về tàu (vẫn tính cứu), chiếc còn thiếu cho nhiệm vụ cũng hiện ở mép trên rồi bay về
+     luôn — màn kết thúc sau ~0,5s. Mèo ĐÃ rơi mất giữa trận thì vẫn là mất. */
+  home() {
+    if (this.homing) return;
+    this.homing = true;
+    while (this.toSpawn > 0) this._tha(true);
+    for (const p of this.list) { p.home = true; p.vh = 0; p.homeT = 0; }
+  },
+
+  /* Hết quái: cắt phần đuôi chưa thả, CHỈ GIỮ đúng số còn thiếu cho nhiệm vụ (phàn nàn
+     21/09/2026 "cuối màn toàn phải chờ dù rơi"). Chiếc "+1 dễ thở" chỉ tồn tại KHI CÒN ĐÁNH. */
   cutTail(rescued) {
     if (this.toSpawn <= 0) return;
     const need = SC.Missions.rescueTarget();
     this.toSpawn = Math.max(0, Math.min(this.toSpawn, need - rescued - this.list.length));
   },
 
-  /* Waves gọi mỗi khi mở wave mới.
-     Trước đây dù thả theo đồng hồ cố định 13 giây nên chiếc cuối thường rơi lúc
-     đã dọn sạch quái — đo được nửa màn đứng không. Gắn vào nhịp wave thì dù
-     luôn xuất hiện giữa lúc đang đánh. */
+  /* Waves gọi mỗi khi mở wave mới — dù gắn nhịp wave để luôn rơi giữa lúc đang đánh
+     (đồng hồ cố định 13s cũ làm chiếc cuối rơi lúc đã sạch quái, nửa màn đứng không). */
   onWave() {
     if (this.toSpawn > 0) this.timer = 0.6;
   },
@@ -9026,7 +9072,7 @@ SC.Rescue = {
     return this.TORN_MIN + (this.TORN_MAX - this.TORN_MIN) * SC.clamp(t, 0, 1);
   },
 
-  _tha() {
+  _tha(quiet) {
     this.toSpawn--;
     const doomed = Math.random() < this.tornChance();
     this.list.push({
@@ -9037,18 +9083,20 @@ SC.Rescue = {
       // lủng, anh Đức test live thấy muộn (22/09/2026)
       cutAt: doomed ? SC.rnd(0.30, 0.36) * SC.H : Infinity, torn: false, vy: 0
     });
+    if (quiet) return;
     SC.UI.toast('CÓ MÈO RƠI!');
     SC.Audio.wave();
   },
 
   update(dt, player, onRescue) {
-    const fall = this.hurry ? 200 : 58;
+    const fall = 58;
 
-    // thả dù rải rác trong màn
-    if (this.toSpawn > 0) {
+    // thả dù rải rác trong màn — từ wave CUỐI (và suốt trận trùm) dày lên 3s/chiếc để mọi
+    // chiếc đều rơi lúc còn đang đánh, không dồn ra cuối màn
+    if (this.toSpawn > 0 && !this.homing) {
       this.timer -= dt;
       if (this.timer <= 0) {
-        this.timer = this.hurry ? 0.6 : 9;
+        this.timer = SC.Waves.index >= SC.Waves.total ? 3 : 9;
         this._tha();
       }
     }
@@ -9056,6 +9104,17 @@ SC.Rescue = {
     for (let i = this.list.length - 1; i >= 0; i--) {
       const p = this.list[i];
       p.t += dt;
+      if (p.home) {                                    // bay về tàu, nhanh dần; quá 1,5s thì tính cứu luôn
+        p.homeT += dt;
+        p.vh = Math.min(1300, p.vh + 2600 * dt);
+        const a = SC.angTo(p.x, p.y, player.x, player.y);
+        p.x += Math.cos(a) * p.vh * dt; p.y += Math.sin(a) * p.vh * dt;
+        if (p.homeT > 1.5 || SC.dist2(p.x, p.y, player.x, player.y) < 34 * 34) {
+          onRescue(p.x, p.y);
+          this.list.splice(i, 1);
+        }
+        continue;
+      }
       if (!p.torn && p.y > p.cutAt) this._tear(p);
       if (p.torn) {
         // rơi tự do có trần: ~1.5-2 giây từ lúc lủng tới đáy màn — gắt nhưng cứu được
@@ -9195,7 +9254,8 @@ SC.Waves = {
     const inten = this.curve[this.index - 1];
     // mật độ cộng thêm theo lực chiến — người khoẻ thì quái phải đông hơn
     // × lateDensity: bớt quái từ màn 49 (system-power.js)
-    const n = Math.max(4, Math.round(lv.perWave * inten * SC.Power.den() * SC.Power.lateDensity()));
+    const n = Math.max(4, Math.round(lv.perWave * inten * SC.Power.den() * SC.Power.lateDensity()
+      * SC.Power.earlyDensity()));      // × màn 3 bớt quái (system-power-early-ease.js)
     const rush = inten >= 1.35;                 // wave dồn dập
     const gap = rush ? 0.055 : 0.1;             // giãn cách nhả từng con
     this.queue.length = 0;
@@ -9263,6 +9323,9 @@ SC.Waves = {
       if (type === 'midge') q.x = i % 2 ? SC.rnd(SC.W - 120, SC.W - 40) : SC.rnd(40, 120);
     }
   },
+
+  /* không còn quái nào sắp ra nữa: wave cuối đã đổ hết (+ trùm đã ra, nếu màn có trùm) */
+  allOut() { return this.index >= this.total && !this.spawning && (!this.lv.boss || this.bossSpawned); },
 
   update(dt, enemies) {
     if (this.done) return;
@@ -9598,9 +9661,10 @@ SC.Combat = {
     g.score += gain;
     SC.FX.text(e.x, e.y - 12, '+' + gain, g.combo > 3 ? '#ffd23f' : '#fff');
 
-    /* Kẻ địch CUỐI CÙNG của màn gục (trùm cũng đi qua đây) -> nhả mảnh tiến hóa
-       nếu màn này có (system-evo-shard.js). e vừa dead=true nên tự loại khỏi some. */
-    if (SC.Waves.done && !g.enemies.some(x => !x.dead) && !(g.boss && !g.boss.dead))
+    /* Kẻ địch CUỐI CÙNG của màn gục -> nhả mảnh tiến hóa (system-evo-shard.js). Trùm thì
+       nhả lúc NỔ CHỐT (BossMoment._final). BUG 12/10/2026: bản cũ hỏi `Waves.done` — cờ đó
+       chỉ bật SAU khi danh sách quái rỗng, tức sau cú hạ cuối -> mảnh CHƯA TỪNG rơi lần nào. */
+    if (!e.isBoss && SC.Waves.allOut() && !g.enemies.some(x => !x.dead))
       SC.EvoShard.onLastKill(e.x, e.y);
 
     // Trùm: slow-mo + chuỗi nổ + nổ chốt + mưa vàng — system-moments-boss.js lo trọn
@@ -10281,6 +10345,8 @@ SC.Result = {
     retry.classList.toggle('primary', !win);
     retry.classList.toggle('ghost', win);
     id('btnResShop').classList.toggle('glow', SC.Tree.anyAffordable() || !!SC.Tree.pendingFork());
+    // thua + đủ vàng -> KỸ NĂNG thành nút chính (log 12/10: thua màn 3 sáu lần liền, cây vẫn trắng)
+    id('btnResShop').classList.toggle('go', !win && SC.Tree.anyAffordable());
     // chấm đỏ "đủ vàng nâng cấp" trên nút KỸ NĂNG (22/09) — cùng ngôn ngữ với
     // badge ở lobby, người chơi vừa nhận vàng là thấy ngay có việc để tiêu
     const resDot = id('resShopDot');
@@ -10809,7 +10875,8 @@ SC.Cloud = {
       userDoc: 'users',
       scoreDoc: 'scores',
 
-      progress: () => SC.UI.progress,
+      // bản sao thuần JSON: một trường undefined bất kỳ là Firestore từ chối CẢ lệnh lưu (12/10/2026)
+      progress: () => JSON.parse(JSON.stringify(SC.UI.progress)),
 
       /* Các trường lên bảng xếp hạng.
        *
@@ -12647,7 +12714,9 @@ SC.EVO_KW = {
   roll(type) {
     const pool = this[type];
     const it = pool[(Math.random() * pool.length) | 0];
-    return { t: type, vi: it.vi, en: it.en, dna: it.dna };
+    // CHỈ gắn dna khi có: màu / tính cách / phong cách không có dna, `dna: undefined` nằm trong
+    // progress làm Firestore từ chối CẢ lệnh lưu (invalid-argument) — bug banga 12/10/2026, xem cloud-adapter
+    return it.dna ? { t: type, vi: it.vi, en: it.en, dna: it.dna } : { t: type, vi: it.vi, en: it.en };
   },
 
   /* DNA của một từ khóa bất kỳ loại — kw lưu từ bản cũ có thể thiếu dna, tra lại theo en */
@@ -13320,20 +13389,20 @@ Object.assign(SC.EvoAI, {
       + '#' + (prof.id || 0) + '·' + (this.st().n || 0);
     const [ship, drone] = await Promise.all([
       // rolls đã trừ trước khi gọi mạng: 1 = lượt đầu, ≥2 = gen lại -> prompt siết top-down
-      this._genOne(ep, SC.EVO_KW.prompt(kws, style, seed, this.st().rolls || 1), signal, net),
-      this._genOne(ep, SC.EVO_KW.dronePrompt(kws, style), signal, net)
+      this._genOne(ep, SC.EVO_KW.prompt(kws, style, seed, this.st().rolls || 1), signal, net, 'ship'),
+      this._genOne(ep, SC.EVO_KW.dronePrompt(kws, style), signal, net, 'drone')
     ]);
     return { ship, drone };
   },
 
-  async _genOne(ep, prompt, signal, net) {
+  async _genOne(ep, prompt, signal, net, kind) {
     const res = await fetch(ep.url, {
       method: 'POST', headers: ep.headers, credentials: ep.credentials,
       body: JSON.stringify({ model: 'gpt-image-2.5-flare', prompt }),
       signal
     });
     if (net) net.acked = true;        // server ĐÃ lên tiếng -> lượt coi như đã tiêu
-    const text = await res.text();
+    const text = await this._readText(res, net, kind);
     if (!res.ok) {
       let code = '', msg = text.slice(0, 200);
       try { const j = JSON.parse(text); code = j.code || (j.error && j.error.code) || ''; msg = j.message || (j.error && j.error.message) || msg; } catch (e) {}
@@ -13345,6 +13414,26 @@ Object.assign(SC.EvoAI, {
     const b64 = j.data && j.data[0] && j.data[0].b64_json;
     if (!b64) throw new Error('Hạ tầng trả link thay vì ảnh');
     return 'data:image/png;base64,' + b64;
+  },
+
+  /* Đọc body CÓ ĐẾM BYTE (ui-evo-gen-progress.js): ảnh b64 ~1-2MB/tấm, trên 4G mất vài giây —
+     đoạn này đo được thật nên phải hiện thật. Không có móc / trình duyệt cũ -> text() thường. */
+  async _readText(res, net, kind) {
+    if (!net || !net.on) return res.text();
+    if (!res.body || !res.body.getReader) { net.on(kind, 'drawn'); return res.text(); }
+    const total = +res.headers.get('content-length') || 0, rd = res.body.getReader(), dec = new TextDecoder();
+    let got = 0, out = '';
+    for (;;) {
+      const { done, value } = await rd.read();
+      if (done) break;
+      // mốc "AI VẼ XONG" = BYTE ẢNH ĐẦU TIÊN về tới máy, không phải lúc header về: relay mà gửi
+      // header sớm để giữ kết nối thì thanh sẽ báo vẽ xong rồi đứng im ở "tải 0 MB"
+      if (!got) net.on(kind, 'drawn');
+      got += value.length;
+      out += dec.decode(value, { stream: true });
+      net.on(kind, 'bytes', got, total);
+    }
+    return out + dec.decode();
   },
 });
 
@@ -13586,7 +13675,7 @@ SC.EvoRecover = {
   _kwOf(en) {
     for (const t of this.TYPES) {
       const it = (SC.EVO_KW[t] || []).find(x => x.en === en);
-      if (it) return { t, en, vi: it.vi, dna: it.dna };
+      if (it) return it.dna ? { t, en, vi: it.vi, dna: it.dna } : { t, en, vi: it.vi };   // không để dna: undefined
     }
     return { t: 'trait', en, vi: en };
   },
@@ -14542,6 +14631,175 @@ SC.EvoGachaUI = {
 };
 
 ;
+/* ===== js/ui-evo-gen-progress.js ===== */
+/* ui-evo-gen-progress.js — THANH TIẾN ĐỘ THẬT khi AI vẽ chiến đấu cơ (12/10/2026)
+ *
+ * Phàn nàn thật: "ĐANG ẤP…" đứng im ~20 giây, người chơi tưởng treo rồi bỏ đi. Yêu cầu: thanh
+ * tiến độ PHẢI THẬT. Hạ tầng ảnh nội bộ KHÔNG trả từng phần (không streaming — tài liệu
+ * game-llm mục 9: ~15-17s/ảnh, một cục). Nên "thật" = mọi bước nhảy của thanh đều do MỘT SỰ
+ * KIỆN ĐO ĐƯỢC gây ra, không có chỗ nào tự chạy cho đẹp:
+ *   GỬI (fetch đi) → VẼ MÁY BAY xong (header về) → VẼ DRONE xong → TẢI ẢNH (đếm BYTE thật của
+ *   response) → CẤT GARA (nén + lưu xong).
+ * Đoạn AI đang vẽ là khoảng mù duy nhất: hiện ĐỒNG HỒ GIÂY THẬT, thanh nhích theo thời gian vẽ
+ * TRUNG VỊ đo ở chính máy này (localStorage, 10 lần gần nhất) nhưng KẸP 90% của đoạn — không bao
+ * giờ báo "xong" trước khi ảnh về thật; quá giờ thì nói thẳng "lâu hơn thường lệ".
+ *
+ * Dùng:  const p = SC.EvoGenProgress.start(viewEl);  generate(..., p.net);  p.step('save');  p.finish();
+ *        lỗi thì p.stop(). p.net giữ nguyên cờ `acked` mà luật hoàn lượt (system-evo-ai-net) cần.
+ */
+
+SC.EvoGenProgress = {
+  KEY: 'sc.evoGenMs',
+  DEFAULT_MS: 18000,          // tài liệu đo 15-17s/ảnh; hai ảnh song song thì con chậm hơn ~18s
+  STEPS: [['send', 'Gửi yêu cầu'], ['ship', 'Vẽ máy bay'], ['drone', 'Vẽ drone'], ['load', 'Tải ảnh'], ['save', 'Cất gara']],
+  // tỉ trọng mỗi đoạn trên thanh (cộng = 100)
+  W: { send: 3, draw: 77, load: 15, save: 5 },
+
+  _hist() { try { return JSON.parse(localStorage.getItem(this.KEY) || '[]'); } catch (e) { return []; } },
+  expected() {
+    const h = this._hist().slice().sort((a, b) => a - b);
+    return h.length ? h[h.length >> 1] : this.DEFAULT_MS;
+  },
+  _record(ms) {
+    if (!(ms > 2000 && ms < 180000)) return;
+    const h = this._hist(); h.push(Math.round(ms));
+    try { localStorage.setItem(this.KEY, JSON.stringify(h.slice(-10))); } catch (e) { }
+  },
+
+  start(view) {
+    let el = view.nextElementSibling;
+    if (!el || !el.classList.contains('evo-prog')) {
+      el = document.createElement('div');
+      el.className = 'evo-prog';
+      view.after(el);
+    }
+    el.classList.remove('hidden');
+    el.innerHTML = `<div class="ep-bar"><i></i></div>
+      <div class="ep-row"><b>0%</b><span>Đang gửi yêu cầu…</span></div>
+      <ol class="ep-steps">${this.STEPS.map(([k, t]) => `<li data-k="${k}">${t}</li>`).join('')}</ol>`;
+    const T = {
+      el, t0: performance.now(), exp: this.expected(), drawn: {}, bytes: {}, total: {}, stage: 'send', done: false,
+      net: { acked: false },
+      step: k => { T.stage = k; T.paint(); },
+      stop: () => { clearInterval(T.timer); el.classList.add('hidden'); },
+      finish: () => {
+        T.done = true; T.stage = 'save'; T.paint();
+        clearInterval(T.timer);
+        setTimeout(() => el.classList.add('hidden'), 700);
+      }
+    };
+    // móc cho system-evo-ai-net._genOne: kind = 'ship' | 'drone'
+    T.net.on = (kind, ev, a, b) => {
+      if (ev === 'drawn') {
+        T.drawn[kind] = performance.now() - T.t0;
+        this._record(T.drawn[kind]);
+        if (T.stage === 'send') T.stage = 'draw';
+      } else if (ev === 'bytes') { T.bytes[kind] = a; T.total[kind] = b; }
+      if (T.drawn.ship != null && T.drawn.drone != null && T.stage !== 'save') T.stage = 'load';
+      T.paint();
+    };
+    T.paint = () => this._paint(T);
+    T.timer = setInterval(T.paint, 200);
+    setTimeout(() => { if (T.stage === 'send') { T.stage = 'draw'; T.paint(); } }, 400);
+    return T;
+  },
+
+  /* tính % từ các sự kiện ĐÃ XẢY RA + đồng hồ thật, rồi vẽ */
+  _paint(T) {
+    const W = this.W, now = performance.now() - T.t0, kinds = ['ship', 'drone'];
+    // vẽ: mỗi ảnh = 1 nếu đã về thật, chưa về thì theo đồng hồ / trung vị, KẸP 0,9
+    const drawFrac = kinds.reduce((s, k) => s + (T.drawn[k] != null ? 1 : Math.min(0.9, now / T.exp)), 0) / 2;
+    // tải: byte thật / tổng (header content-length; thiếu thì ước 1,8MB/ảnh nhưng kẹp 0,95)
+    const loadFrac = kinds.reduce((s, k) => {
+      const got = T.bytes[k] || 0, tot = T.total[k] || 1.8e6;
+      return s + (T.drawn[k] != null && T.stage === 'save' ? 1 : Math.min(T.total[k] ? 1 : 0.95, got / tot));
+    }, 0) / 2;
+    let pct = W.send;
+    if (T.stage !== 'send') pct += W.draw * drawFrac;
+    if (T.stage === 'load' || T.stage === 'save') pct += W.load * loadFrac;
+    if (T.stage === 'save') pct = W.send + W.draw + W.load + (T.done ? W.save : W.save * 0.4);
+    pct = Math.min(100, pct);
+
+    const sec = Math.floor(now / 1000), over = now > T.exp * 1.15;
+    const msg = T.done ? 'Xong! Chiến đấu cơ đã vào gara'
+      : T.stage === 'save' ? 'Đang cất vào gara…'
+      : T.stage === 'load' ? `Đang tải ảnh về… ${(kinds.reduce((s, k) => s + (T.bytes[k] || 0), 0) / 1048576).toLocaleString('vi-VN', { maximumFractionDigits: 1, minimumFractionDigits: 1 })} MB`
+      : T.stage === 'draw' ? (over ? `AI vẽ lâu hơn thường lệ — vẫn đang vẽ… ${sec}s`
+        : `AI đang vẽ chiến đấu cơ… ${sec}s / ~${Math.round(T.exp / 1000)}s`)
+      : 'Đang gửi yêu cầu…';
+    const q = s => T.el.querySelector(s);
+    q('.ep-bar i').style.width = pct.toFixed(1) + '%';
+    q('.ep-row b').textContent = Math.floor(pct) + '%';
+    q('.ep-row span').textContent = msg;
+    const state = {
+      send: T.stage !== 'send' ? 'ok' : 'run',
+      ship: T.drawn.ship != null ? 'ok' : T.stage === 'draw' ? 'run' : '',
+      drone: T.drawn.drone != null ? 'ok' : T.stage === 'draw' ? 'run' : '',
+      load: T.stage === 'save' ? 'ok' : T.stage === 'load' ? 'run' : '',
+      save: T.done ? 'ok' : T.stage === 'save' ? 'run' : ''
+    };
+    T.el.querySelectorAll('.ep-steps li').forEach(li => { li.className = state[li.dataset.k] || ''; });
+  }
+};
+
+;
+/* ===== js/ui-evo-success.js ===== */
+/* ui-evo-success.js — popup "TIẾN HÓA THÀNH CÔNG!" sau MỖI lần lên tàu AI (12/10/2026)
+ *
+ * Yêu cầu anh Đức: tiến hóa xong phải có khoảnh khắc ăn mừng + khoe thuộc tính "thiệt đẹp".
+ * Trước đó bấm DÙNG LUÔN là popup đóng cái rụp, còn mỗi một toast — mà thuộc tính ẩn của
+ * gara là thứ VÔ HÌNH nếu không ai nói ra: người chơi không biết mình vừa mạnh lên chỗ nào.
+ *
+ * Hai lối vào: popup Tiến hóa AI (`ui-evo-ai.use`) và tàu tân thủ (`ui-evo-starter`).
+ * Số liệu lấy ĐÚNG nguồn gara dùng để tính sức mạnh (`EvoGarage.statsOf` / `pct`), không tự
+ * bịa: mỗi từ khóa +1% một chỉ số, cộng dồn mọi tàu đã sở hữu, lực chiến hiển thị +SCALE
+ * điểm mỗi 1% (`system-power.show`). Gọi SAU khi tàu đã vào sổ (`EvoGarage.add` đẩy sổ
+ * đồng bộ trước lệnh await đầu tiên) để "tổng" đã gồm tàu mới.
+ */
+
+SC.EvoSuccess = {
+  IC: { hp: '❤️', atk: '💥', drone: '🛸', armor: '🛡️' },
+
+  init(on) { on('btnEvoDoneOk', () => this.close()); },
+
+  /* pack = { ship, drone } (dataURL) · kws = 3 từ khóa vừa ghép */
+  show(pack, kws) {
+    if (!pack || !pack.ship || !kws || !kws.length) return;
+    const G = SC.EvoGarage, st = G.statsOf(kws.map(k => k.en)), esc = s => SC.Rank.esc(s);
+    const box = document.getElementById('scrEvoDone'), q = s => box.querySelector(s);
+    q('.evod-ship').src = pack.ship;
+    // drone hộ tống hai bên — đúng đội hình phi đội trong trận
+    q('.evod-drones').innerHTML = pack.drone ? `<img src="${pack.drone}" alt=""><img src="${pack.drone}" alt="">` : '';
+    q('.evod-name').textContent = kws.map(k => k.vi.toUpperCase()).join(' · ');
+    q('.evod-sub').textContent = `CHIẾN ĐẤU CƠ THỨ ${G.owned().length} · ĐÃ LÊN TÀU`;
+    q('.evod-kws').innerHTML = kws.map(k =>
+      `<span><i>${esc(SC.EVO_KW.LABEL[k.t] || '')}</i><b>${esc(k.vi.toUpperCase())}</b></span>`).join('');
+    q('.evod-stats').innerHTML = G.STATS.map((s, i) => {
+      const v = st[s] || 0;
+      return `<div class="evod-st ${v ? 'up' : 'off'}" style="--i:${i}"><em>${this.IC[s]}</em>`
+        + `<b>${v ? '+' + v + '%' : '+0%'}</b><span>${G.STAT_VI[s]}</span><small>tổng +${G.pct(s)}%</small></div>`;
+    }).join('');
+
+    SC.UI.showOverlay('evodone');
+    // lực chiến đếm lên — nhịp cuối của chuỗi diễn, sau khi các ô thuộc tính đã bật ra
+    const gain = G.STATS.reduce((a, s) => a + (st[s] || 0), 0) * SC.Power.SCALE, pw = q('.evod-power b');
+    pw.textContent = '+0';
+    clearTimeout(this._t);
+    this._t = setTimeout(() => SC.UI.countUp(pw, gain, 900, '+'), 1200);
+    SC.Fireworks.start(box, 2.6);
+    if (!SC.AudioSamples.play('evo-magic')) SC.Audio.win();
+    SC.Input.vibrate(60);
+  },
+
+  close() {
+    clearTimeout(this._t);
+    SC.Fireworks.stop();
+    SC.UI.hideOverlay('evodone');
+    SC.UI.syncMenu();
+  }
+};
+
+;
 /* ===== js/ui-evo-ai.js ===== */
 /* ui-evo-ai.js — popup TIẾN HÓA AI: khoe bộ 3 từ khóa, gen thử, ưng thì lên tàu
  *
@@ -14692,11 +14950,15 @@ SC.EvoAIUI = {
     // Trừ lượt TRƯỚC khi gọi mạng — F5 giữa chừng vẫn mất lượt (anti-cheat)
     const daTru = SC.EvoAI.rollsLeft() > 0;
     if (daTru) SC.EvoAI.spendRoll();
-    const net = {};                      // net.acked = server đã trả lời (xem EvoAI.generate)
+    // thanh tiến độ THẬT (ui-evo-gen-progress.js); prog.net vẫn mang cờ acked cho luật hoàn lượt
+    const prog = SC.EvoGenProgress.start(document.getElementById('evoAiView'));
+    const net = prog.net;                // net.acked = server đã trả lời (xem EvoAI.generate)
     try {
       const pack = await SC.EvoAI.generate(undefined, style, null, net);
+      prog.step('save');
       this._pack = pack;
       SC.EvoAI.saveDraft(pack);
+      prog.finish();
       // NỞ: gà con bung ra một nhịp rồi mới lộ tàu — phần thưởng phải có màn chào sân
       this._view('<div class="evo-egg hatch">🐣</div>');
       if (!SC.AudioSamples.play('evo-magic')) SC.Audio.win();
@@ -14705,6 +14967,7 @@ SC.EvoAIUI = {
       this._busy = false;
       this._btns();
     } catch (e) {
+      prog.stop();
       this._busy = false;
       // Rớt mạng GIỮA CHỪNG mà server chưa kịp trả một chữ -> trả lại lượt. Mọi lỗi
       // khác KHÔNG hoàn: server có thể ĐÃ gen xong (tiền đã tốn) mà response rơi
@@ -14720,9 +14983,10 @@ SC.EvoAIUI = {
 
   use() {
     if (!this._pack || !this._pack.ship) return;
+    const kws = SC.EvoAI.st().kw.slice(0, 3);   // accept() đốt bộ từ khóa — chụp trước để khoe
     SC.EvoAI.accept(this._pack);
     SC.UI.hideOverlay('evoai');
-    if (!SC.AudioSamples.play('evo-magic')) SC.Audio.win();
+    SC.EvoSuccess.show(this._pack, kws);        // ăn mừng + thuộc tính (tự phát tiếng, pháo hoa)
     SC.UI.syncMenu();
   }
 };
@@ -14811,10 +15075,14 @@ SC.EvoStarter = {
     this._ok('ĐANG ẤP…', false);
     this._view('<div class="evo-egg hatching">🥚</div><span class="evoai-hint evoai-spin">'
       + kws.map(k => SC.Rank.esc(k.vi.toUpperCase())).join(' · ') + '</span>');
+    // thanh tiến độ THẬT dưới quả trứng (ui-evo-gen-progress.js) — ~20s chờ không còn mù
+    const prog = SC.EvoGenProgress.start(document.getElementById('giftEvoView'));
     try {
-      const pack = await SC.EvoAI.generate(undefined, undefined, kws);
+      const pack = await SC.EvoAI.generate(undefined, undefined, kws, prog.net);
+      prog.step('save');
       await SC.EvoGarage.add(pack, kws);              // cất gara + lên tàu luôn
       SC.EvoAI._apply(pack.ship, pack.drone);
+      prog.finish();
       const e2 = SC.EvoAI.st();
       e2.hist = (e2.hist || []).slice(-19);
       e2.hist.push(kws.map(k => k.en).join('|'));
@@ -14822,13 +15090,17 @@ SC.EvoStarter = {
       SC.UI.save();
       SC.Cloud.markDirty();
       this._view('<div class="evo-egg hatch">🐣</div>');
-      SC.Audio.win();
       await new Promise(r => setTimeout(r, 550));
       this._view(`<img src="${pack.ship}" alt="Chiến đấu cơ tân thủ">`
         + (pack.drone ? `<img class="evoai-drone" src="${pack.drone}" alt="">` : ''));
       this._ok('BAY THÔI!', true);
+      // khoe ở popup TIẾN HÓA THÀNH CÔNG (ui-evo-success) — quà vàng đã trao lúc chọn tàu nên
+      // đóng popup quà ở đây không mất gì; tiếng + pháo hoa do popup kia phát
+      SC.UI.hideOverlay('gift');
+      SC.EvoSuccess.show(pack, kws);
       SC.UI.syncMenu();
     } catch (err) {
+      prog.stop();
       this._view('<div class="evo-egg">🥚</div>');
       this._err(((err && err.message) || 'Lỗi mạng') + ' — chọn lại để ấp tiếp');
       this._pick(true);
@@ -15175,7 +15447,7 @@ SC.UI = {
       pause: id('scrPause'), result: id('scrResult'), tree: id('scrTree'), brief: id('scrBrief'),
       fork: id('scrFork'), codex: id('scrCodex'), evo: id('scrEvo'), gift: id('scrGift'),
       rank: id('scrRank'), merge: id('scrMerge'), profile: id('scrProfile'), setup: id('scrSetup'),
-      evoai: id('scrEvoAI'), gacha: id('scrGacha'), garage: id('scrGarage'),
+      evoai: id('scrEvoAI'), evodone: id('scrEvoDone'), gacha: id('scrGacha'), garage: id('scrGarage'),
       options: id('scrOptions'), victory: id('scrVictory'),
       hpFill: id('hpFill'), shFill: id('shFill'),
       score: id('hudScore'), coin: id('hudCoin'), level: id('hudLevel'),
@@ -15240,6 +15512,7 @@ SC.UI = {
     SC.Codex.init(on);
     SC.Evolution.init(on);
     SC.EvoAIUI.init(on);
+    SC.EvoSuccess.init(on);
     SC.EvoGachaUI.init();
     SC.GarageUI.init(on);
     SC.Gift.init(on);
@@ -15899,6 +16172,7 @@ SC.BackStack = {
   MAP: [
     ['merge', null],            // gộp tiến độ: chọn nhầm là mất tiến độ, phải tự quyết
     ['fork', 'btnForkBack'],
+    ['evodone', 'btnEvoDoneOk'], // tiến hóa thành công — trên cùng, đè cả popup quà
     ['gift', 'btnGiftOk'],
     ['evoai', 'btnEvoAiLater'],
     ['gacha', null],            // đang quay, để yên cho nó quay xong
@@ -16258,13 +16532,10 @@ SC.Game = {
 
     // (rung màn hình giảm dần ở loop() — chạy cả ngoài trạng thái chơi)
 
-    // điều kiện kết thúc — chờ dù cuối rơi xong mới tính là hết màn
-    // Hết quái thì cắt dù thừa chưa thả (giữ đúng số còn thiếu cho nhiệm vụ),
-    // không thì cuối màn nào có giải cứu cũng đứng đợi dù rơi — xem cutTail.
-    if (SC.Waves.done) SC.Rescue.cutTail(this.stats.rescued);
+    // điều kiện kết thúc. Hết quái: cắt dù thừa chưa thả (cutTail), mèo còn lại bay thẳng
+    // về tàu (Rescue.home) — không bắt đứng đợi dù rơi
+    if (SC.Waves.done) { SC.Rescue.cutTail(this.stats.rescued); SC.Rescue.home(); }
     const rescuePending = SC.Rescue.list.length > 0 || SC.Rescue.toSpawn > 0;
-    // hết quái thì dù thả nhanh và rơi nhanh, khỏi bắt người chơi đứng đợi
-    if (SC.Waves.done && rescuePending) SC.Rescue.hurry = true;
     if (p.dead) { this.endT += dt; if (this.endT > 1.1) this.finish(false); }
     else if (SC.Waves.done && !this.enemies.length && !rescuePending && !SC.BossMoment.busy()) {
       this.endT += dt;
@@ -16325,9 +16596,12 @@ SC.M365 = {
 
   async init() {
     if (!this.active()) { this._dbg('off — ngoài zingplay.dev'); return; }
-    /* Thứ tự: /oauth2/userinfo (nếu platform mở sau này) → /whoami (nginx của game
-       echo header forward-auth — đường ĐANG chạy, xem ghi chú trong build-standalone). */
-    this.info = (await this._userinfo()) || (await this._whoami());
+    /* Thứ tự: /whoami (nginx của game echo header forward-auth — đường ĐANG chạy, xem ghi chú
+       trong build-standalone) → /oauth2/userinfo (nếu platform mở sau này). */
+    // 12/10/2026 ĐẢO THỨ TỰ: /whoami (nginx của CHÍNH game, luôn có trên banga) trước. Bản cũ
+    // hỏi /oauth2/userinfo trước — platform không mở endpoint đó nên MỖI lần mở game một dòng
+    // 404 đỏ trong console (log banga), dù sau đó /whoami vẫn trả đúng danh tính.
+    this.info = (await this._whoami()) || (await this._userinfo());
     if (!this.info) return;                    // proxy không trả — thôi, như khách lạ
     this._dbg('userinfo OK: ' + this.info.name);
     this._nameProfile();
@@ -16588,7 +16862,7 @@ SC.M365Sync = {
           email: (SC.M365.info.email || '').slice(0, 80),
           // lọc như safeName của portal-cloud: tên sẽ có ngày được vẽ ra UI
           name: SC.Cloud.playerName().replace(/[\x00-\x1F<>]/g, '').slice(0, 40),
-          progress: p,
+          progress: JSON.parse(JSON.stringify(p)),   // bỏ undefined — xem cloud-adapter.progress
           ...meta,                                 // pid + danh sách hồ sơ
           updatedAt: serverTimestamp()
         }), 'lưu tiến độ theo email');

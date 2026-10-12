@@ -2053,3 +2053,87 @@ body .fork-box h3{letter-spacing:.06em}
   .bl-logo{animation:blFloat 2.4s ease-in-out infinite alternate}
 }
 @keyframes blFloat{to{transform:translateY(-8px)}}
+
+/* ===== THANH TIẾN ĐỘ AI VẼ CHIẾN ĐẤU CƠ (12/10/2026, ui-evo-gen-progress.js) =====
+ * Nằm NGAY DƯỚI ô trứng (.evoai-view cao cố định), chữ to cho người lớn tuổi. 5 bước: bước
+ * đang chạy nhấp nháy vàng, bước xong có dấu ✓ xanh — người chơi thấy rõ việc đang tới đâu. */
+.evo-prog{margin:6px 0 2px;text-align:left}
+.ep-bar{height:12px;border-radius:999px;overflow:hidden;background:rgba(0,0,0,.35);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.14)}
+.ep-bar i{display:block;height:100%;width:0;border-radius:999px;transition:width .25s linear;
+  background:linear-gradient(90deg,#ffd23f,#ff8a1f)}
+.ep-row{display:flex;align-items:baseline;gap:8px;margin-top:5px;font-size:14px;color:#e8f2ff}
+.ep-row b{font-size:17px;color:#ffd23f;min-width:44px}
+.ep-row span{flex:1;min-width:0;line-height:1.3}
+.ep-steps{display:flex;flex-wrap:wrap;gap:4px 10px;margin:6px 0 0;padding:0;list-style:none;
+  font-size:13px;color:var(--dim)}
+.ep-steps li::before{content:'○ ';color:rgba(255,255,255,.35)}
+.ep-steps li.ok{color:#8df5b4}
+.ep-steps li.ok::before{content:'✓ ';color:#4dff9f}
+.ep-steps li.run{color:#ffd23f}
+.ep-steps li.run::before{content:'● ';color:#ffd23f}
+@media (prefers-reduced-motion: no-preference){ .ep-steps li.run{animation:epBlink 1s ease-in-out infinite} }
+@keyframes epBlink{50%{opacity:.45}}
+
+/* nút KỸ NĂNG ở màn THUA khi đủ vàng nâng cấp (ui-result, 12/10/2026): vàng như nút chính +
+   nhấp nháy nhẹ — kéo người mới đi nâng cây thay vì CHƠI LẠI mãi với cây trắng */
+.res-sub.go{background:linear-gradient(180deg,#ffe27a,#ffab1f);color:#1a1000;
+  box-shadow:0 2.2px 0 #b96b00,0 0 14px rgba(255,190,60,.55)}
+@media (prefers-reduced-motion: no-preference){ .res-sub.go{animation:resGo 1.2s ease-in-out infinite} }
+@keyframes resGo{50%{transform:scale(1.04);box-shadow:0 2.2px 0 #b96b00,0 0 22px rgba(255,190,60,.8)}}
+
+/* ---------- TIẾN HÓA THÀNH CÔNG (ui-evo-success.js, 12/10/2026) ----------
+   Chuỗi diễn: tàu bung vào (0-0,8s) -> tên + từ khóa -> 4 ô thuộc tính bật lần lượt -> lực chiến
+   đếm lên (JS hẹn 1,2s). Ô có cộng = viền xanh lá sáng; ô +0 mờ đi nhưng VẪN hiện tổng gara. */
+#scrEvoDone{display:grid;place-content:center;padding:14.4px;z-index:14;
+  background:radial-gradient(90% 60% at 50% 36%,rgba(197,140,255,.3),rgba(5,7,15,.92) 72%)}
+.evod-box{position:relative;width:min(300px,var(--uiw) * .92)}
+.evod-stage{position:relative;height:168px;display:grid;place-items:center;overflow:hidden;margin-top:2.9px}
+.evod-rays{position:absolute;width:300px;height:300px;left:50%;top:50%;margin:-150px 0 0 -150px;border-radius:50%;
+  background:repeating-conic-gradient(rgba(255,215,120,.24) 0 8deg,transparent 8deg 22.5deg);
+  -webkit-mask:radial-gradient(circle,#000 12%,transparent 62%);mask:radial-gradient(circle,#000 12%,transparent 62%);
+  animation:evodSpin 16s linear infinite}
+.evod-glow{position:absolute;width:150px;height:150px;border-radius:50%;
+  background:radial-gradient(circle,rgba(255,236,170,.5),rgba(197,140,255,.22) 45%,transparent 70%);
+  animation:evodBreath 2.4s ease-in-out infinite}
+.evod-ship{position:relative;width:146px;height:146px;object-fit:contain;
+  filter:drop-shadow(0 7.2px 16px rgba(0,0,0,.55)) drop-shadow(0 0 12px rgba(255,220,140,.4));
+  animation:evodShipIn .8s cubic-bezier(.2,1.5,.4,1) both,evodBob 2.6s ease-in-out .8s infinite}
+.evod-drones{position:absolute;inset:0;pointer-events:none}
+.evod-drones img{position:absolute;bottom:12px;left:8%;width:46px;height:46px;object-fit:contain;
+  filter:drop-shadow(0 2.9px 7px rgba(0,0,0,.5));animation:evodDrIn .6s ease-out .4s both,evodBob 2.2s ease-in-out 1s infinite}
+.evod-drones img+img{left:auto;right:8%;animation-delay:.5s,1.2s}
+.evod-name{font-family:var(--font-display);font-size:17px;font-weight:700;letter-spacing:.05em;line-height:1.25;
+  color:#fff3c2;text-shadow:0 0 12px rgba(255,200,90,.55),0 2px 0 #6b3d00;margin-top:2.9px;text-wrap:balance;
+  animation:evodUp .45s ease-out .45s both}
+.evod-sub{font-size:12px;letter-spacing:.14em;color:var(--cy);margin-top:2.9px;animation:evodUp .45s ease-out .55s both}
+.evod-kws{display:flex;flex-wrap:wrap;gap:5px;justify-content:center;margin:8.7px 0 0;animation:evodUp .45s ease-out .6s both}
+.evod-kws span{display:flex;flex-direction:column;align-items:center;padding:4.3px 8.7px;border-radius:7.2px;
+  background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 1px rgba(122,224,255,.3)}
+.evod-kws i{font-style:normal;font-size:12px;letter-spacing:.12em;color:var(--dim)}
+.evod-kws b{font-size:13px;letter-spacing:.04em;color:var(--cy)}
+.evod-head{font-size:12px;letter-spacing:.1em;color:#e6c8ff;margin:10px 0 5px;animation:evodUp .45s ease-out .7s both}
+.evod-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
+.evod-st{display:flex;flex-direction:column;align-items:center;gap:1px;padding:6px 2px;border-radius:8.7px;
+  background:rgba(197,140,255,.1);box-shadow:inset 0 0 0 1px rgba(197,140,255,.25);
+  animation:evodStat .45s cubic-bezier(.2,1.6,.4,1) both;animation-delay:calc(.8s + var(--i) * .12s)}
+.evod-st em{font-style:normal;font-size:19px;line-height:1.15}
+.evod-st b{font-family:var(--font-display);font-size:15px;color:#8dff7a}
+.evod-st span{font-size:12px;letter-spacing:.02em;color:#fff}
+.evod-st small{font-size:12px;color:var(--dim)}
+.evod-st.up{background:linear-gradient(180deg,rgba(141,255,122,.2),rgba(197,140,255,.1));
+  box-shadow:inset 0 0 0 1.5px rgba(141,255,122,.6),0 0 12px rgba(141,255,122,.25)}
+.evod-st.off{opacity:.55}
+.evod-st.off b{color:var(--dim)}
+.evod-power{display:flex;align-items:baseline;justify-content:center;gap:7px;margin:9px 0 4px;
+  font-size:12px;letter-spacing:.16em;color:var(--dim);animation:evodUp .45s ease-out 1.15s both}
+.evod-power b{font-family:var(--font-display);font-size:22px;letter-spacing:.04em;color:var(--acc);
+  text-shadow:0 0 10px rgba(255,210,63,.5)}
+#btnEvoDoneOk{flex:1;min-height:48px}
+@keyframes evodSpin{to{transform:rotate(360deg)}}
+@keyframes evodBreath{50%{transform:scale(1.12);opacity:.75}}
+@keyframes evodShipIn{0%{transform:scale(.2) rotate(-24deg);opacity:0}60%{transform:scale(1.14) rotate(4deg);opacity:1}100%{transform:none}}
+@keyframes evodBob{50%{transform:translateY(-6px)}}
+@keyframes evodDrIn{from{opacity:0;transform:translateY(22px) scale(.5)}}
+@keyframes evodUp{from{opacity:0;transform:translateY(8px)}}
+@keyframes evodStat{from{opacity:0;transform:scale(.4)}}
