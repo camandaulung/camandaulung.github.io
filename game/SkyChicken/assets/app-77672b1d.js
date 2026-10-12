@@ -2394,7 +2394,13 @@ SC.AUDIO_SFX = {
   tick:       { n: 1, g: 0.3,  p: 0.05, cd: 50, max: 0.12 },
   'gacha-win': { n: 1, g: 0.6, p: 0,    cd: 500 },
   'evo-magic': { n: 1, g: 0.6, p: 0,    cd: 800 },
-  firework:   { n: 2, g: 0.45, p: 0.08, cd: 150 }
+  firework:   { n: 2, g: 0.45, p: 0.08, cd: 150 },
+  peck:       { n: 1, g: 0.55, p: 0.08, cd: 120 },
+  'punch-whoosh': { n: 1, g: 0.6, p: 0.05, cd: 250 },
+  // loop: lặp tới khi SC.AudioSamples.stop(id) — máy gacha quay 3 giây, file chỉ 2,25 giây
+  'gacha-spin': { n: 1, g: 0.35, p: 0,  cd: 300, loop: true },
+  confirm:    { n: 1, g: 0.45, p: 0.03, cd: 40, max: 0.35 },
+  back:       { n: 1, g: 0.4,  p: 0.03, cd: 40, max: 0.3 }
 };
 
 /* Nhạc: file music/<id>-1.mp3. Bài nền lặp bằng crossfade 2s cuối (system-music-tracks.js).
@@ -2480,12 +2486,14 @@ SC.AudioSamples = {
     const src = c.createBufferSource(), g = c.createGain(), t = c.currentTime;
     src.buffer = list[(Math.random() * list.length) | 0];
     if (def.p) src.playbackRate.value = 1 + (Math.random() * 2 - 1) * def.p;
+    if (def.loop) src.loop = true;
     const v = (def.g ?? 0.6) * (vol ?? 1) * (src.buffer._norm || 1);
     g.gain.setValueAtTime(v, t);
     src.connect(g); g.connect(this._lp(c));
     this._live[id] = (this._live[id] || 0) + 1;
     src.onended = () => { this._live[id]--; };
     src.start(t);
+    this._cur[id] = { src, g };          // để stop(id) tắt được tiếng lặp (gacha-spin)
     // cắt sớm có tắt dần 60ms (cắt cụt là nghe "tạch"). stop() PHẢI sau start() — gọi trước
     // là InvalidStateError, mất luôn tiếng bắn (đã dính ở lượt thử đầu)
     if (def.max && def.max < src.buffer.duration) {
@@ -2497,6 +2505,21 @@ SC.AudioSamples = {
   },
 
   has(id) { return !!(this.buf[id] && this.buf[id].length); },
+
+  /* tắt dần tiếng gần nhất của id — cho tiếng LẶP (def.loop), không thì nó kêu mãi */
+  _cur: {},
+  stop(id, fade = 0.12) {
+    const k = this._cur[id], c = SC.Audio.ctx;
+    this._cur[id] = null;
+    if (!k || !c) return;
+    const t = c.currentTime;
+    try {
+      k.g.gain.cancelScheduledValues(t);
+      k.g.gain.setValueAtTime(k.g.gain.value, t);
+      k.g.gain.linearRampToValueAtTime(0.0001, t + fade);
+      k.src.stop(t + fade + 0.02);
+    } catch (e) { /* đã dừng */ }
+  },
 
   /* LỌC ÂM CAO chung cho mọi file mẫu (12/10/2026, anh Đức: "chói tai") — lưới thứ hai sau
      việc sinh lại bằng prompt mềm: dải trên ~6,5kHz là nơi tiếng "xé" nằm, nhất là loa điện
@@ -6646,6 +6669,7 @@ SC.BossSkills = {
         a.far = Math.min(SC.H * 0.85, Math.hypot(player.x - b.x, player.y - b.y) + 50);
       }
     } else if (k < 0.53) {                          // phóng: 0.09 giây tới nơi
+      if (prev <= 0) SC.AudioSamples.play('punch-whoosh');   // khung đầu của cú phóng (tay vừa rời đà)
       a.reach = ((k - 0.40) / 0.13) * a.far;
     } else {                                        // thu tay chậm hơn nhiều
       a.reach = a.far * (1 - (k - 0.53) / 0.47);
@@ -6998,7 +7022,7 @@ SC.BossSig = {
       const a = SC.angTo(b.x, b.y + b.r * 0.5, lx, ly);
       this.list.push({ k: 'beak', boss: b, x: b.x, y: b.y + b.r * 0.5, x0: b.x, y0: b.y + b.r * 0.5,
         vx: Math.cos(a) * o.speed, vy: Math.sin(a) * o.speed, ang: a, hit: false });
-      SC.Audio.shoot();
+      if (!SC.AudioSamples.play('peck')) SC.Audio.shoot();
     }
     if (o.done >= o.n && k > 0.95) { b.peckY = 0; return true; }
     return false;
@@ -14464,6 +14488,7 @@ SC.EvoGachaUI = {
     reel.classList.remove('lock');
     this._machine(m => { m.classList.remove('lock'); m.classList.add('spin'); });
     SC.UI.showOverlay('gacha');
+    SC.AudioSamples.play('gacha-spin');           // lặp tới khi _reveal tắt
 
     const pool = SC.EVO_KW[kw.t].map(x => x.vi.toUpperCase());
     const t0 = performance.now(), DUR = 3000;
@@ -14489,6 +14514,7 @@ SC.EvoGachaUI = {
   _reveal(skipped) {
     if (this._locked) return;
     this._locked = true;
+    SC.AudioSamples.stop('gacha-spin');
     cancelAnimationFrame(this._raf);
     const reel = document.getElementById('gachaReel');
     reel.textContent = this._kw.vi.toUpperCase();
@@ -15182,8 +15208,13 @@ SC.UI = {
   },
 
   bind() {
-    const on = (id, fn) => document.getElementById(id).addEventListener('click', () => {
-      SC.Audio.click();
+    const on = (id, fn) => document.getElementById(id).addEventListener('click', e => {
+      // Tiếng theo VAI nút (12/10/2026): lùi/thoát nghe "trầm xuống", nút chính nghe "nảy lên"
+      // — người chơi biết mình vừa đi tới hay lùi lại mà không cần đọc. Xét class LÚC BẤM vì
+      // vài nút đổi vai theo tình huống (CHƠI LẠI thành nút chính khi thua).
+      const b = e.currentTarget;
+      const snd = /Back$|Quit|Menu$|Close/.test(id) ? 'back' : b.classList.contains('primary') ? 'confirm' : null;
+      if (!(snd && SC.AudioSamples.play(snd))) SC.Audio.click();
       fn();
     });
     on('btnPlay', () => SC.Game.startLevel(this.progress.unlocked));
