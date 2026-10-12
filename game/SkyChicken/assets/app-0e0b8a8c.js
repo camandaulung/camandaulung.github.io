@@ -3728,18 +3728,22 @@ SC.BossCallout = {
   IN: 0.18, HOLD: 0.9, OUT: 0.25,
   cur: null,
 
-  /* Chỗ đặt CHỐT lúc hô theo vị trí trùm: trùm ở nửa trên thì băng nằm DƯỚI trùm (bản đầu cố định
-     30% chiều cao -> trùm lượn tới đó là băng đè lên bảng tên + thanh máu DOM của nó); trùm lao
-     xuống thấp thì băng lên TRÊN trùm. */
-  show(name, b) {
+  /* Chỗ đặt THEO trùm: trùm ở nửa trên thì băng nằm DƯỚI trùm (bản đầu cố định 30% chiều cao ->
+     trùm lượn tới đó là băng đè lên bảng tên + thanh máu DOM của nó); trùm lao xuống thấp thì băng
+     lên TRÊN trùm. Bản 2 chốt chỗ lúc hô -> trùm vẫn lượn TRÚNG băng trong 1,3s (ảnh 12/10) —
+     nay băng TRƯỢT ÊM theo trùm mỗi khung (không giật theo từng bước nhún của thân). */
+  _at(b) {
     // bảng tên + thanh máu DOM ghim ở chân trùm (ui-hud.moveBoss: top = b.y + r + 12, sàn 112px UI),
     // cao ~63 đơn vị ảo — băng phải nằm DƯỚI cả cụm đó, DOM luôn đè lên canvas
-    const plate = b ? Math.max(b.y + b.r + 12, SC.View.u2w(112)) : 0;
-    const y = !b ? SC.H * 0.3 : b.y < SC.H * 0.42 ? plate + 118 : b.y - b.r - 80;
-    this.cur = { name, t: 0, y: SC.clamp(y, SC.H * 0.14, SC.H * 0.6) };
+    const plate = Math.max(b.y + b.r + 12, SC.View.u2w(112));
+    return SC.clamp(b.y < SC.H * 0.42 ? plate + 118 : b.y - b.r - 80, SC.H * 0.14, SC.H * 0.6);
   },
+  show(name, b) { this.cur = { name, t: 0, b, y: b ? this._at(b) : SC.H * 0.3 }; },
   update(dt) {
-    if (this.cur && (this.cur.t += dt) > this.IN + this.HOLD + this.OUT) this.cur = null;
+    const c = this.cur;
+    if (!c) return;
+    if ((c.t += dt) > this.IN + this.HOLD + this.OUT) { this.cur = null; return; }
+    if (c.b && !c.b.dead) c.y += (this._at(c.b) - c.y) * Math.min(1, dt * 6);
   },
   clear() { this.cur = null; },
 
@@ -3750,8 +3754,9 @@ SC.BossCallout = {
     // bung ra (quá đà 8% rồi về), giữ, rồi trượt lên + mờ
     const s = t < this.IN ? 0.55 + 0.53 * (t / this.IN) : t < this.IN + 0.08 ? 1.08 - (t - this.IN) : 1;
     const a = t > end ? 1 - (t - end) / this.OUT : 1;
-    const W = Math.min(SC.W * 0.88, 470), H = W * 142 / 512, y = c.y - (t > end ? (t - end) * 60 : 0);
-    const img = SC.SpriteArt.get('ui-frame', 'ribbon-boss');
+    // tỉ lệ đọc từ ảnh thật: trim của sharp và của canvas lệch nhau 1-2px (512×144 vs 142)
+    const img = SC.SpriteArt.get('ui-frame', 'ribbon-boss'), W = Math.min(SC.W * 0.88, 470);
+    const H = W * (img ? img.naturalHeight / img.naturalWidth : 142 / 512), y = c.y - (t > end ? (t - end) * 60 : 0);
     ctx.save();
     ctx.globalAlpha = SC.clamp(a, 0, 1);
     ctx.translate(SC.W / 2, y); ctx.scale(s, s);
