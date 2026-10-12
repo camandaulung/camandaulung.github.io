@@ -1989,10 +1989,12 @@ SC.Input = {
 
 ;
 /* ===== js/system-audio.js ===== */
-/* system-audio.js — âm thanh tổng hợp bằng WebAudio, không cần file asset nào
+/* system-audio.js — âm thanh tổng hợp bằng WebAudio + lớp file mẫu ElevenLabs (12/10/2026)
  *
  * Trình duyệt chặn phát tiếng trước khi người dùng tương tác, nên AudioContext
- * chỉ được tạo/mở khoá ở lần chạm hoặc bấm phím đầu tiên. */
+ * chỉ được tạo/mở khoá ở lần chạm hoặc bấm phím đầu tiên.
+ * Mỗi hàm hiệu ứng thử SC.AudioSamples.play(id) TRƯỚC (file mp3, system-audio-samples.js);
+ * chưa có file thì rơi về synth bên dưới — synth là lưới an toàn, đừng xoá. */
 
 SC.Audio = {
   KEY: 'skychicken.audio.v1',
@@ -2008,7 +2010,11 @@ SC.Audio = {
       if (typeof s.mus === 'boolean') this.musOn = s.mus;
     } catch (e) { /* localStorage bị chặn thì dùng mặc định */ }
 
-    const unlock = () => { this._ensure(); if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume(); };
+    const unlock = () => {
+      this._ensure();
+      if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+      if (this.ctx) { SC.AudioSamples.loadAll(); SC.MusicTracks.preload(); SC.Voice.loadAll(); }   // tải file mẫu một lần
+    };
     ['pointerdown', 'keydown', 'touchstart'].forEach(e =>
       window.addEventListener(e, unlock, { passive: true }));
 
@@ -2121,36 +2127,43 @@ SC.Audio = {
   /* ---------- hiệu ứng trong game ---------- */
 
   shoot() {
+    if (SC.AudioSamples.play('shoot')) return;
     const now = performance.now();
     if (now - this._lastShot < 70) return;       // bắn tự động rất dày, phải chặn bớt
     this._lastShot = now;
     this.tone(880, 0.07, 0.12, 'square', 420);
   },
   hit() {
+    if (SC.AudioSamples.play('hit')) return;
     const now = performance.now();
     if (now - this._lastHit < 45) return;
     this._lastHit = now;
     this.noise(0.05, 0.11, 3800, 900);
   },
   explode(big) {
+    // quái thường chết: "bụp" + 35% kèm tiếng gà kêu (quân đoàn gà — chất riêng của game)
+    if (SC.AudioSamples.play(big ? 'boom-big' : 'pop')) { if (!big) SC.AudioSamples.play('squawk'); return; }
     this.noise(big ? 0.9 : 0.3, big ? 0.5 : 0.34, big ? 2600 : 2000, 120);
     this.tone(big ? 110 : 190, big ? 0.6 : 0.24, big ? 0.35 : 0.24, 'sine', big ? 32 : 60);
   },
   hurt() {
+    if (SC.AudioSamples.play('hurt')) return;
     this.tone(300, 0.28, 0.22, 'sawtooth', 90);
     this.noise(0.2, 0.16, 1400, 200);
   },
-  coin()   { this.tone(1450, 0.07, 0.1, 'triangle'); this.tone(2100, 0.09, 0.08, 'triangle'); },
-  gem()    { this.seq([1320, 1760, 2200], 0.055, 0.07, 'triangle'); },
-  power()  { this.seq([520, 700, 880, 1170], 0.055, 0.1, 'square'); },
-  heal()   { this.seq([660, 990], 0.08, 0.09, 'sine'); },
-  shield() { this.tone(300, 0.4, 0.11, 'sine', 1300); this.noise(0.3, 0.06, 900, 4000); },
-  bomb()   { this.noise(1.1, 0.55, 3200, 80); this.tone(160, 0.9, 0.4, 'sine', 28); },
-  wave()   { this.seq([520, 780], 0.09, 0.09, 'triangle'); },
-  alarm()  { this.seq([233, 175, 233, 175], 0.16, 0.15, 'sawtooth'); },
+  coin()   { if (SC.AudioSamples.play('coin')) return; this.tone(1450, 0.07, 0.1, 'triangle'); this.tone(2100, 0.09, 0.08, 'triangle'); },
+  gem()    { if (SC.AudioSamples.play('gem')) return; this.seq([1320, 1760, 2200], 0.055, 0.07, 'triangle'); },
+  power()  { if (SC.AudioSamples.play('power-up')) return; this.seq([520, 700, 880, 1170], 0.055, 0.1, 'square'); },
+  heal()   { if (SC.AudioSamples.play('heal')) return; this.seq([660, 990], 0.08, 0.09, 'sine'); },
+  shield() { if (SC.AudioSamples.play('shield-up')) return; this.tone(300, 0.4, 0.11, 'sine', 1300); this.noise(0.3, 0.06, 900, 4000); },
+  bomb()   { if (SC.AudioSamples.play('bomb')) return; this.noise(1.1, 0.55, 3200, 80); this.tone(160, 0.9, 0.4, 'sine', 28); },
+  wave()   { if (SC.AudioSamples.play('wave')) return; this.seq([520, 780], 0.09, 0.09, 'triangle'); },
+  alarm()  { if (SC.AudioSamples.play('boss-siren')) return; this.seq([233, 175, 233, 175], 0.16, 0.15, 'sawtooth'); },
   win()    { this.seq([523, 659, 784, 1047, 1319], 0.11, 0.13, 'triangle'); },
+  // lose() còn là tiếng "không được" ở cây kỹ năng (mua hụt vàng) — KHÔNG gắn kèn thua vào
+  // đây; thua màn gọi thẳng MusicTracks.oneShot('j-lose') ở system-level-finish
   lose()   { this.seq([440, 370, 294, 220], 0.16, 0.13, 'sawtooth'); },
-  click()  { this.tone(760, 0.045, 0.06, 'square', 620); }
+  click()  { if (SC.AudioSamples.play('click')) return; this.tone(760, 0.045, 0.06, 'square', 620); }
 };
 
 ;
@@ -2185,9 +2198,20 @@ SC.Music = {
 
   boss() { this.start(-1, this.BOSS); },
 
+  /* Lobby + các màn quanh lobby (bản đồ, cây kỹ năng, sổ tay…): CHỈ bài thật, không synth —
+     lobby trước đây im lặng, synth bíp bíp ở đó còn tệ hơn im. want() lặp lại không sao. */
+  lobby() { if (SC.Audio.musOn) SC.MusicTracks.want('m-lobby'); },
+  finale() { if (SC.Audio.musOn) SC.MusicTracks.want('m-finale'); },
+
   start(biomeId, cfg) {
     const c = SC.Audio._ensure();
     if (!c) return;
+    // bài THẬT (system-music-tracks.js) đã sẵn thì phát nó, synth nghỉ; chưa có thì synth
+    // phát tạm và tự crossfade sang bài thật khi tải xong
+    if (SC.MusicTracks.want(cfg === this.BOSS ? 'm-boss' : SC.AUDIO_MUSIC.biome[biomeId])) {
+      this._stopSynth();
+      return;
+    }
     this.cfg = cfg || this.PRESET[biomeId] || this.PRESET[0];
     this.step = 0;
     this.next = c.currentTime + 0.08;
@@ -2198,6 +2222,11 @@ SC.Music = {
   },
 
   stop() {
+    SC.MusicTracks.stop();
+    this._stopSynth();
+  },
+
+  _stopSynth() {
     this.playing = false;
     clearInterval(this.timer);
     this.timer = null;
@@ -2272,6 +2301,7 @@ SC.Music = {
      ngắn đúng nhịp: G-C-E-G chạy lên rồi hợp âm Đô trưởng ngân + bass — phát NGAY lúc chữ
      "HOÀN THÀNH!" bật (system-moments-player.stageClear), không đợi bảng kết quả. */
   fanfare() {
+    if (SC.MusicTracks.oneShot('j-clear')) return;     // kèn thật (ElevenLabs) nếu đã tải
     const A = SC.Audio, c = A._ensure();
     if (!c || !A.sfxOn) return;
     // đi bus HIỆU ỨNG (không phải bus nhạc): nó thay tiếng "win" cũ — người tắt nhạc vẫn nghe
@@ -2316,6 +2346,343 @@ SC.Music = {
     g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
     s.connect(f); f.connect(g); g.connect(A.musBus);
     s.start(t); s.stop(t + 0.07);
+  }
+};
+
+;
+/* ===== js/data-audio-manifest.js ===== */
+/* data-audio-manifest.js — bảng âm thanh MẪU (ElevenLabs) cho SC.AudioSamples (12/10/2026)
+ *
+ * Mỗi ID: n = số biến thể (file assets/audio/<kind>/<id>-1..n.mp3), g = âm lượng (0..1, đây là
+ * CHỖ CHỈNH MIX DUY NHẤT), p = độ lệch cao độ ngẫu nhiên (±p, để 14 tiếng bắn/giây không như
+ * máy lặp), cd = giãn nhịp tối thiểu (ms) giữa hai lần phát, max = cắt sớm + tắt dần sau ngần
+ * này giây (file Auto/AI hay dài hơn cần — tiếng bắn 0,5s mà kêu cả nửa giây là mỏi tai).
+ * Thiếu file / chưa tải xong -> SC.Audio tự rơi về âm tổng hợp cũ (system-audio.js).
+ * ID khớp tools/gen-audio-prompts.mjs. Kế hoạch: plans/261012-1700-sky-chicken-audio-elevenlabs.
+ */
+
+SC.AUDIO_SFX = {
+  shoot:      { n: 3, g: 0.22, p: 0.06, cd: 70, max: 0.22 },
+  hit:        { n: 3, g: 0.25, p: 0.08, cd: 45, max: 0.18 },
+  pop:        { n: 4, g: 0.5,  p: 0.07, cd: 30, max: 0.7 },
+  squawk:     { n: 3, g: 0.45, p: 0.1,  cd: 260, max: 0.6, chance: 0.35 },
+  'boom-big': { n: 2, g: 0.85, p: 0.04, cd: 120 },
+  coin:       { n: 3, g: 0.35, p: 0.05, cd: 40, max: 0.45 },
+  'power-up': { n: 1, g: 0.6,  p: 0,    cd: 200 },
+  'boss-siren': { n: 1, g: 0.55, p: 0,  cd: 1500 },
+  click:      { n: 1, g: 0.4,  p: 0.03, cd: 40, max: 0.25 },
+  // P1/P2 — khai sẵn; chưa có file thì tự im và synth cũ phát thay
+  'boss-chain': { n: 2, g: 0.5, p: 0.08, cd: 60 },
+  hurt:       { n: 2, g: 0.6,  p: 0.04, cd: 120 },
+  'player-die': { n: 1, g: 0.9, p: 0,   cd: 500 },
+  gem:        { n: 1, g: 0.45, p: 0.04, cd: 60 },
+  heal:       { n: 1, g: 0.45, p: 0,    cd: 150 },
+  'shield-up': { n: 1, g: 0.45, p: 0,   cd: 200 },
+  bomb:       { n: 1, g: 0.9,  p: 0,    cd: 300 },
+  wave:       { n: 1, g: 0.5,  p: 0,    cd: 400 },
+  'boss-roar': { n: 1, g: 0.8, p: 0,    cd: 800 },
+  'shield-hit': { n: 1, g: 0.45, p: 0.06, cd: 90 },
+  leak:       { n: 1, g: 0.45, p: 0.04, cd: 150 },
+  rescue:     { n: 1, g: 0.5,  p: 0.06, cd: 200 },
+  'combo-5':  { n: 1, g: 0.55, p: 0,    cd: 300 },
+  'combo-10': { n: 1, g: 0.6,  p: 0,    cd: 300 },
+  'laser-charge': { n: 1, g: 0.5, p: 0, cd: 400 },
+  'laser-fire': { n: 1, g: 0.6, p: 0,   cd: 300 },
+  buy:        { n: 1, g: 0.55, p: 0.03, cd: 120 },
+  star:       { n: 1, g: 0.5,  p: 0,    cd: 60 },
+  heartbeat:  { n: 1, g: 0.6,  p: 0,    cd: 300 },
+  tick:       { n: 1, g: 0.3,  p: 0.05, cd: 50, max: 0.12 },
+  'gacha-win': { n: 1, g: 0.6, p: 0,    cd: 500 },
+  'evo-magic': { n: 1, g: 0.6, p: 0,    cd: 800 },
+  firework:   { n: 2, g: 0.45, p: 0.08, cd: 150 }
+};
+
+/* Nhạc: file music/<id>-1.mp3. Bài nền lặp bằng crossfade 2s cuối (system-music-tracks.js).
+   Vùng (SC.BIOMES, 10 vùng) -> bài: ghép đôi theo không khí; vùng chưa có bài -> nhạc synth. */
+SC.AUDIO_MUSIC = {
+  tracks: { 'm-farm': 0.5, 'm-boss': 0.5, 'm-lobby': 0.45, 'm-frost': 0.5, 'm-toxic': 0.5,
+    'm-magma': 0.5, 'm-storm': 0.5, 'm-finale': 0.55, 'j-clear': 0.7, 'j-lose': 0.6 },
+  biome: ['m-farm', 'm-farm', 'm-frost', 'm-toxic', 'm-magma', 'm-frost', 'm-toxic', 'm-magma', 'm-storm', 'm-storm']
+};
+
+;
+/* ===== js/system-audio-samples.js ===== */
+/* system-audio-samples.js — phát âm thanh MẪU (file mp3 ElevenLabs) trước, synth cũ sau (12/10/2026)
+ *
+ * Toàn bộ âm thanh game từng là synth WebAudio — nghe "bíp bíp" 8-bit đứng cạnh art đồ chơi
+ * 3D bóng. Lớp này phát file thật; mọi hàm SC.Audio.xxx() gọi play(id) TRƯỚC và chỉ rơi về
+ * synth khi play trả false (chưa tải xong, thiếu file, offline). Không màn nào bị câm.
+ *
+ * Tải: bắt đầu ở cử chỉ mở khoá đầu tiên (system-audio.init), decode hết SFX (nhỏ, vài
+ * chục KB mỗi file). File thiếu (404) thì im lặng bỏ qua — khai trước ID trong manifest mà
+ * chưa sinh file là bình thường.
+ * Phát: biến thể ngẫu nhiên + lệch cao độ + giãn nhịp + trần số tiếng cùng lúc mỗi ID +
+ * cắt sớm có tắt dần (max) — xem data-audio-manifest.js.
+ */
+
+SC.AudioSamples = {
+  BASE: 'assets/audio/',
+  MAX_VOICES: 6,          // tối đa ngần này tiếng cùng ID chồng nhau (tiếng bắn 14 lần/giây)
+  buf: {},
+  _last: {},
+  _live: {},
+  _started: false,
+
+  loadAll() {
+    if (this._started) return;
+    const c = SC.Audio.ctx;
+    if (!c) return;
+    this._started = true;
+    for (const id in SC.AUDIO_SFX) {
+      const n = SC.AUDIO_SFX[id].n || 1;
+      for (let i = 1; i <= n; i++) this._load(c, id, `${this.BASE}sfx/${id}-${i}.mp3`);
+    }
+  },
+
+  async _load(c, id, url) {
+    try {
+      const r = await fetch(url);
+      if (!r.ok) return;
+      const b = await c.decodeAudioData(await r.arrayBuffer());
+      b._norm = this._norm(b);
+      (this.buf[id] || (this.buf[id] = [])).push(b);
+    } catch (e) { /* thiếu file / offline / không decode được -> synth lo */ }
+  },
+
+  /* CÂN ĐỘ TO lúc tải: đo đợt sinh đầu, các biến thể CÙNG một prompt lệch nhau tới 15dB
+     (coin-2 −31,7 vs coin-1 −15,8 dBFS RMS) — random biến thể là đồng xu lúc to lúc thì thầm.
+     Đo RMS trên PHẦN CÓ TIẾNG (bỏ khung 10ms im lặng) rồi đưa về −18 dBFS; kẹp ×0,3…×3 để
+     file gần câm không bị kéo thành tiếng xì. g trong manifest nhân SAU, vẫn là chỗ chỉnh mix. */
+  TARGET_RMS: 0.126,
+  _norm(b) {
+    const d = b.getChannelData(0), win = Math.max(1, Math.round(b.sampleRate * 0.01));
+    let sum = 0, n = 0;
+    for (let i = 0; i < d.length; i += win) {
+      let e = 0;
+      for (let j = i; j < Math.min(d.length, i + win); j++) e += d[j] * d[j];
+      e /= win;
+      if (e > 1e-5) { sum += e; n++; }
+    }
+    return n ? SC.clamp(this.TARGET_RMS / Math.sqrt(sum / n), 0.3, 3) : 1;
+  },
+
+  /* true = đã xử lý (phát, hoặc cố ý bỏ qua vì giãn nhịp/xác suất) — synth KHÔNG phát nữa */
+  play(id, vol) {
+    const A = SC.Audio, c = A.ctx, def = SC.AUDIO_SFX[id], list = this.buf[id];
+    if (!c || !def || !list || !list.length) return false;
+    if (!A.sfxOn) return true;
+    const now = performance.now();
+    if (now - (this._last[id] || 0) < (def.cd || 0)) return true;
+    if (def.chance && Math.random() > def.chance) return true;
+    if ((this._live[id] || 0) >= this.MAX_VOICES) return true;
+    this._last[id] = now;
+
+    const src = c.createBufferSource(), g = c.createGain(), t = c.currentTime;
+    src.buffer = list[(Math.random() * list.length) | 0];
+    if (def.p) src.playbackRate.value = 1 + (Math.random() * 2 - 1) * def.p;
+    const v = (def.g ?? 0.6) * (vol ?? 1) * (src.buffer._norm || 1);
+    g.gain.setValueAtTime(v, t);
+    src.connect(g); g.connect(this._lp(c));
+    this._live[id] = (this._live[id] || 0) + 1;
+    src.onended = () => { this._live[id]--; };
+    src.start(t);
+    // cắt sớm có tắt dần 60ms (cắt cụt là nghe "tạch"). stop() PHẢI sau start() — gọi trước
+    // là InvalidStateError, mất luôn tiếng bắn (đã dính ở lượt thử đầu)
+    if (def.max && def.max < src.buffer.duration) {
+      g.gain.setValueAtTime(v, t + Math.max(0, def.max - 0.06));
+      g.gain.linearRampToValueAtTime(0.0001, t + def.max);
+      src.stop(t + def.max + 0.02);
+    }
+    return true;
+  },
+
+  has(id) { return !!(this.buf[id] && this.buf[id].length); },
+
+  /* LỌC ÂM CAO chung cho mọi file mẫu (12/10/2026, anh Đức: "chói tai") — lưới thứ hai sau
+     việc sinh lại bằng prompt mềm: dải trên ~6,5kHz là nơi tiếng "xé" nằm, nhất là loa điện
+     thoại. Bậc 2, Q thấp cho dốc êm — không làm âm "bí" như nghe qua chăn. */
+  _lp(c) {
+    if (!this._filter) {
+      this._filter = c.createBiquadFilter();
+      this._filter.type = 'lowpass';
+      this._filter.frequency.value = 6500;
+      this._filter.Q.value = 0.5;
+      this._filter.connect(SC.Audio.sfxBus);
+    }
+    return this._filter;
+  }
+};
+
+;
+/* ===== js/system-music-tracks.js ===== */
+/* system-music-tracks.js — nhạc THẬT (file ElevenLabs Music) thay nhạc synth khi đã có (12/10/2026)
+ *
+ * SC.Music.start/boss gọi want(id): bài đã decode thì phát luôn (trả true, synth không chạy);
+ * chưa có thì bắt đầu tải và trả false — synth phát tạm, tải xong mà người chơi vẫn đang
+ * chờ đúng bài đó thì CROSSFADE sang. Bài thiếu file thì mãi mãi là synth, không lỗi.
+ *
+ * LẶP: nhạc AI không bảo đảm nối vòng khít, nên không dùng loop=true của AudioBufferSource
+ * (lộ "khựng" ở mối nối). Mỗi vòng là một nguồn mới, vào sớm XFADE giây trước khi vòng cũ
+ * hết, hai bên tắt-dần/to-dần chéo nhau. Bộ đếm 400ms lo lịch vòng kế.
+ * Bài chỉ tải khi cần (không precache cả 7 bài ~1MB/bài) — xem build.mjs.
+ */
+
+SC.MusicTracks = {
+  XFADE: 2,
+  buf: {}, _loading: {},
+  wanted: null, cur: null,     // cur = { id, src, g, end }
+  _timer: null,
+
+  _url(id) { return `assets/audio/music/${id}-1.mp3`; },
+
+  _load(id) {
+    if (this.buf[id] || this._loading[id] || !SC.AUDIO_MUSIC.tracks[id]) return;
+    const c = SC.Audio._ensure();
+    if (!c) return;
+    this._loading[id] = fetch(this._url(id))
+      .then(r => (r.ok ? r.arrayBuffer() : Promise.reject(r.status)))
+      .then(a => c.decodeAudioData(a))
+      .then(b => {
+        this.buf[id] = b;
+        // vẫn đang chờ đúng bài này -> phát (synth đang phát tạm thì tắt nó). Bản đầu chỉ đổi
+        // khi synth ĐANG chạy — lobby/màn chiến thắng không có synth tạm nên lần đầu im luôn
+        if (this.wanted === id) { SC.Music._stopSynth(); this._play(id); }
+      })
+      .catch(() => { /* thiếu file / offline -> giữ synth */ });
+  },
+
+  want(id) {
+    this.wanted = id || null;
+    if (!id) return false;
+    if (this.cur && this.cur.id === id) return true;
+    if (this.buf[id]) { this._play(id); return true; }
+    this._load(id);
+    if (this.cur) this.stop(0.4, true); // bài thật cũ không được phát đè lên synth tạm
+    return false;
+  },
+
+  _play(id) {
+    this.stop(0.6, true);
+    this.cur = { id };
+    this._loop(SC.Audio.ctx.currentTime + 0.05, true);
+    clearInterval(this._timer);
+    this._timer = setInterval(() => {
+      const c = SC.Audio.ctx, k = this.cur;
+      if (k && k.src && c.currentTime > k.end - this.XFADE - 0.5) this._loop(k.end - this.XFADE, false);
+    }, 400);
+  },
+
+  /* một vòng mới bắt đầu ở t; vòng cũ (nếu có) tắt dần chéo trong XFADE giây */
+  _loop(t, first) {
+    const c = SC.Audio.ctx, k = this.cur, b = this.buf[k.id];
+    const v = SC.AUDIO_MUSIC.tracks[k.id] ?? 0.5;
+    const src = c.createBufferSource(), g = c.createGain();
+    src.buffer = b;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(v, t + (first ? 1.2 : this.XFADE));
+    const end = t + b.duration;
+    g.gain.setValueAtTime(v, end - this.XFADE);
+    g.gain.linearRampToValueAtTime(0.0001, end);
+    src.connect(g); g.connect(SC.Audio.musBus);
+    src.start(t); src.stop(end + 0.05);
+    Object.assign(k, { src, g, end });
+  },
+
+  /* keep = giữ "bài đang chờ" (đổi bài nội bộ). SC.Music.stop() gọi không keep -> quên luôn,
+     không thì bài tải xong muộn sau khi đã tạm dừng/thoát sẽ tự bật lên */
+  stop(fade = 0.4, keep = false) {
+    if (!keep) this.wanted = null;
+    clearInterval(this._timer); this._timer = null;
+    const k = this.cur, c = SC.Audio.ctx;
+    this.cur = null;
+    if (!k || !k.src || !c) return;
+    const t = c.currentTime;
+    try {
+      k.g.gain.cancelScheduledValues(t);
+      k.g.gain.setValueAtTime(k.g.gain.value, t);
+      k.g.gain.linearRampToValueAtTime(0.0001, t + fade);
+      k.src.stop(t + fade + 0.05);
+    } catch (e) { /* nguồn đã dừng */ }
+  },
+
+  /* đoạn ngắn phát một lần (kèn thắng/thua) qua bus HIỆU ỨNG — người tắt nhạc vẫn nghe */
+  oneShot(id) {
+    const c = SC.Audio.ctx, b = this.buf[id];
+    if (!c || !b) { this._load(id); return false; }
+    if (!SC.Audio.sfxOn) return true;
+    const src = c.createBufferSource(), g = c.createGain();
+    src.buffer = b; g.gain.value = SC.AUDIO_MUSIC.tracks[id] ?? 0.7;
+    src.connect(g); g.connect(SC.Audio.sfxBus); src.start();
+    return true;
+  },
+
+  /* tải trước kèn thắng/thua lúc mở khoá — lúc cần phát thì không còn kịp tải */
+  preload() { this._load('j-clear'); this._load('j-lose'); }
+};
+
+;
+/* ===== js/system-voice.js ===== */
+/* system-voice.js — GIỌNG ĐỌC tiếng Việt kiểu bình luận viên arcade (12/10/2026)
+ *
+ * "Cảnh báo! Trùm xuất hiện!", "Hạ gục!", "Hoàn thành!"… — với người lớn tuổi, NGHE dễ hơn đọc
+ * chữ trôi trên màn. File assets/audio/voice/<id>.mp3 (tools/gen-audio.mjs --kind=voice).
+ * Chưa có file thì say() im lặng — chữ trên màn vẫn còn, không mất gì.
+ *
+ * Có công tắc riêng GIỌNG ĐỌC (Cài đặt) — người không thích giọng vẫn giữ tiếng hiệu ứng.
+ * Khi đọc: hạ nhạc nền 55% rồi trả lại (ducking) — giọng chìm dưới nhạc là vô nghĩa.
+ * Một câu một lúc, câu đang đọc thì bỏ câu mới (trừ câu ưu tiên): combo x5 ngay sau HẠ GỤC mà
+ * chồng lên nhau là không nghe ra câu nào.
+ */
+
+SC.Voice = {
+  KEY: 'skychicken.voice',
+  IDS: ['v-warn', 'v-clear', 'v-rage', 'v-kill', 'v-combo5', 'v-combo10', 'v-power', 'v-bomb', 'v-lose', 'v-finale'],
+  on: true,
+  buf: {},
+  _busyTill: 0,
+  _started: false,
+
+  init() {
+    try { const v = localStorage.getItem(this.KEY); if (v !== null) this.on = v === '1'; } catch (e) { }
+  },
+
+  set(on) {
+    this.on = on;
+    try { localStorage.setItem(this.KEY, on ? '1' : '0'); } catch (e) { }
+  },
+
+  loadAll() {
+    const c = SC.Audio.ctx;
+    if (this._started || !c) return;
+    this._started = true;
+    for (const id of this.IDS) {
+      fetch(`assets/audio/voice/${id}.mp3`)
+        .then(r => (r.ok ? r.arrayBuffer() : Promise.reject()))
+        .then(a => c.decodeAudioData(a))
+        .then(b => { this.buf[id] = b; })
+        .catch(() => { /* chưa sinh câu này -> im lặng */ });
+    }
+  },
+
+  /* delay (giây): để câu đọc KHÔNG đè lên tiếng còi/kèn vừa phát cùng nhịp */
+  say(id, delay = 0, urgent = false) {
+    const A = SC.Audio, c = A.ctx, b = this.buf[id];
+    if (!this.on || !c || !b || !A.sfxOn) return false;
+    const t = c.currentTime + delay;
+    if (!urgent && t < this._busyTill) return false;
+    this._busyTill = t + b.duration;
+    const src = c.createBufferSource(), g = c.createGain();
+    src.buffer = b; g.gain.value = 0.95;
+    src.connect(g); g.connect(A.master);
+    src.start(t);
+    // ducking nhạc nền trong lúc đọc
+    const m = A.musBus.gain, base = A.musOn ? 0.42 : 0;
+    m.cancelScheduledValues(t);
+    m.setValueAtTime(m.value, t);
+    m.linearRampToValueAtTime(base * 0.45, t + 0.12);
+    m.setValueAtTime(base * 0.45, t + b.duration);
+    m.linearRampToValueAtTime(base, t + b.duration + 0.4);
+    return true;
   }
 };
 
@@ -2968,6 +3335,7 @@ SC.BossMoment = {
     this.name = b.name;
     this.boss = b;
     SC.Music.boss();
+    SC.Voice.say('v-warn', 0.5, true);  // đọc sau nhịp còi đầu cho khỏi đè nhau
     SC.BG.rush(2.6, 3.4);               // cả thế giới lướt nhanh — "lao vào trận lớn"
   },
 
@@ -2977,7 +3345,8 @@ SC.BossMoment = {
     SC.ScreenFX.pop(ph === 3 ? 'NỔI ĐIÊN!' : 'CUỒNG NỘ!', ph === 3 ? '#ff3b5c' : '#ff9d1f');
     SC.FX.ring(b.x, b.y, ph === 3 ? 'rgba(255,80,110,.95)' : 'rgba(255,200,90,.95)', b.r * 0.6, b.r * 3.4, 0.5);
     SC.addShake(16, 0.4);
-    SC.Audio.alarm();
+    if (!SC.AudioSamples.play('boss-roar')) SC.Audio.alarm();
+    if (ph === 3) SC.Voice.say('v-rage', 0.6);
   },
 
   death(g, b) {
@@ -3008,7 +3377,7 @@ SC.BossMoment = {
       SC.FXS.explode(x, y, b.r * SC.rnd(0.3, 0.5), false);
       SC.FX.burst(x, y, '#ffd27a', 10, 260, 3);
       SC.addShake(9, 0.16);
-      SC.Audio.explode(false);
+      if (!SC.AudioSamples.play('boss-chain')) SC.Audio.explode(false);
     }
     if (d.k >= this.DIE) this._final(d.b);
   },
@@ -3028,6 +3397,7 @@ SC.BossMoment = {
     for (let i = 0; i < 16; i++)
       SC.Items.drop(b.x + SC.rnd(-60, 60), b.y + SC.rnd(-30, 30), i % 4 === 0 ? 'gem' : 'coin');
     SC.ScreenFX.pop('HẠ GỤC!', '#ffd23f');
+    SC.Voice.say('v-kill', 0.15, true);
     SC.UI.toast(b.name, true);
   },
 
@@ -3150,7 +3520,7 @@ SC.PlayerMoment = {
     SC.FX.ring(p.x, p.y, 'rgba(255,120,80,.9)', 12, 220, 0.55);
     SC.addShake(22, 0.7);
     SC.ScreenFX.flash('255,60,60', 0.6);
-    SC.Audio.explode(true);
+    if (!SC.AudioSamples.play('player-die')) SC.Audio.explode(true);
     SC.Input.vibrate(120);
   },
 
@@ -3161,6 +3531,7 @@ SC.PlayerMoment = {
     SC.FX.burst(p.x, p.y, '#ffb347', 22, 300, 3.4);
     SC.ScreenFX.flash('255,170,60', 0.35);
     this.label('VŨ KHÍ ' + w + '!', p.x, p.y - 46, '#ffb347', 30);
+    SC.Voice.say('v-power', 0.3);
   },
 
   /* sạch màn: chữ vàng to + slow-mo nhẹ + máy bay phóng vút lên khỏi màn */
@@ -3169,6 +3540,7 @@ SC.PlayerMoment = {
     this.clearT = this.CLEAR;
     SC.TimeFX.slowmo(0.55, 0.45);
     SC.Music.fanfare();
+    SC.Voice.say('v-clear', 0.35, true);
   },
 
   label(text, x, y, col, size) {
@@ -3202,8 +3574,10 @@ SC.PlayerMoment = {
       this.beatT -= dt;
       if (this.beatT <= 0) {
         this.beatT = 0.55 + 0.45 * (p.hp / p.hpMax / 0.3);
-        SC.Audio.tone(70, 0.12, 0.28, 'sine', 40);
-        setTimeout(() => SC.Audio.tone(62, 0.1, 0.2, 'sine', 36), 140);
+        if (!SC.AudioSamples.play('heartbeat')) {
+          SC.Audio.tone(70, 0.12, 0.28, 'sine', 40);
+          setTimeout(() => SC.Audio.tone(62, 0.1, 0.2, 'sine', 36), 140);
+        }
       }
     } else this.beatT = 0;
   },
@@ -3421,7 +3795,7 @@ SC.Fireworks = {
     }
     // tiếng "bụp" — chặn nhịp, ba quả nổ cùng lúc không thành tiếng ồn
     const now = performance.now();
-    if (now - st.pop > 180) { st.pop = now; SC.Audio.noise(0.35, 0.09, 2400, 180); }
+    if (now - st.pop > 180) { st.pop = now; if (!SC.AudioSamples.play('firework')) SC.Audio.noise(0.35, 0.09, 2400, 180); }
   }
 };
 
@@ -6529,6 +6903,7 @@ SC.BossSig = {
       // khoảng lặng 0.15→0.08s, tia to hơn
       this.list.push({ k: 'laser', boss: b, from, t: 0, warn: 0.6, gap: 0.15 - u * 0.07, beam: 0.6,
         hw: 30 + u * 16, ang: SC.angTo(b.x, b.y, player.x, player.y), hit: false });
+      SC.AudioSamples.play('laser-charge');      // tiếng tụ năng lượng khớp lúc tia nháy báo trước
       return { dur: 1.45, name: from === 'hand' ? 'CHƯỞNG LAZE!' : from === 'eye' ? 'NHÃN LAZE!' : 'KHẨU LAZE!' };
     }
     // peck: 2-4 cú mổ liên hoàn theo giai đoạn máu; khó lần 2: mỏ nhanh hơn
@@ -6595,7 +6970,7 @@ SC.BossSig = {
       o.ang += Math.atan2(Math.sin(want - o.ang), Math.cos(want - o.ang)) * Math.min(1, dt * 9);
     }
     const on = o.warn + o.gap;
-    if (o.t >= on && !o.fired) { o.fired = true; SC.addShake(10, 0.35); SC.Audio.bomb(); }
+    if (o.t >= on && !o.fired) { o.fired = true; SC.addShake(10, 0.35); if (!SC.AudioSamples.play('laser-fire')) SC.Audio.bomb(); }
     if (o.t >= on && o.t < on + o.beam && !o.hit) {
       const p = this.origin(o), cx = Math.cos(o.ang), cy = Math.sin(o.ang);
       const along = (player.x - p.x) * cx + (player.y - p.y) * cy;
@@ -8133,7 +8508,7 @@ SC.Player.prototype.leak = function (e) {
   SC.FX.text(e.x, SC.H - 40, '-' + d + ' THỦNG LƯỚI', '#ff3b5c');
   SC.FX.burst(e.x, SC.H - 20, '#ff3b5c', 10, 200, 3);
   SC.addShake(6, 0.18);
-  SC.Audio.hurt();
+  if (!SC.AudioSamples.play('leak')) SC.Audio.hurt();      // thủng lưới: tiếng "hụt" riêng, không lẫn với ăn đạn
   if (this.hp <= 0) { this.hp = 0; this.dead = true; SC.PlayerMoment.death(this); return true; }
   return false;
 };
@@ -8145,6 +8520,7 @@ SC.Player.prototype.hurt = function (dmg) {
   dmg = dmg / SC.EvoGarage.mul('armor');    // thuộc tính ẩn GIÁP của gara tiến hóa
   dmg = SC.Shield.mitigate(this, dmg);      // khiên từ trường đỡ bớt, xem system-shield.js
   if (this.shield > 0) {
+    SC.AudioSamples.play('shield-hit');
     this.shield -= dmg * 1.6;
     if (this.shield < 0) this.shield = 0;
     this.shIdle = 0;                    // vừa ăn đòn thì hoãn hồi bền
@@ -8688,7 +9064,8 @@ SC.Rescue = {
     p.vy = 90;
     SC.FX.burst(p.x, p.y - 34, this.CANOPY[p.skin] || '#fff', 12, 190, 1.2);
     SC.FX.text(p.x, p.y - 58, 'DÙ LỦNG!', '#ff5c7a');
-    SC.Audio.alarm();
+    // KHÔNG dùng Audio.alarm nữa: từ 12/10 nó phát CÒI TRÙM (file mẫu) — dù lủng mà hú còi
+    if (!SC.AudioSamples.play('leak')) SC.Audio.alarm();
   },
 
   render(ctx) {
@@ -9249,7 +9626,7 @@ SC.Combat = {
     g.score += 150;
     SC.FX.text(x, y - 16, 'ĐÃ CỨU! +5◈', '#4dff9f');
     SC.FX.burst(x, y, '#4dff9f', 22, 240, 3.4);
-    SC.Audio.heal();
+    if (!SC.AudioSamples.play('rescue')) SC.Audio.heal();   // mèo meo khi được cứu
     SC.Input.vibrate(35);
     SC.UI.setRescue(g.stats.rescued, SC.Missions.rescueTarget());
   },
@@ -9266,6 +9643,7 @@ SC.Combat = {
     // cả màn chớp trắng rồi chữ BOM nổ ra trong bong bóng kiểu truyện tranh
     SC.ScreenFX.flash('255,240,220', 0.22);
     SC.ScreenFX.pop('BOM!', '#ff3b5c');
+    SC.Voice.say('v-bomb', 0.1);
     // log trận (system-telemetry.js): số bom, sát thương/hạ gục DO BOM, bom CỨU NGUY
     // (nổ lúc máu < 35%) — dashboard tính bom gánh bao nhiêu % trận đấu
     const S = g.stats, p = g.player;
@@ -9401,7 +9779,8 @@ SC.AudioUI = {
   toggleMus() {
     SC.Audio.setMus(!SC.Audio.musOn);
     if (SC.Audio.musOn && SC.Game.state === 'play') SC.Music.start(SC.Game.lv.biome);
-    else if (!SC.Audio.musOn) SC.Music.stop();
+    else if (SC.Audio.musOn) SC.Music.lobby();
+    else SC.Music.stop();
     this.sync();
   },
 
@@ -9489,6 +9868,7 @@ SC.Settings = {
     on('btnShake2', () => this.toggleShake());
     on('btnTilt', () => this.toggleTilt());
     on('btnText', () => this.toggleText());
+    on('btnVoice', () => { SC.Voice.set(!SC.Voice.on); this.sync(); });
     on('btnFull', () => SC.View.toggleFullscreen());
     on('btnReset', () => this.reset());
 
@@ -9533,6 +9913,8 @@ SC.Settings = {
     // nhãn ở đây là một <span> RIÊNG, ghi được mà không đụng icon (xem chú thích trên)
     const t = document.getElementById('btnTiltLabel');
     if (t) t.textContent = this.tilt === 45 ? 'NGHIÊNG 45°' : 'NGANG 90°';
+    const vo = document.getElementById('btnVoiceLabel');
+    if (vo) vo.textContent = SC.Voice.on ? 'BẬT' : 'TẮT';
     const x = document.getElementById('btnTextLabel');
     if (x) x.textContent = (this.TEXT.find(v => v[0] === this.text) || this.TEXT[1])[1];
   },
@@ -9885,6 +10267,8 @@ SC.Result = {
     ui.showOverlay('result');
     // thắng ĐỦ 3 SAO: một tràng pháo hoa sau bảng — phần thưởng thấy được cho việc cày đủ nhiệm vụ
     if (win && r.stars === 3) SC.Fireworks.start(id('scrResult'), 2.8);
+    // tiếng "ting" khớp nhịp sao bật (CSS starPop trễ .05/.19/.33s)
+    for (let i = 0; i < r.stars; i++) setTimeout(() => SC.AudioSamples.play('star', 0.8 + i * 0.15), 60 + i * 140);
   },
 
   /* Lời khuyên khi thua.
@@ -11517,7 +11901,7 @@ SC.TreeUI = {
       SC.UI.toast(SC.Tree.pendingFork() ? 'CHỌN HƯỚNG TRƯỚC ĐÃ' : 'KHÔNG ĐỦ VÀNG');
       return;
     }
-    SC.Audio.power();
+    if (!SC.AudioSamples.play('buy')) SC.Audio.power();   // mua cấp cây kỹ năng
     SC.Cloud.markDirty();
     SC.UI.toast('NÂNG CẤP ' + SC.TREE[key].name);
     this.build();
@@ -11534,7 +11918,7 @@ SC.TreeUI = {
 
   buyGold() {
     if (!SC.Tree.buyGold()) { SC.Audio.lose(); SC.UI.toast('KHÔNG ĐỦ VÀNG'); return; }
-    SC.Audio.power();
+    if (!SC.AudioSamples.play('buy')) SC.Audio.power();   // mua cấp cây kỹ năng
     SC.Cloud.markDirty();
     SC.UI.toast('NÂNG CẤP THU VÀNG');
     this.build();
@@ -11864,7 +12248,7 @@ SC.Evolution = {
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     SC.UI.showOverlay('evo');
-    SC.Audio.win();
+    if (!SC.AudioSamples.play('evo-magic')) SC.Audio.win();
     this._loop();
   },
 
@@ -12150,6 +12534,7 @@ SC.Victory = {
 
     SC.UI.show('victory');
     SC.Fireworks.start(id('scrVictory'));     // bắn tới khi rời màn (ui-fireworks.js)
+    SC.Voice.say('v-finale', 0.6, true);
   }
 };
 
@@ -14111,7 +14496,7 @@ SC.EvoGachaUI = {
     reel.classList.add('lock');          // bung scale + glow, xem CSS .gacha-reel.lock
     // máy thôi rung -> mắt dung hợp lóe + vòng năng lượng nổ (CSS .gacha-machine.lock)
     this._machine(m => { m.classList.remove('spin'); void m.offsetWidth; m.classList.add('lock'); });
-    SC.Audio.win();
+    if (!SC.AudioSamples.play('gacha-win')) SC.Audio.win();
     SC.Input.vibrate(45);
     // bỏ qua giữa chừng vẫn được LIẾC kết quả một nhịp ngắn — đừng nuốt phần thưởng
     this._timer = setTimeout(() => this._finish(), skipped ? 700 : 1400);
@@ -14288,7 +14673,7 @@ SC.EvoAIUI = {
       SC.EvoAI.saveDraft(pack);
       // NỞ: gà con bung ra một nhịp rồi mới lộ tàu — phần thưởng phải có màn chào sân
       this._view('<div class="evo-egg hatch">🐣</div>');
-      SC.Audio.win();
+      if (!SC.AudioSamples.play('evo-magic')) SC.Audio.win();
       await new Promise(r => setTimeout(r, 550));
       this._view(this._preview(pack));
       this._busy = false;
@@ -14311,7 +14696,7 @@ SC.EvoAIUI = {
     if (!this._pack || !this._pack.ship) return;
     SC.EvoAI.accept(this._pack);
     SC.UI.hideOverlay('evoai');
-    SC.Audio.win();
+    if (!SC.AudioSamples.play('evo-magic')) SC.Audio.win();
     SC.UI.syncMenu();
   }
 };
@@ -14864,6 +15249,10 @@ SC.UI = {
     // máy bay ở lobby cần biết ô sân nằm đâu, đo sau khi màn đã hiện
     if (which === 'menu' && SC.LobbyShip) SC.LobbyShip.layout();
     this._stagger(this.el[which]);
+    // nhạc nền theo màn: lobby và các màn quanh lobby dùng chung bài lobby; vào trận thì
+    // SC.Music.start(vùng) thay; màn tổng kết chiến dịch có bài riêng
+    if (which === 'victory') SC.Music.finale();
+    else if (which !== 'game') SC.Music.lobby();
   },
 
   /* Thẻ trong danh sách cuộn trượt vào LẦN LƯỢT khi vừa mở màn (CSS .stagger). Gỡ class
@@ -14977,7 +15366,9 @@ Object.assign(SC.UI, {
     if ((c === 5 || c === 10) && SC.Game.player) {
       const p = SC.Game.player;
       SC.PlayerMoment.label(c === 10 ? 'COMBO x10!' : 'COMBO x5!', p.x, p.y - 70, c === 10 ? '#ff5c9a' : '#ffd23f', c === 10 ? 32 : 26);
-      SC.Audio.seq(c === 10 ? [880, 1175, 1568, 2093] : [784, 1047, 1319], 0.06, 0.09, 'triangle');
+      SC.Voice.say(c === 10 ? 'v-combo10' : 'v-combo5', 0.2);
+      if (!SC.AudioSamples.play(c === 10 ? 'combo-10' : 'combo-5'))
+        SC.Audio.seq(c === 10 ? [880, 1175, 1568, 2093] : [784, 1047, 1319], 0.06, 0.09, 'triangle');
     }
   },
   showBoss(name) {
@@ -15016,7 +15407,7 @@ Object.assign(SC.UI, {
     const step = now => {
       const k = Math.min(1, (now - t0) / ms), v = Math.round(to * (1 - Math.pow(1 - k, 3)));
       el.textContent = pre + v;
-      if (++tick % 4 === 0 && k < 1) SC.Audio.tone(1300 + 900 * k, 0.03, 0.04, 'triangle');
+      if (++tick % 4 === 0 && k < 1 && !SC.AudioSamples.play('tick')) SC.Audio.tone(1300 + 900 * k, 0.03, 0.04, 'triangle');
       if (k < 1) requestAnimationFrame(step);
     };
     requestAnimationFrame(step);
@@ -15303,7 +15694,8 @@ SC.Finish = {
     SC.Music.stop();
     // thắng: kèn đã phát lúc chữ HOÀN THÀNH bật (SC.Music.fanfare) — phát lại ở đây là
     // hai câu nhạc chồng nhau cách 1 giây
-    if (!win) SC.Audio.lose();
+    if (!win && !SC.MusicTracks.oneShot('j-lose')) SC.Audio.lose();
+    if (!win) SC.Voice.say('v-lose', 0.4, true);
     const p = g.player;
     const acc = p.shots ? Math.round(p.hits / p.shots * 100) : 0;
     // sao = số nhiệm vụ phụ hoàn thành (chỉ tính khi thắng)
@@ -15556,7 +15948,7 @@ SC.Game = {
       if (SC.View.rotated && this.state === 'play') this.pause(true);
     };
 
-    SC.Audio.init();
+    SC.Audio.init(); SC.Voice.init();
     SC.UI.init();
     SC.Input.init(this.canvas, this);
     // Sau UI.init vì cần SC.UI.el; trước show('menu') để vé lịch sử đầu tiên nằm
