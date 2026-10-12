@@ -1891,3 +1891,143 @@ body .tree-rebuild{font-size:13px}
    thu lại, người chơi bị kẹt ở bố cục bị cắt. */
 #profName{min-height:44px;font-size:16px}
 .evoai-other input{min-height:44px;font-size:16px}
+
+/* ============ SOÁT GIAO DIỆN LẦN 3 — 24 MÀN, ẢNH CHỤP THẬT (12/10/2026) ============
+ * Chụp đủ 24 màn ở 375px bằng Chrome headless + script đo (chữ <13px, vùng chạm <44px,
+ * chữ bị khung cha cắt). Phản hồi kèm theo: "nhiều chỗ bị che, chưa elder friendly".
+ * Phần to chữ toàn cục nằm ở tuỳ chọn CỠ CHỮ (ui-settings.js) — khối này chỉ sửa
+ * từng chỗ HỎNG mà to chữ không chữa được. */
+
+/* 1. THẺ CÂY KỸ NĂNG BỊ XÉN ĐÁY — dòng mô tả hiện nửa con chữ. Gốc: .shop-scroll là
+      flex dọc, còn .tree-row có overflow:hidden (để giữ vệt màu ::before) — mà phần tử
+      flex có overflow khác visible thì min-height:auto thành 0, nên KHI DANH SÁCH DÀI
+      HƠN MÀN HÌNH mọi thẻ bị bóp lùn cho vừa thay vì cuộn. Cấm co là xong. */
+/* Cùng một bệnh ở MỌI danh sách cuộn flex dọc — đợt soát này bắt thêm ở CÀI ĐẶT (ghi chú
+   .opt-note có line-clamp = overflow:hidden, bị bóp còn nửa dòng khi phóng CỠ CHỮ). */
+.map-scroll>*,.shop-scroll>*,.vic-scroll>*,.opt-scroll>*,.prof-scroll>*,.rank-scroll>*{flex-shrink:0}
+
+/* 2. NÚT GIÁ CÂY KỸ NĂNG cao 36px — luật 1848 (min-height 31.8) đè mất sàn 44.8 ở trên.
+      Nút CHƯA ĐỦ VÀNG trước đây opacity .45: số tiền mờ tới mức không đọc nổi, mà đó lại
+      là con số người chơi cần nhất ("còn thiếu bao nhiêu"). Giữ khác màu nút mua được,
+      nhưng chữ phải đọc rõ. */
+.tree-row .shop-buy{min-height:44px}
+.tree-row .shop-buy.poor{opacity:1;background:rgba(255,255,255,.08);color:#c9d5ea;
+  box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.16)}
+.tree-rebuild{min-height:44px}
+/* tiêu đề màn rớt 2-3 dòng ("CÂY / KỸ / NĂNG") khi đứng cạnh POWER + vàng. Tiêu đề
+   KHÔNG được gãy chữ; thiếu chỗ thì cụm số liệu bên phải xuống hàng hai, dạt phải. */
+.scr-head{flex-wrap:wrap;row-gap:4px}
+.scr-head h2{letter-spacing:.12em;white-space:nowrap}
+.head-stats{display:flex;align-items:center;gap:10px;margin-left:auto}
+
+/* 3. LỜI KHUYÊN KHI THUA bị kẹp 2 dòng, câu "xây lại cả cây" mất hẳn, dòng 3 lòi nửa
+      con chữ. Đây là chữ quan trọng nhất của màn thua — gỡ kẹp, để nó đủ 3-4 dòng. */
+.res-advice{display:block;-webkit-line-clamp:unset;overflow:visible}
+
+/* 4. CHỮ TRÀN RA ĐUÔI RUY BĂNG ("TẠM DỪNG", "VŨ KHÍ — CHỌN HƯỚNG"): ảnh ruy băng
+      kéo giãn 100% nên phần đuôi chiếm ~12% mỗi bên, padding 18.8px cố định không đủ.
+      Đệm theo % để chữ luôn nằm trên bản giữa. */
+.panel h3,.gift-box h3,.fork-box h3{padding:9px 13%;white-space:nowrap;letter-spacing:.12em}
+body .fork-box h3{letter-spacing:.06em}
+
+/* 5. Ô CHỌN ẢNH ĐẠI DIỆN 27px — nhỏ nhất game, chạm trượt sang con bên cạnh */
+.ava-pick{gap:6px}
+.ava-pick button{width:44px;height:44px;font-size:24px}
+
+/* 6. HUD đè lên cảnh đánh: chữ xám mờ chìm vào nền map sáng (ruộng, sa mạc). Không đổi
+      chỗ đứng (đã soát đè tai thỏ), chỉ tăng tương phản và độ dày thanh. */
+.hp-bar,.sh-bar{height:9px;width:130px;box-shadow:0 0 0 1px rgba(0,0,0,.45)}
+.wave-bar{height:4px;background:rgba(0,0,0,.35)}
+.wave-wrap span{color:#eef5ff;font-weight:700;
+  text-shadow:0 1px 2px #000,0 0 6px rgba(0,0,0,.85)}
+.lvl-tag{color:#d3def0;background:rgba(0,0,0,.5)}
+.toast{text-shadow:0 2px 3px #000,0 0 10px rgba(0,0,0,.9)}
+
+/* 7. CHỮ PHỤ toàn game (--dim #8fa3c0) đứng trên panel xanh navy chỉ còn ~4:1 —
+      đạt sàn nhưng người lớn tuổi đọc rất mệt. Nâng một bậc sáng, giữ sắc xanh. */
+:root{--dim:#aebdd6}
+.codex-card.locked{opacity:.8}
+
+/* 8. Popup BRIEF rộng 231px: nhiệm vụ "Hoàn thành dưới 39 giây" gãy 2 dòng cả ba mục */
+.panel.brief{width:min(320px,calc(var(--uiw) * .9))}
+
+/* 9. QUÀ TÂN THỦ: nút NHẬN QUÀ co theo chữ, lệch trái — nút duy nhất của popup phải
+      to và nằm giữa */
+#btnGiftOk{display:block;width:100%;min-height:48px}
+
+/* ===================== CHUYỂN ĐỘNG UI (12/10/2026) =====================
+ * Phản hồi "thêm animation". Màn nào cũng hiện/ẩn tức thì bằng display:none, nên đổi
+ * màn nhìn như nháy hình. Ba lớp, đều NGẮN (<0,35s) vì người chơi bấm qua lại rất nhiều:
+ *   - màn toàn trang: CHỈ mờ dần, KHÔNG trượt — lobby đo vị trí DOM để đặt máy bay canvas
+ *     ngay lúc hiện (ui-lobby-ship.layout); trượt là nó đo trúng vị trí giữa chừng.
+ *   - popup (màn .dim): nảy từ 86% lên, đi quá đích một chút như đồ chơi bật nắp.
+ *   - thẻ danh sách: trượt lên lần lượt, chỉ khi VỪA MỞ màn (.stagger, ui-screens._stagger).
+ * Tắt sạch khi hệ điều hành bật "giảm chuyển động" — cùng luật với system-toy-motion.js. */
+@media (prefers-reduced-motion: no-preference){
+  .screen:not(.hidden){animation:uiFade .2s ease-out both}
+  .screen.dim:not(.hidden)>.panel,.screen.dim:not(.hidden)>.gift-box,
+  .screen.dim:not(.hidden)>.fork-box,.screen.dim:not(.hidden)>.evo-box,
+  .screen.dim:not(.hidden)>.gacha-box{animation:uiPop .34s cubic-bezier(.34,1.56,.64,1) both}
+  .stagger>*{animation:uiRise .32s cubic-bezier(.2,.8,.3,1) both}
+  .stagger>:nth-child(2){animation-delay:.04s}
+  .stagger>:nth-child(3){animation-delay:.08s}
+  .stagger>:nth-child(4){animation-delay:.12s}
+  .stagger>:nth-child(5){animation-delay:.16s}
+  .stagger>:nth-child(6){animation-delay:.2s}
+  .stagger>:nth-child(7){animation-delay:.24s}
+  .stagger>:nth-child(n+8){animation-delay:.28s}
+  /* nút icon/thanh dưới lobby: lún + co nhẹ thay vì chỉ tụt 2px — ngón tay to, người lớn
+     tuổi cần thấy rõ "đã bấm trúng" */
+  .icon-btn:active,.rail-btn:active{transform:translateY(2px) scale(.94)}
+}
+@keyframes uiFade{from{opacity:0}}
+@keyframes uiPop{from{opacity:0;transform:scale(.86)}}
+@keyframes uiRise{from{opacity:0;transform:translateY(14px)}}
+
+/* 10. THẺ PHI CÔNG lobby: hồ sơ mới ghi "POWER 0 · +2.500→CỨNG CÁ…" — cắt cụt đúng cái
+       mốc người chơi mới cần đọc nhất. Cho gãy dòng, nhưng CHỈ ở chỗ nối giữa POWER và mốc
+       hạng (mỗi mảnh tự nowrap): đủ chỗ thì vẫn một dòng như cũ. */
+.prof-rank{white-space:normal;overflow:visible;text-overflow:clip}
+.prof-rank .pw-next{white-space:nowrap}
+
+/* 11. THÔNG BÁO GIỮA TRẬN ("CÓ MÈO RƠI!", "DỒN DẬP!"): chữ vàng mảnh trên ruộng vàng, lại
+       mờ dần ngay từ 22% của 1,1 giây — ảnh chụp thật gần như không đọc được. Lót nền tối
+       vừa khít chữ, đậm nét, và GIỮ RÕ tới 70% của 1,6 giây rồi mới tan. */
+.toast{display:table;margin:0 auto 4px;padding:4px 14px;border-radius:999px;
+  background:rgba(4,8,20,.55);font-weight:700;animation:toastHold 1.6s ease-out forwards}
+@keyframes toastHold{0%{opacity:0;transform:translateY(10px) scale(.9)}
+  15%{opacity:1;transform:translateY(0) scale(1)}
+  70%{opacity:1;transform:translateY(-6px)}100%{opacity:0;transform:translateY(-18px)}}
+
+
+/* ================= "WOW" — HUD SỐNG ĐỘNG (12/10/2026) =================
+ * Combo leo thang theo bậc (ui-hud.setCombo đặt data-tier, nảy class .bump mỗi nấc).
+ * Thanh máu đập đỏ khi dưới 30% (cùng nhịp viền đỏ canvas ở system-moments-player.js).
+ * Toast lên 26%: ở 38% nó chồng đúng lên bong bóng manga ScreenFX (tâm 42%) — ảnh chụp
+ * nổ bom cho thấy "NÂNG CẤP VŨ KHÍ" + "BOM!" + "WAVE 2" đè thành một đống. */
+#toastZone{top:26%}
+.combo{transform-origin:100% 50%;transition:color .2s,text-shadow .2s}
+.combo[data-tier="2"]{color:#ffd23f}
+.combo[data-tier="2"] b{color:#fff3a8;font-size:20px}
+.combo[data-tier="3"]{color:#ff9d1f;text-shadow:0 0 8px rgba(255,140,30,.6)}
+.combo[data-tier="3"] b{color:#ffd27a;font-size:22px}
+.combo[data-tier="4"]{color:#ff5c9a;text-shadow:0 0 12px rgba(255,80,150,.8)}
+.combo[data-tier="4"] b{color:#fff;font-size:24px}
+@media (prefers-reduced-motion: no-preference){
+  .combo.bump{animation:comboBump .28s cubic-bezier(.34,1.8,.64,1)}
+  .combo[data-tier="4"]{animation:comboHot .5s ease-in-out infinite alternate}
+  .hp-wrap.low .hp-bar{animation:hpLow .7s ease-in-out infinite}
+}
+@keyframes comboBump{0%{transform:scale(1.45)}100%{transform:scale(1)}}
+@keyframes comboHot{to{transform:scale(1.08)}}
+@keyframes hpLow{50%{box-shadow:0 0 0 2px rgba(255,40,70,.9),0 0 14px rgba(255,40,70,.8)}}
+
+
+/* ===== HUD TỰ MỜ + LỚP PHÁO HOA (12/10/2026) =====
+ * .see-thru do ui-hud-see-through.js bật khi quái/đạn/máy bay nằm dưới nhóm HUD đó.
+ * .fx-canvas (ui-fireworks.js) là con ĐẦU của màn và nằm DƯỚI nội dung: nội dung phải
+ * position:relative để vẽ đè lên nó — không thì canvas định vị tuyệt đối phủ lên chữ. */
+#hud .hud-left,#hud .hud-right,#hud .wave-wrap,#hud .wpn,#hud .hud-right-col{transition:opacity .2s}
+#hud .see-thru{opacity:.28}
+.fx-canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0}
+#scrVictory>.vic-scroll,#scrResult>.panel{position:relative;z-index:1}

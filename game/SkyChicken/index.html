@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="icon" type="image/png" href="icons/icon-192.png">
-<link rel="stylesheet" href="assets/style-46aee4ad.css">
+<link rel="stylesheet" href="assets/style-da71010c.css">
 </head>
 <body>
 
@@ -302,6 +302,13 @@
       </button>
       <p class="opt-note">Máy bay chỉ xoay khi quái đã áp sát sườn.</p>
 
+      <!-- CỠ CHỮ (12/10/2026): nhân vào hệ số lớp #ui — xem ui-settings.js -->
+      <span class="opt-lb">CỠ CHỮ</span>
+      <button class="btn ghost opt-wide" id="btnText">
+        <span>CỠ CHỮ: <b id="btnTextLabel">LỚN</b></span>
+      </button>
+      <p class="opt-note">Chữ và nút to hơn — dễ đọc, dễ bấm.</p>
+
       <span class="opt-lb">MÀN HÌNH</span>
       <button class="btn ghost opt-wide ic-swap" id="btnFull">
         <svg class="ic ic-on" aria-hidden="true"><use href="#i-expand"/></svg>
@@ -430,8 +437,11 @@
     <div class="scr-head">
       <button class="icon-btn back" id="btnTreeBack" aria-label="Quay lại"><img class="ic" src="assets/art-game/ui-icon-back.webp" alt="" onerror="if(this.r)this.replaceWith('‹');else{this.r=1;this.src=this.src}"></button>
       <h2>CÂY KỸ NĂNG</h2>
-      <span class="power-tag" id="treePower"><img class="ci" src="assets/art-game/ui-icon-power.webp" alt="" onerror="if(this.r)this.replaceWith('⚔');else{this.r=1;this.src=this.src}"> <i class="pw-lb">POWER</i> <b>0</b></span>
-      <span class="total-star gold"><img class="ci" src="assets/art-game/ui-icon-gold.webp" alt="" onerror="if(this.r)this.replaceWith('◈');else{this.r=1;this.src=this.src}"> <b id="treeCoin">0</b></span>
+      <!-- bọc chung: hết chỗ thì CẢ CỤM xuống hàng hai dạt phải, không để vàng rớt lẻ -->
+      <span class="head-stats">
+        <span class="power-tag" id="treePower"><img class="ci" src="assets/art-game/ui-icon-power.webp" alt="" onerror="if(this.r)this.replaceWith('⚔');else{this.r=1;this.src=this.src}"> <i class="pw-lb">POWER</i> <b>0</b></span>
+        <span class="total-star gold"><img class="ci" src="assets/art-game/ui-icon-gold.webp" alt="" onerror="if(this.r)this.replaceWith('◈');else{this.r=1;this.src=this.src}"> <b id="treeCoin">0</b></span>
+      </span>
     </div>
     <div class="shop-scroll" id="treeList"></div>
     <p class="shop-note">Cấp 2 rẽ đôi — chọn một hướng, hướng kia khoá lại</p>
@@ -768,7 +778,7 @@
 <script src="../../shared/portal-cloud.js"></script>
 <script src="../../shared/portal-rank.js"></script>
 <script src="../../shared/portal-player.js"></script>
-<script src="assets/app-31b7d503.js" onerror="window.__shellHong=1"></script>
+<script src="assets/app-a11cd807.js" onerror="window.__shellHong=1"></script>
 <script>
 /* LOP TU CUU KHI VO UNG DUNG HONG — dung xoa.
  *
