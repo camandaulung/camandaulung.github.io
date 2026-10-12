@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="icon" type="image/png" href="icons/icon-192.png">
-<link rel="stylesheet" href="assets/style-0a7fc78b.css">
+<link rel="stylesheet" href="assets/style-b0add7cf.css">
 </head>
 <body>
 <!-- MÀN TẢI VÀO GAME (12/10/2026): hiện NGAY khi HTML về, trước cả lúc JS chạy. Kiểm tra bản
@@ -154,7 +154,7 @@
 
     <div id="bossBar" class="boss-wrap hidden">
       <span id="bossName">BOSS</span>
-      <div class="boss-bar"><i id="bossFill"></i></div>
+      <div class="boss-bar"><i id="bossLag"></i><i id="bossFill"></i></div>
     </div>
 
     <div class="hud-bottom">
@@ -605,6 +605,9 @@
       <button data-tab="level" class="on">MÀN CAO NHẤT</button>
       <button data-tab="time">TỐC ĐỘ</button>
       <button data-tab="stars">TỔNG SAO</button>
+      <!-- 12/10/2026: hàng 2 — ui-rank-power-garage.js. GARA chỉ hiện ở kênh tiến hóa -->
+      <button data-tab="power">LỰC CHIẾN</button>
+      <button data-tab="garage">GARA</button>
     </div>
     <div class="rank-scroll" id="rankList"></div>
     <div class="rank-me hidden" id="rankMe"></div>
@@ -810,7 +813,7 @@
 <script src="../../shared/portal-cloud.js"></script>
 <script src="../../shared/portal-rank.js"></script>
 <script src="../../shared/portal-player.js"></script>
-<script src="assets/app-e2cb5dd6.js" onerror="window.__shellHong=1"></script>
+<script src="assets/app-14a180ba.js" onerror="window.__shellHong=1"></script>
 <script>
 /* LOP TU CUU KHI VO UNG DUNG HONG — dung xoa.
  *

@@ -2137,3 +2137,57 @@ body .fork-box h3{letter-spacing:.06em}
 @keyframes evodDrIn{from{opacity:0;transform:translateY(22px) scale(.5)}}
 @keyframes evodUp{from{opacity:0;transform:translateY(8px)}}
 @keyframes evodStat{from{opacity:0;transform:scale(.4)}}
+
+/* ---------- BXH: tab LỰC CHIẾN + GARA (ui-rank-power-garage.js, 12/10/2026) ----------
+   5 tab một hàng thì chữ phải xuống dưới 12px -> lưới 6 cột: hàng 1 ba tab cũ (mỗi tab 2 cột,
+   bề ngang như trước), hàng 2 hai tab mới (mỗi tab 3 cột). Không có GARA thì LỰC CHIẾN cả hàng. */
+.rank-tabs{display:grid;grid-template-columns:repeat(6,1fr)}
+.rank-tabs button{grid-column:span 2}
+.rank-tabs button[data-tab="power"],.rank-tabs button[data-tab="garage"]{grid-column:span 3}
+.rank-tabs.no-garage button[data-tab="power"]{grid-column:span 6}
+/* vệt tỉ lệ so với hạng 1: nền sáng tới --w rồi về nền thường */
+.rank-row.bar{background:linear-gradient(90deg,rgba(255,210,63,.14) var(--w),rgba(255,255,255,.045) var(--w))}
+.rank-row.me.bar{background:linear-gradient(90deg,rgba(63,224,255,.24) var(--w),rgba(63,224,255,.1) var(--w))}
+/* avatar tab GARA = ảnh tàu đang bay (56px), to hơn avatar emoji để đọc được dáng tàu */
+.rank-av.ship{width:30px;height:30px;margin:-5px -2px;border-radius:0;background:none;object-fit:contain;
+  filter:drop-shadow(0 2px 4px rgba(0,0,0,.6))}
+.rank-val{text-align:right}
+.rank-val small{display:block;font-size:12px;font-weight:400;letter-spacing:.02em;color:var(--dim)}
+
+/* ---------- THẺ PHI CÔNG lobby MỘT DÒNG (12/10/2026, ui-auth-panel.syncMenu) ----------
+   [avatar] tên · DANH HIỆU ······ ● POWER 24.300  ĐỔI — vệt đáy = tiến độ lên hạng kế.
+   Một dòng thì từng px đều quý: giãn chữ .18em cũ ăn ~25px -> .03-.05em. Hết chỗ thì DANH HIỆU
+   nhường trước (shrink 20), rồi tới tên; POWER không bao giờ cắt. Thẻ quá hẹp (máy 320px) thì ẨN
+   hẳn danh hiệu — cắt còn "T…" nhìn như lỗi; danh hiệu vẫn ở tooltip + màn hồ sơ. */
+.prof-chip{position:relative;overflow:hidden;container-type:inline-size}
+.prof-chip .prof-txt{flex-direction:row;align-items:baseline;gap:5px}
+.prof-chip .prof-txt>b{flex-shrink:1;min-width:0;letter-spacing:.03em}
+.prof-chip .prof-txt>.prof-title{flex-shrink:20;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  color:var(--acc);letter-spacing:.04em}
+body .prof-chip .prof-txt>.prof-title{font-size:13px}
+.prof-chip .prof-txt>.prof-rank{flex:none;margin-left:auto;white-space:nowrap;letter-spacing:.05em}
+.prof-chip>em{letter-spacing:.08em}
+.prof-chip .pw-i{display:none}
+/* thẻ hẹp (điện thoại): chữ POWER thành ⚡ — đủ chỗ cho DANH HIỆU; màn rộng vẫn ghi hẳn chữ
+   (22/09: "⚔84" trơ trọi người chơi không hiểu — nên chỉ đổi khi thật sự thiếu chỗ) */
+@container (max-width: 345px){ .prof-chip .pw-l{display:none} .prof-chip .pw-i{display:inline} }
+@container (max-width: 270px){ .prof-chip .prof-txt>.prof-title{display:none} }
+.prof-next{position:absolute;left:10px;right:10px;bottom:3px;height:3px;border-radius:2px;background:rgba(255,255,255,.08)}
+.prof-next::after{content:'';display:block;height:100%;width:var(--p);border-radius:inherit;
+  background:linear-gradient(90deg,#ffab1f,#ffe27a);box-shadow:0 0 6px rgba(255,210,63,.6)}
+
+/* ---------- THANH MÁU TRÙM có VỆT TRẮNG đuổi theo + vạch giai đoạn (12/10/2026, ui-hud) ----------
+   #bossLag nằm dưới #bossFill: khúc sáng = máu vừa mất ~0,3s qua. Hai vạch tối ở 33% / 66% là
+   ngưỡng đổi giai đoạn (entity-boss: >66% / >33%) — người chơi thấy trước lúc trùm sắp nổi điên. */
+.boss-bar{position:relative}
+.boss-bar #bossLag{position:absolute;left:0;top:0;transition:none;background:linear-gradient(90deg,#fff3c2,#ffffff);opacity:.85}
+.boss-bar #bossFill{position:relative;transition:none}
+.boss-bar::after{content:'';position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(90deg,transparent calc(33.3% - 1px),rgba(8,12,24,.9) calc(33.3% - 1px) calc(33.3% + 1px),transparent calc(33.3% + 1px),
+    transparent calc(66.6% - 1px),rgba(8,12,24,.9) calc(66.6% - 1px) calc(66.6% + 1px),transparent calc(66.6% + 1px))}
+.boss-wrap.phase-hit{animation:bossPhaseHit .45s ease-out}
+@keyframes bossPhaseHit{20%{transform:translateX(-5px) scale(1.08);filter:brightness(2)}45%{transform:translateX(4px)}
+  70%{transform:translateX(-2px)}}
+
+/* nút TẢI LẠI sau câu "phiên đăng nhập hết hạn" ở popup tiến hóa (system-evo-ai-session.js) */
+.evo-relog{display:block;margin:6px auto 0;min-height:44px;padding:0 22px}

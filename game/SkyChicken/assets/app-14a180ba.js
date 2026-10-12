@@ -2940,6 +2940,10 @@ SC.SpriteArt = {
     item: ['coin', 'power', 'heal', 'shield', 'bomb', 'gem'],
     decor: ['farm', 'dune', 'frost', 'toxic', 'magma', 'ocean', 'neon', 'scrap', 'storm', 'void']
       .reduce((a, v) => a.concat(v + '-cloud', v + '-prop'), []),
+    /* chiêu trùm (12/10/2026): system-boss-windup/aura/victory/callout + entity-boss-*-art */
+    bossfx: ['charge-orb', 'reticle', 'aura', 'portal', 'ink', 'sunburst'],
+    bosspart: ['fist', 'beak', 'blade', 'rock'],
+    'ui-frame': ['ribbon-boss'],
   },
 
   /* Quái phải CHÚI XUỐNG phía người chơi. Tấm nào AI vẽ đầu hướng lên thì xoay
@@ -2962,7 +2966,7 @@ SC.SpriteArt = {
         img.onload = () => {
           // xoá cache buffer để nướng lại bằng sprite (xem BẪY ở đầu file). fx/item/decor
           // vẽ thẳng mỗi khung, không nướng — khỏi xoá 45 lần vô ích lúc mới vào game
-          if (kind === 'fx' || kind === 'item' || kind === 'decor') return;
+          if (kind === 'fx' || kind === 'item' || kind === 'decor' || kind === 'bossfx' || kind === 'bosspart' || kind === 'ui-frame') return;
           if (SC.EnemySprite) SC.EnemySprite._cache = {};
           if (SC.ShipArt) SC.ShipArt._cache = {};
         };
@@ -3400,6 +3404,7 @@ SC.BossMoment = {
     SC.ScreenFX.pop(ph === 3 ? 'NỔI ĐIÊN!' : 'CUỒNG NỘ!', ph === 3 ? '#ff3b5c' : '#ff9d1f');
     SC.FX.ring(b.x, b.y, ph === 3 ? 'rgba(255,80,110,.95)' : 'rgba(255,200,90,.95)', b.r * 0.6, b.r * 3.4, 0.5);
     SC.addShake(16, 0.4);
+    SC.UI.bossPhase();                    // thanh máu trùm giật + loé (ui-hud)
     if (!SC.AudioSamples.play('boss-roar')) SC.Audio.alarm();
     if (ph === 3) SC.Voice.say('v-rage', 0.6);
   },
@@ -3412,9 +3417,10 @@ SC.BossMoment = {
     this.dying = { b, k: 0, next: 0.05 };
   },
 
-  busy() { return !!this.dying; },
+  busy() { return !!this.dying || SC.BossVictory.busy(); },   // + cảnh HẠ GỤC! (system-boss-victory)
 
   update(dt) {
+    SC.BossWind.update(dt); SC.BossCallout.update(dt); SC.BossVictory.update(dt); SC.BossAura.update(dt);
     if (this.warnT > 0) {
       this.warnT -= dt;
       SC.addShake(9, 0.12);             // mặt đất rung khẽ suốt lúc trùm hạ xuống (~1px)
@@ -3452,9 +3458,8 @@ SC.BossMoment = {
     for (let i = 0; i < 16; i++)
       SC.Items.drop(b.x + SC.rnd(-60, 60), b.y + SC.rnd(-30, 30), i % 4 === 0 ? 'gem' : 'coin');
     SC.EvoShard.onLastKill(b.x, b.y);     // màn 3×n: mảnh 🧬 rơi cùng mưa vàng
-    SC.ScreenFX.pop('HẠ GỤC!', '#ffd23f');
+    SC.BossVictory.start(b);              // cảnh HẠ GỤC! riêng: hào quang + tên trùm + thời gian
     SC.Voice.say('v-kill', 0.15, true);
-    SC.UI.toast(b.name, true);
   },
 
   /* thân trùm đang hấp hối — vẽ TRONG phép rung (gọi từ renderer, cạnh đám quái) */
@@ -3538,7 +3543,369 @@ SC.BossMoment = {
     ctx.restore();
   },
 
-  clear() { this.warnT = 0; this.dying = null; this.whiteT = 0; this.boss = null; SC.BG.rushT = 0; }
+  clear() {
+    this.warnT = 0; this.dying = null; this.whiteT = 0; this.boss = null; SC.BG.rushT = 0;
+    SC.BossWind.clear(); SC.BossCallout.clear(); SC.BossVictory.clear(); SC.BossAura.clear();
+  }
+};
+
+;
+/* ===== js/system-boss-windup.js ===== */
+/* system-boss-windup.js — NHỊP GỒNG + BÁO TRƯỚC trước MỖI chiêu trùm (12/10/2026, "skill boss chưa đủ WOW")
+ *
+ * Audit trước đó: chiêu cơ bản (ring/aimed/eggRain...) bắn ra KHÔNG một dấu hiệu, vệt mực rơi
+ * trúng đầu không báo, nắm đấm THIẾT QUYỀN lấy đà mà không thấy (tay nằm dưới thân trùm).
+ * Người chơi ăn đòn mà không biết vì sao -> cảm giác "bị xử ép" chứ không phải "né được đẹp".
+ *
+ * Cách làm KHÔNG đổi nhịp đánh: gồng bắt đầu khi đồng hồ chiêu còn LEAD giây (atkT ≤ LEAD),
+ * chiêu vẫn ra đúng lúc atkT về 0 như cũ. Trong LEAD giây đó:
+ *   · quả cầu năng lượng nhuộm màu vùng tụ ở bụng trùm + vệt sáng hút vào, thân trùm co lại
+ *   · báo trước THEO CHIÊU: aimed = vạch ngắm; eggRain = cột cảnh báo đúng chỗ trứng rơi;
+ *     blind = tâm ngắm đúng chỗ mực đáp; minions = cổng triệu hồi (viện binh chui ra từ đó)
+ *   · chiêu kịch bản/đặc trưng: băng tên chiêu (system-boss-callout.js) + tiếng tụ lực
+ * Vị trí báo trước được CHỐT SẴN ở đây rồi chiêu dùng đúng vị trí đó (entity-boss._eggRain,
+ * _minions, BossSkills.start 'blind') — báo một đằng rơi một nẻo là tệ hơn không báo.
+ */
+
+SC.BossWind = {
+  LEAD: 0.55,
+  after: [],             // dấu vết còn lại sau khi chiêu đã ra (cổng triệu hồi khép lại)
+
+  /* entity-boss.update gọi mỗi khung, SAU khi trừ atkT */
+  tick(b, player) {
+    if (b.atkT > this.LEAD) { if (b.wind) this._release(b); return; }
+    if (b.wind || b.dead) return;
+    const kind = b.atkList[(b.atk + 1) % b.atkList.length];
+    const w = b.wind = { kind, orb: kind !== 'laser' && kind !== 'charge' };   // 2 chiêu này có nhịp gồng riêng
+    if (kind === 'eggRain') {
+      const n = 5 + b.phase * 2; w.cols = [];
+      for (let i = 0; i < n; i++) w.cols.push((SC.W / (n + 1)) * (i + 1) + SC.rnd(-16, 16));
+    } else if (kind === 'blind') {
+      w.pos = [];
+      for (let i = 0; i < 3 + b.phase; i++) w.pos.push({ x: SC.rnd(40, SC.W - 40), y: SC.rnd(SC.H * 0.25, SC.H * 0.9),
+        r: SC.rnd(SC.Splats.R_MIN, SC.Splats.R_MAX) });
+    } else if (kind === 'minions') {
+      w.portal = { x: SC.clamp(b.x + SC.rnd(-90, 90), 60, SC.W - 60), y: b.y + b.r * 0.9 };
+    }
+    if (SC.BossSkills.has(kind)) {
+      SC.BossCallout.show(SC.BossSkills.TÊN[kind] || SC.BossSig.nameOf(b, kind), b);
+      if (kind !== 'laser') SC.AudioSamples.play('laser-charge');   // laze tự phát tiếng tụ lúc nháy
+    }
+  },
+
+  /* chiêu vừa ra: thân bật lại (nảy thạch) + cổng triệu hồi khép dần thay vì biến mất */
+  _release(b) {
+    const w = b.wind;
+    b.wind = null;
+    if (w.orb) SC.ToyMotion.hit(b);
+    if (w.portal) this.after.push({ img: 'portal', x: w.portal.x, y: w.portal.y, t: 0, life: 0.5, s0: 86, s1: 0, spin: 9 });
+  },
+  /* mực đáp (entity-boss-splats.spawn): vết toé ảnh AI loe ra rồi tan quanh vệt mực */
+  splash(s) {
+    this.after.push({ img: 'ink', x: s.x, y: s.y, t: 0, life: 0.4, s0: s.r * 1.6, s1: s.r * 2.8, spin: 0, fade: true });
+  },
+
+  _k(b) { return SC.clamp(1 - b.atkT / this.LEAD, 0, 1); },
+  /* đang trong nhịp gồng thật: chiêu kịch bản giữ `wind` tới hết act (tick không chạy lúc đó) */
+  on(b) { return !!b.wind && !b.dead && b.atkT <= this.LEAD && !b.act; },
+
+  /* co người lấy đà — gọi TRƯỚC khi vẽ thân (cùng phép biến hình nên thân co theo) */
+  pose(b, ctx) {
+    if (!this.on(b) || !b.wind.orb) return;
+    const k = this._k(b);
+    ctx.scale(1 - 0.06 * k, 1 + 0.08 * k);
+  },
+
+  /* ĐÈ LÊN thân (toạ độ tâm trùm): quả cầu tụ lực + nắm đấm THIẾT QUYỀN */
+  over(b, ctx) {
+    if (this.on(b) && b.wind.orb) this._orb(b, ctx, this._k(b));
+    if (b.act && b.act.kind === 'punch') this._fist(b, b.act, ctx);
+  },
+
+  _orb(b, ctx, k) {
+    const col = `hsl(${b.hue},95%,62%)`, y = b.r * 0.4, t = b.t;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.strokeStyle = `hsla(${b.hue},100%,78%,${(0.35 + k * 0.5).toFixed(2)})`; ctx.lineWidth = 3;
+    for (let i = 0; i < 8; i++) {                       // vệt sáng bị hút vào tâm
+      const a = i * 0.785 + t * 1.5, u = (t * 2.2 + i / 8) % 1, rr = b.r * (1.9 - 1.5 * u);
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * rr, y + Math.sin(a) * rr);
+      ctx.lineTo(Math.cos(a) * (rr - 16), y + Math.sin(a) * (rr - 16));
+      ctx.stroke();
+    }
+    const S = 16 + k * k * b.r * 1.25, img = SC.SpriteArt.get('bossfx', 'charge-orb');
+    SC.draw.glow(ctx, 0, y, S * 1.2, col, 0.5 + k * 0.3);
+    if (img) {
+      ctx.translate(0, y); ctx.rotate(t * 7);
+      ctx.drawImage(SC.FXS._tint(img, col), -S / 2, -S / 2, S, S);
+    }
+    ctx.restore();
+  },
+
+  /* nắm đấm: lúc lấy đà (40% đầu mỗi nhịp) rụt hẳn RA SAU trùm + rung, kèm vạch đỏ đúng
+     đường sắp đấm; lúc phóng/thu thì nằm ở đầu cánh tay (tay vẫn vẽ dưới thân như cũ) */
+  _fist(b, a, ctx) {
+    const img = SC.SpriteArt.get('bosspart', 'fist');
+    if (!img) return;
+    const k = (a.t % 0.72) / 0.72, cx = Math.cos(a.ang), cy = Math.sin(a.ang);
+    let d;
+    ctx.save();
+    if (k < 0.40) {
+      const u = k / 0.40;
+      ctx.setLineDash([14, 10]); ctx.lineDashOffset = -b.t * 80;
+      ctx.strokeStyle = `rgba(255,60,90,${(0.25 + u * 0.6).toFixed(2)})`; ctx.lineWidth = 5 + u * 5;
+      ctx.beginPath(); ctx.moveTo(cx * b.r, cy * b.r); ctx.lineTo(cx * a.far, cy * a.far); ctx.stroke();
+      ctx.setLineDash([]);
+      d = -(b.r * 0.55 + 30 * u) + SC.rnd(-3, 3) * u;    // rụt ra sau, càng gần lúc phóng càng run
+    } else d = a.reach;
+    ctx.translate(cx * d, cy * d); ctx.rotate(a.ang - Math.PI / 2);
+    SC.draw.glow(ctx, 0, 0, 58, '#ff8a5c', 0.5);
+    ctx.drawImage(img, -36, -36, 72, 72);
+    ctx.restore();
+  },
+
+  update(dt) {
+    for (let i = this.after.length - 1; i >= 0; i--)
+      if ((this.after[i].t += dt) >= this.after[i].life) this.after.splice(i, 1);
+  },
+
+  /* lớp THẾ GIỚI (trong phép rung, trên quái): vạch ngắm, cột trứng, tâm mực, cổng triệu hồi */
+  renderWorld(ctx) {
+    const b = SC.Game.boss, w = b && b.wind, p = SC.Game.player;
+    for (const o of this.after) {
+      const u = o.t / o.life;
+      this._sprite(ctx, SC.SpriteArt.get('bossfx', o.img), o.x, o.y, o.s0 + (o.s1 - o.s0) * u, o.t * o.spin, o.fade ? 1 - u : 1);
+    }
+    const portal = SC.SpriteArt.get('bossfx', 'portal');
+    if (!w || !this.on(b)) return;
+    // ảnh thật đầu tiên: vạch đỏ mảnh trên ruộng xanh gần như vô hình -> lót vạch TỐI bên dưới,
+    // nháy nhẹ (0,75-1) thay vì tắt hẳn, đậm dần theo nhịp gồng
+    const k = this._k(b), blink = 0.75 + 0.25 * Math.sin(b.t * 22), al = (0.35 + 0.6 * k) * blink;
+    const ret = SC.SpriteArt.get('bossfx', 'reticle');
+    ctx.save();
+    const line = (pts, col, wd, dash) => {
+      ctx.setLineDash([]); ctx.strokeStyle = `rgba(10,6,20,${(al * 0.5).toFixed(2)})`; ctx.lineWidth = wd + 5;
+      for (const [x0, y0, x1, y1] of pts) { ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke(); }
+      ctx.setLineDash(dash); ctx.lineDashOffset = -b.t * 120; ctx.strokeStyle = col.replace('A', al.toFixed(2)); ctx.lineWidth = wd;
+      for (const [x0, y0, x1, y1] of pts) { ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke(); }
+    };
+    if (w.kind === 'aimed' && p) line([[b.x, b.y + 30, p.x, p.y]], 'rgba(255,60,90,A)', 4, [12, 9]);
+    if (w.cols) line(w.cols.map(x => [x, b.y + 50, x, SC.H * 0.92]), 'rgba(255,214,90,A)', 5, [10, 12]);
+    ctx.restore();
+    // bị NGẮM: tâm ngắm đỏ bám tàu, siết dần — "phát này nhắm vào mình"
+    if (w.kind === 'aimed' && p) this._sprite(ctx, ret, p.x, p.y, 92 - 40 * k, -b.t * 3, 0.5 + 0.5 * k);
+    if (w.pos) for (const s of w.pos) this._sprite(ctx, ret, s.x, s.y, s.r * (2.6 - 0.6 * k), b.t * 2, 0.45 + 0.5 * k * blink);   // siết về đúng cỡ vệt
+    if (w.portal) this._sprite(ctx, portal, w.portal.x, w.portal.y, 86 * Math.min(1, k * 1.6), b.t * 6, 1);
+  },
+
+  _sprite(ctx, img, x, y, s, rot, a) {
+    if (!img || s <= 1) return;
+    ctx.save();
+    ctx.globalAlpha = SC.clamp(a, 0, 1);
+    ctx.translate(x, y); ctx.rotate(rot);
+    ctx.drawImage(img, -s / 2, -s / 2, s, s);
+    ctx.restore();
+  },
+
+  clear() { this.after.length = 0; }
+};
+
+;
+/* ===== js/system-boss-callout.js ===== */
+/* system-boss-callout.js — BĂNG TÊN CHIÊU TRÙM (12/10/2026, "skill boss chưa đủ WOW")
+ *
+ * Trước: mọi chiêu chỉ hô bằng `FX.text` cỡ 14px trôi 0,85 giây ngay trên đầu trùm, cùng một
+ * tiếng "khiên" — giữa mưa đạn gần như không ai đọc kịp. Nay: dải lụa đỏ viền vàng đầu lâu
+ * (ảnh AI style B `ui-frame-ribbon-boss`) bung ra GIỮA trùm và người chơi, chữ to, giữ 0,9s.
+ * Hiện lúc trùm BẮT ĐẦU GỒNG (system-boss-windup.js) — tức 0,55s TRƯỚC khi chiêu ra, đủ để
+ * đọc tên rồi mới phải né. Chỉ cho chiêu kịch bản/đặc trưng (vài giây một lần); chiêu bắn
+ * thường 2-3 giây một phát, hô cả nó là thành ồn.
+ * Vẽ ở lớp MÀN HÌNH (ngoài phép rung) như bong bóng manga — chữ phải đứng yên mới đọc được.
+ */
+
+SC.BossCallout = {
+  IN: 0.18, HOLD: 0.9, OUT: 0.25,
+  cur: null,
+
+  /* Chỗ đặt CHỐT lúc hô theo vị trí trùm: trùm ở nửa trên thì băng nằm DƯỚI trùm (bản đầu cố định
+     30% chiều cao -> trùm lượn tới đó là băng đè lên bảng tên + thanh máu DOM của nó); trùm lao
+     xuống thấp thì băng lên TRÊN trùm. */
+  show(name, b) {
+    // bảng tên + thanh máu DOM ghim ở chân trùm (ui-hud.moveBoss: top = b.y + r + 12, sàn 112px UI),
+    // cao ~63 đơn vị ảo — băng phải nằm DƯỚI cả cụm đó, DOM luôn đè lên canvas
+    const plate = b ? Math.max(b.y + b.r + 12, SC.View.u2w(112)) : 0;
+    const y = !b ? SC.H * 0.3 : b.y < SC.H * 0.42 ? plate + 118 : b.y - b.r - 80;
+    this.cur = { name, t: 0, y: SC.clamp(y, SC.H * 0.14, SC.H * 0.6) };
+  },
+  update(dt) {
+    if (this.cur && (this.cur.t += dt) > this.IN + this.HOLD + this.OUT) this.cur = null;
+  },
+  clear() { this.cur = null; },
+
+  render(ctx) {
+    const c = this.cur;
+    if (!c) return;
+    const t = c.t, end = this.IN + this.HOLD;
+    // bung ra (quá đà 8% rồi về), giữ, rồi trượt lên + mờ
+    const s = t < this.IN ? 0.55 + 0.53 * (t / this.IN) : t < this.IN + 0.08 ? 1.08 - (t - this.IN) : 1;
+    const a = t > end ? 1 - (t - end) / this.OUT : 1;
+    const W = Math.min(SC.W * 0.88, 470), H = W * 142 / 512, y = c.y - (t > end ? (t - end) * 60 : 0);
+    const img = SC.SpriteArt.get('ui-frame', 'ribbon-boss');
+    ctx.save();
+    ctx.globalAlpha = SC.clamp(a, 0, 1);
+    ctx.translate(SC.W / 2, y); ctx.scale(s, s);
+    if (img) ctx.drawImage(img, -W / 2, -H / 2, W, H);
+    else {                                              // ảnh chưa tải: dải đỏ trơn, vẫn đọc được
+      ctx.fillStyle = '#b3122e'; ctx.strokeStyle = '#ffd23f'; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.roundRect ? ctx.roundRect(-W * 0.4, -H * 0.3, W * 0.8, H * 0.6, 10) : ctx.rect(-W * 0.4, -H * 0.3, W * 0.8, H * 0.6);
+      ctx.fill(); ctx.stroke();
+    }
+    // chữ: co cỡ cho vừa lòng dải đỏ (~50% bề ngang ảnh), viền tối dày cho nổi trên đạn lửa
+    const font = SC.CFG.fontStack || "'Segoe UI',system-ui,sans-serif", maxW = W * 0.5;
+    let fs = 28;
+    ctx.font = `900 ${fs}px ${font}`;
+    while (fs > 15 && ctx.measureText(c.name).width > maxW) { fs -= 1; ctx.font = `900 ${fs}px ${font}`; }
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
+    ctx.lineWidth = 6; ctx.strokeStyle = '#2a0008';
+    ctx.strokeText(c.name, 0, -H * 0.04);
+    ctx.fillStyle = '#fff6d8';
+    ctx.fillText(c.name, 0, -H * 0.04);
+    // vệt sáng quét ngang chữ một lần lúc vừa bung — "đóng dấu"
+    if (t < this.IN + 0.35) {
+      const u = (t / (this.IN + 0.35)) * 2 - 1;
+      const g = ctx.createLinearGradient(u * W * 0.5 - 40, 0, u * W * 0.5 + 40, 0);
+      g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(0.5, 'rgba(255,255,255,.55)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = g;
+      ctx.fillRect(-W * 0.26, -H * 0.2, W * 0.52, H * 0.34);
+    }
+    ctx.restore();
+  }
+};
+
+;
+/* ===== js/system-boss-aura.js ===== */
+/* system-boss-aura.js — trùm ĐỔI DÁNG theo máu + cú ĐÁP khi vào trận (12/10/2026)
+ *
+ * Audit: giai đoạn 2-3 chỉ đổi màu `shadowBlur` của sprite — người chơi không thấy trùm "nổi
+ * điên". Thêm, không đụng hitbox hay nhịp đánh:
+ *   · VÒNG LỬA sau lưng (ảnh AI `bossfx-aura`): giai đoạn 2 cam, giai đoạn 3 đỏ + to + xoay gấp
+ *   · dưới 25% máu: khói đen + tia lửa xì ra từ thân — trùm "sắp toang", người chơi dồn sức
+ *   · lúc hạ xuống xong (hết `entering`): sóng xung kích + rung + gầm — trận chính thức bắt đầu
+ * Vòng lửa vẽ cộng màu TRONG toạ độ tâm trùm, TRƯỚC thân (entity-boss.render).
+ */
+
+SC.BossAura = {
+  _landed: null,         // trùm nào đã "đáp" — mỗi trùm một lần
+  _smokeT: 0,
+
+  under(b, ctx) {
+    if (b.phase < 2 || b.dead) return;
+    const img = SC.SpriteArt.get('bossfx', 'aura');
+    if (!img) return;
+    const p3 = b.phase >= 3, S = b.r * (p3 ? 3.7 : 3.1) * (1 + Math.sin(b.t * (p3 ? 9 : 5)) * 0.05);
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = p3 ? 0.75 : 0.55;
+    ctx.rotate(b.t * (p3 ? 1.8 : 0.8));
+    ctx.drawImage(p3 ? SC.FXS._tint(img, '#ff2a4a') : img, -S / 2, -S / 2, S, S);
+    ctx.restore();
+  },
+
+  update(dt) {
+    const b = SC.Game.boss;
+    if (!b || b.dead) return;
+    if (!b.entering && this._landed !== b) {
+      this._landed = b;
+      SC.FXS.spawn('shockwave', b.x, b.y + b.r * 0.6, { s0: b.r, s1: b.r * 6, life: 0.6, a: 0.9, add: true, tint: '#ffd27a' });
+      SC.FX.burst(b.x, b.y + b.r * 0.7, '#ffe2a8', 26, 340, 3.4);
+      SC.addShake(14, 0.45);
+      SC.ToyMotion.hit(b);
+      if (!SC.AudioSamples.play('boss-roar')) SC.Audio.alarm();
+    }
+    if (b.hp / b.hpMax >= 0.25 || b.entering) return;
+    if ((this._smokeT -= dt) > 0) return;
+    this._smokeT = 0.16 + Math.random() * 0.14;
+    const x = b.x + SC.rnd(-0.6, 0.6) * b.r, y = b.y + SC.rnd(-0.4, 0.5) * b.r;
+    SC.FXS.spawn('smoke', x, y, { s0: 26, s1: 74, life: 0.9, vy: -55, vx: SC.rnd(-20, 20), a: 0.55, tint: '#2a2230' });
+    if (Math.random() < 0.6) SC.FX.burst(x, y, '#ffb347', 5, 220, 2.4);
+  },
+
+  clear() { this._landed = null; this._smokeT = 0; }
+};
+
+;
+/* ===== js/system-boss-victory.js ===== */
+/* system-boss-victory.js — CẢNH "HẠ GỤC!" sau cú nổ chốt của trùm (12/10/2026)
+ *
+ * Trước: nổ chốt xong chỉ có bong bóng manga "HẠ GỤC!" 0,9 giây + toast tên trùm — rồi màn
+ * kết quả bật lên ngay. Đánh trùm cả phút mà phần thưởng cảm xúc chưa tới hai giây. Nay một
+ * cảnh riêng 1,7 giây: nền tối dần, VẦNG HÀO QUANG vàng xoay (ảnh AI `bossfx-sunburst`), chữ
+ * HẠ GỤC! dập xuống, tên trùm + thời gian trận đấu hiện lần lượt.
+ * `busy()` nằm trong BossMoment.busy() -> màn chưa kết thúc khi cảnh còn chạy (main.js).
+ */
+
+SC.BossVictory = {
+  DUR: 1.7,
+  cur: null,
+
+  start(b) {
+    this.cur = { name: b.name, secs: Math.round(b.t), t: 0 };
+    SC.FX.burst(SC.W / 2, SC.H * 0.36, '#ffd23f', 40, 520, 4.4);
+    SC.FX.burst(SC.W / 2, SC.H * 0.36, '#fff3c2', 24, 360, 3);
+  },
+  busy() { return !!this.cur; },
+  update(dt) { if (this.cur && (this.cur.t += dt) >= this.DUR) this.cur = null; },
+  clear() { this.cur = null; },
+
+  render(ctx) {
+    const c = this.cur;
+    if (!c) return;
+    const t = c.t, cx = SC.W / 2, cy = SC.H * 0.36;
+    const a = t < 0.2 ? t / 0.2 : t > this.DUR - 0.3 ? (this.DUR - t) / 0.3 : 1;
+    const font = SC.CFG.fontStack || "'Segoe UI',system-ui,sans-serif";
+    ctx.save();
+    ctx.globalAlpha = SC.clamp(a, 0, 1);
+    // nền tối có lỗ sáng giữa: mắt dồn về chữ, cảnh trận phía sau lùi xuống
+    const bg = ctx.createRadialGradient(cx, cy, 40, cx, cy, SC.H * 0.75);
+    // ảnh thật: hào quang cộng màu trên ruộng vàng sáng chói -> chữ chìm. Nền tối hơn hẳn
+    bg.addColorStop(0, 'rgba(20,10,0,0.45)'); bg.addColorStop(1, 'rgba(0,0,8,0.78)');
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, SC.W, SC.H);
+
+    const sun = SC.SpriteArt.get('bossfx', 'sunburst');
+    if (sun) {
+      const S = 420 * (0.6 + 0.4 * Math.min(1, t / 0.35)) * (1 + Math.sin(t * 4) * 0.03);
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha *= 0.7;
+      ctx.translate(cx, cy); ctx.rotate(t * 0.6);
+      ctx.drawImage(sun, -S / 2, -S / 2, S, S);
+      ctx.restore();
+    }
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
+    // HẠ GỤC! dập xuống: to 1,6 lần rồi về 1 trong 0,22 giây
+    const st = t < 0.22 ? 1.6 - 0.6 * (t / 0.22) : 1;
+    ctx.save();
+    ctx.translate(cx, cy); ctx.scale(st, st);
+    ctx.font = `900 58px ${font}`;
+    ctx.lineWidth = 10; ctx.strokeStyle = '#3a1a00'; ctx.strokeText('HẠ GỤC!', 0, 0);
+    const g = ctx.createLinearGradient(0, -30, 0, 30);
+    g.addColorStop(0, '#fff6c2'); g.addColorStop(0.55, '#ffd23f'); g.addColorStop(1, '#ff9d1f');
+    ctx.fillStyle = g; ctx.fillText('HẠ GỤC!', 0, 0);
+    ctx.restore();
+    // tên trùm + thời gian: hiện sau chữ chính một nhịp
+    const u = SC.clamp((t - 0.3) / 0.25, 0, 1);
+    if (u > 0) {
+      ctx.globalAlpha = SC.clamp(a, 0, 1) * u;
+      ctx.font = `800 24px ${font}`; ctx.lineWidth = 6; ctx.strokeStyle = '#16100a';
+      ctx.strokeText(c.name, cx, cy + 52 - (1 - u) * 10);
+      ctx.fillStyle = '#ffffff'; ctx.fillText(c.name, cx, cy + 52 - (1 - u) * 10);
+      const m = Math.floor(c.secs / 60), s = String(c.secs % 60).padStart(2, '0');
+      ctx.font = `700 18px ${font}`; ctx.lineWidth = 5;
+      ctx.strokeText(`⏱ ${m}:${s}`, cx, cy + 84);
+      ctx.fillStyle = '#7ae0ff'; ctx.fillText(`⏱ ${m}:${s}`, cx, cy + 84);
+    }
+    ctx.restore();
+  }
 };
 
 ;
@@ -6439,13 +6806,16 @@ SC.Splats = {
 
   solid(s) { return s.t / s.life < this.SOLID; },
 
-  spawn(n, rage, player) {
+  /* pos: vị trí + cỡ đã CHỐT lúc gồng (system-boss-windup) — tâm ngắm báo đâu, mực rơi đó */
+  spawn(n, rage, player, pos) {
     for (let i = 0; i < n; i++) {
+      const q = pos && pos[i];
       const s = {
-        x: SC.rnd(40, SC.W - 40), y: SC.rnd(SC.H * 0.25, SC.H * 0.9),
-        r: SC.rnd(this.R_MIN, this.R_MAX), t: 0, life: 2.6 + rage * 0.5, seed: SC.rnd(0, 6.28)
+        x: q ? q.x : SC.rnd(40, SC.W - 40), y: q ? q.y : SC.rnd(SC.H * 0.25, SC.H * 0.9),
+        r: q ? q.r : SC.rnd(this.R_MIN, this.R_MAX), t: 0, life: 2.6 + rage * 0.5, seed: SC.rnd(0, 6.28)
       };
       this.list.push(s);
+      SC.BossWind.splash(s);                      // mực văng toé (ảnh AI) lúc đáp
       if (player && !player.dead) this._dropOn(s, player);
     }
   },
@@ -6551,9 +6921,7 @@ SC.BossSkills = {
     // chiêu đặc trưng: module riêng tự dựng vật bay, act chỉ giữ trùm đứng gồng
     if (SC.BossSig.has(kind)) {
       const s = SC.BossSig.start(b, kind, player);
-      b.act = { kind, t: 0, dur: s.dur };
-      SC.FX.text(b.x, b.y - b.r - 26, s.name, '#ff5c7a');
-      SC.Audio.shield();
+      b.act = { kind, t: 0, dur: s.dur };          // tên chiêu đã hô lúc GỒNG (system-boss-callout)
       return;
     }
     b.act = { kind, t: 0, step: 0, n: 0 };
@@ -6589,15 +6957,13 @@ SC.BossSkills = {
       a.swing = 0.30;                              // biên đảo qua lại của cả nan quạt
     } else if (kind === 'blind') {
       a.dur = 0.7;
-      SC.Splats.spawn(3 + rage, rage, player);
+      SC.Splats.spawn(3 + rage, rage, player, b.wind && b.wind.pos);   // đáp đúng tâm ngắm đã báo
     } else if (kind === 'blink') {
       a.dur = 0.42 * (2 + rage); a.hops = 2 + rage; a.hop = 0.42;
     } else if (kind === 'punch') {
       a.dur = 0.72 * (1 + rage); a.hit = 0; a.reach = 0; a.ang = 0; a.far = SC.H * 0.6;
     }
-
-    SC.FX.text(b.x, b.y - b.r - 26, this.TÊN[kind], '#ff5c7a');
-    SC.Audio.shield();
+    // (tên chiêu: băng lụa lúc GỒNG, system-boss-windup -> callout — bản cũ FX.text 14px ở đây)
   },
 
   /* true = chiêu còn chạy, entity-boss.js đừng đụng vào vị trí trùm */
@@ -6833,7 +7199,8 @@ SC.BossSkillArt = {
       ctx.fill();
     }
 
-    // nắm đấm
+    // nắm đấm ảnh AI vẽ ĐÈ lên thân ở system-boss-windup.over (vẽ ở đây là bị thân trùm che mất)
+    if (SC.SpriteArt.get('bosspart', 'fist')) { ctx.restore(); return; }
     ctx.translate(ex, ey);
     ctx.rotate(a.ang + Math.PI / 2);
     SC.draw.glow(ctx, 0, 0, 62, '#ff8a5c', .55);
@@ -6938,6 +7305,13 @@ SC.BossSig = {
     claw: 'CÀNG', stinger: 'NGÒI ĐỘC', rock: 'KHỐI ĐÁ' },
 
   has(kind) { return kind === 'toss' || kind === 'laser' || kind === 'peck'; },
+  /* tên hô chiêu — system-boss-windup hô lúc GỒNG, TRƯỚC khi start() chạy nên phải tách ra */
+  nameOf(b, kind) {
+    const sig = this.SIG[b.art] || {}, from = sig.from || 'mouth';
+    if (kind === 'toss') return 'QUĂNG ' + (this.PART_VI[sig.part] || 'MẢNH GIÁP') + '!';
+    if (kind === 'laser') return from === 'hand' ? 'CHƯỞNG LAZE!' : from === 'eye' ? 'NHÃN LAZE!' : 'KHẨU LAZE!';
+    return 'MỔ XUYÊN GIÁP!';
+  },
   skillsFor(art) { return (this.SIG[art] && this.SIG[art].sk) || []; },
   clear() { this.list.length = 0; },
 
@@ -6958,7 +7332,7 @@ SC.BossSig = {
         vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, left: Math.round(2 + u * 3),
         mul: 1.16 + u * 0.10, rot: 0, back: false, hit: false });
       b.missing = true;
-      return { dur: 0.45, name: 'QUĂNG ' + (this.PART_VI[sig.part] || 'MẢNH GIÁP') + '!' };
+      return { dur: 0.45, name: this.nameOf(b, kind) };
     }
     if (kind === 'laser') {
       const from = sig.from || 'mouth';
@@ -6967,13 +7341,13 @@ SC.BossSig = {
       this.list.push({ k: 'laser', boss: b, from, t: 0, warn: 0.6, gap: 0.15 - u * 0.07, beam: 0.6,
         hw: 30 + u * 16, ang: SC.angTo(b.x, b.y, player.x, player.y), hit: false });
       SC.AudioSamples.play('laser-charge');      // tiếng tụ năng lượng khớp lúc tia nháy báo trước
-      return { dur: 1.45, name: from === 'hand' ? 'CHƯỞNG LAZE!' : from === 'eye' ? 'NHÃN LAZE!' : 'KHẨU LAZE!' };
+      return { dur: 1.45, name: this.nameOf(b, kind) };
     }
     // peck: 2-4 cú mổ liên hoàn theo giai đoạn máu; khó lần 2: mỏ nhanh hơn
     // (380→540) và NGẮM ĐÓN đầu hướng người chơi đang lượn — đứng lượn vòng hết né
     const n = b.phase + 1;
     this.list.push({ k: 'pecker', boss: b, t: 0, n, done: 0, speed: 540 + u * 180 });
-    return { dur: 0.6 * n + 0.2, name: 'MỔ XUYÊN GIÁP!' };
+    return { dur: 0.6 * n + 0.2, name: this.nameOf(b, kind) };
   },
 
   /* Chỗ phát laze theo tạo hình (toạ độ thế giới) */
@@ -7118,6 +7492,13 @@ SC.BossSigArt = {
   /* bộ phận xoay: lưỡi cong hai đầu nhọn, tô theo màu vùng của trùm */
   _part(ctx, o, b) {
     const S = o.part === 'rock' || o.part === 'shell' ? 20 : 26;
+    const img = SC.SpriteArt.get('bosspart', S === 20 ? 'rock' : 'blade');   // ảnh AI style B (12/10/2026)
+    if (img) {
+      ctx.save(); ctx.translate(o.x, o.y); ctx.rotate(o.rot);
+      SC.draw.glow(ctx, 0, 0, S * 1.9, `hsla(${b.hue},95%,60%,.9)`, 0.35);
+      ctx.drawImage(img, -S * 1.35, -S * 1.35, S * 2.7, S * 2.7);
+      ctx.restore(); return;
+    }
     ctx.save();
     ctx.translate(o.x, o.y); ctx.rotate(o.rot);
     SC.draw.glow(ctx, 0, 0, S * 1.6, `hsla(${b.hue},95%,60%,.9)`, 0.35);
@@ -7170,7 +7551,13 @@ SC.BossSigArt = {
 
   /* cái mỏ bay: tam giác vàng cam chĩa theo hướng bay, to dần theo quãng đường */
   _beak(ctx, o) {
-    const s = 16 * (o.sc || 1);
+    const s = 16 * (o.sc || 1), img = SC.SpriteArt.get('bosspart', 'beak');
+    if (img) {                                   // ảnh AI mũi hướng LÊN -> xoay thêm 90°
+      ctx.save(); ctx.translate(o.x, o.y); ctx.rotate(o.ang + Math.PI / 2);
+      SC.draw.glow(ctx, 0, 0, s * 1.5, '#ffb01f', 0.35);
+      ctx.drawImage(img, -s * 1.4, -s * 1.4, s * 2.8, s * 2.8);
+      ctx.restore(); return;
+    }
     ctx.save();
     ctx.translate(o.x, o.y); ctx.rotate(o.ang);
     SC.draw.glow(ctx, 0, 0, s * 1.4, '#ffb01f', 0.35);
@@ -7230,6 +7617,7 @@ SC.Boss = function (lv) {
 SC.Boss.prototype.update = function (dt, player) {
   this.t += dt;
   if (this.flash > 0) this.flash -= dt;
+  if (this.flashCd > 0) this.flashCd -= dt;
   if (this.jig > 0) this.jig -= dt;
   SC.BossSig.update(this, dt, player);          // mỏ, bộ phận, laze bay độc lập với act
 
@@ -7253,6 +7641,7 @@ SC.Boss.prototype.update = function (dt, player) {
 
   // vòng luân phiên chiêu thức của vùng
   this.atkT -= dt * rage;
+  SC.BossWind.tick(this, player);               // gồng + báo trước LEAD giây trước chiêu (system-boss-windup)
   if (this.atkT <= 0) {
     this.atk = (this.atk + 1) % this.atkList.length;
     this.atkT = 2.6;
@@ -7264,8 +7653,7 @@ SC.Boss.prototype.update = function (dt, player) {
     }
     this.burst = kind === 'ring' ? 5 : kind === 'aimed' ? 3 : kind === 'sweep' ? 9 : 1;
     this.burstT = 0;
-    this.sweepA = -0.9;
-    if (kind === 'minions') this._minions();
+    this.sweepA = -0.9;                          // (minions đi nhánh burst — gọi thẳng ở đây từng nhân đôi viện binh)
   }
 
   if (this.burst > 0) {
@@ -7322,16 +7710,17 @@ SC.Boss.prototype._spread = function () {
 SC.Boss.prototype._eggRain = function () {
   const n = 5 + this.phase * 2;
   for (let i = 0; i < n; i++) {
-    const x = (SC.W / (n + 1)) * (i + 1) + SC.rnd(-16, 16);
+    const x = (this.wind && this.wind.cols && this.wind.cols[i]) || (SC.W / (n + 1)) * (i + 1) + SC.rnd(-16, 16);   // cột đã báo
     SC.Bullets.spawnFoe(x, this.y + 40, SC.rnd(-30, 30), SC.rnd(180, 260), 'egg');
   }
 };
 
 /* gọi quái phụ */
 SC.Boss.prototype._minions = function () {
-  const n = 2 + this.phase;
+  const n = 2 + this.phase, g = this.wind && this.wind.portal;   // chui ra từ cổng mở lúc gồng
   for (let i = 0; i < n; i++) {
-    const m = new SC.Enemy(this.phase > 1 ? 'dive' : 'chick', this.x + SC.rnd(-70, 70), this.y + 20, this.lv);
+    const m = new SC.Enemy(this.phase > 1 ? 'dive' : 'chick',
+      g ? g.x + SC.rnd(-26, 26) : this.x + SC.rnd(-70, 70), g ? g.y : this.y + 20, this.lv);
     m.summoned = true;              // viện binh: màn đầu lọt đáy không trừ máu (Player.leak)
     SC.Game.enemies.push(m);
   }
@@ -7340,7 +7729,8 @@ SC.Boss.prototype._minions = function () {
 
 SC.Boss.prototype.hurt = function (dmg) {
   SC.Telemetry.dealt(Math.min(dmg, Math.max(0, this.hp)));
-  this.hp -= dmg; this.flash = 0.07;
+  // chớp theo NHỊP (hãm 0,18s): bản cũ mỗi viên đặt lại 0,07s -> bị bắn liên tục là trùm TRẮNG XOÁ cả trận
+  this.hp -= dmg; if (!(this.flashCd > 0)) { this.flash = 0.06; this.flashCd = 0.18; }
   SC.ToyMotion.hit(this);
   return this.hp <= 0;
 };
@@ -7348,8 +7738,9 @@ SC.Boss.prototype.hurt = function (dmg) {
 SC.Boss.prototype.render = function (ctx) {
   ctx.save();
   ctx.translate(this.x, this.y + (this.peckY || 0));   // peckY: rụt cổ / lao tới khi mổ
-  if (this.flash > 0) ctx.filter = 'brightness(2.4)';
+  if (this.flash > 0) ctx.filter = 'brightness(1.9)';
   SC.ToyMotion.boss(ctx, this);
+  SC.BossAura.under(this, ctx); SC.BossWind.pose(this, ctx);   // vòng lửa giai đoạn 2-3 + co người gồng
 
   SC.BossSkillArt.local(this, ctx);              // tay, mảnh tách, vòng gồng nộ
   SC.BossSigArt.socket(ctx, this);               // chỗ bộ phận vừa bị tháo đi quăng
@@ -7376,6 +7767,7 @@ SC.Boss.prototype.render = function (ctx) {
     SC.BossArt._sprite(ctx, this.dz.img, this.r, this.t, this.phase);
     ctx.restore();
   } else SC.BossArt.draw(this.art, ctx, this.r, this.t, this.phase, this.hue);
+  SC.BossWind.over(this, ctx);                   // quả cầu tụ lực + nắm đấm ĐÈ lên thân
 
   ctx.filter = 'none';
   ctx.restore();
@@ -9812,6 +10204,7 @@ SC.Renderer = {
       SC.Rescue.render(ctx);
       for (const e of g.enemies) e.render(ctx);
       SC.BossMoment.renderWorld(ctx);   // thân trùm hấp hối (đã rời danh sách quái)
+      SC.BossWind.renderWorld(ctx);     // báo trước chiêu: vạch ngắm, cột trứng, tâm mực, cổng
       SC.Bullets.render(ctx);
       SC.Wingmen.render(ctx);
       g.player.render(ctx);        // máy bay chính vẽ trên phi đội
@@ -9825,7 +10218,10 @@ SC.Renderer = {
     if (g.state !== 'menu') SC.BossSkillArt.screen(ctx);
 
     this._vignette(ctx);
-    if (g.state !== 'menu') { SC.PlayerMoment.renderScreen(ctx); SC.BossMoment.renderScreen(ctx); }
+    if (g.state !== 'menu') {
+      SC.PlayerMoment.renderScreen(ctx); SC.BossMoment.renderScreen(ctx);
+      SC.BossCallout.render(ctx); SC.BossVictory.render(ctx);   // băng tên chiêu, cảnh HẠ GỤC!
+    }
     SC.ScreenFX.render(ctx);      // ngoài phép rung: chớp sáng và chữ phải đứng yên
   },
 
@@ -10901,7 +11297,7 @@ SC.Cloud = {
            còn lại đẩy EMOJI — ui-rank phân biệt hai loại bằng tiền tố http. */
         const prof = SC.Profiles.cur();
         if (prof) out.avatar = (prof.photo || prof.avatar || '').slice(0, 300);
-        return out;
+        return SC.RankPG.addTo(out);      // + lực chiến, gara, ảnh tàu (system-rank-power-garage.js)
       },
 
       scoreId: uid => SC.Cloud.scoreId(uid),
@@ -10956,7 +11352,7 @@ SC.RankAllProfiles = {
       const { doc, setDoc, serverTimestamp } = fb.fsM;
       const cur = SC.Profiles.cur();
       const email = SC.M365 && SC.M365.info && SC.M365.info.email;
-      const jobs = SC.Profiles.list.filter(p => p !== cur).map(p => {
+      const jobs = SC.Profiles.list.filter(p => p !== cur).map(async p => {
         const pr = SC.Profiles.progressOf(p.id);
         if (SC.Cloud._empty(pr)) return null;            // hồ sơ trắng không chiếm chỗ BXH
         const s = SC.Cloud.stats(pr);
@@ -10967,6 +11363,8 @@ SC.RankAllProfiles = {
         };
         if (s.campaignTime !== null) row.bestTime = s.campaignTime;
         if (email) row.m365Email = email.slice(0, 80);
+        // bảng GARA (12/10/2026). Lực chiến KHÔNG đẩy hộ: show() đọc cây của hồ sơ ĐANG MỞ
+        if (SC.EvoAI.active()) Object.assign(row, SC.RankPG.garageOf(pr), { ship: await SC.RankPG.shipOf(pr) });
         return setDoc(doc(fb.db, 'scores', SC.Cloud.scoreId(u.uid, p)), row, { merge: true });
       }).filter(Boolean);
       if (!jobs.length) return;
@@ -10977,6 +11375,83 @@ SC.RankAllProfiles = {
       console.warn('[rank] chưa đẩy được điểm các hồ sơ khác:', (e && e.code) || e);
     }
   }
+};
+
+;
+/* ===== js/system-rank-power-garage.js ===== */
+/* system-rank-power-garage.js — SỐ LIỆU cho 2 bảng mới: LỰC CHIẾN + GARA (12/10/2026)
+ *
+ * Ghi thêm vào bản ghi `scores/{id}` (luật scores KHÔNG khoá danh sách trường — chạy được
+ * ngay cả khi chưa dán luật mới; luật mới chỉ thêm trần chống ghi rác, xem firestore.rules):
+ *   power      lực chiến HIỂN THỊ (`Power.show`, đúng con số ở sảnh) — mọi kênh
+ *   garage     số chiến đấu cơ AI trong gara (tàu đã bán đã rời sổ)   — chỉ kênh tiến hóa
+ *   garagePct  tổng % thuộc tính ẩn cộng dồn (`EvoGarage.totalPct`)  — chỉ kênh tiến hóa
+ *   ship       ảnh tàu ĐANG BAY 56px webp (~2,8KB) làm avatar ở bảng GARA; '' = tàu gốc
+ *
+ * BẪY CỠ DỮ LIỆU: Firestore trả NGUYÊN tài liệu cho MỌI tab, nên ảnh trong `ship` bị tải cả
+ * khi xem tab MÀN CAO NHẤT. Vì vậy 56px chứ không dùng thẳng thumb 160px trong sổ (~10KB+):
+ * 100 dòng × 2,8KB ≈ 280KB, còn chịu được trên 4G. Trần SHIP_MAX chặn ảnh lạ phình to.
+ * Ảnh nén bất đồng bộ nên `score()` (đồng bộ) chỉ đọc ĐỆM — `warm()` chạy lúc lên tàu
+ * (`EvoGarage.applyEquipped`) để đệm sẵn trước lần lưu kế tiếp.
+ */
+
+SC.RankPG = {
+  SHIP_PX: 56, SHIP_Q: 0.8, SHIP_MAX: 6000,
+  _memo: {},             // thumb gốc (khoá = id tàu + độ dài) -> ảnh 56px
+
+  /* tàu đang bay của một bản tiến độ: { key, thumb } hoặc null (đang bay tàu gốc) */
+  _equipped(pr) {
+    const e = pr && pr.evo, o = e && e.equip && (e.owned || []).find(x => x.id === e.equip);
+    return o && o.thumb ? { key: o.id + ':' + o.thumb.length, thumb: o.thumb } : null;
+  },
+
+  _shrink(src) {
+    return new Promise(res => {
+      const img = new Image();
+      img.onload = () => {
+        const c = document.createElement('canvas');
+        c.width = c.height = this.SHIP_PX;
+        c.getContext('2d').drawImage(img, 0, 0, this.SHIP_PX, this.SHIP_PX);
+        let u = '';
+        try { u = c.toDataURL('image/webp', this.SHIP_Q); } catch (e) { /* canvas bẩn: bỏ ảnh */ }
+        res(u.length <= this.SHIP_MAX ? u : '');
+      };
+      img.onerror = () => res('');
+      img.src = src;
+    });
+  },
+
+  /* ảnh 56px cho bản tiến độ pr — có đệm thì trả ngay, chưa thì nén rồi đệm */
+  async shipOf(pr) {
+    const eq = this._equipped(pr);
+    if (!eq) return '';
+    if (!(eq.key in this._memo)) this._memo[eq.key] = await this._shrink(eq.thumb);
+    return this._memo[eq.key];
+  },
+  warm() { if (SC.EvoAI.active()) this.shipOf(SC.UI.progress).catch(() => {}); },
+
+  /* trường gara của một bản tiến độ bất kỳ (hồ sơ khác dùng ở system-rank-all-profiles) */
+  garageOf(pr) {
+    const own = (pr && pr.evo && pr.evo.owned) || [];
+    const pct = own.reduce((a, o) => a + ['hp', 'atk', 'drone', 'armor']
+      .reduce((b, s) => b + ((o.stats && o.stats[s]) || 0), 0), 0);
+    return { garage: own.length, garagePct: pct };
+  },
+
+  /* cloud-adapter.score() gọi (ĐỒNG BỘ) cho hồ sơ đang mở */
+  addTo(out) {
+    out.power = Math.max(0, Math.round(SC.Power.show()));
+    if (!SC.EvoAI.active()) return out;
+    Object.assign(out, this.garageOf(SC.UI.progress));
+    const eq = this._equipped(SC.UI.progress);
+    if (!eq) out.ship = '';                           // về tàu gốc -> gỡ ảnh cũ khỏi bảng
+    else if (eq.key in this._memo) out.ship = this._memo[eq.key];
+    else this.warm();                                 // chưa nén xong: lần lưu sau mới có ảnh
+    return out;
+  },
+
+  /* ảnh tàu chỉ nhận dataURL ảnh base64 — dữ liệu người khác ghi, không tin */
+  safeShip(u) { return typeof u === 'string' && /^data:image\/(webp|png|jpeg);base64,[A-Za-z0-9+/=]+$/.test(u) ? u : ''; }
 };
 
 ;
@@ -11212,16 +11687,20 @@ SC.AuthPanel = {
     // ghi hẳn chữ LỰC CHIẾN (22/09): "⚔84" trơ trọi người chơi không biết là số gì
     // Hai dòng NGẮN thay một dòng dài: thẻ ở lobby chỉ rộng ~170px, sau khi nâng cỡ
     // chữ thì "hạng · lực chiến · mốc kế" chung một dòng là vỡ hoặc tràn đè nút ĐỔI.
-    // 2 DÒNG (22/09/2026, anh Đức duyệt): dòng 1 tên + danh hiệu, dòng 2 POWER (+ mốc kế,
-    // cắt "…" nếu hẹp). Bản 3 dòng trước đẩy danh hiệu xuống đáy, đọc lệch thứ bậc.
-    const P = SC.Power, pw = P.fmt(P.show());
-    const moc = nx ? ` · +${P.fmt(nx.need)}→${SC.Rank.esc(nx.name)}` : '';
+    // MỘT DÒNG (12/10/2026, anh Đức: "merge 2 dòng này thành 1"): tên · DANH HIỆU · POWER.
+    // Mốc lên hạng kế ("+X→Y", trước là đuôi dòng 2) thành VỆT TIẾN ĐỘ mảnh ở đáy thẻ — chữ
+    // đầy đủ vẫn ở tooltip. Hẹp thì danh hiệu nhường trước, rồi tên; POWER không bao giờ cắt.
+    const P = SC.Power, pw = P.fmt(P.show()), p = P.total(), T = P.TIERS;
+    const i = T.findIndex(t => p < t[0]);                 // bậc kế; -1 = đã đỉnh
+    const prog = i > 0 ? (p - T[i - 1][0]) / (T[i][0] - T[i - 1][0]) : 1;
 
     chip.innerHTML =
       `<span class="ava-wrap">${SC.Ava.ofLobby(cur)}${badge}</span>` +
-      `<span class="prof-txt"><span class="prof-l1"><b>${SC.Rank.esc(cur.name)}</b>` +
-      `<em class="prof-title">${P.rank()}</em></span>` +
-      `<i class="prof-rank">${dot}POWER ${pw}<em class="pw-next">${moc}</em></i></span><em>ĐỔI</em>`;
+      `<span class="prof-txt"><b>${SC.Rank.esc(cur.name)}</b><em class="prof-title">${P.rank()}</em>` +
+      `<i class="prof-rank">${dot}<span class="pw-l">POWER </span><span class="pw-i">⚡</span>${pw}</i></span><em>ĐỔI</em>` +
+      `<i class="prof-next" style="--p:${Math.round(SC.clamp(prog, 0, 1) * 100)}%"></i>`;
+    // không đủ chỗ thì BỎ hẳn danh hiệu — để CSS tự co là ra "PHI CÔN… HUYỀN TH…" cắt cả hai
+    requestAnimationFrame(() => { const ti = chip.querySelector('.prof-title'); if (ti && ti.clientWidth && ti.scrollWidth > ti.clientWidth + 1) ti.style.display = 'none'; });
     chip.title = `${cur.name} · ${P.rank()} · lực chiến ${pw}`
       + (nx ? ` · còn ${P.fmt(nx.need)} nữa lên ${nx.name}` : '') + (u ? ` · ${tip}` : '');
   },
@@ -11326,7 +11805,8 @@ SC.AuthPanel = {
 
 ;
 /* ===== js/ui-rank.js ===== */
-/* ui-rank.js — bảng xếp hạng 3 tab: màn cao nhất, tốc độ, tổng sao
+/* ui-rank.js — bảng xếp hạng: màn cao nhất, tốc độ, tổng sao (+ lực chiến, gara ở
+ * ui-rank-power-garage.js)
  *
  * Xem được cả khi chưa đăng nhập (luật Firestore cho đọc công khai) — thấy người
  * khác đứng đâu chính là lý do để người chơi muốn đăng nhập ghi tên mình lên.
@@ -11383,6 +11863,7 @@ SC.Rank = {
 
   open(tab) {
     this.tab = tab;
+    this.syncTabs();                                 // GARA chỉ có ở kênh tiến hóa
     for (const b of document.querySelectorAll('#rankTabs button'))
       b.classList.toggle('on', b.dataset.tab === tab);
     this.load();
@@ -11394,12 +11875,12 @@ SC.Rank = {
   localRows() {
     const [field, dir] = SC.Cloud.ORDER[this.tab];   // bảng sắp xếp nằm ở SC.Cloud
     return SC.Profiles.summaries()
-      .map(p => ({
+      .map(p => this.localExtra({
         uid: 'local:' + p.id, name: p.name, avatar: '', emoji: p.avatar, me: p.isMe,
         highestLevel: p.level, totalStars: p.stars,
         // thời gian chiến dịch chỉ tính khi hồ sơ đó đã đi hết mọi màn
         bestTime: p.cleared >= SC.TOTAL_LEVELS ? this._timeOf(p.id) : undefined
-      }))
+      }, p))
       .filter(r => r[field] !== undefined)
       .sort((a, b) => dir === 'desc' ? b[field] - a[field] : a[field] - b[field])
       .map((r, i) => Object.assign(r, { pos: i + 1 }));
@@ -11454,18 +11935,15 @@ SC.Rank = {
     } else {
       // Top 3 đeo medal AI (đợt 2) thay số; hỏng ảnh thì onerror trả lại con số —
       // cùng chiến thuật fallback với icon cây kỹ năng (ui-tree.js).
-      wrap.innerHTML = banner + rows.map(r => `
-        <div class="rank-row${r.me || (me && r.uid === SC.Cloud.scoreId(me.uid)) ? ' me' : ''}">
+      wrap.innerHTML = banner + rows.map(r => { const bar = this.bar(r, rows); return `
+        <div class="rank-row${r.me || (me && r.uid === SC.Cloud.scoreId(me.uid)) ? ' me' : ''}${bar ? ' bar' : ''}"${bar}>
           <span class="rank-pos${r.pos <= 3 ? ' top' : ''}">${r.pos <= 3
             ? `<img src="assets/art-game/ui-badge-medal-${r.pos}.webp" alt="${r.pos}" onerror="if(this.r)this.replaceWith('${r.pos}');else{this.r=1;this.src=this.src}">`
             : r.pos}</span>
-          ${r.emoji ? `<span class="rank-av emo">${r.emoji}</span>`
-            : /^https?:/.test(r.avatar || '') ? `<img class="rank-av" src="${this.esc(r.avatar)}" alt="">`
-            : r.avatar ? `<span class="rank-av emo">${this.esc(r.avatar)}</span>`
-            : '<span class="rank-av"></span>'}
+          ${this.avatar(r)}
           <span class="rank-name">${this.esc(r.name || 'Phi công')}</span>
           <b class="rank-val">${t.val(r)}</b>
-        </div>`).join('');
+        </div>`; }).join('');
     }
 
     // Dòng của mình: chưa đăng nhập thì mời đăng nhập, ngoài top 100 thì vẫn cho thấy số của mình
@@ -11484,7 +11962,7 @@ SC.Rank = {
       foot.className = 'rank-me hidden';
     } else {
       const s = SC.Cloud.stats();
-      const mine = { highestLevel: s.highestLevel, totalStars: s.totalStars, bestTime: s.campaignTime };
+      const mine = this.mineExtra({ highestLevel: s.highestLevel, totalStars: s.totalStars, bestTime: s.campaignTime });
       foot.className = 'rank-me';
       // tên phi công của hồ sơ đang chơi, khớp với tên sẽ hiện trên bảng
       foot.innerHTML = `<span class="rank-pos">—</span>
@@ -11498,6 +11976,82 @@ SC.Rank = {
     return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   }
 };
+
+;
+/* ===== js/ui-rank-power-garage.js ===== */
+/* ui-rank-power-garage.js — 2 tab mới của BẢNG XẾP HẠNG: LỰC CHIẾN + GARA (12/10/2026)
+ *
+ * Tách khỏi ui-rank.js (đã 172 dòng, sát trần 200) — gắn thêm vào SC.Rank sẵn có: định
+ * nghĩa tab + chú thích + câu bảng trống, cột sắp xếp (SC.Cloud.ORDER), avatar ẢNH TÀU ĐANG
+ * BAY cho tab GARA, và VỆT NỀN tỉ lệ so với hạng 1 (nhìn là biết mình cách top bao xa).
+ * Số liệu ghi lên mây ở system-rank-power-garage.js.
+ *
+ * GARA chỉ có ở kênh tiến hóa (banga) — ngoài đó gara tàng hình hoàn toàn (cùng gate
+ * `SC.EvoAI.active()`), nên nút tab ẩn và LỰC CHIẾN chiếm trọn hàng thứ hai.
+ */
+
+SC.Rank.TABS.push(
+  { k: 'power', label: 'LỰC CHIẾN', val: r => '⚡ ' + SC.Power.fmt(r.power || 0), bar: r => r.power || 0 },
+  { k: 'garage', label: 'GARA', bar: r => r.garage || 0,
+    val: r => `${r.garage || 0} tàu<small>+${r.garagePct || 0}% thuộc tính</small>` }
+);
+Object.assign(SC.Rank.TIP, {
+  power: () => 'Lực chiến như ở sảnh: cây kỹ năng + thuộc tính gara. Cập nhật mỗi lần lưu tiến độ.',
+  garage: () => 'Số chiến đấu cơ AI trong gara (tàu đã bán không tính). Ảnh là tàu đang bay.'
+});
+Object.assign(SC.Rank.EMPTY, {
+  power: () => 'Chưa có ai — chơi xong một màn là lên bảng',
+  garage: () => 'Chưa ai có chiến đấu cơ AI'
+});
+Object.assign(SC.Cloud.ORDER, { power: ['power', 'desc'], garage: ['garage', 'desc'] });
+
+Object.assign(SC.Rank, {
+  /* mỗi lần mở bảng: tab GARA chỉ hiện ở kênh tiến hóa */
+  syncTabs() {
+    const on = SC.EvoAI.active();
+    document.querySelector('#rankTabs [data-tab="garage"]').classList.toggle('hidden', !on);
+    document.getElementById('rankTabs').classList.toggle('no-garage', !on);
+    if (!on && this.tab === 'garage') this.tab = 'level';
+  },
+
+  /* cột mới cho bảng-của-máy (3 hồ sơ). Lực chiến CHỈ hồ sơ đang mở: show() đọc cây kỹ
+     năng đang nạp, hồ sơ khác không suy được -> để trống, bảng lọc dòng đó ra. */
+  localExtra(row, s) {
+    const pr = SC.Profiles.progressOf(s.id) || {};
+    if (s.isMe) row.power = Math.round(SC.Power.show());
+    if (SC.EvoAI.active()) {
+      Object.assign(row, SC.RankPG.garageOf(pr));
+      const eq = SC.RankPG._equipped(pr);
+      row.ship = eq ? eq.thumb : '';
+    }
+    return row;
+  },
+
+  /* số của mình ở dòng chân bảng (khi ngoài top 100) */
+  mineExtra(m) {
+    m.power = Math.round(SC.Power.show());
+    if (SC.EvoAI.active()) Object.assign(m, SC.RankPG.garageOf(SC.UI.progress));
+    return m;
+  },
+
+  /* avatar: tab GARA khoe tàu đang bay, còn lại như cũ (emoji hồ sơ / ảnh Google) */
+  avatar(r) {
+    const ship = this.tab === 'garage' && SC.RankPG.safeShip(r.ship);
+    if (ship) return `<img class="rank-av ship" src="${ship}" alt="">`;
+    return r.emoji ? `<span class="rank-av emo">${r.emoji}</span>`
+      : /^https?:/.test(r.avatar || '') ? `<img class="rank-av" src="${this.esc(r.avatar)}" alt="">`
+      : r.avatar ? `<span class="rank-av emo">${this.esc(r.avatar)}</span>`
+      : '<span class="rank-av"></span>';
+  },
+
+  /* vệt nền tỉ lệ so với hạng 1 — chỉ tab khai `bar` (bảng đã sắp giảm dần nên rows[0] là đỉnh) */
+  bar(r, rows) {
+    const t = this.TABS.find(x => x.k === this.tab);
+    if (!t.bar || !rows.length) return '';
+    const w = Math.round(100 * SC.clamp(t.bar(r) / Math.max(1, t.bar(rows[0])), 0, 1));
+    return ` style="--w:${w}%"`;
+  }
+});
 
 ;
 /* ===== js/ui-map-select.js ===== */
@@ -13438,6 +13992,71 @@ Object.assign(SC.EvoAI, {
 });
 
 ;
+/* ===== js/system-evo-ai-session.js ===== */
+/* system-evo-ai-session.js — PHIÊN SSO trước khi gen ảnh (12/10/2026, log banga "Failed to fetch")
+ *
+ * TRUY NGUYÊN: relay `lite-llm-relay.zingplay.dev` đứng sau oauth2-proxy của access.zingplay.dev.
+ * Hết phiên (người chơi để tab mở qua đêm, cookie SSO hết hạn) thì proxy trả 302 về trang đăng
+ * nhập KHÔNG kèm header CORS (đo bằng curl: `302 → access.zingplay.dev/oauth2/sign_in`) —
+ * trình duyệt chặn, code chỉ nhận đúng một câu "Failed to fetch", và lượt gen ĐÃ TRỪ dù request
+ * chưa từng tới máy AI. Bấm "ẤP LẠI" bao nhiêu lần cũng hỏng y vậy.
+ *
+ * Cách dò: hỏi `/whoami` CÙNG ORIGIN với `redirect: 'manual'` — banga dùng chung cookie SSO
+ * `.zingplay.dev` nên hết phiên thì nó cũng 302, mà cùng origin thì đọc được (`opaqueredirect`).
+ * Hỏi relay trực tiếp thì không: khác origin, redirect không CORS = lỗi mạng trần, không phân biệt
+ * được với rớt mạng. sw-template.js đã được dặn KHÔNG cache `/whoami` (trước đó nó bị SWR cache —
+ * hết phiên vẫn trả danh tính cũ).
+ *
+ * Object.assign vào SC.EvoAI (như system-evo-ai-net.js) — thẻ <script> đứng NGAY SAU tệp đó.
+ */
+
+Object.assign(SC.EvoAI, {
+  EXPIRED: 'Phiên đăng nhập đã hết hạn — chưa gen, chưa trừ lượt. Bấm TẢI LẠI để đăng nhập lại.',
+  LOST: 'Mất kết nối tới máy AI giữa chừng — thử lại sau ít phút.',
+
+  /* false = CHẮC CHẮN hết phiên; true = còn phiên HOẶC không xác định được (mất mạng đã có cổng
+     online() lo; máy dev dùng token vkm_ không qua SSO; ngoài *.zingplay.dev không có proxy) */
+  async sessionOk() {
+    if (this._endpoint().headers.authorization || !/\.zingplay\.dev$/.test(location.hostname)) return true;
+    try {
+      const r = await fetch('/whoami', { redirect: 'manual', cache: 'no-store', credentials: 'include' });
+      return !(r.type === 'opaqueredirect' || r.status === 401 || r.status === 403);
+    } catch (e) { return true; }
+  },
+
+  /* Cổng chung TRƯỚC khi trừ lượt / đốt bộ từ khóa: '' = được gen, còn lại = câu báo */
+  async gate() {
+    if (!this.online()) return this.OFFLINE;
+    if (!(await this.sessionOk())) return this.EXPIRED;
+    return '';
+  },
+
+  /* Gen hỏng -> câu báo cho người + có HOÀN lượt không. Lỗi mạng TRẦN ("Failed to fetch") mà
+     server chưa trả một byte -> hỏi lại phiên: hết phiên = proxy chặn ngay cửa, relay chưa hề
+     thấy request, không tốn xu nào -> HOÀN. Còn phiên mà vẫn rớt (cổng gateway hết giờ, mạng
+     chập) thì GIỮ luật cũ không hoàn: server có thể đã vẽ xong (tiền đã tốn). */
+  async why(e, net) {
+    if (this.lostOffline(net)) return { msg: this.OFFLINE, refund: true };
+    const msg = (e && e.message) || '';
+    if (e instanceof TypeError || /failed to fetch|network ?error|load failed/i.test(msg)) {
+      if (!(net && net.acked) && !(await this.sessionOk())) return { msg: this.EXPIRED, refund: true };
+      return { msg: this.LOST, refund: false };
+    }
+    return { msg: msg || 'Lỗi mạng', refund: false };
+  },
+
+  /* nút TẢI LẠI gắn ngay sau câu báo hết phiên: tải lại = proxy dẫn qua trang đăng nhập rồi
+     quay về game; tiến độ đã lưu trong máy, bản nháp tàu (nếu có) nằm localStorage */
+  relogInto(el) {
+    if (!el || el.querySelector('.evo-relog')) return;
+    const b = document.createElement('button');
+    b.className = 'btn primary evo-relog'; b.textContent = 'TẢI LẠI';
+    b.addEventListener('click', () => location.reload());
+    el.appendChild(b);
+  }
+});
+
+;
 /* ===== js/system-evo-shard.js ===== */
 /* system-evo-shard.js — MẢNH TIẾN HÓA rơi từ kẻ địch cuối màn chunk-3
  *
@@ -13638,6 +14257,7 @@ SC.EvoGarage = {
 
   /* Lên tàu đang chọn của hồ sơ đang mở; chưa chọn / thiếu ảnh -> tàu nguyên bản */
   applyEquipped() {
+    SC.RankPG.warm();                  // nén sẵn ảnh tàu 56px cho bảng GARA trước lần lưu kế
     // cứu kho đời trước (nếu còn) TRƯỚC khi lên tàu — xem system-evo-garage-recover.js
     SC.EvoRecover.migrate().catch(() => {}).then(() => {
       const e = SC.UI.progress.evo;
@@ -13804,7 +14424,8 @@ SC.EvoRecover = {
     const o = (e.owned || []).find(x => x.id === id);
     if (!o || !this.canRecast(o)) return false;
     // CỔNG MẠNG (22/09/2026): offline thì đừng tiêu mất lượt đúc duy nhất của tàu này
-    if (!SC.EvoAI.online()) throw new Error(SC.EvoAI.OFFLINE);
+    const chan = await SC.EvoAI.gate();         // + hết phiên SSO (system-evo-ai-session.js)
+    if (chan) throw new Error(chan);
     o.recast = 1;                          // đánh dấu TRƯỚC khi gọi mạng: F5 không đúc thêm được
     SC.UI.save();
     let pack;
@@ -14301,7 +14922,8 @@ SC.GarageUI = {
       SC.UI.toast('ĐÃ ĐÚC LẠI CHIẾN ĐẤU CƠ');
     } catch (e) {
       // mất mạng thì nói thẳng là mất mạng — "thử lại sau" làm người chơi tưởng máy hỏng
-      SC.UI.toast(SC.EvoAI.online() ? 'CHƯA ĐÚC ĐƯỢC — THỬ LẠI SAU' : 'MẤT MẠNG — CHƯA ĐÚC, CHƯA MẤT LƯỢT');
+      SC.UI.toast(e && e.message === SC.EvoAI.EXPIRED ? 'PHIÊN ĐĂNG NHẬP HẾT HẠN — TẢI LẠI TRANG'
+        : SC.EvoAI.online() ? 'CHƯA ĐÚC ĐƯỢC — THỬ LẠI SAU' : 'MẤT MẠNG — CHƯA ĐÚC, CHƯA MẤT LƯỢT');
     }
     this.build();
   },
@@ -14888,6 +15510,7 @@ SC.EvoAIUI = {
     const el = document.getElementById('evoAiErr');
     el.textContent = msg;
     el.classList.toggle('hidden', !msg);
+    if (msg === SC.EvoAI.EXPIRED) SC.EvoAI.relogInto(el);
   },
 
   _openOther() {
@@ -14935,12 +15558,10 @@ SC.EvoAIUI = {
     if (SC.EvoAI.rollsLeft() <= 0 && this._pack) return;
     /* CỔNG MẠNG — chặn TRƯỚC spendRoll. Đây là cả cái bug: offline mà vẫn trừ lượt
        rồi báo thất bại, trong khi server chưa nhận được gì. */
-    if (!SC.EvoAI.online()) {
-      this._err(SC.EvoAI.OFFLINE);
-      this._btns();
-      return;
-    }
+    // + HẾT PHIÊN SSO (12/10/2026, "Failed to fetch"): proxy chặn từ cửa — hỏi trước, khỏi trừ oan
     this._busy = true;
+    const chan = await SC.EvoAI.gate();
+    if (chan) { this._busy = false; this._err(chan); this._btns(); return; }
     this._err('');
     this._hideOther();
     // trứng lắc + nứt trong suốt ~15s chờ gen — thay cho dòng chữ đợi chán ngắt
@@ -14972,11 +15593,11 @@ SC.EvoAIUI = {
       // Rớt mạng GIỮA CHỪNG mà server chưa kịp trả một chữ -> trả lại lượt. Mọi lỗi
       // khác KHÔNG hoàn: server có thể ĐÃ gen xong (tiền đã tốn) mà response rơi
       // giữa đường — hoàn lượt là mở đường farm ảnh miễn phí.
-      const hoan = daTru && SC.EvoAI.lostOffline(net);
-      if (hoan) SC.EvoAI.refundRoll();
+      const w = await SC.EvoAI.why(e, net);     // hết phiên / mất mạng trước khi tới máy AI -> hoàn lượt
+      if (daTru && w.refund) SC.EvoAI.refundRoll();
       this._view('<div class="evo-egg">🥚</div>'
         + '<span class="evoai-hint">Trứng chưa nở được — thử lại sau</span>');
-      this._err(hoan ? SC.EvoAI.OFFLINE : ((e && e.message) || 'Lỗi mạng'));
+      this._err(w.msg);
       this._btns();
     }
   },
@@ -15055,10 +15676,11 @@ SC.EvoStarter = {
     /* CỔNG MẠNG (22/09/2026): chặn TRƯỚC khi roll từ khóa + grant quà. Offline mà
        vẫn chạy tiếp là tiêu luôn quà vàng và chốt bộ từ khóa cho một tấm ảnh không
        bao giờ về — người chơi mở lại thấy "đang dở" mà chẳng có tàu. */
-    if (!SC.EvoAI.online()) {
-      this._err(SC.EvoAI.OFFLINE);
-      return;
-    }
+    // + HẾT PHIÊN SSO (12/10/2026): proxy chặn relay từ cửa -> "Failed to fetch" mà bộ từ khóa đã chốt
+    this.busy = true;
+    const chan = await SC.EvoAI.gate();
+    this.busy = false;
+    if (chan) { this._err(chan); return; }
     const e = SC.EvoAI.st();
     // đang dở cùng loại -> dùng lại bộ cũ; khác loại / chưa có -> roll bộ mới
     let kws = e.starter && e.starter.k === kind ? e.starter.kws : null;
@@ -15102,7 +15724,8 @@ SC.EvoStarter = {
     } catch (err) {
       prog.stop();
       this._view('<div class="evo-egg">🥚</div>');
-      this._err(((err && err.message) || 'Lỗi mạng') + ' — chọn lại để ấp tiếp');
+      const w = await SC.EvoAI.why(err, prog.net);
+      this._err(w.msg === SC.EvoAI.EXPIRED ? w.msg : w.msg + ' — chọn lại để ấp tiếp');
       this._pick(true);
       this._ok('ĐỂ SAU', true);
     }
@@ -15119,6 +15742,7 @@ SC.EvoStarter = {
     const el = document.getElementById('giftEvoErr');
     el.textContent = m;
     el.classList.toggle('hidden', !m);
+    if (m === SC.EvoAI.EXPIRED) SC.EvoAI.relogInto(el);
   },
   _ok(label, enabled) {
     const b = document.getElementById('btnGiftOk');
@@ -15452,7 +16076,7 @@ SC.UI = {
       hpFill: id('hpFill'), shFill: id('shFill'),
       score: id('hudScore'), coin: id('hudCoin'), level: id('hudLevel'),
       waveFill: id('waveFill'), waveTxt: id('waveTxt'),
-      bossBar: id('bossBar'), bossFill: id('bossFill'), bossName: id('bossName'),
+      bossBar: id('bossBar'), bossFill: id('bossFill'), bossLag: id('bossLag'), bossName: id('bossName'),
       wpnPips: id('wpnPips'), comboBox: id('comboBox'), comboVal: id('comboVal'), timer: id('hudTimer'),
       toastZone: id('toastZone'), mapList: id('mapList'), totalStars: id('totalStars'),
       resTitle: id('resTitle'), resStars: id('resStars'), resScore: id('resScore'),
@@ -15681,8 +16305,22 @@ Object.assign(SC.UI, {
     this.el.bossBar.classList.remove('hidden');
     this.el.bossName.textContent = name;
     this.el.bossFill.style.width = '100%';
+    this._lagP = 1; this.el.bossLag.style.width = '100%';
   },
-  setBossHP(p) { this.el.bossFill.style.width = (p * 100) + '%'; },
+  /* VỆT TRẮNG đuổi theo máu thật (~0,3s trễ, 12/10/2026): mỗi loạt bắn ăn bao nhiêu máu trùm
+     hiện thành một khúc sáng rồi rút dần — đánh trùm có "cảm giác đang thắng" */
+  setBossHP(p) {
+    this.el.bossFill.style.width = (p * 100) + '%';
+    const now = performance.now(), dt = Math.min(0.1, (now - (this._lagT || now)) / 1000);
+    this._lagT = now;
+    this._lagP = p >= (this._lagP == null ? 1 : this._lagP) ? p : this._lagP + (p - this._lagP) * (1 - Math.exp(-dt * 3));
+    this.el.bossLag.style.width = (this._lagP * 100) + '%';
+  },
+  /* trùm sang giai đoạn mới: thanh máu giật + loé (BossMoment.phase) */
+  bossPhase() {
+    const el = this.el.bossBar;
+    el.classList.remove('phase-hit'); void el.offsetWidth; el.classList.add('phase-hit');
+  },
 
   /* Ghim thanh máu ngay dưới chân trùm.
      TỪ 25/09/2026 #ui KHÔNG còn cùng hệ đo với canvas (xem system-viewport.js), nên
