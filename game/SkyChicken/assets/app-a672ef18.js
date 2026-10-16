@@ -29,8 +29,8 @@ SC.BALANCE = {
     "B": [{"n": 1, "dmg": 2, "rate": 0.34, "pierce": 0}, {"n": 1, "dmg": 8, "rate": 0.6, "pierce": 1}, {"n": 2, "dmg": 8, "rate": 0.6, "pierce": 1}, {"n": 2, "dmg": 11, "rate": 0.6, "pierce": 2}, {"n": 2, "dmg": 13, "rate": 0.58, "pierce": 3}, {"n": 2, "dmg": 15, "rate": 0.55, "pierce": 4}, {"n": 2, "dmg": 20, "rate": 0.52, "pierce": 5}, {"n": 3, "dmg": 22, "rate": 0.5, "pierce": 6}, {"n": 3, "dmg": 28, "rate": 0.46, "pierce": 7}]
   },
   "shield": {
-    "A": [{"dur": 60, "rad": 1.8, "regen": 1.5, "dps": 0, "drain": 0, "cost": 0, "mul": 0}, {"dur": 80, "rad": 1.9, "regen": 1.8, "dps": 10, "drain": 8, "cost": 0, "mul": 0}, {"dur": 100, "rad": 2.3, "regen": 2.2, "dps": 14, "drain": 9, "cost": 0, "mul": 0}, {"dur": 120, "rad": 2.5, "regen": 2.6, "dps": 20, "drain": 10, "cost": 0, "mul": 0}, {"dur": 145, "rad": 2.9, "regen": 3, "dps": 26, "drain": 11, "cost": 0, "mul": 0}, {"dur": 175, "rad": 3.2, "regen": 4, "dps": 34, "drain": 9, "cost": 0, "mul": 0}],
-    "B": [{"dur": 60, "rad": 1.6, "regen": 1.5, "dps": 0, "drain": 0, "cost": 0, "mul": 0}, {"dur": 80, "rad": 1.6, "regen": 1.8, "dps": 0, "drain": 0, "cost": 9, "mul": 1.2}, {"dur": 100, "rad": 1.7, "regen": 2.2, "dps": 0, "drain": 0, "cost": 8, "mul": 1.4}, {"dur": 120, "rad": 1.7, "regen": 2.6, "dps": 0, "drain": 0, "cost": 7, "mul": 1.8}, {"dur": 145, "rad": 1.8, "regen": 3, "dps": 0, "drain": 0, "cost": 6, "mul": 2.2}, {"dur": 175, "rad": 1.8, "regen": 4, "dps": 0, "drain": 0, "cost": 5, "mul": 2.6}],
+    "A": [{"dur": 60, "rad": 1.8, "regen": 1.5, "dps": 0, "drain": 0, "cost": 0, "mul": 0, "rocket": 0, "blast": 0}, {"dur": 80, "rad": 1.9, "regen": 1.8, "dps": 10, "drain": 8, "cost": 0, "mul": 0, "rocket": 0, "blast": 0}, {"dur": 100, "rad": 2.3, "regen": 2.2, "dps": 14, "drain": 9, "cost": 0, "mul": 0, "rocket": 0, "blast": 0}, {"dur": 120, "rad": 2.5, "regen": 2.6, "dps": 20, "drain": 10, "cost": 0, "mul": 0, "rocket": 0, "blast": 0}, {"dur": 145, "rad": 2.9, "regen": 3, "dps": 26, "drain": 11, "cost": 0, "mul": 0, "rocket": 0, "blast": 0}, {"dur": 175, "rad": 3.2, "regen": 4, "dps": 34, "drain": 9, "cost": 0, "mul": 0, "rocket": 0, "blast": 0}],
+    "B": [{"dur": 60, "rad": 1.6, "regen": 1.5, "dps": 0, "drain": 0, "cost": 0, "mul": 0, "rocket": 0, "blast": 0}, {"dur": 80, "rad": 1.6, "regen": 1.8, "dps": 0, "drain": 0, "cost": 9, "mul": 1.2, "rocket": 0, "blast": 0}, {"dur": 100, "rad": 1.7, "regen": 2.2, "dps": 0, "drain": 0, "cost": 8, "mul": 1.4, "rocket": 0, "blast": 0}, {"dur": 120, "rad": 1.7, "regen": 2.6, "dps": 0, "drain": 0, "cost": 7, "mul": 1.8, "rocket": 0, "blast": 0}, {"dur": 145, "rad": 1.8, "regen": 3, "dps": 0, "drain": 0, "cost": 6, "mul": 2.2, "rocket": 1, "blast": 0}, {"dur": 175, "rad": 1.8, "regen": 4, "dps": 0, "drain": 0, "cost": 5, "mul": 2.6, "rocket": 1, "blast": 1}],
     "idle": 3,
     "cap": 0.6
   },
@@ -56,7 +56,7 @@ SC.BALANCE = {
   },
   "power": {
     "scale": {"den": 0.45, "hp": 0.7, "dmg": 0.55, "fire": 0.45, "spd": 0.3, "orbit": 1.1},
-    "variant": {"AAA": [1.1, 1.15], "AAB": [1.12, 1.05], "ABA": [1.05, 1.05], "ABB": [1, 1.1], "BAA": [1.05, 0.95], "BAB": [0.95, 1], "BBA": [1.15, 0.9], "BBB": [0.95, 1]}
+    "variant": {"AAA": [0.9, 0.75], "AAB": [0.95, 0.9], "ABA": [1.05, 1.1], "ABB": [1.1, 1.36], "BAA": [1.12, 0.84], "BAB": [0.95, 0.95], "BBA": [1.65, 1.24], "BBB": [1.05, 1.36]}
   },
   "enemies": {
     "chick": {"hp": 3, "r": 15, "spd": 62, "score": 10, "drop": 0.3, "fire": 0, "move": "sine"},
@@ -835,7 +835,7 @@ SC.VARIANTS = {
   ABB: {
     name: 'GƯƠNG BẠC', hue: '#ffd23f',
     tag: 'Sống bằng phản đòn',
-    good: 'Đạn dội tường phủ góc chết, đạn bật lại thành đạn của mình',
+    good: 'Đạn dí bám quái rồi nảy sét, khiên bật đạn địch thành đạn của mình',
     bad: 'Hết bền khiên là mất sạch lợi thế, trần kỹ năng cao'
   },
   BAA: {
@@ -846,8 +846,8 @@ SC.VARIANTS = {
   },
   BAB: {
     name: 'LÔI TIÊU', hue: '#c58cff',
-    tag: 'Cơ động, đạn bám mục tiêu',
-    good: 'Đạn dí bẻ lái theo quái, bắn không cần ngắm kỹ',
+    tag: 'Giáo xuyên tích sét',
+    good: 'Giáo xuyên cả cột quái, trúng là nảy sét sang con bên cạnh',
     bad: 'Bắn chậm, gặp quái đông là không kịp nhịp'
   },
   BBA: {
@@ -859,8 +859,8 @@ SC.VARIANTS = {
   BBB: {
     name: 'HƯ KHÔNG', hue: '#9d7ad0',
     tag: 'Khó dùng nhất, trần kỹ năng cao nhất',
-    good: 'Giáo xuyên cộng đạn dội tường, một phát quét được cả hai biên',
-    bad: 'Đòi đọc đường đạn và canh góc; chơi ẩu thì đây là biến thể tệ nhất'
+    good: 'Giáo xuyên tự dí theo quái, trúng là nảy sét sang hai bên',
+    bad: 'Khiên chỉ bật đạn ở mặt trước — quay sai mũi là hết bền rất nhanh'
   }
 };
 
@@ -1467,10 +1467,15 @@ SC.Power = {
   /* Hệ số độ khó RIÊNG cho từng biến thể: biến thể mạnh dọn quái thì gặp quái trâu
      hơn, biến thể diệt trùm thì gặp quái đông hơn. Đây là cách cân 8 lối chơi mà
      không phải đụng vào chỉ số của chính chúng — chỉnh ở đây an toàn hơn nhiều.
-     [mật độ, máu quái] — 1.0 là trung tính. */
+     [mật độ, máu quái] — 1.0 là trung tính.
+     CHỈNH LẠI 14/10/2026 bằng mô phỏng (tools/sim-variants.mjs, 640 trận/lượt, cùng cây trung vị log):
+     bảng cũ NGƯỢC thực tế — AAA yếu nhất (thắng trùm 70%) lại bị phạt nặng nhất (1.10/1.15), còn mọi
+     hướng PHI ĐỘI SÁT THỦ (xBx) dọn nhanh hơn ~30% và BBA gần như không mất máu. Sau chỉnh: chênh thời
+     gian dọn màn thường 9,2s -> 4,6s, màn trùm 25,8s -> 13s, AAA thắng trùm 70% -> 88%.
+     SỐ THẬT nằm ở data-balance.js (Excel `power.variant`) — sửa ở đây thôi thì không ăn. */
   VAR: SC.bal('power.variant', {
-    AAA: [1.10, 1.15], AAB: [1.12, 1.05], ABA: [1.05, 1.05], ABB: [1.00, 1.10],
-    BAA: [1.05, 0.95], BAB: [0.95, 1.00], BBA: [1.15, 0.90], BBB: [0.95, 1.00]
+    AAA: [0.90, 0.75], AAB: [0.95, 0.90], ABA: [1.05, 1.10], ABB: [1.10, 1.36],
+    BAA: [1.12, 0.84], BAB: [0.95, 0.95], BBA: [1.65, 1.24], BBB: [1.05, 1.36]
   }),
 
   /* Lực chiến 0-100.
@@ -1531,10 +1536,10 @@ SC.Power = {
   },
 
   /* ---------- các mặt độ khó co giãn theo lực chiến ---------- */
-  den()   { return (1 + this._t() * this.S.den) * this._v(0); },   // mật độ quái
+  den()   { return (1 + this._t() * this.S.den) * this._v(0) * this._mid('den'); },   // mật độ quái
   // × cân bằng động của gara tiến hóa: tàu mới ngấm dần vào độ khó trong 1-6 màn
   hp()    { return (1 + this._t() * this.S.hp) * this._v(1) * SC.EvoGarage.enemyHpMul(SC.Game.levelId || 1); },
-  dmg()   { return (1 + this._t() * this.S.dmg) * SC.EvoGarage.enemyDmgMul(SC.Game.levelId || 1)
+  dmg()   { return (1 + this._t() * this.S.dmg) * SC.EvoGarage.enemyDmgMul(SC.Game.levelId || 1) * this._mid('dmg')
     * this.lateEase() * this.earlyEase(); },
 
   /* earlyEase() / leakEase() / earlyBossHp() — NÂNG ĐỠ 6 MÀN ĐẦU: xem
@@ -1558,7 +1563,22 @@ SC.Power = {
     const k = SC.clamp((id - L.from) / Math.max(1, L.full - L.from), 0, 1);
     return L.start + (L.end - L.start) * k;
   },
-  fire()  { return 1 + this._t() * this.S.fire; },                 // nhịp bắn
+  fire()  { return (1 + this._t() * this.S.fire) * this._mid('fire'); },   // nhịp bắn
+
+  /* KHÓ LÊN SAU MÀN 10 (14/10/2026, anh Đức "sau màn 10 là bị dễ quá"): log 284 trận / 7 ngày —
+     màn 11-60 KHÔNG MỘT TRẬN THUA, máu còn trung vị 100%, 70-80% trận thắng không mất giọt máu nào
+     (khiên nuốt hết 2-13 đòn); bot mô phỏng (tools/sim-variants.mjs) ra y vậy. Tăng ĐE DOẠ — sát
+     thương, mật độ, nhịp bắn — chứ KHÔNG tăng máu quái (màn dài hơn không phải khó hơn). Trượt tuyến
+     tính màn 11 -> 20 rồi giữ cả vòng vô tận; nhân CHUNG với LATE (51+ vẫn được nới như cũ).
+     Số chốt bằng mô phỏng: 1.35/1.10/1.15 KHÔNG làm sứt khiên ở màn thường (bot vẫn đủ máu 100%) —
+     khiên đỡ 1,6× mỗi đòn, ~3 đòn/màn thì nuốt hết; phải nhiều ĐẠN hơn (mật độ + nhịp bắn) mới có áp
+     lực. Bản chốt: khiên hao +40% ở màn thường, máu còn trung vị ở màn trùm 0,91 -> 0,82. */
+  MID: SC.bal('power.midHard', { from: 11, full: 20, dmg: 1.6, den: 1.3, fire: 1.5 }),
+  _mid(k) {
+    const M = this.MID, id = SC.Game.levelId || 1;
+    if (id < M.from) return 1;
+    return 1 + (M[k] - 1) * SC.clamp((id - M.from) / Math.max(1, M.full - M.from), 0, 1);
+  },
   spd()   { return 1 + this._t() * this.S.spd; },                  // tốc độ di chuyển
   orbit() { return this._t() * this.S.orbit; },                    // độ cong đạn địch
 
@@ -8312,15 +8332,19 @@ SC.Shield = {
 
   kind() { return SC.Tree.path('shield') || 'A'; },
   tier() {
-    const lv = SC.Tree.lv('shield'), k = this.kind();
+    const lv = SC.Tree.lv('shield'), k = this.kind(), T = this[k];
     if (lv < 1) return null;
-    const t = SC.Tree.tierOf(this[k], lv);
+    const t = SC.Tree.tierOf(T, lv);
     return Object.assign({}, t, {
       // bán kính từ trường có trần: rộng quá thì chỉ cần bay ngang là dọn sạch màn
       rad: Math.min(4.2, t.rad),
       // Giá bật đạn phải có SÀN 1. Bảng đi 9→8→7→6→5 nên nội suy tới cấp 11 là 0 và
       // cấp 12 là ÂM — khiên tự hồi bền mỗi lần bật đạn, tức là bật vô hạn miễn phí.
-      cost: Math.max(1, t.cost || 0)
+      cost: Math.max(1, t.cost || 0),
+      // Hao bền cùng bẫy đó mà bị quên tới 16/10/2026: bảng 8→9→10→11→9 (cấp 6 rẻ hơn là
+      // phần thưởng một lần) bị ngoại suy -2/cấp, cấp 11 ra ÂM — càng đốt quái khiên càng
+      // ĐẦY. Cây trung vị màn 60+ có khiên cấp 12 = -3/giây. Quá bảng thì giữ mức cấp cuối.
+      drain: lv > T.length ? T[T.length - 1].drain : t.drain
     });
   },
 
@@ -11463,6 +11487,55 @@ SC.RankPG = {
 };
 
 ;
+/* ===== js/system-telemetry-perf.js ===== */
+/* system-telemetry-perf.js — số đo HIỆU NĂNG cho log trận v3 (16/10/2026, plan sky-chicken-wow P0)
+ *
+ * Vì sao: "map cao giật lag" mới chỉ đo được bằng Chrome headless (tools/perf-probe.mjs), mà headless
+ * không phải điện thoại thật. Mỗi trận ghi thêm khung p50/p95 (ms), đỉnh số đạn địch cùng lúc và
+ * lớp máy — biết máy người chơi THẬT rơi khung ở màn nào, và bản sửa có cứu được không.
+ *
+ * Histogram 1ms cố định thay vì mảng đẩy từng khung: đẩy mỗi khung là thêm rác cho GC đúng lúc
+ * đang đo giật. `take()` gọi ở ĐẦU Telemetry.log (trước cả kiểm vé đăng nhập) để mỗi trận đếm lại
+ * từ 0 — đặt sau kiểm vé thì người chưa đăng nhập dồn khung qua nhiều màn.
+ */
+
+SC.TelePerf = {
+  BINS: 120,
+  h: new Uint32Array(120), n: 0, foe: 0,
+
+  /* main.loop gọi mỗi khung lúc 'play', ms = khoảng cách THẬT giữa hai khung (chưa kẹp 33ms) */
+  frame(ms) {
+    if (!(ms > 0) || ms > 1000) return;        // tab ẩn rồi hiện lại: một khung vài giây không phải giật
+    this.h[Math.min(this.BINS - 1, ms | 0)]++;
+    this.n++;
+    const f = SC.Bullets.foe.length;
+    if (f > this.foe) this.foe = f;
+  },
+
+  pct(p) {
+    const need = this.n * p;
+    let acc = 0;
+    for (let i = 0; i < this.BINS; i++) { acc += this.h[i]; if (acc >= need) return i + 1; }
+    return this.BINS;
+  },
+
+  /* "nhân CPU / DPR / GB RAM / m(cảm ứng)|d" — đủ chia lớp máy, không đủ nhận ra ai.
+     deviceMemory chỉ Chrome có, Safari ra 0. */
+  dev() {
+    const n = navigator;
+    return [n.hardwareConcurrency | 0, +(window.devicePixelRatio || 1).toFixed(1), n.deviceMemory | 0,
+      matchMedia('(pointer:coarse)').matches ? 'm' : 'd'].join('/');
+  },
+
+  /* Lấy số của trận vừa xong rồi đếm lại. Dưới 60 khung (bỏ ngay lúc nhảy dù) thì không đủ tin. */
+  take() {
+    const out = this.n < 60 ? {} : { ft50: this.pct(0.5), ft95: this.pct(0.95), foeMax: this.foe, dev: this.dev() };
+    this.h.fill(0); this.n = 0; this.foe = 0;
+    return out;
+  }
+};
+
+;
 /* ===== js/system-telemetry.js ===== */
 /* system-telemetry.js — LOG TRẬN để tinh chỉnh cân bằng bằng số liệu thật (22/09/2026)
  *
@@ -11479,8 +11552,11 @@ SC.RankPG = {
 
 SC.Telemetry = {
   COL: 'runs',
-  V: 2,                           // đổi khi đổi hình dạng bản ghi — dashboard lọc theo
+  V: 3,                           // đổi khi đổi hình dạng bản ghi — dashboard lọc theo
                                   // v2 (22/09/2026): + dmg, bDmg, bKill, bClutch (sức mạnh bom)
+                                  // v3 (16/10/2026): + ft50, ft95, foeMax, dev (system-telemetry-perf),
+                                  //   score, graze — đo giật trên máy thật + tay nghề (plan sky-chicken-wow)
+  V3_KEYS: ['ft50', 'ft95', 'foeMax', 'dev', 'score', 'graze'],
 
   /* Cộng sát thương THỰC người chơi gây ra (Enemy/Boss.hurt gọi) — mẫu số cho "% sát
      thương từ bom". Chỉ tính lúc đang chơi: bom/đạn sau khi màn kết thúc không tính. */
@@ -11491,6 +11567,7 @@ SC.Telemetry = {
 
   /* g = SC.Game, win = true/false, quit = bỏ giữa chừng */
   log(g, win, quit) {
+    const perf = SC.TelePerf.take();
     const u = Portal.Auth.user;
     if (!u || !Portal.FB.configured() || !g.lv) return;
     const p = g.player, lv = g.lv;
@@ -11515,18 +11592,27 @@ SC.Telemetry = {
       tree: SC.TREE_KEYS.map(T).join('-'),
       vari: String(SC.Tree.variant() || ''),
       evo: SC.EvoGarage.totalPct(),
-      at: Date.now()
+      score: g.score | 0, graze: SC.Bank.grazed | 0,
+      at: Date.now(), ...perf
     };
     this._send(row);
   },
 
-  async _send(row) {
+  /* LUẬT `runs` KIỂM DANH SÁCH TRƯỜNG (keys().hasOnly) — trường mới mà luật chưa deploy là MỌI bản
+     ghi bị từ chối. Client lên trước luật (banga deploy tay, luật deploy riêng) thì lùi về đúng hình
+     dạng v2 gửi lại một lần: mất số mới chứ không mất cả trận. */
+  async _send(row, retry) {
     try {
       const fb = await Portal.FB.load();
       if (!fb.auth.currentUser) return;
       const { collection, addDoc } = fb.fsM;
       await Portal.FB.limit(addDoc(collection(fb.db, this.COL), row), 'log trận');
     } catch (e) {
+      if (!retry && row.v === 3 && e && e.code === 'permission-denied') {
+        const old = Object.assign({}, row, { v: 2 });
+        this.V3_KEYS.forEach(k => delete old[k]);
+        return this._send(old, true);
+      }
       console.warn('[telemetry] bỏ qua log trận:', (e && e.code) || e);
     }
   }
@@ -17127,6 +17213,7 @@ SC.Game = {
   /* ---------- vòng lặp chính ---------- */
   loop(now) {
     const dt = Math.min(0.033, (now - this.last) / 1000);
+    if (this.state === 'play') SC.TelePerf.frame(now - this.last);   // log trận v3: khung THẬT, chưa kẹp
     this.last = now;
     SC.View.poll();
     // hit-stop / slow-mo (system-time-fx.js): k = 0 là khung đóng băng — vẫn vẽ, không chạy
