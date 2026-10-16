@@ -173,7 +173,10 @@ SC.BIOMES = [
     cloud: '#ffffff', star: 0, hue: 40,
     pool: ['chick', 'hen', 'egg'],
     boss: 'hen', bossName: 'GÀ CHÚA MẸ', atk: ['ring', 'charge', 'eggRain', 'minions', 'aimed', 'punch'],
-    elite: 'scarecrow', eliteName: 'BÙ NHÌN SẮT'
+    /* 16/10/2026: map 3 đổi sang trùm CHẠY BẰNG XƯƠNG (entity-boss-rig.js) — gà bưu tá
+       vàng theo ảnh tham chiếu anh Đức gửi. BÙ NHÌN SẮT (`scarecrow`) vẫn còn art + chiêu
+       trong code, chưa vùng nào dùng; muốn trả lại thì đổi đúng dòng này. */
+    elite: 'postChick', eliteName: 'GÀ BƯU TÁ'
   },
   {
     id: 'dune', name: 'SA MẠC HOÀNG HÔN',
@@ -2967,6 +2970,10 @@ SC.SpriteArt = {
     bossfx: ['charge-orb', 'reticle', 'aura', 'portal', 'ink', 'sunburst'],
     bosspart: ['fist', 'beak', 'blade', 'rock'],
     'ui-frame': ['ribbon-boss'],
+    /* mảnh rời của trùm chạy bằng xương (entity-boss-rig.js). Thiếu ảnh thì rig vẽ tay,
+       nên danh sách này vắng file vẫn không vỡ gì. */
+    rig: ['postChick-body', 'postChick-head', 'postChick-wing', 'postChick-leg',
+      'postChick-tail', 'postChick-bag'],
   },
 
   /* Quái phải CHÚI XUỐNG phía người chơi. Tấm nào AI vẽ đầu hướng lên thì xoay
@@ -6113,6 +6120,374 @@ SC.EnemySprite = {
 };
 
 ;
+/* ===== js/entity-boss-rig-art.js ===== */
+/* entity-boss-rig-art.js — vẽ TỪNG MẢNH của trùm chạy bằng xương (entity-boss-rig.js)
+ *
+ * Hai đường vẽ, CÙNG một bộ xương:
+ *   1. có ảnh AI `assets/art-game/rig-<skin>-<mảnh>.webp` -> dán ảnh (đường chuẩn);
+ *   2. chưa có -> vẽ tay bằng canvas (nét vẽ ở `entity-boss-rig-art-hand.js`, nạp SAU
+ *      file này) theo đúng ảnh tham chiếu: gà con vàng, mắt xanh dương to, mỏ cam, túi da.
+ * Nhờ vậy sinh được ảnh lúc nào thì đẹp lúc đó, không phải sửa một dòng code nào.
+ *
+ * Mọi mảnh vẽ quanh KHỚP của nó (gốc toạ độ = chỗ nối vào thân), không phải quanh tâm
+ * hình — xoay khớp mới ra chuyển động đúng chỗ.
+ */
+
+SC.BossRigArt = {
+  C: {
+    // BẪY ĐÃ GẶP: bản đầu #ffd24a + sáng #ffe9a0 + yếm kem -> trên nền đồng quê sáng con
+    // trùm bệch ra gần như TRẮNG. Hạ sáng, tăng no màu, yếm chỉ còn gợi ý.
+    body: '#f5a81c', bodyLit: '#ffd758', belly: '#ffe9ad',
+    beak: '#ff9f33', beakDark: '#e07a1d',
+    leg: '#a9682f', legDark: '#7c4a1e', toe: '#ffc6c0',
+    bag: '#8a5a33', bagDark: '#5d3a20', clasp: '#ffd98a',
+    eye: '#1b49c8', eyeLit: '#5aa0ff',
+  },
+
+  /* bóng dưới chân — trùm bay nhưng vẫn cần một mỏ neo thị giác */
+  ground(ctx, r) {
+    ctx.save();
+    ctx.globalAlpha = 0.22;
+    ctx.fillStyle = '#0a1020';
+    ctx.beginPath();
+    ctx.ellipse(0, r * 1.02, r * 0.78, r * 0.17, 0, 0, 6.283);
+    ctx.fill();
+    ctx.restore();
+  },
+
+  paint(skin, part, ctx, s, p, side, hue) {
+    const img = SC.SpriteArt && SC.SpriteArt.get('rig', skin + '-' + part);
+    if (img) {
+      // ảnh vẽ quanh khớp: neo mỗi mảnh theo ANCHOR rồi mới dán
+      const a = this.ANCHOR[part] || [0, 0];
+      const w = s * (this.IMG_S[part] || 1);
+      // LẬT DỌC: ảnh đuôi AI vẽ gốc lông ở đáy, ngọn xoè LÊN — giữ nguyên thì cả chùm
+      // nằm sau thân, nhìn như không có đuôi. Lật xuống là xoè ra dưới chân, thấy ngay.
+      // Lật quanh gốc toạ độ = quanh chính KHỚP, nên ANCHOR đo được vẫn đúng.
+      if (this.FLIP_Y[part]) ctx.scale(1, -1);
+      ctx.drawImage(img, -w / 2 + a[0] * w, -w / 2 + a[1] * w, w, w);
+      return;
+    }
+    (this[part] || this.body).call(this, ctx, s, p, side, hue);
+  },
+
+  /* Tâm ảnh lệch khỏi khớp bao nhiêu (theo cạnh ảnh) + cỡ ảnh so với s.
+     ĐỪNG ĐOÁN BẰNG MẮT: make-game-sprites TRIM sát viền rồi căn giữa, nên "khớp vai ở lề
+     trái" trong prompt hoá ra nằm ở 0,020 chứ không phải 0. Số dưới đây do
+     `node tools/measure-rig-anchors.mjs` in ra — sinh lại ảnh thì chạy lại nó. */
+  ANCHOR: { wing: [0.48, 0], leg: [0, 0.48], tail: [0, -0.46], head: [0, 0], body: [0, 0], bag: [0, 0] },
+  FLIP_Y: { tail: true },
+  /* Cỡ ảnh so với s — chỉnh bằng MẮT trên khung soi, không có công thức: thân tròn quá
+     thì cánh để 1,5 trông như gắn tạm ở hai bên, chân 0,95 bị bụng nuốt mất. */
+  IMG_S: { body: 2.1, head: 1.5, wing: 2.0, leg: 1.2, tail: 1.35, bag: 0.85 },
+};
+
+;
+/* ===== js/entity-boss-rig-art-hand.js ===== */
+/* entity-boss-rig-art-hand.js — BẢN VẼ TAY dự phòng cho từng mảnh trùm chạy bằng xương.
+ *
+ * Tách khỏi entity-boss-rig-art.js (file đó chạm trần 200 dòng). Ranh giới: file kia lo
+ * ĐIỀU PHỐI (bảng màu, neo khớp, dán ảnh AI), file này lo NÉT VẼ khi chưa có ảnh.
+ *
+ * Nối thẳng vào SC.BossRigArt nên PHẢI nạp SAU file đó (xem thẻ script trong index.html).
+ * Còn giữ vì: mảnh nào chưa sinh được ảnh thì mảnh đó vẫn vẽ ra hình, trùm không khuyết.
+ */
+
+Object.assign(SC.BossRigArt, {
+  /* ---------- thân: quả trứng lông vàng, yếm kem ---------- */
+  body(ctx, s) {
+    const C = this.C;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, s * 0.86, s * 0.95, 0, 0, 6.283);
+    ctx.fillStyle = SC.draw.shade(ctx, s * 0.86, s * 0.95, C.body, C.bodyLit);
+    ctx.fill();
+    SC.draw.ink(ctx, s * 0.045); ctx.stroke();
+    // yếm bụng sáng hơn cho ra khối
+    ctx.beginPath();
+    ctx.ellipse(0, s * 0.3, s * 0.44, s * 0.46, 0, 0, 6.283);
+    ctx.fillStyle = C.belly; ctx.globalAlpha = 0.4; ctx.fill(); ctx.globalAlpha = 1;
+    SC.draw.rim(ctx, s * 0.86, s * 0.95);
+  },
+
+  /* ---------- đầu: mào 3 cọng, mắt xanh to, mỏ cam ---------- */
+  head(ctx, s, p) {
+    const C = this.C;
+    // mào: dựng đứng hơn khi nổi điên — tín hiệu đọc được từ xa
+    const up = 1 + (p.phase >= 2 ? 0.35 : 0) + p.act * 0.4;
+    SC.draw.ink(ctx, s * 0.05);
+    for (const d of [-0.36, 0, 0.36]) {
+      ctx.save();
+      ctx.rotate(d * 0.5);
+      ctx.beginPath();
+      ctx.moveTo(-s * 0.16, -s * 0.42);
+      ctx.quadraticCurveTo(-s * 0.2, -s * (0.9 + 0.22 * up), s * 0.02, -s * (1.02 + 0.26 * up));
+      ctx.quadraticCurveTo(s * 0.2, -s * (0.86 + 0.2 * up), s * 0.16, -s * 0.42);
+      ctx.closePath();
+      ctx.fillStyle = C.bodyLit; ctx.fill(); ctx.stroke();
+      ctx.restore();
+    }
+    ctx.beginPath();
+    ctx.ellipse(0, 0, s * 0.62, s * 0.58, 0, 0, 6.283);
+    ctx.fillStyle = SC.draw.shade(ctx, s * 0.62, s * 0.58, C.body, C.bodyLit);
+    ctx.fill(); ctx.stroke();
+
+    // mỏ: hai mảnh, há ra khi mổ hoặc gồng chiêu
+    const open = Math.max(p.peck, p.act) * 0.5;
+    ctx.fillStyle = C.beak;
+    ctx.beginPath();
+    ctx.moveTo(-s * 0.1, s * 0.12);
+    ctx.lineTo(-s * 0.72, s * (0.3 + open * 0.1));
+    ctx.lineTo(-s * 0.08, s * 0.4);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = C.beakDark;
+    ctx.beginPath();
+    ctx.moveTo(-s * 0.1, s * (0.4 + open * 0.3));
+    ctx.lineTo(-s * 0.6, s * (0.46 + open * 0.5));
+    ctx.lineTo(-s * 0.08, s * (0.55 + open * 0.3));
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+
+    // mắt: chớp = dẹt lại, nổi điên = đỏ quạch
+    const eh = p.blink ? 0.05 : 0.3;
+    ctx.beginPath();
+    ctx.ellipse(s * 0.16, -s * 0.05, s * 0.26, s * eh, 0, 0, 6.283);
+    ctx.fillStyle = '#fff'; ctx.fill(); ctx.stroke();
+    if (!p.blink) {
+      ctx.beginPath();
+      ctx.arc(s * 0.2, -s * 0.03, s * 0.17, 0, 6.283);
+      ctx.fillStyle = p.phase === 3 ? '#ff4d6a' : C.eye; ctx.fill();
+      ctx.beginPath();
+      ctx.arc(s * 0.14, -s * 0.1, s * 0.06, 0, 6.283);
+      ctx.fillStyle = '#fff'; ctx.fill();
+    }
+    // má hồng
+    ctx.globalAlpha = 0.5; ctx.fillStyle = '#ff9aa0';
+    ctx.beginPath(); ctx.ellipse(s * 0.42, s * 0.18, s * 0.15, s * 0.1, 0, 0, 6.283); ctx.fill();
+    ctx.globalAlpha = 1;
+  },
+
+  /* ---------- cánh: 3 lớp lông, gốc ở khớp vai (0,0) ---------- */
+  wing(ctx, s, p) {
+    const C = this.C;
+    SC.draw.ink(ctx, s * 0.045);
+    // BÙ 0,18: khớp vai trong entity-boss-rig.js đã thụt từ 0,70r vào 0,52r cho khớp ảnh
+    // AI (vai trong ảnh dày, phải đút vào trong thân). Cánh vẽ tay thì MẢNH hơn nhiều,
+    // nên đẩy lại ra đúng khoảng vừa dời để nó vẫn nhô khỏi thân như trước. KHÔNG sửa bộ
+    // xương: xương canh theo đường ảnh, đây chỉ là lưới an toàn.
+    ctx.translate(s * 0.18, 0);
+    // 3 lớp lông: lớp trong ngắn và dày, lớp ngoài dài hơn và chúc xuống
+    for (let i = 2; i >= 0; i--) {
+      const len = s * (0.62 + i * 0.2), w = s * (0.46 - i * 0.07);
+      const droop = 0.18 + i * 0.22 + p.flap * 0.12;
+      ctx.beginPath();
+      ctx.moveTo(0, -w * 0.5);
+      ctx.quadraticCurveTo(len * 0.55, -w * 0.55 + droop * s * 0.3, len, droop * s * 0.75);
+      ctx.quadraticCurveTo(len * 0.5, w * 0.75 + droop * s * 0.5, 0, w * 0.6);
+      ctx.closePath();
+      ctx.fillStyle = i === 0 ? C.bodyLit : C.body;
+      ctx.fill(); ctx.stroke();
+    }
+  },
+
+  /* ---------- chân: ống nâu vằn, bàn chân 3 ngón hồng ---------- */
+  leg(ctx, s) {
+    const C = this.C;
+    SC.draw.ink(ctx, s * 0.05);
+    ctx.fillStyle = C.leg;
+    SC.draw.roundRect(ctx, -s * 0.11, 0, s * 0.22, s * 0.52, s * 0.08);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = C.legDark;                       // vằn
+    for (let i = 0; i < 3; i++) ctx.fillRect(-s * 0.11, s * (0.1 + i * 0.13), s * 0.22, s * 0.04);
+    ctx.fillStyle = C.toe;                           // bàn chân
+    for (const d of [-0.22, 0, 0.22]) {
+      ctx.beginPath();
+      ctx.ellipse(d * s, s * 0.56, s * 0.13, s * 0.08, d * 0.5, 0, 6.283);
+      ctx.fill(); ctx.stroke();
+    }
+  },
+
+  /* ---------- đuôi: 3 cọng lông xoè, gốc ở (0,0) ---------- */
+  tail(ctx, s, p) {
+    const C = this.C;
+    SC.draw.ink(ctx, s * 0.045);
+    for (const d of [-1, 0, 1]) {
+      ctx.save();
+      ctx.rotate(d * 0.42 + Math.sin(p.step * 0.7 + d) * 0.05);
+      ctx.beginPath();
+      ctx.moveTo(-s * 0.12, 0);
+      ctx.quadraticCurveTo(-s * 0.1, s * 0.5, 0, s * 0.74);
+      ctx.quadraticCurveTo(s * 0.1, s * 0.5, s * 0.12, 0);
+      ctx.closePath();
+      ctx.fillStyle = d === 0 ? C.bodyLit : C.body;
+      ctx.fill(); ctx.stroke();
+      ctx.restore();
+    }
+  },
+
+  /* ---------- túi thư: hộp da nâu, nắp gập, khoá đồng ---------- */
+  bag(ctx, s) {
+    const C = this.C;
+    SC.draw.ink(ctx, s * 0.05);
+    ctx.strokeStyle = C.bagDark; ctx.lineWidth = s * 0.09;   // quai đeo vắt lên vai
+    ctx.beginPath();
+    ctx.moveTo(-s * 0.3, -s * 0.75);
+    ctx.quadraticCurveTo(s * 0.1, -s * 0.4, s * 0.02, -s * 0.05);
+    ctx.stroke();
+    SC.draw.ink(ctx, s * 0.05);
+    ctx.fillStyle = C.bag;
+    SC.draw.roundRect(ctx, -s * 0.34, -s * 0.1, s * 0.68, s * 0.56, s * 0.1);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = C.bagDark;                               // nắp
+    SC.draw.roundRect(ctx, -s * 0.36, -s * 0.16, s * 0.72, s * 0.3, s * 0.09);
+    ctx.fill(); ctx.stroke();
+    ctx.beginPath();                                          // khoá đồng
+    ctx.arc(0, s * 0.14, s * 0.08, 0, 6.283);
+    ctx.fillStyle = C.clasp; ctx.fill(); ctx.stroke();
+  },
+});
+
+;
+/* ===== js/entity-boss-rig.js ===== */
+/* entity-boss-rig.js — TRÙM CHẠY BẰNG XƯƠNG (16/10/2026)
+ *
+ * Trùm cũ là MỘT tấm ảnh tĩnh: muốn nó "sống" chỉ còn cách phóng to thu nhỏ theo nhịp thở.
+ * Trùm gà bưu tá (map 3) thay bằng bộ xương: thân, đầu, hai cánh, hai chân, đuôi, túi thư là
+ * các mảnh RỜI, mỗi khung hình ghép lại theo góc xoay — nên vỗ cánh, chạy, rụt cổ mổ, giật
+ * lùi khi trúng đòn đều là chuyển động thật chứ không phải ảnh nhấp nháy.
+ *
+ * Mảnh vẽ ở đâu: entity-boss-rig-art.js. Có ảnh AI (rig-postChick-<mảnh>.webp) thì dùng ảnh,
+ * chưa có thì vẽ tay bằng canvas — CÙNG một bộ xương nên thay ảnh không phải sửa code.
+ *
+ * Đơn vị: mọi toạ độ tính theo r (bán kính thân trùm) nên đổi cỡ trùm không vỡ tư thế.
+ */
+
+SC.BossRig = {
+  has(key) { return !!this.RIG[key]; },
+
+  /* Xương: chỗ neo (theo r) + thứ tự vẽ — mảnh sau đè mảnh trước */
+  RIG: {
+    postChick: {
+      skin: 'postChick',
+      parts: [
+        { k: 'tail', x: 0, y: 0.38, s: 1.10 },
+        { k: 'leg', x: -0.28, y: 0.84, s: 0.9, side: -1 },
+        { k: 'leg', x: 0.28, y: 0.84, s: 0.9, side: 1 },
+        // vai ĐÚT VÀO trong thân (0,52 < bán kính thân 0,97): để ở 0,70 thì cánh dính hờ
+        // ngoài mép, nhìn như hai chiếc lá cài tạm chứ không phải cánh mọc ra từ vai
+        { k: 'wing', x: -0.52, y: -0.02, s: 1.00, side: -1 },
+        { k: 'wing', x: 0.52, y: -0.02, s: 1.00, side: 1 },
+        { k: 'body', x: 0, y: 0.12, s: 0.92 },
+        { k: 'bag', x: 0.34, y: 0.26, s: 0.80 },
+        { k: 'head', x: 0, y: -0.68, s: 0.96 },
+      ],
+    },
+  },
+
+  /* Trạng thái riêng từng con trùm, bám vào chính nó — không có sổ toàn cục để rò rỉ */
+  _state(b) {
+    if (!b._rig) b._rig = { x: b.x, vx: 0, step: 0, blink: 1.6 };
+    return b._rig;
+  },
+
+  /* Đọc TÌNH HUỐNG THẬT của trùm (không tự chế cờ riêng, không lệch với gameplay):
+     bay vào màn, đang gồng chiêu, rụt cổ mổ, vừa trúng đòn, giai đoạn nổi điên. */
+  pose(b, r, t, dt) {
+    const S = this._state(b);
+    // vận tốc ngang: trùm do BossMove lái, ở đây chỉ ĐO lại để nghiêng người + sải chân
+    const vx = (b.x - S.x) / Math.max(dt, 1 / 120);
+    S.vx += (vx - S.vx) * 0.18;                 // lọc cho khỏi giật từng khung
+    S.x = b.x;
+    const run = SC.clamp(Math.abs(S.vx) / 160, 0, 1);
+    S.step += dt * (3 + run * 9);               // nhịp sải chân, đứng yên vẫn đạp nhẹ
+
+    const rage = b.phase === 3 ? 1.5 : b.phase === 2 ? 1.2 : 1;
+    const flap = Math.sin(t * (b.entering ? 13 : 5.2 * rage));
+    // gồng chiêu: ngả người rồi lao tới — act do entity-boss-skills.js dựng
+    const act = b.act ? 1 : 0;
+    const peck = (b.peckY || 0) / Math.max(1, r);          // chiêu mổ đẩy cổ xuống
+    const hurt = b.flash > 0 ? b.flash / 0.07 : 0;         // giật lùi khi ăn đạn
+
+    S.blink -= dt;                              // chớp mắt ~0.1s mỗi 2-5 giây
+    if (S.blink < -0.1) S.blink = 2 + Math.random() * 3;
+
+    return {
+      rage, run, flap, hurt, blink: S.blink < 0,
+      lean: SC.clamp(S.vx / 420, -0.22, 0.22) + act * 0.12 - peck * 0.1,
+      bob: (b.entering ? 0 : Math.sin(t * 2.2 * rage) * 0.045) - hurt * 0.05 + act * 0.04,
+      breath: 1 + Math.sin(t * 2.2 * rage) * 0.035,
+      step: S.step, peck, act, phase: b.phase,
+    };
+  },
+
+  /* Vẽ trọn con trùm. Gọi từ entity-boss-art.draw (đã ở hệ toạ độ tâm trùm). */
+  draw(key, ctx, r, t, phase, hue, b) {
+    const rig = this.RIG[key];
+    const dt = SC.clamp(t - (this._lastT || t), 0.001, 0.05);
+    this._lastT = t;
+    const p = b ? this.pose(b, r, t, dt) : {
+      rage: 1, run: 0, flap: Math.sin(t * 5), hurt: 0, blink: false, lean: 0,
+      bob: Math.sin(t * 2.2) * 0.045, breath: 1, step: t * 3, peck: 0, act: 0, phase,
+    };
+
+    const A = SC.BossRigArt;
+    ctx.save();
+    ctx.translate(0, p.bob * r);
+    ctx.rotate(p.lean * 0.5);                   // cả thân nghiêng theo hướng lướt
+    ctx.scale(1 / p.breath, p.breath);          // nhịp thở: cao lên thì hẹp lại
+
+    A.ground(ctx, r);                           // bóng dưới chân, giữ trùm "chạm đất"
+    for (const part of rig.parts) {
+      // chiêu QUĂNG: bộ phận đang bay ngoài kia (BossSigArt vẽ) thì trên người phải THIẾU
+      // đúng chiếc đó — không thì nhìn ra hai cánh mọc thêm một cánh thứ ba
+      if (b && b.missing && part.k === 'wing' && part.side > 0) continue;
+      ctx.save();
+      ctx.translate(part.x * r, part.y * r);
+      this._joint(ctx, part, p, r);
+      A.paint(rig.skin, part.k, ctx, part.s * r, p, part.side || 1, hue);
+      ctx.restore();
+    }
+    ctx.restore();
+
+    // nổi điên: quầng màu theo giai đoạn, cùng ngôn ngữ với trùm vẽ bằng sprite
+    if (p.phase >= 2) {
+      SC.draw.glow(ctx, 0, 0, r * 1.9, p.phase === 3 ? '#ff5c7a' : '#ffd23f', 0.22 + p.hurt * 0.3);
+    }
+  },
+
+  /* Góc xoay của từng khớp — đây mới là phần làm con trùm "sống" */
+  _joint(ctx, part, p, r) {
+    const side = part.side || 1;
+    switch (part.k) {
+      case 'wing':
+        // vỗ cánh: nâng gốc cánh + xoè ra; lúc gồng chiêu thì giương rộng
+        ctx.rotate(side * (0.25 + p.flap * 0.5 + p.act * 0.4));
+        ctx.scale(side, 1);
+        break;
+      case 'leg': {
+        // sải chân so le; đứng yên chỉ nhún nhẹ, chạy nhanh thì co chân cao hơn
+        const sw = Math.sin(p.step + (side > 0 ? 0 : Math.PI));
+        ctx.rotate(sw * (0.12 + p.run * 0.55));
+        ctx.translate(0, -Math.max(0, sw) * p.run * 0.18 * r);
+        break;
+      }
+      case 'head':
+        // rụt cổ rồi mổ tới: peck đẩy đầu xuống + chúi mỏ
+        ctx.translate(p.lean * -0.15 * r, p.peck * r * 0.55 - p.act * 0.08 * r);
+        ctx.rotate(-p.lean * 0.5 + p.peck * 0.5 - p.act * 0.18);
+        break;
+      case 'tail':
+        ctx.rotate(-p.lean * 0.8 + Math.sin(p.step * 0.5) * 0.08);
+        break;
+      case 'bag':
+        // túi thư lắc TRỄ nhịp so với thân — chi tiết nhỏ nhưng mắt bắt được ngay
+        ctx.rotate(Math.sin(p.step * 0.9) * 0.12 - p.lean * 0.6);
+        break;
+      default:
+        break;
+    }
+  },
+};
+
+;
 /* ===== js/entity-boss-art.js ===== */
 /* entity-boss-art.js — bộ điều phối tạo hình trùm + 5 trùm vùng đầu
  *
@@ -6121,7 +6496,10 @@ SC.EnemySprite = {
  * 5 trùm vùng sau nằm ở entity-boss-art-arcane.js (nạp sau file này). */
 
 SC.BossArt = {
-  draw(key, ctx, r, t, phase, hue) {
+  draw(key, ctx, r, t, phase, hue, boss) {
+    // Trùm chạy bằng XƯƠNG (entity-boss-rig.js) đi trước: nó tự lo cả ảnh lẫn hình vẽ tay,
+    // và cần chính con trùm để đọc tư thế (đang mổ, đang gồng, vừa trúng đòn).
+    if (SC.BossRig && SC.BossRig.has(key)) return SC.BossRig.draw(key, ctx, r, t, phase, hue, boss);
     // Sprite AI có thì dùng (trùm và elite chung một đường vẽ, khoá không đụng
     // nhau); chưa tải thì rơi về hàm vẽ thủ tục bên dưới.
     const img = SC.SpriteArt
@@ -7322,6 +7700,8 @@ SC.BossSig = {
     stormEye:    { sk: ['laser', 'toss'], part: 'shard', from: 'eye' },
     voidEgg:     { sk: ['peck', 'laser', 'toss'], part: 'shell', from: 'mouth' },
     // elite: mỗi con MỘT chiêu, chừa đất cho trùm vùng
+    // gà bưu tá (map 3): gia cầm nên có MỔ; quăng cánh cho khớp bộ xương
+    postChick: { sk: ['peck', 'toss'], part: 'wing' },
     scarecrow: { sk: ['toss'], part: 'plate' },  scorpion: { sk: ['toss'], part: 'claw' },
     iceBear: { sk: ['laser'], from: 'mouth' },   wasp: { sk: ['toss'], part: 'stinger' },
     golem: { sk: ['toss'], part: 'rock' },       shark: { sk: ['laser'], from: 'mouth' },
@@ -7794,7 +8174,7 @@ SC.Boss.prototype.render = function (ctx) {
     ctx.save(); ctx.rotate(Math.PI);             // ảnh mũi hướng lên -> chúi xuống
     SC.BossArt._sprite(ctx, this.dz.img, this.r, this.t, this.phase);
     ctx.restore();
-  } else SC.BossArt.draw(this.art, ctx, this.r, this.t, this.phase, this.hue);
+  } else SC.BossArt.draw(this.art, ctx, this.r, this.t, this.phase, this.hue, this);
   SC.BossWind.over(this, ctx);                   // quả cầu tụ lực + nắm đấm ĐÈ lên thân
 
   ctx.filter = 'none';
