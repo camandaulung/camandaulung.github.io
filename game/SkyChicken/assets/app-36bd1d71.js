@@ -6120,6 +6120,222 @@ SC.EnemySprite = {
 };
 
 ;
+/* ===== js/system-boss-sheet.js ===== */
+/* system-boss-sheet.js — nạp / giải phóng sheet animation 3D của trùm (16/10/2026)
+ *
+ * Trùm 3D không vẽ bằng WebGL lúc chạy: `tools/rig-boss/bake/` nướng sẵn 54 khung ra một tấm
+ * webp, trong trận chỉ `drawImage` đúng ô cần — đo ở spike P6 là NGANG sprite 2D, trong khi
+ * three.js vẽ mỗi khung tốn thêm ~1,4 ms và 4 MB heap. Máy yếu ở màn 100+ đang lag nên đó là
+ * chỗ không được tốn thêm.
+ *
+ * VÌ SAO KHÔNG NHÉT VÀO SC.SpriteArt.KEYS: `SpriteArt.load()` tạo `new Image()` cho MỌI khoá
+ * ngay lúc boot. 20 sheet là ~10 MB tải và hàng trăm MB giải nén khi người chơi mới đứng ở
+ * sảnh. Ở đây nạp LƯỜI, và chỉ giữ ĐÚNG MỘT sheet trong RAM (mỗi tấm 7-9 MB giải nén).
+ */
+SC.BossSheet = {
+  enabled: true,                     // công tắc lùi: false -> mọi trùm về sprite tĩnh
+  BASE: 'assets/art-boss3d/',
+  /* Khoá tạo hình trùm (data-biomes.js) đã có sheet. Viết cứng ở đây, KHÔNG lấy từ dữ liệu
+     người chơi — đường dẫn fetch ghép từ danh sách này. */
+  KEYS: ['hen', 'postChick', 'eagle', 'penguin', 'phoenix', 'iceBear',
+    'scrapDragon', 'voidEgg', 'golem', 'thunderbird'],
+
+  _key: null,        // khoá của sheet đang giữ
+  _img: null,        // ImageBitmap (hoặc Image nếu trình duyệt không có createImageBitmap)
+  _meta: null,       // json đi kèm: ô, hàng, anims, grow...
+  _busy: null,       // khoá đang nạp dở
+  _bad: {},          // khoá nạp hỏng -> thôi, khỏi thử lại mỗi màn
+
+  has(key) { return this.enabled && !this._bad[key] && this.KEYS.indexOf(key) >= 0; },
+
+  /* Gọi lúc VÀO MÀN, không phải lúc trùm ra: trùm xuất hiện sau hàng chục giây nên 300-500 KB
+     thừa sức về kịp, mà nếu không kịp thì trận đó dùng sprite tĩnh chứ không chờ. */
+  want(key) {
+    // Màn không có sheet (hoặc không có trùm) cũng đi qua đây: NHẢ tấm của màn trước ra.
+    // Gom vào một lối vào như vậy thì chỗ gọi khỏi phải nhớ hai luật.
+    if (!this.has(key)) { this.free(); return; }
+    if (this._busy === key || this._key === key) return;
+    if (typeof createImageBitmap !== 'function') { this._bad[key] = 1; this.free(); return; }
+    this.free();
+    this._busy = key;
+    const base = this.BASE + 'boss-' + key + '-sheet';
+    Promise.all([
+      fetch(base + '.json').then(r => r.ok ? r.json() : Promise.reject(r.status)),
+      fetch(base + '.webp').then(r => r.ok ? r.blob() : Promise.reject(r.status)).then(createImageBitmap),
+    ]).then(([meta, img]) => {
+      // Đổi màn giữa chừng thì bỏ kết quả về muộn — nếu không, sheet màn cũ chiếm RAM màn mới
+      if (this._busy !== key) { img.close && img.close(); return; }
+      this._busy = null; this._key = key; this._meta = meta; this._img = img;
+    }).catch(() => {
+      // Thiếu tệp / mất mạng / webp hỏng: im lặng rơi về sprite tĩnh. Đánh dấu để KHÔNG thử
+      // lại mỗi lần vào màn (vừa spam mạng vừa spam console mà kết quả vẫn thế).
+      if (this._busy === key) this._busy = null;
+      this._bad[key] = 1;
+    });
+  },
+
+  /* Trả { img, meta } hoặc null. Người gọi tự lo đường lùi — xem entity-boss-sheet-art.js. */
+  get(key) {
+    return (this._key === key && this._img) ? { img: this._img, meta: this._meta } : null;
+  },
+
+  /* BẪY: `boss._sheet` cầm THẲNG bitmap, nên phải nhả SAU khi trùm hết được vẽ (cảnh HẠ GỤC!
+     còn vẽ thân trùm 1,7 giây sau khi nó chết). Null ref TRƯỚC khi close(): vẽ lên một bitmap
+     đã đóng là `InvalidStateError` mỗi khung, còn null thì chỉ rơi êm về sprite tĩnh. */
+  free() {
+    this._busy = null;
+    const img = this._img;
+    this._key = null; this._img = null; this._meta = null;
+    if (img && img.close) img.close();
+  },
+};
+
+;
+/* ===== js/system-boss-sheet-anim.js ===== */
+/* system-boss-sheet-anim.js — chọn clip animation cho trùm chạy bằng sheet 3D (16/10/2026)
+ *
+ * KHÔNG thêm một cờ nào vào mã trùm: đọc đúng những trường SC.Boss đang có sẵn. Dựng máy trạng
+ * thái song song là kiểu gì cũng có ngày hoạt ảnh nói một đằng cơ chế làm một nẻo.
+ *   gồng   = SC.BossWind.on(b) — nhịp LEAD 0,55 s trước MỌI chiêu, clip windup dài đúng 0,57 s
+ *   ra đòn = b.atkT vừa được nạp lại (chiêu vừa bắn ra) hoặc b.act đổi (chiêu kịch bản bắt đầu)
+ *   trúng  = sườn lên của b.flash
+ *   nền    = idle; giai đoạn 3 (máu < 33%) thay bằng rage
+ *
+ * BẪY: trùm bị bắn liên tục thì `flash` bật lại mỗi 0,18 s (flashCd ở entity-boss.js) — diễn
+ * "trúng đòn" mỗi lần là trùm giật liên hồi như máy rung, và che mất đòn đánh mà người chơi
+ * đang phải đọc. Vì thế hãm 1,6 s VÀ không cắt ngang lúc đang gồng / ra đòn.
+ *
+ * Đồng hồ là `t` CỦA GAME (truyền từ BossArt.draw), không phải đồng hồ thật: hitstop đóng băng
+ * cả animation, đúng như mọi thứ khác trong trận.
+ */
+SC.BossSheetAnim = {
+  HIT_GAP: 1.6,          // hai lần diễn trúng đòn cách nhau tối thiểu
+  FADE: 0.1,             // mờ chuyển giữa hai clip
+
+  _st: new WeakMap(),
+
+  /* dur = { tên clip: giây } đọc từ meta của sheet.
+     Trả { name, at, prev, prevAt, w } — w là trọng số clip mới trong lúc chuyển cảnh. */
+  track(b, t, dur) {
+    let s = this._st.get(b);
+    if (!s) this._st.set(b, s = { cur: 'idle', t0: t, prev: null, pt0: t, atk: b.atkT, flash: 0, act: null, hitT: -9 });
+
+    const base = b.phase >= 3 ? 'rage' : 'idle';
+    const wind = !!(SC.BossWind && SC.BossWind.on(b));
+    const fired = b.atkT > s.atk + 0.5 || (b.act && b.act !== s.act);
+    const hit = b.flash > 0 && !(s.flash > 0);
+    s.atk = b.atkT; s.flash = b.flash; s.act = b.act;
+
+    const age = t - s.t0, busy = s.cur === 'windup' || s.cur === 'attack';
+    let want = null;
+    if (fired) want = 'attack';
+    else if (wind) { if (s.cur !== 'windup') want = 'windup'; }
+    else if (hit && !busy && t - s.hitT > this.HIT_GAP) { want = 'hit'; s.hitT = t; }
+    else if (s.cur === 'windup') want = base;                          // gồng mà chiêu không ra (trùm chết / bị huỷ)
+    else if ((s.cur === 'attack' || s.cur === 'hit') && age >= (dur[s.cur] || 0.5)) want = base;
+    else if ((s.cur === 'idle' || s.cur === 'rage') && s.cur !== base) want = base;
+    if (want) { s.prev = s.cur; s.pt0 = s.t0; s.cur = want; s.t0 = t; }
+
+    const at = t - s.t0;
+    return { name: s.cur, at, prev: s.prev, prevAt: t - s.pt0, w: Math.min(1, at / this.FADE) };
+  },
+};
+
+;
+/* ===== js/entity-boss-sheet-art.js ===== */
+/* entity-boss-sheet-art.js — vẽ trùm bằng SHEET 3D nướng sẵn (16/10/2026)
+ *
+ * Mỗi khung chỉ một `drawImage` đúng ô cần, không WebGL, không three.js trong bản dựng. Model 3D
+ * đã được nướng ở `tools/rig-boss/bake/` thành 5 clip × 2 góc + 8 khung xoay.
+ *
+ * Gọi từ BossArt.draw nên mọi thứ đang có GIỮ NGUYÊN: chớp trắng khi trúng đạn, co giãn lúc dịch
+ * chuyển, ToyMotion, rung màn, và thứ tự lớp (đạn vẽ ĐÈ lên trùm).
+ *
+ * Hạn chế đã biết, CHẤP NHẬN: chiêu quăng cánh (`b.missing`) không bỏ được cánh đã quăng khỏi
+ * sheet — nhưng trùm vẽ bằng sprite tĩnh xưa nay cũng thế, không phải bước lùi.
+ */
+SC.BossSheetArt = {
+  TAU: Math.PI * 2,
+  _st: new WeakMap(),
+
+  /* Tư thế của KHỐI (ngoài animation xương): quay mặt theo tàu, nghiêng theo vận tốc ngang,
+     cúi nhẹ lúc gồng, quay tít lúc dịch chuyển. Lọc mũ theo dt nên không giật từng khung. */
+  pose(b, t, phase) {
+    let st = this._st.get(b);
+    if (!st) this._st.set(b, st = { t, x: b.x, yaw: 0, roll: 0, pitch: 0, spin: 0 });
+    const dt = Math.min(0.05, Math.max(0, t - st.t));
+    const vx = dt > 0 ? (b.x - st.x) / dt : 0;
+    st.t = t; st.x = b.x;
+
+    const k = 1 - Math.exp(-dt * 7), p = SC.Game.player;
+    const yawT = p ? SC.clamp(Math.atan2(p.x - b.x, Math.max(60, p.y - b.y)) * 1.1, -0.9, 0.9) : 0;
+    const warping = b.warp !== undefined && b.warp < 1;
+    if (warping) st.spin += dt * 16;                                   // dịch chuyển: quay tít
+    else st.spin += (Math.round(st.spin / this.TAU) * this.TAU - st.spin) * k;   // xong thì dừng đúng mặt trước
+    st.yaw += (yawT - st.yaw) * k;
+    st.roll += (SC.clamp(vx / 500, -0.45, 0.45) - st.roll) * k;
+    st.pitch += ((b.wind ? 0.08 : 0) - st.pitch) * k;                  // clip windup đã tự cúi, khối chỉ phụ thêm
+
+    const spinning = warping || Math.abs(st.spin - Math.round(st.spin / this.TAU) * this.TAU) > 0.05;
+    return { yaw: st.yaw + st.spin, roll: st.roll, pitch: st.pitch, phase, spinning };
+  },
+
+  /* Ô cần vẽ. Đang xoay tít -> hàng 8 khung quay; còn lại -> clip × mức góc gần nhất.
+     Góc ÂM dùng lại ô góc dương rồi LẬT GƯƠNG — trùm đối xứng nên lật rẻ hơn nướng gấp đôi ô. */
+  cell(meta, P, A) {
+    if (!meta.anims || P.spinning) {
+      const sp = meta.spin || { start: 0, n: meta.frames }, n = sp.n;
+      return { i: sp.start + ((Math.round(P.yaw / this.TAU * n) % n) + n) % n, flip: false };
+    }
+    const a = meta.anims[A.name] || meta.anims.idle, y = Math.abs(P.yaw);
+    let yi = 0;
+    meta.yaws.forEach((v, j) => { if (Math.abs(v - y) < Math.abs(meta.yaws[yi] - y)) yi = j; });
+    const k = Math.floor(A.at * a.fps + 1e-6);
+    const f = a.loop ? ((k % a.n) + a.n) % a.n : Math.min(Math.max(0, k), a.n - 1);
+    return { i: a.start + yi * a.n + f, flip: P.yaw < 0 };
+  },
+
+  /* sheet = { img, meta } do SC.BossSheet giữ. Gọi ở hệ toạ độ tâm trùm. */
+  draw(ctx, r, t, phase, b, sheet) {
+    const meta = sheet.meta;
+    /* `grow` nằm trong meta chứ không viết cứng ở đây: GLB có animation chuẩn hoá cao 1,7 (chừa
+       lề cho cánh giơ lúc gồng, bẫy 2 của spike P6), phải phóng bù thì thân trùm mới to bằng
+       sprite cũ. Đổi cách chuẩn hoá là đổi số đó — số đi kèm asset, không đi kèm mã game. */
+    const s = r * 2.9 * SC.ArtScale.boss * 1.08 * (meta.grow || 1);
+
+    ctx.save();                     // bóng elip thay cho bóng đã nướng sẵn trong sprite 2D
+    ctx.globalAlpha = 0.28; ctx.fillStyle = '#000';
+    ctx.beginPath(); ctx.ellipse(0, s * 0.42, s * 0.3, s * 0.07, 0, 0, this.TAU); ctx.fill();
+    ctx.restore();
+
+    const dur = this._dur(meta);
+    const A = SC.BossSheetAnim.track(b, t, dur);
+    const P = this.pose(b, t, phase);
+    const c = this.cell(meta, P, A);
+    const CW = meta.cw || meta.px, CH = meta.ch || meta.px;
+    const OX = meta.ox || 0, OY = meta.oy || 0, k = s / meta.px;
+
+    ctx.save();
+    ctx.rotate(P.roll * 0.6);       // sheet không nghiêng 3D được: nghiêng cánh = xoay 2D
+    if (c.flip) ctx.scale(-1, 1);
+    if (P.phase >= 2) { ctx.shadowColor = P.phase === 3 ? '#ff3b5c' : '#ffd23f'; ctx.shadowBlur = 26; }
+    ctx.drawImage(sheet.img,
+      (c.i % meta.cols) * CW, Math.floor(c.i / meta.cols) * CH, CW, CH,
+      -s / 2 + OX * k, -s / 2 + OY * k, CW * k, CH * k);
+    ctx.restore();
+  },
+
+  /* { tên clip: giây } — dựng MỘT LẦN rồi gắn vào chính meta, khỏi tạo object mỗi khung */
+  _dur(meta) {
+    if (!meta._dur) {
+      meta._dur = {};
+      for (const name in (meta.anims || {})) meta._dur[name] = meta.anims[name].dur;
+    }
+    return meta._dur;
+  },
+};
+
+;
 /* ===== js/entity-boss-rig-art.js ===== */
 /* entity-boss-rig-art.js — vẽ TỪNG MẢNH của trùm chạy bằng xương (entity-boss-rig.js)
  *
@@ -6497,8 +6713,13 @@ SC.BossRig = {
 
 SC.BossArt = {
   draw(key, ctx, r, t, phase, hue, boss) {
-    // Trùm chạy bằng XƯƠNG (entity-boss-rig.js) đi trước: nó tự lo cả ảnh lẫn hình vẽ tay,
-    // và cần chính con trùm để đọc tư thế (đang mổ, đang gồng, vừa trúng đòn).
+    /* Bốn lớp, lớp nào có thì dùng lớp đó — mỗi lớp là lưới an toàn của lớp trên:
+       1. SHEET 3D nướng sẵn (đẹp nhất, vẫn chỉ một drawImage mỗi khung). `boss._sheet` chốt
+          MỘT LẦN lúc trùm sinh ra: sheet về muộn giữa trận mà đổi nhánh là trùm nhảy cỡ
+          ngay trước mắt người chơi.
+       2. Trùm chạy bằng xương 2D (entity-boss-rig.js).
+       3. Sprite AI tĩnh.  4. Hình vẽ thủ tục. */
+    if (boss && boss._sheet) return SC.BossSheetArt.draw(ctx, r, t, phase, boss, boss._sheet);
     if (SC.BossRig && SC.BossRig.has(key)) return SC.BossRig.draw(key, ctx, r, t, phase, hue, boss);
     // Sprite AI có thì dùng (trùm và elite chung một đường vẽ, khoá không đụng
     // nhau); chưa tải thì rơi về hàm vẽ thủ tục bên dưới.
@@ -7999,6 +8220,10 @@ SC.Boss = function (lv) {
     .concat(SC.BossSig.skillsFor(lv.bossArt));
   this.peckY = 0;        // độ rụt/lao cổ của chiêu mổ, chỉ ảnh hưởng hình vẽ
   this.missing = false;  // đang tháo một bộ phận đi quăng
+  /* Sheet 3D CHỐT MỘT LẦN ở đây, không hỏi lại mỗi khung: tấm về muộn giữa trận mà đổi nhánh
+     vẽ là trùm nhảy cỡ ngay trước mắt người chơi. Chưa kịp tải thì cả trận dùng lớp dưới
+     (xương 2D / sprite tĩnh) — không bao giờ để trống chỗ trùm. */
+  this._sheet = SC.BossSheet ? SC.BossSheet.get(this.art) : null;
 
   this.x = SC.W / 2; this.y = -140;
   this.r = lv.finalBoss ? 64 : 54;             // elite gọn hơn trùm vùng một chút
@@ -17516,6 +17741,9 @@ SC.Game = {
   startLevel(id) {
     this.levelId = id;
     this.lv = SC.levelAt(id);        // id > 60 -> map của vòng vô tận, xem system-endless.js
+    // Nạp sheet 3D của trùm map này NGAY TỪ ĐẦU MÀN (trùm ra sau hàng chục giây nên thừa thời
+    // gian cho ~400 KB), và nhả tấm của màn trước. Màn không có sheet thì chỉ nhả.
+    if (SC.BossSheet) SC.BossSheet.want(this.lv.bossArt);
     this.enemies.length = 0; this.boss = null;
     SC.Bullets.clear(); SC.Items.clear(); SC.FX.clear();
     SC.ScreenFX.clear(); SC.BossSkills.clear();
@@ -17574,6 +17802,7 @@ SC.Game = {
     SC.Music.stop();
     SC.Rescue.clear();
     SC.Wingmen.clear();
+    if (SC.BossSheet) SC.BossSheet.free();   // ~8 MB bitmap, không việc gì phải ôm ở sảnh
     /* Dọn hiệu ứng toàn màn TRƯỚC KHI về lobby (bug thật 21/09/2026): nhặt bom rồi
        thoát ngay là bong bóng "BOM!" còn hạn diễn vài giây, renderer lobby vẫn vẽ
        nốt — nhìn như lobby nổ. startLevel có clear nhưng đường VỀ menu thì chưa ai
