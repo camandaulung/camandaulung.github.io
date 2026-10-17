@@ -943,7 +943,7 @@ SC.MISSION_POOL = [
     miss: (got, n) => `mới có ${got}%, thiếu ${Math.max(1, n - got)}%`
   },
   {
-    id: 'rescue', ic: '🐱',
+    id: 'rescue', ic: '🐱', img: 'ui-icon-rescue',   /* emoji mau -> sprite; ic con lai lam duong lui */
     arg: id => 2 + Math.floor(id / 25),
     label: n => `Cứu ${n} bé mèo rơi`,
     check: (g, p, n) => g.stats.rescued >= n,
@@ -2962,8 +2962,12 @@ SC.SpriteArt = {
     counter: ['guard', 'brute'],
     /* Rework style B (10/10/2026): FX texture (system-fx-sprites.js), vật phẩm rơi
        (entity-item.js), lớp parallax mỗi vùng (system-background-decor.js) */
-    fx: ['fireball-a', 'fireball-b', 'fireball-c', 'smoke', 'spark', 'shockwave', 'muzzle', 'hit', 'feather'],
-    item: ['coin', 'power', 'heal', 'shield', 'bomb', 'gem'],
+    fx: ['fireball-a', 'fireball-b', 'fireball-c', 'smoke', 'spark', 'shockwave', 'muzzle', 'hit', 'feather',
+      'shield-bubble'],   // trường khiên quanh tàu (17/10) — thay đa giác xanh lá vẽ tay
+    /* `evoShard` phải trùng ĐÚNG `k` trong SC.ITEM_DEF: entity-item tra sprite bằng
+       SpriteArt.get('item', d.k). Trước 17/10 mảnh này vẽ bằng emoji 🧬 — mỗi hệ điều
+       hành một kiểu, và lạc hẳn style B. */
+    item: ['coin', 'power', 'heal', 'shield', 'bomb', 'gem', 'evoShard'],
     decor: ['farm', 'dune', 'frost', 'toxic', 'magma', 'ocean', 'neon', 'scrap', 'storm', 'void']
       .reduce((a, v) => a.concat(v + '-cloud', v + '-prop'), []),
     /* chiêu trùm (12/10/2026): system-boss-windup/aura/victory/callout + entity-boss-*-art */
@@ -6138,7 +6142,11 @@ SC.BossSheet = {
   /* Khoá tạo hình trùm (data-biomes.js) đã có sheet. Viết cứng ở đây, KHÔNG lấy từ dữ liệu
      người chơi — đường dẫn fetch ghép từ danh sách này. */
   KEYS: ['hen', 'postChick', 'eagle', 'penguin', 'phoenix', 'iceBear',
-    'scrapDragon', 'voidEgg', 'golem', 'thunderbird'],
+    'scrapDragon', 'voidEgg', 'golem', 'thunderbird', 'neonRooster',
+    /* vật cứng (kind:'rigid' trong tools/rig-boss/bosses/*.json): chỉ trục thân */
+    'stormEye', 'shark', 'droneEye', 'crusher', 'voidPrism',
+    /* chuỗi nhiều chân/xúc tu (kind:'chain') */
+    'spider', 'scorpion', 'wasp', 'octopus'],
 
   _key: null,        // khoá của sheet đang giữ
   _img: null,        // ImageBitmap (hoặc Image nếu trình duyệt không có createImageBitmap)
@@ -9109,23 +9117,38 @@ SC.ShieldArt = {
     ctx.restore();
   },
 
+  /* 17/10/2026 — soát hướng nghệ thuật: bản cũ là vùng XANH LÁ mờ + ba vòng gợn, nhìn
+   * "như vòng tròn debug", và xanh lá chọi thẳng bảng màu ấm của đồng quê. Nay:
+   *   - nền là sprite `fx-shield-bubble` (giữa trong suốt, vành sáng, vân lục giác mờ);
+   *   - đổi sang tông --cy, CÙNG MÀU với thanh khiên trên HUD — nhìn là biết nó là cái gì;
+   *   - thiếu ảnh thì vẫn còn đường vẽ tay bên dưới, không bao giờ mất khiên.
+   * Nhịp thở ±4% để trường năng lượng có vẻ "sống" mà không tốn thêm gì. */
   _field(ctx, p, R, k, t) {
-    // vùng nóng bên trong — mờ, để không che mất máy bay
-    const g = ctx.createRadialGradient(0, 0, R * 0.35, 0, 0, R);
-    g.addColorStop(0, 'rgba(77,255,159,0)');
-    g.addColorStop(0.7, `rgba(77,255,159,${0.05 + k * 0.07})`);
-    g.addColorStop(1, `rgba(77,255,159,${0.16 + k * 0.14})`);
-    ctx.fillStyle = g;
-    ctx.beginPath(); ctx.arc(0, 0, R, 0, 6.283); ctx.fill();
+    const img = SC.SpriteArt && SC.SpriteArt.get('fx', 'shield-bubble');
+    const breathe = 1 + Math.sin(p.t * 2.4) * 0.04;
+    if (img) {
+      const d = R * 2 * breathe;
+      ctx.save();
+      ctx.globalAlpha = 0.34 + k * 0.4;
+      ctx.drawImage(img, -d / 2, -d / 2, d, d);
+      ctx.restore();
+    } else {
+      const g = ctx.createRadialGradient(0, 0, R * 0.35, 0, 0, R);
+      g.addColorStop(0, 'rgba(63,224,255,0)');
+      g.addColorStop(0.7, `rgba(63,224,255,${0.05 + k * 0.07})`);
+      g.addColorStop(1, `rgba(63,224,255,${0.16 + k * 0.14})`);
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(0, 0, R, 0, 6.283); ctx.fill();
+    }
 
     // gợn sóng chạy quanh vành: 3 lớp lệch pha, dày lên khi cấp cao
     ctx.lineWidth = 1.4 + (t.dps > 20 ? 1.4 : 0);
     for (let i = 0; i < 3; i++) {
       const ph = p.t * (2.2 + i * 0.7) + i * 2.1;
-      ctx.strokeStyle = `rgba(120,255,190,${(0.30 + k * 0.35) * (1 - i * 0.25)})`;
+      ctx.strokeStyle = `rgba(138,255,255,${(0.26 + k * 0.3) * (1 - i * 0.25)})`;
       ctx.beginPath();
       for (let a = 0; a <= 6.30; a += 0.16) {
-        const rr = R + Math.sin(a * 6 + ph) * 2.6;
+        const rr = R * breathe + Math.sin(a * 6 + ph) * 2.6;
         const x = Math.cos(a) * rr, y = Math.sin(a) * rr;
         a === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
       }
@@ -11303,7 +11326,7 @@ SC.Result = {
       // Trượt nhiệm vụ thì nói luôn còn thiếu bao nhiêu — đó là lý do để chơi lại.
       mis.innerHTML = r.missions.map(m => `
         <li class="${m.done ? 'ok' : 'no'}">
-          <span class="m-ic">${m.def.ic}</span>
+          <span class="m-ic">${SC.UI.missionIc(m.def)}</span>
           <span class="m-txt">${m.text}${!m.done && m.miss ? `<i>${m.miss}</i>` : ''}</span>
           <b>${m.done ? '✓' : '✗'}</b>
         </li>`).join('');
@@ -13062,7 +13085,7 @@ SC.Brief = {
 
     document.getElementById('briefMissions').innerHTML = missions.map((m, i) => `
       <li class="${done[i] ? 'ok' : 'no'}">
-        <span class="m-ic">${m.def.ic}</span>${m.def.label(m.n)}
+        <span class="m-ic">${SC.UI.missionIc(m.def)}</span>${m.def.label(m.n)}
         <b>${done[i] ? '✓' : '—'}</b>
       </li>`).join('');
 
@@ -16995,6 +17018,16 @@ SC.UI = {
   /* ---------- bản đồ hành trình ---------- */
   buildMapList() { SC.MapSelect.build(this); },
 
+
+  /* Icon nhiệm vụ: có `img` thì dán sprite, không thì trả glyph `ic` như cũ.
+     Vì sao không thay hết glyph: ◈ ✚ ★ còn được VẼ TRÊN CANVAS cho vật phẩm rơi
+     (SC.ITEM_DEF.ic) — thay ở DOM mà canvas giữ nguyên là hai bên lệch nhau. Chỉ
+     emoji MÀU mới đổi, vì emoji render theo font hệ điều hành nên máy nào cũng khác. */
+  missionIc(def) {
+    if (!def.img) return def.ic;
+    return '<img class="ci" src="assets/art-game/' + def.img + '.webp" alt=""'
+      + ' onerror="if(this.r)this.replaceWith(\'' + def.ic + '\');else{this.r=1;this.src=this.src}">';
+  },
 
   toast(msg, big) {
     const d = document.createElement('div');
