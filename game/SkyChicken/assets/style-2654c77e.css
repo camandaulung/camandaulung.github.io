@@ -17,8 +17,7 @@
   unicode-range:U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB}
 
 :root{
-  /* VIỀN TRONG 1px — gom từ 68 biến thể rải rác (tools/gom-vien-trong-css.mjs).
-     Họ màu × 3 bậc đậm nhạt; bậc giữ nguyên nghĩa trạng thái (thường / nổi / đang chọn). */
+  /* ---- TOKEN GOM TU PHA P8 (18/10/2026) ---- */
   --v-hong-2: inset 0 0 0 1px rgba(255,90,120,.40);
   --v-hong-3: inset 0 0 0 1px rgba(255,90,120,.63);
   --v-la-2: inset 0 0 0 1px rgba(77,255,159,.28);
@@ -35,13 +34,59 @@
   --v-vang-1: inset 0 0 0 1px rgba(255,210,63,.22);
   --v-vang-2: inset 0 0 0 1px rgba(255,210,63,.38);
   --v-vang-3: inset 0 0 0 1px rgba(255,190,60,.64);
-
-  --acc:#ffd23f; --acc2:#ff7a1a; --cy:#3fe0ff; --dan:#ff3b5c; --ok:#4dff9f;
-  --ink:#e8f2ff;--panel:rgba(10,16,32,.92);
+  --acc:#ffd23f;
+  --acc2:#ff7a1a;
+  --cy:#3fe0ff;
+  --dan:#ff3b5c;
+  --ok:#4dff9f;
+  --ink:#e8f2ff;
+  --panel:rgba(10,16,32,.92);
   --font:'Segoe UI',system-ui,sans-serif;
   --font-display:'Chakra Petch','Bahnschrift','Arial Narrow',var(--font);
-  /* màu vùng hiện tại — ui-menu-card.js ghi đè theo biome của chặng kế */
   --tint:#3fe0ff;
+  --r-xs:3px;
+  --r-sm:6px;
+  --r-md:10px;
+  --r-lg:14px;
+  --r-pill:999px;
+  --roy-hi:#12347b;
+  --roy:#022061;
+  --roy-lo:#001b56;
+  --sf-sunk:linear-gradient(180deg,rgba(0,6,22,.55),rgba(0,6,22,.28));
+  --sf-raise:linear-gradient(180deg,rgba(74,120,212,.20),rgba(18,52,123,.14));
+  --sf-float:linear-gradient(180deg,var(--roy-hi),var(--roy-lo));
+  --el-1:0 2px 6px rgba(0,6,20,.45);
+  --el-2:0 6px 16px rgba(0,6,20,.5);
+  --el-3:0 14px 34px rgba(0,6,20,.6);
+  --hair-top:inset 0 1px 0 rgba(170,210,255,.18);
+  --hair-all:var(--v-lam-1);
+  --dim:#aebdd6;
+  /* ---- het token pha P8 ---- */
+  /* VIỀN TRONG 1px — gom từ 68 biến thể rải rác (tools/gom-vien-trong-css.mjs).
+     Họ màu × 3 bậc đậm nhạt; bậc giữ nguyên nghĩa trạng thái (thường / nổi / đang chọn). */
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+
+  
+  
+  
+  
+  /* màu vùng hiện tại — ui-menu-card.js ghi đè theo biome của chặng kế */
+  
 
   /* ========== TOKEN BỀ MẶT (17/10/2026) ==========
    * Soát hướng nghệ thuật: game đang mặc HAI bộ áo. Popup khoác khung 9-slice STYLE B
@@ -52,23 +97,23 @@
    * Kế hoạch: plans/261016-2319-sky-chicken-ui-art-direction/ */
 
   /* Bo góc: 4 bậc. Số lẻ (7.2, 10.1, 14.4...) là di sản lần chia tỉ lệ 0,694 hồi 25/09. */
-  --r-xs:3px; --r-sm:6px; --r-md:10px; --r-lg:14px; --r-pill:999px;
+  
 
   /* XANH HOÀNG GIA — ĐO TỪ lòng kính của ui-frame-panel.webp (trên #12347b, giữa
    * #022061, đáy #001b56), không phải bịa ra. Kéo màn về theo popup rẻ hơn nhiều so
    * với phá popup ra làm lại, mà popup mới là thứ đang đẹp sẵn. */
-  --roy-hi:#12347b; --roy:#022061; --roy-lo:#001b56;
+  
 
   /* BA TẦNG NỔI thay cho MỘT công thức dùng cho tất cả. Thứ bậc đọc bằng BÓNG chứ
    * không bằng viền — có bóng rồi thì gỡ viền 1px, đừng giữ cả hai. */
-  --sf-sunk:linear-gradient(180deg,rgba(0,6,22,.55),rgba(0,6,22,.28));    /* lòng chìm: rãnh, ô danh sách */
-  --sf-raise:linear-gradient(180deg,rgba(74,120,212,.20),rgba(18,52,123,.14));  /* thẻ nổi */
-  --sf-float:linear-gradient(180deg,var(--roy-hi),var(--roy-lo));          /* nổi hẳn: popup, menu */
-  --el-1:0 2px 6px rgba(0,6,20,.45);
-  --el-2:0 6px 16px rgba(0,6,20,.5);
-  --el-3:0 14px 34px rgba(0,6,20,.6);
-  --hair-top:inset 0 1px 0 rgba(170,210,255,.18);      /* mép sáng TRÊN: gợi khối, rẻ hơn viền quanh */
-  --hair-all:var(--v-lam-1);
+  /* lòng chìm: rãnh, ô danh sách */
+  /* thẻ nổi */
+  /* nổi hẳn: popup, menu */
+  
+  
+  
+  /* mép sáng TRÊN: gợi khối, rẻ hơn viền quanh */
+  
 }
 
 /* icon monoline dùng chung, ăn màu chữ của nút nên đổi theo state */
@@ -106,10 +151,9 @@ body.is-touch #game{cursor:auto}
  * ứng 85 đơn vị ảo ở tỉ lệ 0.694.
  * Trừ --stage-top vì khung sân khấu căn giữa màn hình: phần đã hụt sẵn phía trên
  * không phải né thêm lần nữa. */
-#ui{position:absolute;top:0;left:0;transform-origin:0 0;pointer-events:none;
-  --vscale:1;--uiw:390px;--stage-top:0px;}
+
 @supports (top:env(safe-area-inset-top)){
-  #ui{
+  #ui{position:absolute;top:0;left:0;transform-origin:0 0;pointer-events:none;--vscale:1;--uiw:390px;--stage-top:0px;
     --safe-top:calc(max(0px,env(safe-area-inset-top) - var(--stage-top)) / var(--vscale));
     --safe-bottom:calc(max(0px,env(safe-area-inset-bottom) - var(--stage-top)) / var(--vscale))}
 }
@@ -301,9 +345,9 @@ body .portal-back{font-size:13px;padding:9.4px 10.8px}
 .opt-scroll::-webkit-scrollbar-thumb:hover{background:rgba(160,205,255,.55)}
 /* ---------- bản đồ hành trình (saga) ---------- */
 /* ---------- dải chip nhảy vùng ---------- */
-.saga-jump{flex:none;display:flex;gap:4.3px;overflow-x:auto;overflow-y:hidden;
-  padding:2px 11.6px 5.8px;scroll-snap-type:x proximity;
-  scrollbar-width:none}
+.saga-jump{flex:none;display:flex;gap:4.3px;overflow-y:hidden;
+  padding:2px 11.6px 5.8px;
+  }
 .saga-jump::-webkit-scrollbar{display:none}
 .sj{flex:none;scroll-snap-align:start;pointer-events:auto;cursor:pointer;border:0;
   display:flex;flex-direction:column;gap:2.2px;align-items:flex-start;
@@ -371,9 +415,8 @@ button.saga-head{width:100%;border:0;font:inherit;cursor:pointer;text-align:left
 .saga-path::before{content:'';position:absolute;inset:0;border-radius:var(--r-md);pointer-events:none;}
 .saga-path::after{content:'';position:absolute;inset:0;border-radius:var(--r-md);pointer-events:none;}
 .saga-trail{position:absolute;inset:0;width:100%;height:100%;opacity:.55;pointer-events:none;z-index:1}
-.saga-node{z-index:2}
 
-.saga-node{position:absolute;transform:translate(-50%,-50%);width:47.7px;height:47.7px;
+.saga-node{z-index:2;position:absolute;transform:translate(-50%,-50%);width:47.7px;height:47.7px;
   border:0;cursor:pointer;border-radius:50%;color:var(--ink);
   background:radial-gradient(circle at 50% 35%,#22304a,#111a2c);
   box-shadow:inset 0 0 0 2px rgba(140,190,255,.3),0 4.3px 10.1px rgba(0,0,0,.5);
@@ -509,7 +552,7 @@ body .m-txt i{font-size:14px}
    chìm hẳn, thành ra nhiệm vụ hỏng nhìn như dòng trống. */
 .mission-rows li.no b{color:#ff8a9c}
 
-#toastZone{position:absolute;left:0;right:0;text-align:center;pointer-events:none}
+#toastZone{position:absolute;text-align:center;pointer-events:none}
 .toast{font-size:12px;letter-spacing:.22em;color:var(--acc);}
 .toast.big{font-size:20px;font-weight:800;color:#fff}
 @keyframes toastUp{0%{opacity:0;transform:translateY(10.1px) scale(.9)}
@@ -841,8 +884,8 @@ body .ava-badge{width:13.7px;height:13.7px;font-size:12px}
 .panel.result{position:relative;
   box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--tint) 45%,transparent),
   0 17.3px 43.3px rgba(0,0,0,.6)}
-.panel.result::before{content:'';position:absolute;left:0;right:0;top:0;height:86.7px;
-  pointer-events:none;
+.panel.result::before{content:'';position:absolute;left:0;top:0;height:86.7px;
+  
   background:radial-gradient(80% 100% at 50% 0%,
     color-mix(in srgb,var(--tint) 30%,transparent),transparent 70%)}
 .panel.result>*{position:relative}
@@ -945,9 +988,9 @@ body .prof-del .ic{width:15.9px;height:15.9px}
 .ava-pick button{pointer-events:auto;border:0;cursor:pointer;border-radius:var(--r-sm);
 background:rgba(0,0,0,.3);box-shadow:var(--v-lam-1)}
 .ava-pick button.on{background:rgba(255,210,63,.2);box-shadow:inset 0 0 0 2px var(--acc)}
-#profName{pointer-events:auto;width:100%;border:0;border-radius:var(--r-sm);padding:8.7px;margin-bottom:7.2px;
-  font:600 12px/1 var(--font);letter-spacing:.08em;color:var(--ink);
-  background:rgba(0,0,0,.35);box-shadow:var(--v-lam-1)}
+#profName{padding:8.7px;
+  
+  background:rgba(0,0,0,.35);}
 #profName::placeholder{color:var(--dim);letter-spacing:.06em}
 .prof-new .btn{width:100%}
 .prof-full{margin-top:11.6px;text-align:center;font-size:12px;color:var(--acc);line-height:1.7}
@@ -972,7 +1015,7 @@ background:rgba(0,0,0,.3);box-shadow:var(--v-lam-1)}
 .rank-pos{flex:none;text-align:center;font-weight:700;color:var(--dim)}
 .rank-pos.top{color:var(--acc);font-size:12px}
 .rank-av{flex:none;border-radius:50%;background:rgba(0,0,0,.4)}
-.rank-av.emo{display:grid;place-content:center;}
+.rank-av.emo{display:grid;}
 .rank-note.small{padding:7.2px 2.9px 4.3px;font-size:12px;color:var(--cy);text-align:left}
 .rank-busy{font-style:normal;color:var(--dim);animation:rankBusy 1.2s ease-in-out infinite}
 @keyframes rankBusy{0%,100%{opacity:.45}50%{opacity:1}}
@@ -999,14 +1042,13 @@ background:rgba(0,0,0,.3);box-shadow:var(--v-lam-1)}
 .setup-steps li{margin-bottom:3.6px}
 .setup-steps b{color:var(--acc)}
 .setup-note{font-size:12px;color:var(--ok);line-height:1.6;text-align:center}
-.panel{width:216.7px;border-radius:var(--r-lg);text-align:center;
+.panel{width:216.7px;border-radius:var(--r-lg);
   box-shadow:var(--v-lam-1),0 17.3px 43.3px rgba(0,0,0,.6);
   display:flex;flex-direction:column;gap:8.7px}
 .panel h3{font-family:var(--font-display);font-size:12px;letter-spacing:.26em;color:var(--acc);margin-bottom:4.3px}
 .stars{display:flex;justify-content:center;gap:7.2px;margin:2px 0 4.3px}
 .stars i{width:24.6px;height:24.6px;}
-.stars i.on{
-  animation:starPop .42s cubic-bezier(.2,1.5,.4,1) backwards}
+
 /* nảy lần lượt từng sao — phần thưởng nhìn thấy được của việc ăn đủ nhiệm vụ.
    Khối prefers-reduced-motion ở cuối tệp tự rút gọn animation này về 0. */
 .stars i.on:nth-child(1){animation-delay:.05s}
@@ -1272,12 +1314,12 @@ body .timer{font-size:14px}
  * Pip sao 7px trên node bản đồ (.sn-star) GIỮ clip-path — cỡ đó ảnh chỉ còn nhoè. */
 .stars i{background:url(../assets/art-game/ui-badge-star-off.webp) center/contain no-repeat;
   clip-path:none}
-.stars i.on{background:url(../assets/art-game/ui-badge-star-on.webp) center/contain no-repeat;
+.stars i.on{animation:starPop .42s cubic-bezier(.2,1.5,.4,1) backwards;background:url(../assets/art-game/ui-badge-star-on.webp) center/contain no-repeat;
   box-shadow:none;filter:drop-shadow(0 0 10.1px rgba(255,190,60,.55))}
 
 /* panel chuẩn (pause/result/brief/merge/setup): khung 9-slice, lòng kính của ảnh
  * thay cho nền --panel. Quầng nhuộm vùng của .panel.result vẫn vẽ đè bên trong. */
-.panel{border:11.6px solid transparent;
+.panel{text-align:center;border:11.6px solid transparent;
   border-image:url(../assets/art-game/ui-frame-panel.webp) 80 fill / 11.6px stretch;   /* 80: góc bo + đinh tán ảnh style B (512x298) */
   background:none;padding:8.7px 7.2px 11.6px}
 
@@ -1309,9 +1351,7 @@ body .timer{font-size:14px}
   border-image:url(../assets/art-game/ui-frame-btn-ghost.webp) 85 fill / 14px stretch;
   /* KHÔNG viết `background:none` ở đây nữa — xem khối KHỬ VỆT 9-SLICE cuối tệp. */
   box-shadow:none;color:var(--ink);text-shadow:0 1px 2px rgba(0,8,26,.6)}
-.btn.ghost.danger:not(.text):not(.toggle){
-  border-image:url(../assets/art-game/ui-frame-btn-danger.webp) 92 fill / 14px stretch;
-  color:#fff0f2;text-shadow:0 1px 2px rgba(60,0,10,.7)}
+
 /* nền là ẢNH nên hover không đổi gradient được nữa — sáng lên bằng filter, rẻ và đều */
 @media (hover:hover){
   .btn:not(.text):not(.toggle):hover{box-shadow:none;filter:brightness(1.12)}
@@ -1346,7 +1386,7 @@ body .timer{font-size:14px}
    gian. Thay cả cụm "TIẾP THEO / MÀN 22 / huy hiệu lục giác" của bản cũ. */
 .lb-num{position:absolute;left:0;right:0;text-align:center;
   font:700 clamp(96px,30vmin,168px)/.82 var(--font-display);letter-spacing:-.03em;
-  color:transparent;-webkit-text-stroke:1.5px rgba(130,205,255,.5);
+  color:transparent;
   filter:drop-shadow(0 0 40px rgba(79,227,255,.35))}
 .lb-num span{display:block;font:600 12px/1 var(--font-display);letter-spacing:.6em;
   text-indent:.6em;-webkit-text-stroke:0;color:rgba(79,227,255,.8);margin-bottom:10px}
@@ -1449,7 +1489,7 @@ letter-spacing:.2em}
 /* ribbon sau tiêu đề panel — chữ vàng --acc nằm trên bản gỗ navy viền vàng */
 .panel h3,.gift-box h3,.fork-box h3{
   background:url(../assets/art-game/ui-frame-ribbon-title.webp) center/100% 100% no-repeat;
-align-self:center;min-width:70%}
+min-width:70%}
 
 /* huy hiệu màn tổng kết chiến dịch */
 .vic-emblem{display:block;width:86.7px;margin:0 auto 2.9px;
@@ -1478,10 +1518,8 @@ body .rank-pos img{width:23.1px;height:23.1px}
   box-shadow:var(--v-lo-2)}
 .evoai-kw i{font-style:normal;font-size:12px;letter-spacing:.12em;color:var(--dim)}
 .evoai-kw b{font-size:12px;letter-spacing:.06em;color:var(--cy)}
-.evoai-view{height:130px;margin:7.2px 0;border-radius:var(--r-md);display:grid;place-content:center;
-  background:radial-gradient(circle at 50% 40%,rgba(63,224,255,.12),rgba(0,0,0,.35) 75%);
-  box-shadow:var(--v-lo-1)}
-.evoai-view{position:relative}
+
+.evoai-view{height:130px;margin:7.2px 0;border-radius:var(--r-md);display:grid;place-content:center;background:radial-gradient(circle at 50% 40%,rgba(63,224,255,.12),rgba(0,0,0,.35) 75%);box-shadow:var(--v-lo-1);position:relative}
 .evoai-view img{height:118.4px;width:118.4px;object-fit:contain;
   filter:drop-shadow(0 4.3px 13px rgba(63,224,255,.35))}
 /* drone hộ tống cùng theme đậu góc khung xem trước — thấy cả bộ trước khi chốt */
@@ -1507,13 +1545,13 @@ body .rank-pos img{width:23.1px;height:23.1px}
    Phàn nàn thật: chữ nhỏ, rời rạc với sao, popup phẳng. Chữa: ribbon vàng AI sẵn có
    làm nền, chữ HTML đè lên (chữ AI hay sai dấu tiếng Việt), cả khối ĐÈ LÊN MÉP TRÊN
    panel như bộ badge victory tham chiếu. Panel phải overflow:visible để khối thò ra. */
-.panel.result{overflow:visible}
-.panel.result::before{border-radius:inherit}
-.res-crest{margin:-28.9px auto 2px;padding:14.4px 7.2px 11.6px;
+
+.panel.result::before{right:0;pointer-events:none;border-radius:inherit}
+.res-crest{
   /* url() trong CSS tương đối với FILE CSS (css/style.css) — phải ../ ngược ra gốc,
      quên là 404 im lặng và ribbon biến mất (dính 21/09, tốn một vòng debug) */
-  background:url(../assets/art-game/ui-frame-ribbon-title.webp) center/100% 100% no-repeat;
-  filter:drop-shadow(0 4.3px 10.1px rgba(0,0,0,.55))}
+  
+  }
 .res-crest h3{margin:0;font-family:var(--font-display);font-size:17px;line-height:1;
   letter-spacing:.06em;font-weight:800;white-space:nowrap;
   background:linear-gradient(180deg,#fff8d8,#ffd23f 55%,#ff8a2b);
@@ -1566,11 +1604,11 @@ font-size:12px;
 /* ---------- popup kết quả banh gần full width (21/09/2026, lần 2) ----------
    Panel gốc 300px giữa khung ~450 nhìn "dài và dẹt". Nới 93% + xếp 4 ô chỉ số
    thành MỘT hàng — thấp đi một tầng, bề ngang có đất thở. */
-.panel.result{width:min(93%,296.1px)}
-.panel.result .res-grid{grid-template-columns:repeat(4,1fr);gap:3.6px}
+.panel.result{overflow:visible;width:min(93%,296.1px)}
+
 .panel.result .rs{padding:5.8px 3.6px;align-items:center}
 .panel.result .rs .rs-v em{display:block;font-size:12px;letter-spacing:.12em;margin-top:2px}
-.res-crest{width:min(76%,238.3px)}
+.res-crest{margin:-28.9px auto 2px;padding:14.4px 7.2px 11.6px;background:url(../assets/art-game/ui-frame-ribbon-title.webp) center/100% 100% no-repeat;filter:drop-shadow(0 4.3px 10.1px rgba(0,0,0,.55));width:min(76%,238.3px)}
 
 /* VFX nhẹ cho logo lobby (21/09/2026): lơ lửng + hào quang vàng thở theo nhịp.
    Nhẹ CÓ CHỦ ĐÍCH — logo không được giành sự chú ý với nút XUẤT KÍCH;
@@ -1647,7 +1685,7 @@ font-size:12px;
 .evoai-styles{margin-top:7.2px}
 .evoai-styles>span{display:block;font-size:12px;letter-spacing:.16em;color:var(--dim);margin-bottom:5.8px}
 .evoai-style-grid{display:grid;grid-template-columns:1fr 1fr;gap:5.8px}
-.evoai-style-grid button{border:0;cursor:pointer;padding:7.9px 5.8px;border-radius:var(--r-sm);
+.evoai-style-grid button{border:0;padding:7.9px 5.8px;border-radius:var(--r-sm);
   font:700 12px var(--font);letter-spacing:.1em;color:#08222b;
   background:linear-gradient(180deg,#9ff0ff,#3fe0ff);box-shadow:0 2.2px 0 #1f7f99}
 .evoai-style-grid button:active{transform:translateY(2px);box-shadow:0 1px 0 #1f7f99}
@@ -1657,8 +1695,8 @@ font-size:12px;
   box-shadow:var(--v-lo-2)}
 .evoai-other{display:flex;gap:4.3px;margin-top:5.8px}
 .evoai-other input{flex:1;min-width:0;border:0;border-radius:var(--r-sm);padding:7.9px 8.7px;
-  font:400 12px var(--font);color:#fff;background:rgba(255,255,255,.08);
-  box-shadow:var(--v-lo-2)}
+  color:#fff;background:rgba(255,255,255,.08);
+  }
 .evoai-other input::placeholder{color:var(--dim)}
 .evoai-other .btn{flex:none;width:54.9px;min-height:31.8px;padding:0;border-radius:var(--r-sm)}
 
@@ -1679,7 +1717,7 @@ font-size:12px;
    suy ra được từ POWER ngay dòng dưới, còn tên là thứ duy nhất phân biệt ba hồ sơ. */
 .prof-chip .prof-l1 .prof-title{flex-shrink:4;min-width:0;overflow:hidden;
   text-overflow:ellipsis;white-space:nowrap;color:var(--acc);letter-spacing:.12em}
-.prof-rank .pw-next{display:inline;font-style:normal;color:var(--acc);opacity:.85;letter-spacing:.06em}
+.prof-rank .pw-next{display:inline;color:var(--acc);letter-spacing:.06em}
 
 /* ---------- GARA chiến đấu cơ (22/09/2026) ----------
    Tinh thần gara xe: mỗi tàu một bệ, đèn rọi từ trên xuống, sàn bệ elip phát sáng.
@@ -1693,7 +1731,7 @@ border-radius:var(--r-sm);font-size:12px;letter-spacing:.12em;color:var(--dim);
 .gar-card{display:flex;flex-direction:column;align-items:center;
   border-radius:var(--r-md);text-align:center;}
 
-.gar-stage{position:relative;width:100%;aspect-ratio:1;display:grid;place-content:center;
+.gar-stage{position:relative;width:100%;aspect-ratio:1;display:grid;
   border-radius:var(--r-sm);overflow:hidden;}
 
 .gar-stage img{width:86%;height:86%;object-fit:contain;margin:auto;
@@ -1745,9 +1783,8 @@ border-radius:var(--r-sm);font-size:12px;letter-spacing:.12em;color:var(--dim);
   font-family:var(--font-display);font-size:15px;letter-spacing:.05em;text-align:center}
 .gd-name span{color:var(--dim);font-size:13px}
 .gd-combo{text-align:center;font-size:12px;letter-spacing:.1em;color:#c9a8f0}
-.gd-stage{position:relative;flex:1 1 auto;min-height:158.9px;display:grid;place-items:center;overflow:hidden;
-  border-radius:var(--r-md);background:radial-gradient(50% 40% at 50% 0%,rgba(197,140,255,.35),transparent 70%),
-    radial-gradient(55% 10% at 50% 90%,rgba(197,140,255,.45),transparent 70%),#0a0718}
+.gd-stage{position:relative;
+  }
 .gd-fly{position:relative;width:52%;max-width:216.7px;aspect-ratio:1;animation:gdWeave 6s ease-in-out infinite}
 .gd-fly.in-r{animation:gdInR .32s ease-out,gdWeave 6s ease-in-out .32s infinite}
 .gd-fly.in-l{animation:gdInL .32s ease-out,gdWeave 6s ease-in-out .32s infinite}
@@ -1756,7 +1793,8 @@ border-radius:var(--r-sm);font-size:12px;letter-spacing:.12em;color:var(--dim);
 .gd-dr{position:absolute;width:26%;top:52%;object-fit:contain;animation:gdBob 1.6s ease-in-out infinite;
   filter:drop-shadow(0 4.3px 5.8px rgba(0,0,0,.6))}
 .gd-pop img{pointer-events:none;-webkit-user-drag:none;user-select:none}
-.gd-stage{user-select:none;cursor:grab}
+.gd-stage{flex:1 1 auto;min-height:158.9px;display:grid;place-items:center;overflow:hidden;border-radius:var(--r-md);background:radial-gradient(50% 40% at 50% 0%,rgba(197,140,255,.35),transparent 70%),
+    radial-gradient(55% 10% at 50% 90%,rgba(197,140,255,.45),transparent 70%),#0a0718;user-select:none;cursor:grab}
 /* nút BÁN: góc phải trên bệ, đỏ trầm — đủ thấy, không tranh với nút DÙNG */
 .gar-sell,.gd-sell{position:absolute;top:4.3px;right:4.3px;z-index:2;border:0;cursor:pointer;
   padding:2.9px 6.5px;border-radius:var(--r-sm);font:700 12px/1.3 var(--font-display);letter-spacing:.08em;
@@ -1808,7 +1846,7 @@ border-radius:var(--r-sm);font-size:12px;letter-spacing:.12em;color:var(--dim);
    Hàng nút phụ cùng bề rộng với dock để cả cụm thẳng mép. */
 .lobby-deploy{width:min(94%,339.4px);gap:5.8px}
 .lobby-rail{width:min(94%,339.4px);gap:4.3px;margin-top:5.8px}
-.now-card{display:grid;column-gap:8.7px;
+.now-card{display:grid;
   text-align:left;border-radius:0;
 
   /* 17/10/2026 — THẺ CHÍNH CỦA LOBBY KHOÁC CÙNG KHUNG VỚI POPUP.
@@ -1818,7 +1856,7 @@ border-radius:var(--r-sm);font-size:12px;letter-spacing:.12em;color:var(--dim);
      Bỏ clip-path cắt góc: khung ảnh đã có góc riêng, cắt thêm là xén mất góc khung.
      Viền --tint 1,5px cũ bỏ hẳn — vệt xanh lá chói chọi thẳng với nút vàng ngay bên
      trong; --tint giữ ĐÚNG MỘT chỗ là quầng mờ bên trong. */
-  clip-path:none;}
+  }
 .now-card.boss{box-shadow:var(--v-hong-3),inset 0 0 18.8px rgba(255,59,92,.18)}
 .now-card > .star-track,.now-card > .now-evo,.now-card > .now-foot{grid-column:1 / -1}
 .now-info{min-width:0}
@@ -1989,7 +2027,7 @@ body .sn-pins i{font-size:14px}
 .shop-desc{color:#a9bdd8}
 
 /* CHỈ SỐ ĐẦU TÀU cạnh tên: cái duy nhất người chơi cần để quyết mua hay không */
-.tree-hl{margin-left:auto;flex:none;
+.tree-hl{margin-left:auto;
 font-weight:700;letter-spacing:.02em;color:#cfe0ff;
   background:rgba(0,0,0,.28)}
 .tree-hl i{font-style:normal;margin:0 2.2px;opacity:.65}
@@ -2038,7 +2076,7 @@ body .tree-rebuild{font-size:13px}
 .saga-head{min-height:44px}
 .rank-tabs button{min-height:44px}
 .portal-back{min-height:44px}
-.evoai-style-grid button{min-height:44px}
+.evoai-style-grid button{cursor:pointer;min-height:44px}
 
 /* Nút vuông thì KHÔNG được để flex bóp lại. Trên máy 320px hai nút TIẾNG/TẠM DỪNG ở
    HUD bị "MAP 01" bên cạnh ép còn 38.6px ngang — vẫn đủ cao nhưng hụt bề ngang. */
@@ -2047,8 +2085,8 @@ body .tree-rebuild{font-size:13px}
 /* Ô nhập: 44px cao, và cỡ chữ >= 16px. 16px KHÔNG phải cho đẹp — dưới ngưỡng đó
    Safari trên iOS tự phóng to cả trang lúc đặt con trỏ vào ô, phóng xong không tự
    thu lại, người chơi bị kẹt ở bố cục bị cắt. */
-#profName{min-height:44px;font-size:16px}
-.evoai-other input{min-height:44px;font-size:16px}
+#profName{pointer-events:auto;width:100%;border:0;border-radius:var(--r-sm);margin-bottom:7.2px;font:600 12px/1 var(--font);letter-spacing:.08em;color:var(--ink);box-shadow:var(--v-lam-1);min-height:44px;font-size:16px}
+.evoai-other input{font:400 12px var(--font);box-shadow:var(--v-lo-2);min-height:44px;font-size:16px}
 
 /* ============ SOÁT GIAO DIỆN LẦN 3 — 24 MÀN, ẢNH CHỤP THẬT (12/10/2026) ============
  * Chụp đủ 24 màn ở 375px bằng Chrome headless + script đo (chữ <13px, vùng chạm <44px,
@@ -2073,12 +2111,10 @@ body .tree-rebuild{font-size:13px}
    da; từ lúc mặt nút là `background-image` thì câu này (hạng 0,3,0) đè chết ảnh của luật
    nền (0,2,0) — nút chưa đủ vàng ra một mảng tối có vệt chéo. Khác biệt "mua được / chưa
    mua được" nay do `grayscale` + `opacity` ở luật 2774 lo. */
-.tree-row .shop-buy.poor{
-  box-shadow:var(--v-trang-1)}
 
 /* tiêu đề màn rớt 2-3 dòng ("CÂY / KỸ / NĂNG") khi đứng cạnh POWER + vàng. Tiêu đề
    KHÔNG được gãy chữ; thiếu chỗ thì cụm số liệu bên phải xuống hàng hai, dạt phải. */
-.scr-head{row-gap:4px}
+
 .scr-head h2{letter-spacing:.12em;white-space:nowrap}
 .head-stats{display:flex;align-items:center;gap:10px;margin-left:auto}
 
@@ -2089,7 +2125,7 @@ body .tree-rebuild{font-size:13px}
 /* 4. CHỮ TRÀN RA ĐUÔI RUY BĂNG ("TẠM DỪNG", "VŨ KHÍ — CHỌN HƯỚNG"): ảnh ruy băng
       kéo giãn 100% nên phần đuôi chiếm ~12% mỗi bên, padding 18.8px cố định không đủ.
       Đệm theo % để chữ luôn nằm trên bản giữa. */
-.panel h3,.gift-box h3,.fork-box h3{padding:9px 13%;white-space:nowrap;letter-spacing:.12em}
+.panel h3,.gift-box h3,.fork-box h3{align-self:center;padding:9px 13%;white-space:nowrap;letter-spacing:.12em}
 body .fork-box h3{letter-spacing:.06em}
 
 /* 5. Ô CHỌN ẢNH ĐẠI DIỆN 27px — nhỏ nhất game, chạm trượt sang con bên cạnh */
@@ -2124,11 +2160,9 @@ body .fork-box h3{letter-spacing:.06em}
   padding:2px 10px;border-radius:var(--r-pill);background:rgba(4,8,20,.5);
   text-shadow:0 1px 2px #000}
 .lvl-tag{color:#d3def0;background:rgba(0,0,0,.5)}
-.toast{text-shadow:0 2px 3px #000,0 0 10px rgba(0,0,0,.9)}
 
 /* 7. CHỮ PHỤ toàn game (--dim #8fa3c0) đứng trên panel xanh navy chỉ còn ~4:1 —
       đạt sàn nhưng người lớn tuổi đọc rất mệt. Nâng một bậc sáng, giữ sắc xanh. */
-:root{--dim:#aebdd6}
 
 /* 8. Popup BRIEF rộng 231px: nhiệm vụ "Hoàn thành dưới 39 giây" gãy 2 dòng cả ba mục */
 .panel.brief{width:min(320px,calc(var(--uiw) * .9))}
@@ -2170,12 +2204,12 @@ body .fork-box h3{letter-spacing:.06em}
        mốc người chơi mới cần đọc nhất. Cho gãy dòng, nhưng CHỈ ở chỗ nối giữa POWER và mốc
        hạng (mỗi mảnh tự nowrap): đủ chỗ thì vẫn một dòng như cũ. */
 .prof-rank{white-space:normal;overflow:visible;text-overflow:clip}
-.prof-rank .pw-next{white-space:nowrap}
+.prof-rank .pw-next{font-style:normal;opacity:.85;white-space:nowrap}
 
 /* 11. THÔNG BÁO GIỮA TRẬN ("CÓ MÈO RƠI!", "DỒN DẬP!"): chữ vàng mảnh trên ruộng vàng, lại
        mờ dần ngay từ 22% của 1,1 giây — ảnh chụp thật gần như không đọc được. Lót nền tối
        vừa khít chữ, đậm nét, và GIỮ RÕ tới 70% của 1,6 giây rồi mới tan. */
-.toast{display:table;margin:0 auto 4px;padding:4px 14px;border-radius:var(--r-pill);
+.toast{text-shadow:0 2px 3px #000,0 0 10px rgba(0,0,0,.9);display:table;margin:0 auto 4px;padding:4px 14px;border-radius:var(--r-pill);
   background:rgba(4,8,20,.55);font-weight:700;animation:toastHold 1.6s ease-out forwards}
 @keyframes toastHold{0%{opacity:0;transform:translateY(10px) scale(.9)}
   15%{opacity:1;transform:translateY(0) scale(1)}
@@ -2190,7 +2224,7 @@ body .fork-box h3{letter-spacing:.06em}
  * 17/10/2026 lên tiếp 19%: ở 26% toast vẫn rơi đúng giữa luồng đạn — đúng lúc màn hình
  * bận nhất thì một viên thuốc đen chắn ngang sân. 19% nằm NGAY DƯỚI nhãn WAVE (≈13,5%),
  * tức ngoài vùng chiến đấu mà vẫn trong tầm mắt. Lên cao nữa là đụng hàng chỉ số. */
-#toastZone{top:19%}
+#toastZone{left:0;right:0;top:19%}
 .combo{transform-origin:100% 50%;transition:color .2s,text-shadow .2s}
 .combo[data-tier="2"]{color:#ffd23f}
 .combo[data-tier="2"] b{color:#fff3a8;font-size:20px}
@@ -2363,7 +2397,7 @@ body .prof-chip .prof-txt>.prof-title{font-size:13px}
 /* ---------- THANH MÁU TRÙM có VỆT TRẮNG đuổi theo + vạch giai đoạn (12/10/2026, ui-hud) ----------
    #bossLag nằm dưới #bossFill: khúc sáng = máu vừa mất ~0,3s qua. Hai vạch tối ở 33% / 66% là
    ngưỡng đổi giai đoạn (entity-boss: >66% / >33%) — người chơi thấy trước lúc trùm sắp nổi điên. */
-.boss-bar{position:relative}
+
 .boss-bar #bossLag{position:absolute;left:0;top:0;transition:none;background:linear-gradient(90deg,#fff3c2,#ffffff);opacity:.85}
 .boss-bar #bossFill{position:relative;transition:none}
 .boss-bar::after{content:'';position:absolute;inset:0;pointer-events:none;
@@ -2399,12 +2433,10 @@ body .lobby-top .prof-chip.tight .prof-txt>b{font-size:12px;letter-spacing:0}
  * Khối border-image mặc cho .now-card hôm qua nằm SAU khối dọn ở trên nên vẫn thắng:
  * thẻ còn nguyên khung 9-slice sáng chói, chọi thẳng với cảnh. Gỡ ở đây, nơi không rule
  * nào còn đè lại được. (Khung đó vẫn đúng cho POPUP — chỉ lobby mới bỏ.) */
-.now-card{border:0;border-image:none;background:none;box-shadow:none;
-  padding:0 2px;gap:10px;align-items:center}
+.now-card{background:none;box-shadow:none;
+  }
 /* tên vùng: cho đủ chỗ, bỏ phần "· 4/6" vì chặng đã có ở dòng tiến hoá và bản đồ */
-.now-card .now-biome{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-  font:600 13px/1 var(--font-display);letter-spacing:.24em;color:rgba(200,228,255,.8);
-  text-shadow:0 1px 3px rgba(0,8,26,.9)}
+
 /* dòng tiến hoá: lòng chìm mảnh, không thành cái hộp thứ hai */
 .now-evo{background:rgba(4,10,26,.45);box-shadow:inset 0 1px 0 rgba(150,210,255,.1);
   border-radius:var(--r-sm)}
@@ -2441,12 +2473,11 @@ body .lobby-top .prof-chip.tight .prof-txt>b{font-size:12px;letter-spacing:0}
       trong CLAUDE.md). Thu bằng BỀ NGANG, ĐỆM và ĐỘ DÀY THANH thay vì bằng cỡ chữ. */
 
 .boss-wrap span{letter-spacing:.1em}
-.boss-bar{height:5.8px;margin-top:2.6px}
 
 /* Khối khung ảnh (mục "border-image" ở trên) đặt lại đệm và độ dày riêng — phải đè
    bằng cùng mức ưu tiên, không thì băng vẫn to như cũ. */
 .boss-wrap span{padding:2px 9px}
-.boss-bar{border-width:2px}
+.boss-bar{position:relative;height:5.8px;margin-top:2.6px;border-width:2px}
 
 /* Bản `body` phóng cỡ chữ cho dễ đọc đang đẩy tên trùm lên 13px; về đúng sàn 12px để
    băng gọn lại một nhịp nữa mà vẫn không phạm sàn. */
@@ -2486,8 +2517,8 @@ body .boss-wrap span{font-size:12px}
  *
  * Vẫn ẨN BẰNG CSS chứ không xoá DOM — `ui-menu-card.js` còn bơm chữ vào `#nowBiome`,
  * xoá thẻ là phải sửa JS cho một lần đổi giao diện. */
-.now-card .now-biome{display:none}
-.now-card{grid-template-columns:1fr;justify-items:center}
+.now-card .now-biome{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 13px/1 var(--font-display);letter-spacing:.24em;color:rgba(200,228,255,.8);text-shadow:0 1px 3px rgba(0,8,26,.9);display:none}
+.now-card{column-gap:8.7px;clip-path:none;border:0;border-image:none;padding:0 2px;gap:10px;align-items:center;grid-template-columns:1fr;justify-items:center}
 
 /* Nút nay là thứ DUY NHẤT ở hàng đó nên cho nó đứng bằng chính kích thước của mình,
    không kéo full-width (một thanh ngang chạm hai mép trông như thanh công cụ, không
@@ -2553,7 +2584,7 @@ body .boss-wrap span{font-size:12px}
 /* Thẻ khoá: CÙNG bộ khung, chỉ xám và lùi lại — không phải một hộp viền khác.
    0,72/0,8 chứ không phải 0,88/0,6: soi ảnh chụp thì mức đầu làm biểu tượng nhánh chìm
    hẳn, mà chính chúng là manh mối duy nhất còn lại sau khi bỏ dòng chữ gợi ý. */
-.codex-card.locked{opacity:1;box-shadow:none;filter:grayscale(.72) brightness(.8);
+.codex-card.locked{opacity:1;box-shadow:none;
   padding:5.8px 7.9px}
 .codex-card.locked .cx-id{flex:1}
 
@@ -2565,18 +2596,16 @@ body .boss-wrap span{font-size:12px}
 .cx-sockets{display:flex;gap:5.8px}
 /* Ổ tổ hợp — đế lõm, biểu tượng nổi trên. 52px: ba ổ + khe = 170px, còn thừa bề ngang
    cho tấm biển của thẻ khoá ở mốc hẹp nhất (bề ngang ảo 320). */
-.cx-slot{width:52px;height:52px;border-radius:var(--r-sm);display:grid;place-items:center;
-  background:radial-gradient(circle at 50% 28%,rgba(255,255,255,.07),rgba(0,0,0,.42));
-  box-shadow:var(--v-trang-1),inset 0 3px 7px rgba(0,0,0,.55)}
+
 .cx-slot img{width:41px;height:41px;object-fit:contain;
   filter:drop-shadow(0 2px 4px rgba(0,0,0,.5))}
 /* Ổ TRỐNG thay cho dấu "?" giữa dòng chữ: vẫn cho thấy biểu tượng NHÁNH chung thật mờ,
    nên người chơi đọc ra "còn thiếu một loại KHIÊN" chứ không phải "thiếu một chữ". */
 .cx-slot.empty{box-shadow:var(--v-lo-1),inset 0 4px 10px rgba(0,0,0,.72)}
 .cx-slot.empty img{opacity:.2;filter:grayscale(1)}
-.cx-slot.empty::after{content:'?';position:absolute;font-family:var(--font-display);
+.cx-slot.empty::after{font-family:var(--font-display);
   font-size:17px;font-weight:700;color:rgba(122,224,255,.55)}
-.cx-slot{position:relative}
+.cx-slot{width:52px;height:52px;border-radius:var(--r-sm);display:grid;place-items:center;background:radial-gradient(circle at 50% 28%,rgba(255,255,255,.07),rgba(0,0,0,.42));box-shadow:var(--v-trang-1),inset 0 3px 7px rgba(0,0,0,.55);position:relative}
 
 /* Tấm biển chưa khắc tên của thẻ khoá — kéo hết bề ngang còn lại, không để một mảng
    trống bên phải: khoảng trống đó đọc ra là "chưa làm xong", không phải "chưa mở khoá". */
@@ -2659,7 +2688,7 @@ body .boss-wrap span{font-size:12px}
 /* Danh sách hạng 4+ : con SỐ là vật thể to nhất dòng, vệt tỉ lệ lo phần xếp hạng */
 .rank-row{padding:7.2px 8.7px}
 .rank-av{width:27px;height:27px}
-.rank-av.emo{font-size:17px}
+.rank-av.emo{place-content:center;font-size:17px}
 .rank-name{font-size:13px}
 .rank-val{font-size:15px;font-weight:600}
 .rank-pos{width:23px;font-size:13px}
@@ -2704,7 +2733,7 @@ body .tree-name em{font-size:12px}
 /* Con số đầu tàu LUÔN xuống dòng riêng, căn phải. Để nó tự quyết thì thẻ tên ngắn giữ
    một dòng còn thẻ tên dài tụt xuống hai — năm thẻ ra năm dáng khác nhau, nhìn như
    chưa canh xong. Miếng chèn `::after` rộng 100% ép ngắt dòng trước chip. */
-.tree-hl{font-size:16px;padding:2.9px 7.9px;border-radius:var(--r-pill);order:2}
+.tree-hl{flex:none;font-size:16px;padding:2.9px 7.9px;border-radius:var(--r-pill);order:2}
 .tree-name::after{content:'';flex-basis:100%;height:0;order:1}
 
 /* Hàng chấm 6,5-7,9px → THANH CHIA ĐOẠN. Chấm nhỏ cỡ đó không đếm nổi trên điện thoại,
@@ -2728,7 +2757,7 @@ body .tree-name em{font-size:12px}
 .tree-row .shop-buy:active{transform:none;filter:brightness(.94)}
 /* Chưa đủ vàng: xám đi NHƯNG vẫn đọc được giá — brightness .62 làm nút trông như một
    hòn đá hỏng, mà con số trên đó chính là thứ người chơi cần để biết còn thiếu bao nhiêu. */
-.tree-row .shop-buy.poor{filter:grayscale(.92) brightness(.88);
+.tree-row .shop-buy.poor{box-shadow:var(--v-trang-1);filter:grayscale(.92) brightness(.88);
   opacity:.72;color:#241c0e}
 .tree-row .shop-buy.fork{animation:forkPulse 1.1s ease-in-out infinite;box-shadow:none;
   border-image:url(../assets/art-game/ui-frame-btn-ghost.webp) 85 fill / 14px stretch;
@@ -2808,7 +2837,7 @@ body .saga-head span{font-size:12px;letter-spacing:.06em}
 
 /* Dải chip nhảy vùng: bản cũ cắt cụt giữa chữ ở mép phải mà không có dấu hiệu nào báo
    là CUỘN ĐƯỢC — mắt đọc ra lỗi hiển thị. Mặt nạ mờ dần ở mép phải nói "còn nữa". */
-.saga-jump{-webkit-mask-image:linear-gradient(90deg,#000 88%,transparent);
+.saga-jump{overflow-x:auto;scroll-snap-type:x proximity;scrollbar-width:none;-webkit-mask-image:linear-gradient(90deg,#000 88%,transparent);
   mask-image:linear-gradient(90deg,#000 88%,transparent)}
 
 /* ---------- LỚP OVERLAY LÚC ĐÁNH NHAU (18/10/2026) ----------
@@ -2852,7 +2881,7 @@ body .saga-head span{font-size:12px;letter-spacing:.06em}
 .gar-card.on{border-width:13px;box-shadow:none;
   border-image:url(../assets/art-game/ui-frame-panel-gold.webp) 84 fill / 13px stretch}
 /* lòng khung đã là mặt kính của ảnh nên bệ tàu bớt đặc đi một bậc, không chọi với khung */
-.gar-stage{background:radial-gradient(58% 42% at 50% 2%,rgba(197,140,255,.26),transparent 70%),
+.gar-stage{place-content:center;background:radial-gradient(58% 42% at 50% 2%,rgba(197,140,255,.26),transparent 70%),
     radial-gradient(62% 13% at 50% 90%,rgba(197,140,255,.34),transparent 70%),rgba(6,4,16,.55)}
 .gar-card.on .gar-stage{background:radial-gradient(58% 42% at 50% 2%,rgba(255,210,63,.3),transparent 70%),
     radial-gradient(62% 13% at 50% 90%,rgba(255,210,63,.42),transparent 70%),rgba(14,10,4,.55)}
@@ -2871,8 +2900,8 @@ body .saga-head span{font-size:12px;letter-spacing:.06em}
  *     `max-width:0;overflow:hidden` và soát báo "clipped text" đúng như thế. */
 
 /* Trước khi rê: ổ trống tự thở nhẹ — dấu hiệu DUY NHẤT nói "thẻ này bấm được" */
-.codex-card.locked{cursor:pointer;transition:filter .18s ease,transform .18s ease}
-.cx-slot.empty::after{animation:cxWait 2.4s ease-in-out infinite}
+
+.cx-slot.empty::after{content:'?';position:absolute;animation:cxWait 2.4s ease-in-out infinite}
 @keyframes cxWait{0%,100%{opacity:.55}50%{opacity:1}}
 
 .cx-tease{position:absolute;left:0;right:0;bottom:0;margin:0;
@@ -2898,7 +2927,7 @@ body .saga-head span{font-size:12px;letter-spacing:.06em}
 .codex-card.locked.open .cx-slot.empty{box-shadow:var(--v-lo-3),
   inset 0 4px 10px rgba(0,0,0,.72),0 0 11.6px rgba(122,224,255,.3)}
 /* thẻ khoá cao thêm một nhịp để dải gợi ý không đè lên hàng ổ */
-.codex-card.locked{padding-bottom:26px}
+.codex-card.locked{filter:grayscale(.72) brightness(.8);cursor:pointer;transition:filter .18s ease,transform .18s ease;padding-bottom:26px}
 
 /* ---------- THANH ĐẦU MÀN: MỘT HÀNG, KHÔNG BAO GIỜ XUỐNG DÒNG (18/10/2026) ----------
  * Anh Đức: "cái icon kỹ năng chỏng chơ nằm ở 1 hàng". Đúng, và nguyên nhân là hai luật
@@ -2910,7 +2939,7 @@ body .saga-head span{font-size:12px;letter-spacing:.06em}
  * thay vì đẩy một cái nút đi. `min-width:0` là bắt buộc — thiếu nó thì `flex:1` vẫn không
  * co nổi dưới bề rộng nội dung, đây là bẫy flexbox kinh điển và đã dính đúng một lần nữa
  * ở tên trùm sáng nay (`.boss-wrap span`). */
-.scr-head{flex-wrap:nowrap}
+.scr-head{row-gap:4px;flex-wrap:nowrap}
 .scr-head h2{min-width:0;overflow:hidden;text-overflow:ellipsis}
 /* số sao không bao giờ bị ép vỡ: nó là con số, cắt là vô nghĩa */
 .scr-head .total-star{flex:none;white-space:nowrap}
@@ -2938,7 +2967,7 @@ body .saga-head span{font-size:12px;letter-spacing:.06em}
  * Ở cỡ chữ RẤT LỚN thẻ phi công cao ~110px, còn `.lb-num` neo ở 11% ≈ 89px — nhãn "MÀN"
  * chui vào sau thẻ, ảnh chụp đọc ra "PHI CÔNG 1 👑 À N". Lỗi có sẵn từ trước, lộ ra khi
  * soi lại sảnh. Đẩy xuống dưới đáy thẻ ở mốc chữ lớn nhất. */
-.lb-num{top:15.5%}
+.lb-num{-webkit-text-stroke:1.5px rgba(130,205,255,.5);top:15.5%}
 
 /* ---------- 06 HỒ SƠ + 07 CÀI ĐẶT: hai cửa cuối của sảnh ----------
  * Soi 24 màn chấm hai màn này 2 và 2,5 — cùng một chẩn đoán với bốn màn đã chữa sáng nay:
@@ -3089,7 +3118,7 @@ body .prof-ava .ava-emo{font-size:23px}
 /* Ô GIỜ có kỷ lục: "13s KỶ LỤC MỚI" trong một ô rộng 1/4 bảng thì xuống BỐN dòng, một
    mình nó đội cả hàng lưới lên. Cho chữ kỷ lục chạy ngang hết lưới dưới dạng một vệt
    mảnh — vẫn khoe được, mà không ăn chiều cao của ba ô bên cạnh. */
-.panel.result .res-grid{position:relative}
+.panel.result .res-grid{grid-template-columns:repeat(4,1fr);gap:3.6px;position:relative}
 .panel.result .rs.record .rs-v em{position:absolute;left:0;right:0;bottom:-11.6px;
   display:block;font-size:12px;letter-spacing:.18em;text-align:center;color:var(--acc);
   margin-top:0;text-shadow:0 1px 3px rgba(0,0,0,.8)}
@@ -3121,7 +3150,7 @@ body .prof-ava .ava-emo{font-size:23px}
 .tree-row .shop-buy.done,
 .tree-row .shop-buy.gar-open,
 .tree-rebuild{background-image:url(../assets/art-game/ui-frame-btn-ghost.webp)}
-.btn.ghost.danger:not(.text):not(.toggle){
+.btn.ghost.danger:not(.text):not(.toggle){border-image:url(../assets/art-game/ui-frame-btn-danger.webp) 92 fill / 14px stretch;color:#fff0f2;text-shadow:0 1px 2px rgba(60,0,10,.7);
   background-image:url(../assets/art-game/ui-frame-btn-danger.webp)}
 /* BUG ĐÃ ĐẨY LÊN BẢN THẬT RỒI MỚI THẤY (18/10/2026) — `background:none` LÀ SHORTHAND.
  * Năm luật nút cũ còn khai `background:none` từ thời mặt nút nằm ở `border-image`: khi đó
