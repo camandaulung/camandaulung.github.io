@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="icon" type="image/png" href="icons/icon-192.png">
-<link rel="stylesheet" href="assets/style-6376c5c3.css">
+<link rel="stylesheet" href="assets/style-eee20fb4.css">
 </head>
 <body>
 <!-- MÀN TẢI VÀO GAME (12/10/2026): hiện NGAY khi HTML về, trước cả lúc JS chạy. Kiểm tra bản
@@ -193,8 +193,13 @@
          Vì sao không phải đường băng (ý tưởng mạnh hơn): canvas #game đứng TRƯỚC #ui nên
          mọi DOM vẽ ĐÈ lên tàu — mặt đường gần đặc sẽ CẮT MẤT ĐUÔI TÀU. Quỹ đạo thì mọi
          lớp dưới tàu đều là ánh sáng trong suốt nên không dính. -->
+    <!-- Thứ tự Ở ĐÂY LÀ THỨ TỰ CHỒNG LỚP (không phần tử nào có z-index riêng):
+         mặt đất → mây trôi → sương + viền tối → vũng sáng sau lưng tàu.
+         Mây nằm DƯỚI tàu chứ không phải tiền cảnh: nếu đặt trên thì phải ra ngoài
+         .lb-scene, và lúc đó nó phủ luôn nút XUẤT KÍCH với thanh điều hướng đáy. -->
     <div class="lb-scene" aria-hidden="true">
-      <i class="lb-far" id="lbFar"></i><i class="lb-tone"></i>
+      <i class="lb-far" id="lbFar"></i><i class="lb-cl1"></i><i class="lb-cl2"></i>
+      <i class="lb-tone"></i><i class="lb-key"></i>
       <div class="lb-num"><span>MÀN</span><b id="lbNum">01</b></div>
     </div>
 
@@ -856,7 +861,7 @@
 <script src="../../shared/portal-cloud.js"></script>
 <script src="../../shared/portal-rank.js"></script>
 <script src="../../shared/portal-player.js"></script>
-<script src="assets/app-0d55462c.js" onerror="window.__shellHong=1"></script>
+<script src="assets/app-c7a35479.js" onerror="window.__shellHong=1"></script>
 <script>
 /* LOP TU CUU KHI VO UNG DUNG HONG — dung xoa.
  *

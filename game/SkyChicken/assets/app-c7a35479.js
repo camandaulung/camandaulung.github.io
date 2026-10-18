@@ -12253,6 +12253,109 @@ SC.Settings = {
 };
 
 ;
+/* ===== js/ui-lobby-scene.js ===== */
+/* ui-lobby-scene.js — bảng màu của cảnh sảnh LẤY TỪ VÙNG SẮP BAY TỚI.
+ *
+ * VÌ SAO CÓ (18/10/2026): anh Đức — "lobby đang có mỗi cái số với bg đơn điệu 1 màu, ko có
+ * tí tính nghệ thuật nào; cái map đằng sau của bản cũ còn ok hơn". Soi ra ĐÚNG hai nguyên
+ * nhân, cả hai đo được chứ không phải chuyện gu:
+ *
+ * 1. Ảnh vùng CÓ SẴN nhưng bị dập BA lớp chồng nhau: `make-bg-loops` đã lùi nền sẵn cho
+ *    màn chơi (tương phản .72, bão hoà .78, blur .7), rồi `.lb-far` dập tiếp
+ *    `brightness(.46) blur(3.6px)`, rồi `.lb-tone` phủ navy đặc .86. Đo ảnh chụp: lumMean
+ *    40,9 · edgeDensity 0,217 — so với ảnh bản cũ anh gửi là 63,8 / 0,324.
+ * 2. MỌI màu trong cảnh đều VIẾT CỨNG: navy `rgba(0,20,66,.86)` + lơ `rgba(79,227,255,…)`
+ *    cho quỹ đạo/bệ/cột sáng. Nên đứng ở Đồng quê hay Sa mạc hoàng hôn hay Rừng độc thì
+ *    sảnh vẫn y hệt một màu — đó chính là "đơn điệu 1 màu" theo nghĩa đen.
+ *
+ * RÀNG BUỘC CŨ ĐÃ HẾT HIỆU LỰC — đây là thứ mở khoá được đợt này. Chú thích ở
+ * `style.css` (khối CẢNH LOBBY, bẫy thứ hai) dặn "mọi lớp nằm dưới tàu phải TRONG SUỐT,
+ * không được gần đặc", vì hồi đó tàu vẽ lên canvas #game nằm TRƯỚC #ui nên mọi DOM đều đè
+ * lên tàu. Từ sáng nay tàu có canvas riêng trong `#shipStage` — mà `#shipStage` là con của
+ * `#scrMenu` nên ăn luật `#scrMenu > :not(.lb-scene){z-index:1}`, tức tàu nằm TRÊN cảnh.
+ * Cảnh được phép sáng và đặc trở lại. Đổi `ui-lobby-ship` về canvas chung là ràng buộc
+ * sống lại, nhớ hạ sáng theo.
+ *
+ * Nạp SAU `data-biomes.js`, TRƯỚC `ui-menu-card.js` (nó gọi `paint`).
+ */
+
+SC.LobbyScene = {
+  /* Nhớ vùng đang vẽ: gán lại cùng một ảnh mỗi lần mở sảnh là trình duyệt vẽ lại nhấp nháy,
+     và animation chạy lại từ đầu nên mây giật về chỗ cũ. */
+  _id: null,
+
+  /* '#aabbcc' + alpha -> 'rgba(r,g,b,a)'. Tự viết vì `color-mix()` chưa chắc có ở iOS cũ,
+     mà bảng màu vùng thì đang là hex thuần. Chuỗi lạ thì trả về nguyên si để CSS tự bỏ. */
+  _rgba(hex, a) {
+    const m = /^#([0-9a-f]{6})$/i.exec(String(hex || ''));
+    if (!m) return hex;
+    const n = parseInt(m[1], 16);
+    return 'rgba(' + (n >> 16 & 255) + ',' + (n >> 8 & 255) + ',' + (n & 255) + ',' + a + ')';
+  },
+
+  /* Đổ bảng màu của `biome` vào các biến CSS của `.lb-scene`. CSS tự lo phần còn lại —
+     không có `if (biome.id === …)` ở đây, thêm vùng thứ 11 là chạy ngay. */
+  paint(biome) {
+    /* Đặt biến lên CHÍNH `#scrMenu` chứ không lên `.lb-scene`: quỹ đạo / bệ chiếu / cột
+       sáng nằm trong `#shipStage`, tức ANH EM với `.lb-scene` chứ không phải con nó —
+       đặt ở lớp con thì mấy thứ đó không thừa kế được và vẫn giữ nguyên sắc lơ cũ. */
+    const sc = document.getElementById('scrMenu');
+    if (!sc || !biome || !biome.id) return;
+    /* Nhớ vùng TRƯỚC cái chốt chặn dưới: `ui-lobby-ship` đọc `LobbyScene.biome` mỗi khung
+       để hắt sáng lên tàu. Đặt sau chốt thì lần mở sảnh thứ hai trở đi (cùng vùng, hàm
+       thoát sớm) tàu mất đèn — mà đó mới là lần hay gặp nhất. */
+    this.biome = biome;
+    if (this._id === biome.id) return;
+    this._id = biome.id;
+
+    const sky = biome.sky || [];
+    const st = Math.min(1, +biome.star || 0);
+    const s = sc.style;
+
+    /* Ảnh mặt đất + mây — hai tấm ĐÃ TRẢ TIỀN mà sảnh chưa đụng tới tấm thứ hai.
+       BẪY ĐƯỜNG DẪN, ĐÃ ĐO 18/10/2026 — ĐỪNG THÊM `../` VÀO ĐÂY. Đường dẫn trong một
+       style NỘI TUYẾN được giải tương đối với TÀI LIỆU, không phải với tệp CSS:
+         `url(../assets/…)` → bản dựng tải được (tài liệu ở gốc nên `..` bị kẹp lại gốc)
+                             nhưng bản dev ra `/games/assets/…` = 404
+         `url(assets/…)`    → tải được ở CẢ HAI
+       Bản trước viết dạng đầu nên ở máy dev ảnh nền KHÔNG BAO GIỜ tải — mà nhìn ảnh chụp
+       vẫn thấy lờ mờ cảnh vùng, vì đó là canvas `#game` phía dưới chứ không phải lớp này.
+       Một lỗi 404 mà nhìn như chạy đúng thì không ai đi tìm. Giá trị mặc định trong
+       `style.css` vẫn giữ `../` vì ở TRONG tệp CSS thì dạng đó mới đúng. */
+    const sl = 'url(assets/art-game/bg-' + biome.id + '.webp)';
+    const cl = 'url(assets/art-game/decor-' + biome.id + '-cloud.webp)';
+    const far = document.getElementById('lbFar');
+    if (far) far.style.backgroundImage = sl;
+    sc.querySelectorAll('.lb-cl1,.lb-cl2').forEach(e => { e.style.backgroundImage = cl; });
+
+    /* Sương xa (aerial perspective): mép màn ngả về màu TRỜI của vùng, tâm để trong.
+       Mắt đọc ra "nhìn thẳng xuống từ trên cao", đúng góc nhìn của màn chơi. */
+    s.setProperty('--lb-haze', this._rgba(sky[0] || biome.far, 0.62));
+    s.setProperty('--lb-deep', this._rgba(biome.near, 0.9));
+
+    /* Vũng sáng sau lưng tàu = đèn chính của khung hình. Vùng tối thì vũng này là thứ DUY
+       NHẤT tách được tàu khỏi nền, nên để đậm hơn một bậc (cùng lý do với
+       `system-shadow.under`: tô đen lên nền đen thì không có tương phản nào). */
+    s.setProperty('--lb-key', biome.cloud || '#cfefff');
+    s.setProperty('--lb-key-a', (0.14 + st * 0.12).toFixed(3));
+
+    /* Quỹ đạo / bệ chiếu / cột sáng: vẫn là ánh sáng kỹ thuật nhưng NGẢ theo vùng, nếu
+       không thì 10 vùng vẫn chung một sắc lơ. Giữ độ sáng cao để còn ra chất "đèn". */
+    s.setProperty('--lb-ac', biome.cloud || '#4fe3ff');
+    s.setProperty('--lb-ac-d', this._rgba(biome.cloud, 0.46) || 'rgba(79,227,255,.46)');
+    s.setProperty('--lb-ac-f', this._rgba(biome.cloud, 0.16) || 'rgba(79,227,255,.16)');
+
+    /* NÂNG, KHÔNG HẠ — và đây là chỗ em suýt lặp lại đúng cái lỗi vừa đi chữa.
+       Bản đầu của hàm này hạ sáng vùng nhiều sao (`1 - star*0.3`) cho "ra chất đêm". Đo
+       lại thì tương phản mười vùng tụt xuống 92-118, tức có vùng còn THUA bản cũ (96-98).
+       Ảnh nguồn đã được phơi sáng đúng cho từng vùng rồi; dập thêm một lần nữa là lại ra
+       bức tranh bùn. Vùng tối cần NÂNG nhẹ để còn đọc được mặt đất, phần "ra chất đêm"
+       đã có `--lb-haze` + `--lb-deep` (cũng lấy theo vùng) lo. */
+    s.setProperty('--lb-lum', (1 + st * 0.26).toFixed(3));
+  }
+};
+
+;
 /* ===== js/ui-menu-card.js ===== */
 /* ui-menu-card.js — thẻ xuất kích ở lobby
  *
@@ -12369,19 +12472,15 @@ SC.MenuCard = {
 
   /* Nền lobby lấy đúng cảnh của vùng sắp tới. Gọi lại mỗi lần sync vì đổi hồ sơ
      hay xoá tiến độ đều làm chặng kế nhảy sang vùng khác. */
-  /* CẢNH LOBBY (17/10/2026): số màn đứng lùi về sau + trời của vùng sắp bay tới.
-     Trời mượn luôn 10 tấm nền map đã trả tiền mà lobby chưa đụng — 0 asset mới, 0 request
-     thêm (SW đã cache chúng cho màn chơi). */
+  /* CẢNH LOBBY (17/10/2026): số màn đứng lùi về sau + mặt đất của vùng sắp bay tới.
+     Mượn luôn 10 tấm nền map + 10 tấm mây đã trả tiền mà lobby chưa đụng — 0 asset mới,
+     0 request thêm (SW đã cache chúng cho màn chơi).
+     18/10/2026: phần MÀU dời hẳn sang `ui-lobby-scene.js` — ở đó cả bảng màu lấy theo
+     vùng, chứ không còn navy + lơ viết cứng cho cả 10 vùng. */
   scene(lv, biome) {
     const num = document.getElementById('lbNum');
     if (num) num.textContent = String(lv.id).padStart(2, '0');
-
-    const far = document.getElementById('lbFar');
-    if (far && biome && biome.id) {
-      // chỉ gán khi ĐỔI vùng: gán lại cùng ảnh mỗi lần mở lobby là trình duyệt vẽ lại nhấp nháy
-      const url = 'url(../assets/art-game/bg-' + biome.id + '.webp)';
-      if (far.dataset.bg !== biome.id) { far.style.backgroundImage = url; far.dataset.bg = biome.id; }
-    }
+    if (SC.LobbyScene) SC.LobbyScene.paint(biome);
   },
 
   syncBiome(lv) {
@@ -18137,6 +18236,39 @@ SC.LobbyShip = {
           { W, H, x: Math.round(cx), y: Math.round(cy), r: Math.round(r) });
       }
     }
+
+    this._denVung(g, W, H, cy, r);
+  },
+
+  /* ÁNH SÁNG CỦA VÙNG HẮT LÊN TÀU (18/10/2026).
+   *
+   * Vì sao: sảnh giờ đổi cả bảng màu theo vùng, mà tàu thì vẫn y hệt từng điểm ảnh ở
+   * dung nham, băng giá lẫn hư không — một bộ soi độc lập chấm đúng chỗ này, và nó làm
+   * tàu đọc ra "miếng dán lên ảnh" chứ không phải "đang bay trong đó".
+   *
+   * Cách rẻ nhất mà đúng: `source-atop` — vệt màu chỉ ăn vào ĐIỂM ẢNH ĐÃ VẼ, nền trong
+   * suốt giữ nguyên. Vẽ SAU cả phi đội lẫn tàu nên cả cụm chung MỘT nguồn sáng, không
+   * phải mỗi thứ một kiểu. Trên thì hắt màu TRỜI, dưới thì dội màu MẶT ĐẤT (`near`) —
+   * đúng chiều của một vật bay trên cao nhìn thẳng xuống.
+   *
+   * Alpha giữ nhẹ (.2 / .4): quá tay là mất luôn sắc đỏ-kem của tàu, mà tàu phải nhận ra
+   * được là CHÍNH NÓ ở cả mười vùng. */
+  _denVung(g, W, H, cy, r) {
+    const LS = SC.LobbyScene;
+    const b = LS && LS.biome;
+    if (!b || !r) return;
+    const tren = LS._rgba((b.sky && b.sky[2]) || b.cloud, 0.2);
+    const duoi = LS._rgba(b.near, 0.4);
+    if (!tren || !duoi) return;
+    const gr = g.createLinearGradient(0, cy - r * 1.3, 0, cy + r * 1.5);
+    gr.addColorStop(0, tren);
+    gr.addColorStop(0.5, 'rgba(0,0,0,0)');
+    gr.addColorStop(1, duoi);
+    g.save();
+    g.globalCompositeOperation = 'source-atop';
+    g.fillStyle = gr;
+    g.fillRect(0, 0, W, H);
+    g.restore();
   },
 
   /* Máy bay chính, dựng đúng theo tổ hợp nhánh đang chạy — nên mua xong quay ra lobby

@@ -3016,3 +3016,112 @@ body .prof-ava .ava-emo{font-size:23px}
 .opt-lb.danger-lb{color:#ffd7de}
 /* Ghi chú dưới mỗi nút lùi hẳn về sau, để NÚT là thứ mắt bắt trước */
 .opt-note{opacity:.78;padding:0 2.9px;margin-top:-1.4px}
+
+/* ================= SẢNH: TRẢ LẠI BỨC TRANH (18/10/2026) =================
+ * Anh Đức: "lobby đang có mỗi cái số với bg đơn điệu 1 màu, ko có tí tính nghệ thuật nào;
+ * cái map đằng sau của bản cũ còn ok hơn". Đo ảnh chụp đối chứng: lumMean 40,9 ·
+ * edgeDensity 0,217 · contrast 113,7 — bản cũ anh gửi là 63,8 / 0,324 / 141.
+ *
+ * NGUYÊN NHÂN KHÔNG PHẢI THIẾU ẢNH. Ảnh vùng vẫn đang được nạp, nhưng bị dập BA lớp:
+ * `make-bg-loops` đã lùi nền sẵn cho màn chơi (tương phản .72, bão hoà .78, blur .7) →
+ * `.lb-far` dập tiếp `brightness(.46) blur(3.6px)` → `.lb-tone` phủ navy ĐẶC .86.
+ * Cộng thêm: mọi màu trong cảnh đều viết cứng (navy + lơ), nên mười vùng chung một sắc.
+ *
+ * VÌ SAO GIỜ MỚI SÁNG LÊN ĐƯỢC — khối "CẢNH LOBBY" ở trên có dặn "mọi lớp nằm dưới tàu
+ * phải TRONG SUỐT, không được gần đặc", vì hồi đó tàu vẽ lên canvas #game đứng TRƯỚC #ui
+ * nên mọi DOM đều đè lên tàu. Sáng nay tàu đã dời sang canvas riêng trong `#shipStage`,
+ * mà `#shipStage` là con của `#scrMenu` nên ăn luật `z-index:1` — tàu nằm TRÊN cảnh.
+ * Ràng buộc đó chết rồi. Trả `ui-lobby-ship` về canvas chung là nó sống lại, nhớ hạ sáng.
+ *
+ * Bảng màu do `js/ui-lobby-scene.js` bơm vào `#scrMenu` theo vùng sắp bay tới. Giá trị
+ * dưới đây là ĐỒNG QUÊ, để khi JS chưa chạy vẫn ra một bức tranh chứ không ra màn đen. */
+#scrMenu{
+  --lb-img:url(../assets/art-game/bg-farm.webp);
+  --lb-cl:url(../assets/art-game/decor-farm-cloud.webp);
+  --lb-haze:rgba(59,167,232,.62); --lb-deep:rgba(29,74,117,.9);
+  --lb-key:#ffffff; --lb-key-a:.14; --lb-lum:1;
+  --lb-ac:#4fe3ff; --lb-ac-d:rgba(79,227,255,.46); --lb-ac-f:rgba(79,227,255,.16)}
+
+/* --- MẶT ĐẤT: vòng lặp dọc liền mạch, trôi xuống như lúc đang bay ---
+ * Mẹo ăn sẵn: `make-bg-loops.mjs` đã crossfade đầu-cuối cho màn chơi, nên `repeat-y` của
+ * CSS khít luôn, không phải làm gì thêm.
+ * Phần tử cao 300% và mỗi ô nền cao 33,334% ⇒ một ô = đúng 100% chiều cao sảnh, nên
+ * `translateY(-33.334%)` dịch TRÒN một ô. Chạy bằng transform chứ KHÔNG bằng
+ * background-position: transform được hợp thành ở GPU, còn dịch nền thì vẽ lại cả lớp đã
+ * blur mỗi khung — trên máy yếu là sảnh giật. */
+#scrMenu .lb-far{inset:auto;left:-6%;right:-6%;top:-6%;height:300%;
+  background-image:var(--lb-img);background-repeat:repeat-y;
+  background-position:center top;background-size:100% 33.334%;
+  /* Kéo lại phần `make-bg-loops` đã cố tình bỏ đi: nó hạ tương phản .72 + bão hoà .78 để
+     quái nổi trên nền LÚC ĐÁNH NHAU. Ở sảnh không có quái nào phải nổi, nên trả lại —
+     đây mới là chỗ khác nhau thật giữa "ảnh nền" và "bức tranh". */
+  filter:brightness(var(--lb-lum)) saturate(1.22) contrast(1.12) blur(.7px)}
+
+/* --- MÂY: hai tầng, tầng gần to hơn + nhanh hơn + nhoè hơn (xa gần bằng tiêu cự) ---
+ * Nằm DƯỚI tàu, không phải tiền cảnh thật. Muốn phủ lên tàu thì phải ra ngoài `.lb-scene`,
+ * và khi đó nó che luôn nút XUẤT KÍCH với thanh điều hướng đáy — đổi một lớp sâu lấy một
+ * lớp chắn nút là lỗ. */
+#scrMenu .lb-cl1,#scrMenu .lb-cl2{position:absolute;left:-14%;right:-14%;top:0;height:42%;
+  background-image:var(--lb-cl);background-repeat:no-repeat;pointer-events:none}
+#scrMenu .lb-cl1{background-position:4% 50%;background-size:46% auto;opacity:.22}
+#scrMenu .lb-cl2{background-position:98% 50%;background-size:68% auto;opacity:.16;
+  filter:blur(2.2px)}
+
+/* --- SƯƠNG + VIỀN TỐI: vừa là chiều sâu vừa là chỗ cho chữ đứng ---
+ * Ba lớp, đọc từ dưới lên: (1) tâm để trong, ra mép ngả về màu TRỜI của vùng rồi tối dần
+ * — đó là aerial perspective, mắt đọc ngay ra "nhìn thẳng xuống từ trên cao"; (2) dải tối
+ * trên đầu cho thẻ phi công + số màn; (3) dải tối dưới đáy cho XUẤT KÍCH + 5 nút.
+ * Hai dải tối KHÔNG phải trang trí — nền sáng lên thì chữ trắng phải có chỗ bấu.
+ * Dải dưới phải cao hơn dải trên (44% so với 35%): ở vùng ẤM — Sa mạc, Lõi núi lửa — nút
+ * XUẤT KÍCH vàng đứng trên mặt đất vàng cam thì mất hẳn mép, trong khi ở vùng lạnh thì
+ * không. Dải cao lên là chữa đúng chỗ đó mà không phải đổi màu nút theo vùng. */
+#scrMenu .lb-tone{background:
+  linear-gradient(180deg,var(--lb-deep),rgba(3,10,24,.3) 17%,transparent 35%),
+  linear-gradient(0deg,rgba(3,10,24,.93),rgba(3,10,24,.58) 15%,rgba(3,10,24,.24) 30%,transparent 44%),
+  radial-gradient(132% 72% at 50% 42%,transparent 10%,var(--lb-haze) 64%,var(--lb-deep) 100%)}
+
+/* --- ĐÈN CHÍNH: vũng sáng sau lưng tàu ---
+ * Thứ tách tàu khỏi nền. Vùng càng tối thì `--lb-key-a` càng cao (JS lo) — cùng lý do với
+ * `system-shadow.under`: ở vùng gần đen, tô thêm đen là vô hình, phải làm ngược lại. */
+#scrMenu .lb-key{position:absolute;left:50%;top:40%;width:108%;height:44%;
+  transform:translate(-50%,-50%);pointer-events:none;mix-blend-mode:screen;
+  opacity:var(--lb-key-a);
+  background:radial-gradient(closest-side,var(--lb-key),transparent 70%)}
+
+/* --- QUỸ ĐẠO / BỆ / CỘT SÁNG ngả theo vùng ---
+ * Giữ nguyên hình, chỉ đổi sắc: mười vùng mà cùng một màu lơ thì vẫn là "đơn điệu 1 màu",
+ * dù nền đã có tranh. */
+#scrMenu .lb-orb .tilt > i{border-color:var(--lb-ac-d);
+  box-shadow:0 0 26px var(--lb-ac-f),inset 0 0 26px var(--lb-ac-f)}
+#scrMenu .lb-orb .tilt2 > i{border-color:var(--lb-ac-f)}
+#scrMenu .lb-orb .dot::after{background:var(--lb-ac);box-shadow:0 0 18px 5px var(--lb-ac-d)}
+#scrMenu .lb-orb .dot.d2::after{box-shadow:0 0 12px 3px var(--lb-ac-d)}
+#scrMenu .lb-disc{background:
+  radial-gradient(50% 50% at 50% 50%,var(--lb-ac-d),var(--lb-ac-f) 52%,transparent 74%),
+  repeating-radial-gradient(50% 50% at 50% 50%,transparent 0 16px,var(--lb-ac-f) 16px 17px)}
+/* Cột sáng + bệ lấy bản MỜ chứ không bản đậm: nền cũ là navy phẳng nên một vệt sáng đè
+   lên chẳng mất gì, còn nền giờ là bức tranh — ở Đồng quê (`cloud` = trắng) cột sáng .46
+   phủ screen làm bay màu hẳn nửa dưới khung hình. */
+#scrMenu .lb-beam{background:linear-gradient(0deg,var(--lb-ac-f),transparent 78%);opacity:.4}
+
+/* --- SỐ MÀN: từ khung dây thành tấm kính khói ---
+ * Viền rỗng trên nền navy phẳng thì đọc ra "chữ to nhất màn hình". Trên một bức tranh thì
+ * nó phải là một LỚP: thêm ruột tối mờ để nhãn MÀN còn đọc được khi mặt đất sáng, và bỏ
+ * quầng lơ 40px (quầng đó là thứ duy nhất phát sáng trong khung hình cũ).
+ * Viền phải ĐẶC (dùng `--lb-ac` nguyên, không phải bản mờ) kèm một quầng tối sát mép:
+ * nền giờ là ảnh thật, viền mờ cùng sắc với vùng là chìm ngay — đo ở Rừng độc, viền xanh
+ * nhạt .46 trên tán lá xanh gần như mất hẳn. */
+#scrMenu .lb-num{color:rgba(4,12,26,.38);-webkit-text-stroke:1.8px var(--lb-ac);
+  filter:drop-shadow(0 0 3px rgba(0,0,0,.85)) drop-shadow(0 2px 12px rgba(0,0,0,.5))}
+#scrMenu .lb-num span{color:var(--lb-ac);text-shadow:0 1px 4px rgba(0,0,0,.7)}
+#scrMenu .lb-num::after{background:linear-gradient(90deg,transparent,var(--lb-ac-d),transparent)}
+
+@media (prefers-reduced-motion: no-preference){
+  /* 54s cho một vòng mặt đất: đủ chậm để không ai thấy nó "chạy", đủ để khung hình không
+     chết cứng. Mây nhanh hơn ⇒ ra thị sai, mắt tự hiểu tầng nào gần tầng nào xa. */
+  #scrMenu .lb-far{animation:lbGround 54s linear infinite}
+  #scrMenu .lb-cl1{animation:lbCloud 41s linear infinite}
+  #scrMenu .lb-cl2{animation:lbCloud 26s linear infinite -9s}
+}
+@keyframes lbGround{to{transform:translateY(-33.334%)}}
+@keyframes lbCloud{from{transform:translateY(-120%)}to{transform:translateY(270%)}}
