@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="icon" type="image/png" href="icons/icon-192.png">
-<link rel="stylesheet" href="assets/style-eee20fb4.css">
+<link rel="stylesheet" href="assets/style-62e3f1ce.css">
 </head>
 <body>
 <!-- MÀN TẢI VÀO GAME (12/10/2026): hiện NGAY khi HTML về, trước cả lúc JS chạy. Kiểm tra bản
@@ -792,6 +792,13 @@
       <div class="res-crest"><h3 id="resTitle">HOÀN THÀNH</h3></div>
       <!-- Nhãn trùm tách RIÊNG khỏi dòng địa danh. Ghép chung bằng dấu · thì tên vùng
            dài là gãy dòng, bỏ lại mỗi "TRÙM VÙNG" trơ trọi ở dòng dưới. -->
+      <!-- RUỘT CUỘN ĐƯỢC (18/10/2026). Đo thật: cửa sổ 1920×880, cỡ chữ RẤT LỚN, tấm bảng
+           cao 777px trong 880px — chỉ dư 103px, nên một kỷ lục mới hay một dòng mảnh tiến
+           hóa dài là tràn. Mà khi tràn thì `.layer` canh giữa nên nó hụt ĐỀU hai đầu và
+           KHÔNG có đường cuộn nào: phần bị cắt là không bấm tới được.
+           Bọc riêng phần RUỘT thay vì cho cả tấm bảng cuộn, để ruy băng tiêu đề và hàng
+           nút luôn đứng yên — MAP TIẾP không bao giờ phải cuộn mới thấy. -->
+      <div class="res-scroll">
       <div class="res-where">
         <span class="res-level" id="resLevel">MÀN 01 · ĐỒNG QUÊ</span>
         <span class="res-tag hidden" id="resTag">TRÙM VÙNG</span>
@@ -810,6 +817,7 @@
       </div>
       <ul class="gold-rows" id="resGold"></ul>
       <p class="res-advice hidden" id="resAdvice"></p>
+      </div><!-- /.res-scroll -->
       <div class="res-btns">
         <button class="btn ghost" id="btnResRetry">CHƠI LẠI</button>
         <!-- Thay chỗ MAP TIẾP ở màn cuối cùng của chiến dịch -->
@@ -861,7 +869,7 @@
 <script src="../../shared/portal-cloud.js"></script>
 <script src="../../shared/portal-rank.js"></script>
 <script src="../../shared/portal-player.js"></script>
-<script src="assets/app-c7a35479.js" onerror="window.__shellHong=1"></script>
+<script src="assets/app-7295ac3a.js" onerror="window.__shellHong=1"></script>
 <script>
 /* LOP TU CUU KHI VO UNG DUNG HONG — dung xoa.
  *

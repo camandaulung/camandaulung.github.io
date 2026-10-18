@@ -96,8 +96,9 @@ SC.BALANCE = {
   "reward": {
     "clearBonusBase": 34,
     "clearBonusPerStar": 34,
-    "depthStep": 0.05,
-    "loseKeep": 0.4
+    "depthStep": 0.08,
+    "loseKeep": 0.4,
+    "killCoin": 0.035
   }
 };
 
@@ -1148,7 +1149,16 @@ SC.Tree = {
    * vượt bảng KHÔNG làm quái mạnh thêm — phần thưởng cho việc cày là sức mạnh thật,
    * còn độ khó thì do vòng vô tận lo (system-endless.js).
    */
-  GROW: 1.42,        // giá mỗi cấp vượt bảng nhân thêm ngần này
+  /* 18/10/2026: 1,42 -> 1,22. Số cũ là một BỨC TƯỜNG, đo bằng `tools/econ-report.mjs`:
+     cày map sâu nhất mà nâng MỘT cấp của MỘT nhánh tốn 7,2 trận ở cấp 9, **41,3 trận ở
+     cấp 14**, 118,2 trận ở cấp 17 — nhân 4 nhánh là 473 trận cho một bậc. Giá lũy thừa
+     ×1,42 đấu với thu nhập tuyến tính (×1 → ×3,95 suốt 60 map) thì chắc chắn gãy, chỉ là
+     gãy ở cấp nào. Nay 3,4 / 9,1 / 16,6 trận — vẫn dốc lên nên nâng cấp còn đáng giá.
+     KHÔNG ai bị nerf: rẻ đi thì người đang chơi chỉ được lợi. Độ khó tự theo kịp vì
+     `SC.Power` tính độ khó theo chính cấp cây kỹ năng.
+     ĐỂ Ở MÃ, KHÔNG ĐƯA VÀO EXCEL (giống `BOMB_PITY`) — nhưng `econ-report.mjs` đọc số này
+     bằng regex nên đổi tên biến thì nhớ sửa cả ở đó. */
+  GROW: 1.22,        // giá mỗi cấp vượt bảng nhân thêm ngần này
 
   lv(key) { return this.node(key).lv; },
   path(key) { return this.node(key).path; },
@@ -11788,6 +11798,23 @@ SC.Combat = {
     g.combo = Math.min(SC.CFG.maxCombo, g.combo + 1);
     if (g.combo > g.stats.maxCombo) g.stats.maxCombo = g.combo;
     SC.UI.setCombo(g.combo);
+
+    /* VÀNG THEO ĐỘ TRÂU CỦA CON VỪA HẠ (18/10/2026).
+     *
+     * Trước đây hạ quái KHÔNG ra vàng — vàng chỉ đến từ vật phẩm rơi, mà tỉ lệ rơi chỉ
+     * chạy 0,30 (gà chip chip, 3 máu) đến 0,88 (gà kền kền, 58 máu). Hệ quả đo được bằng
+     * sim: tiền nhặt trong trận KHÔNG hề tăng theo độ sâu — màn 1 được 66, màn 60 được
+     * 493, mà màn 14 chỉ 85 còn màn 6 tới 341. Giết một con trâu gấp 19 lần chỉ được trả
+     * gấp 3. Đó là lý do "cày lại map cũ" và "đánh map sâu" gần như ngang nhau, trong khi
+     * giá cây kỹ năng thì lũy thừa.
+     *
+     * `def.score` đã là thước đo độ trâu có sẵn (7 cho gà muỗi → 96 cho gà kền kền) và nó
+     * tự lớn theo độ sâu vì map sâu dùng pool quái nặng hơn. Sàn 1 để map đầu không thành
+     * ra không ra vàng — người mới cần thấy số nhảy.
+     * KHÔNG nhân combo: combo đã thưởng bằng ĐIỂM rồi, nhân cả hai là người chơi giỏi
+     * giàu theo cấp số nhân còn người mới thì không. */
+    const kc = SC.bal('reward.killCoin', 0.035);
+    if (kc > 0) g.coin += Math.max(1, Math.round((e.def && e.def.score || 0) * kc));
 
     const gain = Math.round(e.def.score * g.combo * 0.6);
     g.score += gain;

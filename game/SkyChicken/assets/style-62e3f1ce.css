@@ -3104,6 +3104,39 @@ body .prof-ava .ava-emo{font-size:23px}
    phủ screen làm bay màu hẳn nửa dưới khung hình. */
 #scrMenu .lb-beam{background:linear-gradient(0deg,var(--lb-ac-f),transparent 78%);opacity:.4}
 
+/* ============ MÀN TỔNG KẾT KHÔNG BAO GIỜ TRÀN KHỎI CỬA SỔ (18/10/2026) ============
+ * Anh Đức: *"popup tổng kết rất nhỏ và dài, trên pc 22 inch nó còn tràn ra ngoài màn hình
+ * browser"*. Đo bằng `tools/measure-result-panel.mjs`:
+ *   1920×880 cỡ chữ RẤT LỚN → bảng 451×777, chỉ dư 103px
+ *   566×979                 → bảng 516×889, dư 90px
+ * Tức đang ĐỨNG SÁT MÉP: thêm một kỷ lục mới (ô GIỜ xuống 4 dòng) hay một dòng mảnh tiến
+ * hóa dài là tràn thật. Và bộ soi 24 màn KHÔNG bắt được vì nó chấm phần tử con có lọt
+ * khung cha không — ở đây phần tử con vẫn nằm trong cha, chính CÁI CHA chạy ra ngoài.
+ *
+ * Đo chiều cao từng khối (đơn vị UI) để cắt đúng chỗ, không cắt chỗ mình đoán:
+ *   resMissions 86 · res-crest 59 · res-grid 49 · res-where 44 · res-btns 44 ·
+ *   res-links 44 · resGold 43 · resStars 25
+ * Phần biến thiên nằm ở resMissions / resGold / res-advice — nên đó mới là phần phải cuộn.
+ *
+ * `min-height:0` KHÔNG BỎ ĐƯỢC: `.res-scroll` là con của một cột flex, mà mặc định
+ * `min-height:auto` không cho co lại dưới chiều cao nội dung — thiếu dòng đó thì
+ * `overflow-y:auto` không bao giờ kích hoạt, y như bẫy "danh sách cuộn bị bóp lùn" đã ghi
+ * ở khối SOÁT GIAO DIỆN LẦN 3. */
+#scrResult > .panel{max-height:100%}
+.res-scroll{display:flex;flex-direction:column;gap:8.7px;
+  min-height:0;overflow-y:auto;overscroll-behavior:contain}
+.res-scroll::-webkit-scrollbar{width:3px}
+.res-scroll::-webkit-scrollbar-thumb{background:rgba(130,190,255,.35);border-radius:3px}
+
+/* Ô GIỜ có kỷ lục: "13s KỶ LỤC MỚI" trong một ô rộng 1/4 bảng thì xuống BỐN dòng, một
+   mình nó đội cả hàng lưới lên. Cho chữ kỷ lục chạy ngang hết lưới dưới dạng một vệt
+   mảnh — vẫn khoe được, mà không ăn chiều cao của ba ô bên cạnh. */
+.panel.result .res-grid{position:relative}
+.panel.result .rs.record .rs-v em{position:absolute;left:0;right:0;bottom:-11.6px;
+  display:block;font-size:12px;letter-spacing:.18em;text-align:center;color:var(--acc);
+  margin-top:0;text-shadow:0 1px 3px rgba(0,0,0,.8)}
+.panel.result .res-grid:has(.rs.record){margin-bottom:17.3px}
+
 /* --- SỐ MÀN: từ khung dây thành tấm kính khói ---
  * Viền rỗng trên nền navy phẳng thì đọc ra "chữ to nhất màn hình". Trên một bức tranh thì
  * nó phải là một LỚP: thêm ruột tối mờ để nhãn MÀN còn đọc được khi mặt đất sáng, và bỏ
