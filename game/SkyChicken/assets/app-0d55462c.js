@@ -71,8 +71,8 @@ SC.BALANCE = {
     {"k": "power", "w": 20, "c": "#ff8a2b", "ic": "⚡"},
     {"k": "heal", "w": 13, "c": "#4dff9f", "ic": "✚"},
     {"k": "shield", "w": 11, "c": "#3fe0ff", "ic": "◇"},
-    {"k": "bomb", "w": 3.5, "c": "#ff3b5c", "ic": "✺"},
-    {"k": "gem", "w": 5, "c": "#c58cff", "ic": "★"}
+    {"k": "bomb", "w": 3.5, "c": "#a8ff3d", "ic": "✺"},
+    {"k": "gem", "w": 5, "c": "#d98cff", "ic": "★"}
   ],
   "levels": {
     "density": 1.4,
@@ -96,7 +96,8 @@ SC.BALANCE = {
   "reward": {
     "clearBonusBase": 34,
     "clearBonusPerStar": 34,
-    "depthStep": 0.05
+    "depthStep": 0.05,
+    "loseKeep": 0.4
   }
 };
 
@@ -116,7 +117,35 @@ SC.bal = function (path, def) {
 /* core-config.js — hằng số toàn cục + tiện ích toán học dùng chung */
 window.SC = window.SC || {};
 
-SC.W = 540;   // bề ngang ảo — cố định để gameplay đồng nhất mọi thiết bị
+SC.W = 540;   // bề ngang KHUNG NHÌN (ảo) — cố định để gameplay đồng nhất mọi thiết bị
+
+/* BỀ NGANG THẾ GIỚI và CAMERA (18/10/2026, pha 02A).
+ *
+ * VÌ SAO TÁCH: `SC.W` đang mang HAI nghĩa cùng lúc — "khung nhìn rộng bao nhiêu" và "sân
+ * chơi rộng bao nhiêu" — ở 100 chỗ trong 31 tệp. Chừng nào hai thứ đó bằng nhau thì không
+ * ai thấy vấn đề; nhưng muốn map RỘNG HƠN KHUNG NHÌN (hướng anh Đức đặt ra, và là nền cho
+ * gà mặt đất ở pha 06) thì phải biết chỗ nào nói về cái nào. Lẫn một chỗ là quái sinh
+ * ngoài tầm bắn hoặc mèo rơi chỗ không bay tới được — lỗi IM LẶNG, không ai thấy lúc dựng.
+ *
+ * `K = 1` nên BƯỚC NÀY KHÔNG ĐỔI MỘT HÀNH VI NÀO: `SC.WW === SC.W`, `Cam.x === 0`. Đó là
+ * chủ đích — tách nghĩa trước, nới sau (pha 02B), để nếu có vỡ thì biết vỡ vì cái nào.
+ *
+ * QUY TẮC: chỗ nào nói về SÂN CHƠI (quái sinh ở đâu, mèo rơi ở đâu, trùm đi tới đâu, vật
+ * thể ra khỏi map chưa) dùng `SC.WW`. Chỗ nào nói về MÀN HÌNH (chữ giữa màn, viền tối,
+ * HUD, lobby) giữ `SC.W`. */
+SC.WORLD_K = 1;                 // 1 = sân chơi đúng bằng khung nhìn (chưa nới)
+SC.WW = SC.W * SC.WORLD_K;      // bề ngang THẾ GIỚI
+
+/* Camera: chỉ trượt NGANG, luôn kẹp trong sân chơi. Với K = 1 thì `x` luôn 0. */
+SC.Cam = {
+  x: 0,
+  /* Bám theo tàu, giữ tàu ở giữa khung nhìn trong mức có thể. */
+  follow(px) {
+    const max = SC.WW - SC.W;
+    this.x = max <= 0 ? 0 : SC.clamp(px - SC.W / 2, 0, max);
+  },
+  reset() { this.x = 0; }
+};
 SC.H = 960;   // chiều cao ảo — SC.View.layout() tính lại theo tỉ lệ màn hình
 
 SC.CFG = {
@@ -157,6 +186,62 @@ SC.addShake = (power, time) => {
   if (SC.Settings && !SC.Settings.shake) return;
   if (power > SC.shake.power) SC.shake.power = power;
   SC.shake.t = Math.max(SC.shake.t, time);
+};
+
+;
+/* ===== js/data-colour-law.js ===== */
+/* data-colour-law.js — LUẬT MÀU của Sky Chicken. MỘT chỗ duy nhất, không rải hex trong mã.
+ *
+ * VÌ SAO CÓ (17/10/2026): đo bằng `tools/audit-colour-bands.mjs` trên 10 ảnh nền thật và
+ * bảng màu thật, ra ba chuyện không chối được:
+ *   · đồ nhặt BOM `#ff3b5c` TRÙNG TỪNG KÝ TỰ với đạn địch `plasma`;
+ *   · đồ nhặt NGỌC `#c58cff` TRÙNG TỪNG KÝ TỰ với đạn địch `boomer`;
+ *   · 18 cặp màu-game × nền nằm cùng cung sắc độ trên nền đang "tươi" (storm 80% điểm tươi,
+ *     dune 67%) — tức là đạn địch chìm vào nền ở nửa số vùng.
+ * Người chơi thấy một quầng tím: đó là NGỌC phải lao vào nhặt, hay BOOMERANG phải né? Cùng
+ * một màu thì không có cách nào biết. Đó là lỗi đọc được, không phải chuyện thẩm mỹ.
+ *
+ * BA DẢI KHOÁ — vi phạm là `tools/audit-colour-bands.mjs` kêu, đừng sửa bằng mắt:
+ *   1. NỀN       — bão hoà ≤ 0,30 và điểm tươi ≤ 10% (ép ở `art-sprite-ops.bgLoop`).
+ *                  Sắc độ nào cũng được; nền không bao giờ được quyền "tươi".
+ *   2. ĐẠN ĐỊCH  — ĐỘC QUYỀN cung 330-358° (đỏ-hồng). Không vật phẩm, không đạn ta, không
+ *                  nền nào được vào dải này. Phân biệt LOẠI đạn bằng HÌNH và CHUYỂN ĐỘNG
+ *                  (tia, mũi tên, boomerang, cầu đập, hoả tiễn có đuôi) + độ sáng, KHÔNG
+ *                  bằng sắc độ — giống Sky Force: màu chỉ nói một chữ "NGUY HIỂM".
+ *   3. ĐỒ NHẶT   — ngoài dải trên, trải đều: 27 cam · 46 vàng · 85 chanh · 148 lục ·
+ *                  190 lam · 285 tím (xem `SC.ITEM_DEF` trong data-levels.js — nằm trong
+ *                  file Excel cân bằng, sửa xong phải `npm run balance:export`).
+ *   4. ĐẠN TA    — vàng-cam nhạt, quầng NHỎ. Màn hình không được để đạn của chính mình che
+ *                  mất đạn địch và đồ nhặt (xem clip Sky Force: đạn người chơi rất khiêm tốn).
+ *
+ * Mọi đạn địch đều có LÕI SÁNG: dải màu lo phần "nguy hiểm", lõi lo phần "đọc được trên
+ * mọi nền". Bỏ lõi là mất lưới an toàn cho vùng nào đó sau này đổi ảnh nền.
+ */
+
+SC.COLOUR = {
+  /* dải độc quyền của đạn địch, đơn vị độ trên vòng sắc độ */
+  FOE_BAND: [330, 358],
+
+  /* Mỗi loại: quầng (glow) · thân (body) · lõi sáng (core). Thiếu khoá nào thì chỗ vẽ
+     tự lo — bảng này chỉ giữ MÀU, không giữ hình. */
+  foe: {
+    laser:  { glow: '#ff2f62', body: 'rgba(255,100,140,.9)', core: '#ffffff' },
+    arrow:  { glow: '#ff5c86', body: '#ff8fae', core: '#ffe4ec' },
+    dart:   { glow: '#ff7d9e', body: '#ffb3c6', core: '#fff0f4' },
+    bounce: { glow: '#ff3d70', body: '#ff86a6', core: 'rgba(255,255,255,.72)' },
+    boomer: { glow: '#ff4d9d', body: '#ff8fc4', core: 'rgba(255,255,255,.68)' },
+    blast:  { glow: '#ff1f4d', body: '#ff5c80', core: '#fff0f4' },
+    egg:    { glow: '#ff6b90', body: '#ffd9e2', core: '#ffffff' },
+    plasma: { glow: '#ff2b57', body: '#ff6b8e', core: '#ffffff' },
+    rocket: { glow: '#ff3b6b', body: '#ff87a8', core: '#ffffff' },
+  },
+
+  /* viền tối chung cho thân đạn — giữ dáng đọc được cả trên nền sáng lẫn nền tối */
+  FOE_EDGE: 'rgba(10,16,32,.8)',
+
+  /* Trả về bộ màu của một loại đạn; loại lạ thì lùi về `plasma` để không bao giờ vẽ
+     bằng màu nằm ngoài dải. */
+  f(kind) { return this.foe[kind] || this.foe.plasma; },
 };
 
 ;
@@ -285,6 +370,45 @@ SC.WAVE_CURVE = SC.bal('levels.waveCurve', {
 
 SC.LEVELS_PER_BIOME = SC.bal('levels.levelsPerBiome', 10);
 
+/* TẦNG NHỊP NHỎ (17/10/2026, pha 07) — hàng chờ của MỖI macro wave được chẻ thành
+   `levels.pulses` lô, nhả cách nhau `levels.pulseCadence` giây (chia cho cường độ wave:
+   wave dồn dập ra nhanh hơn). 4 macro wave × 5 lô = 20 nhịp/màn, đúng cỡ Sky Force (25).
+   TỔNG SỐ QUÁI KHÔNG ĐỔI — chỉ chia lại hàng chờ đã dựng xong.
+
+   HAI SỐ NÀY CỐ Ý KHÔNG ĐƯA VÀO EXCEL, theo đúng tiền lệ `levels.maxWave` và
+   `Items.BOMB_PITY`. Lý do: đã thử đưa vào `data-balance.js` rồi chạy
+   `balance:export` → `balance` thì vòng tròn **NUỐT MẤT CẢ HAI** — sheet không có cột
+   cho chúng, y hệt bẫy `rocket`/`blast` của khiên B hồi 16/10 (bản live chưa từng có hai
+   hiệu ứng đó). Thêm cột vào hai script Python chỉ để chỉnh một con số là không đáng;
+   `SC.bal(khoá, mặc_định)` tự trả về số dưới đây khi Excel không khai.
+   Muốn thử nhanh số khác mà không build: đặt `SC.BALANCE.levels.pulses` trong console,
+   hoặc dùng `--patch=` của `tools/sim-variants.mjs`.
+   Chi tiết + lý do không nới thẳng `waveCurve` thành 20 phần tử: `system-waves-formations.js`. */
+SC.PULSES = 5;            // số lô mỗi macro wave  → 4 wave × 5 = 20 nhịp/màn
+SC.PULSE_CADENCE = 2.6;   // giây giữa hai lô, CHIA cho cường độ wave (dồn dập ra nhanh hơn)
+
+/* MÈO NHẢY DÙ Ở MỌI MAP (18/10/2026, pha 01) — trả lại động từ NHẶT.
+ *
+ * Bóc Sky Force ra: mỗi màn của họ có 76 vật đặt sẵn trên đường bay, trong đó **42 là
+ * NGƯỜI CẦN CỨU** — đồ nhặt chính của game là NGƯỜI, không phải vàng. Sky Chicken thì
+ * vật phẩm TỰ HÚT về tàu sau 0,25 giây (`entity-item.js`) và KHÔNG có vật phẩm nào đặt
+ * sẵn, nên còn đúng một động từ: BẮN.
+ *
+ * Mèo nhảy dù đã là đúng cơ chế rồi (chạm `dist < 34`, không hút) — chỉ thiếu SỐ LƯỢNG và
+ * thiếu ở hầu hết map: trước đây chỉ 2-4 con, và chỉ ở map nào bốc trúng nhiệm vụ `rescue`
+ * (3 trong 8 nhiệm vụ → 19/60 map). Nay rơi ở MỌI map.
+ *
+ * VÌ SAO KHÔNG BỎ AUTO-LOOT CHO VÀNG (hướng đầu tiên của kế hoạch): đo ra vàng rơi
+ * 10-25 lần/màn nên bỏ hút không quá đau, NHƯNG thứ thật sự khan hiếm là NGỌC ★ —
+ * 1,2-2,8 viên/màn, mỗi viên +30◈, trượt một viên là mất 13-26% thu nhập CẢ MÀN. Bắt
+ * nhặt tay thứ đó là ức chế chứ không phải thử thách. Sky Force giải bằng VOLUME, nên
+ * mình cũng dồn "nhặt tay" vào thứ NHIỀU: mèo.
+ *
+ * 6 con chứ không phải 42 như Sky Force: kinh tế vàng/điểm là ràng buộc cứng (cổng đo
+ * ±15% vàng, ±20% điểm). Muốn lên nữa thì phải hạ giá mỗi con tiếp, hoặc tách mèo khỏi
+ * kinh tế vàng hẳn — để đợt sau, đo log người thật trước. */
+SC.RESCUE_PER_MAP = 6;
+
 /* Núm chỉnh độ khó tổng thể, tác động qua mật độ quái.
    1.2 = đông hơn 20% so với bản cân bằng đầu — vừa nâng độ khó vừa cho cảm giác
    "gặt" đã tay hơn, thay vì làm quái trâu bò khó chịu. */
@@ -322,7 +446,13 @@ SC.LEVELS = (() => {
       id: i,
       biome: bi,
       stage: step + 1,                          // số thứ tự trong vùng
-      name: b.name + ' ' + (step + 1),
+      /* TÊN MÀN DÙNG SỐ TUYỆT ĐỐI (18/10/2026). Bản cũ ghi số thứ tự TRONG VÙNG
+         (`step + 1`), nên cùng một màn mà sảnh ghi "MÀN 132" còn băng vào trận ghi
+         "SA MẠC HOÀNG HÔN 6" — anh Đức: "thống nhất một tên gọi đi".
+         Đây cũng đúng luật đã chốt ở `ui-rank.js:26` ("nhãn màn là SỐ TUYỆT ĐỐI, cùng hệ
+         với mọi chỗ khác") — chỗ này lọt lưới từ hồi đó. `stage` vẫn giữ số trong vùng
+         cho phần tính toán; chỉ CHỮ HIỆN RA mới đổi. */
+      name: b.name + ' ' + i,
       chunk: chunk.name,
       boss: isBoss,
       finalBoss: isFinal,
@@ -373,8 +503,13 @@ SC.ITEM_DEF = SC.bal('items', [
   { k:'power', w:20, c:'#ff8a2b', ic:'⚡' },
   { k:'heal',  w:13, c:'#4dff9f', ic:'✚' },
   { k:'shield',w:11, c:'#3fe0ff', ic:'◇' },
-  { k:'bomb',  w:4,  c:'#ff3b5c', ic:'✺' },   // 7 -> 4 (22/09/2026): bom rơi thưa hơn
-  { k:'gem',   w:5,  c:'#c58cff', ic:'★' }
+  // 17/10/2026 — ĐỔI MÀU theo LUẬT MÀU (`js/data-colour-law.js`): bom `#ff3b5c` TRÙNG
+  // TỪNG KÝ TỰ với đạn địch `plasma`, ngọc `#c58cff` trùng từng ký tự với `boomer`.
+  // Người chơi thấy quầng đỏ/tím mà không biết nên LAO VÀO hay NÉ. Dải 330-358° nay là
+  // độc quyền của đạn địch nên hai thứ này phải dời đi: bom sang chanh 85°, ngọc sang
+  // tím nhạt 285° (xa cung 258-260° của hai vùng neon/void).
+  { k:'bomb',  w:4,  c:'#a8ff3d', ic:'✺' },   // 7 -> 4 (22/09/2026): bom rơi thưa hơn
+  { k:'gem',   w:5,  c:'#d98cff', ic:'★' }
 ]);
 
 ;
@@ -625,7 +760,11 @@ SC.Endless = {
     return Object.assign({}, base, {
       id,
       cycle: c,
-      name: base.name + ' ✦' + (c + 1),
+      /* 18/10/2026: dựng lại tên từ SỐ TUYỆT ĐỐI của vòng vô tận, không nối thêm "✦vòng".
+         Bản cũ ra "SA MẠC HOÀNG HÔN 6 ✦3" trong khi sảnh ghi "MÀN 132" — hai cách gọi cho
+         cùng một màn. Số tuyệt đối đã tự nói lên vòng (132 > 60 tức vòng 3), nên đuôi ✦
+         vừa thừa vừa làm băng tên dài thêm một dòng. */
+      name: (SC.BIOMES[base.biome] ? SC.BIOMES[base.biome].name : base.name) + ' ' + id,
       hpMul: +(this.smooth(base.hpMul) * m).toFixed(2),
       fireMul: +(base.fireMul * (1 + (m - 1) * 0.5)).toFixed(2),
       spdMul: +(base.spdMul * (1 + (m - 1) * 0.25)).toFixed(2),
@@ -944,7 +1083,12 @@ SC.MISSION_POOL = [
   },
   {
     id: 'rescue', ic: '🐱', img: 'ui-icon-rescue',   /* emoji mau -> sprite; ic con lai lam duong lui */
-    arg: id => 2 + Math.floor(id / 25),
+    /* 2→3 (pha 01, 18/10/2026): nay MỌI map thả ít nhất `SC.RESCUE_PER_MAP` = 6 con nên
+       mốc 2-4 gần như cho không. Nhưng ĐỪNG nâng mạnh: đo bằng sim thì bot chỉ nhặt được
+       2,5-4,8 trong 6 con (nó không đi tìm mèo, chỉ ăn con nào bay ngang). Người thật
+       nhìn thấy mèo nên nhặt khá hơn, song 4-6 vẫn là quá tay cho một ô nhiệm vụ phụ.
+       3-5 đòi phải chú ý mà không biến ngôi sao đó thành chuyện may rủi. */
+    arg: id => 3 + Math.floor(id / 25),
     label: n => `Cứu ${n} bé mèo rơi`,
     check: (g, p, n) => g.stats.rescued >= n,
     got: g => g.stats.rescued,
@@ -1974,6 +2118,9 @@ SC.Input = {
       const k = e.key;
       const laPause = k === 'Escape' || k === 'p' || k === 'P' || k === ' ' || k === 'Spacebar';
       if (!laPause) return;
+      // Ở 'ready' (bay trong mây) phím cách là VÀO TRẬN, không phải tạm dừng — tạm dừng
+      // một màn chưa bắt đầu thì chẳng có gì để dừng.
+      if (game.state === 'ready') { e.preventDefault(); SC.Ready.arm(); return; }
       if (game.state !== 'play' && game.state !== 'pause') return;
       e.preventDefault();
       game.pause(game.state === 'play');
@@ -1987,6 +2134,11 @@ SC.Input = {
   },
 
   _down(e) {
+    /* Chạm lúc đang bay trong mây = vào trận. KHÔNG đặt đích lái và KHÔNG bắt đầu kéo:
+       cú chạm đó mang nghĩa "bắt đầu"; nếu nó cũng lái thì tàu giật một phát sang chỗ
+       ngón tay ngay lúc vén màn. */
+    if (this.game.state === 'ready') { SC.Ready.arm(); return; }
+    SC.AutoPause.cam();                   // chạm lại = chơi tiếp (xem system-auto-pause.js)
     if (this.game.state !== 'play') return;
     this.mode = e.pointerType === 'touch' ? 'relative' : 'absolute';
     this.active = e.pointerId;
@@ -2002,9 +2154,14 @@ SC.Input = {
   },
 
   _move(e) {
+    const [x, y] = SC.View.toWorld(e.clientX, e.clientY);
+    // NHỚ vị trí con trỏ ở MỌI trạng thái — kể cả lúc bay trong mây và lúc nhảy dù, là
+    // hai lúc người chơi đã rê chuột mà lái thì chưa trả về. `applyLastPointer()` dùng nó.
+    if (e.pointerType !== 'touch') { this._lx = x; this._ly = y; }
+    // chuột rê vào lại sân = chơi tiếp; cảm ứng thì `_down` đã lo
+    if (e.pointerType !== 'touch') SC.AutoPause.cam();
     if (this.game.state !== 'play') return;
     const p = this.game.player;
-    const [x, y] = SC.View.toWorld(e.clientX, e.clientY);
 
     if (e.pointerType === 'touch') {
       if (!this.dragging || e.pointerId !== this.active) return;
@@ -2022,8 +2179,26 @@ SC.Input = {
     e.preventDefault();
   },
 
+  /* Trả lái lại cho con trỏ sau khi màn nhảy dù dứt (xem chú thích ở `main.update`).
+     Chỉ dành cho CHUỘT: cảm ứng phải chạm mới lái, tự dắt tàu tới ngón tay cuối cùng là
+     sai hẳn ý. Không có vị trí nào nhớ được (người chơi chưa hề rê chuột) thì thôi. */
+  applyLastPointer() {
+    if (SC.View.touch || this._lx == null) return;
+    const p = this.game && this.game.player;
+    if (p) { this.mode = 'absolute'; p.setTarget(this._lx, this._ly); }
+  },
+
+  /* Canvas gắn CẢ BA sự kiện vào đây: pointerup, pointercancel, pointerleave.
+     "BUÔNG TAY" nghĩa khác nhau theo thiết bị (xem system-auto-pause.js):
+       · cảm ứng — nhấc ngón là buông, rõ ràng;
+       · chuột   — người chơi KHÔNG giữ nút (tàu bám con trỏ), nên `pointerup` xảy ra
+                   liên tục và vô nghĩa; chỉ `pointerleave` (con trỏ rời sân) mới là
+                   "thôi không chơi nữa". Lấy nhầm tín hiệu ở đây là game tự dừng mỗi
+                   lần bấm chuột. */
   _up(e) {
     if (e.pointerId === this.active) { this.dragging = false; this.active = null; }
+    const buong = e.pointerType === 'touch' ? e.type !== 'pointerleave' : e.type === 'pointerleave';
+    if (buong) SC.AutoPause.tha();
   },
 
   /* rung nhẹ khi trúng đòn / nổ bom (bỏ qua nếu máy không hỗ trợ) */
@@ -2801,6 +2976,21 @@ SC.draw = {
     ctx.restore();
   },
 
+  /* Y HỆT `glow` nhưng KHÔNG save/restore và KHÔNG đặt chế độ trộn (18/10/2026).
+   *
+   * VÌ SAO CÓ: đo map 126 thấy 71% khung vượt 16,7 ms và phần lớn chi phí nằm ở lượt VẼ.
+   * Đỉnh là 126 viên đạn ta + 52 viên đạn địch, mỗi viên gọi `glow()` một tới hai lần —
+   * tức tới ~250 cặp save/restore cộng ~250 lần gán `globalCompositeOperation` mỗi khung,
+   * trong khi vòng vẽ bên ngoài ĐÃ đặt sẵn `lighter` cho cả lượt. Toàn bộ số đó là thừa.
+   * Người gọi phải tự lo: `ctx.save()`, đặt `globalCompositeOperation = 'lighter'`, rồi
+   * `ctx.restore()` ở cuối vòng. Dùng SAI thì quầng sáng tràn sang lớp vẽ sau — nên chỉ
+   * dùng trong những vòng lặp đã dựng sẵn trạng thái, đừng rải khắp nơi. */
+  glowRaw(ctx, x, y, r, color, alpha) {
+    const s = this._glowSprite(color);
+    ctx.globalAlpha = alpha;
+    ctx.drawImage(s, x - r, y - r, r * 2, r * 2);
+  },
+
   /* Viền tối dùng chung cho mọi quái.
      Lý do: quái sáng màu trên nền trời sáng (đồng quê, sa mạc) đo được tương phản
      chỉ 1.0-1.4:1, tức gần như tàng hình. Viền tối giữ hình đọc được ở mọi nền. */
@@ -3009,6 +3199,27 @@ SC.SpriteArt = {
     }
   },
 
+  /* Nạp LẠI một sprite từ tệp gốc (18/10/2026).
+   *
+   * VÌ SAO CÓ: `SC.EvoAI` thay thẳng `_imgs['ship-player']` khi lên tàu AI, và trả về
+   * bằng `restoreDefault()` dựa trên một tham chiếu chụp lúc khởi động. Nếu tham chiếu đó
+   * rỗng (chụp hụt) thì `_imgs` bị gán `undefined` và `get()` trả null VĨNH VIỄN — tàu
+   * người chơi biến mất, không một lỗi nào.
+   * Bug thật trên banga 18/10: chẩn đoán ở lobby in ra `"anh": false` trong khi tệp
+   * `ship-player.webp` hoàn toàn lành và có trong precache. Có đường về từ tệp gốc thì
+   * mất tham chiếu không còn là mất tàu. */
+  reload(kind, key) {
+    const k = kind + '-' + key;
+    const img = new Image();
+    img.src = this.BASE + k + '.webp';
+    img.onload = () => {
+      if (SC.EnemySprite) SC.EnemySprite._cache = {};
+      if (SC.ShipArt) SC.ShipArt._cache = {};
+    };
+    this._imgs[k] = img;
+    return img;
+  },
+
   /* Trả Image khi đã tải xong và hợp lệ, ngược lại null để người gọi fallback */
   get(kind, key) {
     if (!this.enabled) return null;
@@ -3059,6 +3270,247 @@ SC.ArtScale = {
 SC.SpriteArt.load();
 
 ;
+/* ===== js/system-shadow.js ===== */
+/* system-shadow.js — bóng đổ dưới MỌI vật thể bay, và độ đậm theo vùng.
+ *
+ * VÌ SAO CÓ (17/10/2026, pha 09.3): `SC.SpriteArt.drawShadow` có sẵn từ lâu nhưng chỉ
+ * được gọi ĐÚNG HAI chỗ — `entity-boss-art.js` và `entity-enemy-sprite.js`. Hệ quả nhìn
+ * thấy trong ảnh chụp: quái thì nằm trên mặt đất, còn máy bay người chơi, phi đội, mèo
+ * nhảy dù và vật phẩm thì dán lên nền như sticker. Một cảnh mà nửa số vật có bóng nửa
+ * không thì tệ hơn là không có cái nào.
+ *
+ * VÀ: bóng cũ là màu ĐEN alpha cố định 0,28-0,32. Trên ruộng sáng (map 6) thì vừa, nhưng
+ * trên nền tím/đen (map 56, vùng void) nó VÔ HÌNH — tốn một lượt vẽ mà không ai thấy.
+ * Nên độ đậm phải theo độ sáng nền của vùng.
+ *
+ * Nạp SAU `system-sprite-art.js` (dùng `SpriteArt.shadow`) và sau `data-biomes.js`.
+ */
+
+SC.Shadow = {
+  /* Độ đậm theo vùng, nhớ theo id vùng vì mỗi màn chỉ hỏi một lần mỗi khung.
+     Vùng càng tối thì bóng càng phải nhạt — trên nền gần đen, một vệt đen nữa không đọc
+     được; đổi lại cho nó quầng rộng hơn một chút thì vẫn thấy vật "nổi" lên khỏi nền. */
+  _k: null,
+  _lv: null,
+
+  /* 0 = tắt hẳn, 1 = đậm như cũ. Lấy theo độ sáng trung bình của ảnh nền vùng, mà độ
+     sáng đó đã có sẵn trong bảng vùng dưới dạng `star` (vùng nhiều sao = trời tối). */
+  k() {
+    const b = SC.BIOMES && SC.Game && SC.Game.lv ? SC.BIOMES[SC.Game.lv.biome] : null;
+    if (!b) return 1;
+    if (this._lv === b.id) return this._k;
+    this._lv = b.id;
+    // `star` 0 (ban ngày: đồng quê, sa mạc) → 1 (hư không, trời đen).
+    // Bóng mờ dần từ 1,0 xuống 0,35 — không về 0 vì vẫn cần một chút để tách khỏi nền.
+    this._k = 1 - Math.min(1, +b.star || 0) * 0.65;
+    return this._k;
+  },
+
+  /* Vẽ bóng ngay dưới gốc toạ độ hiện tại. `img` là sprite đã dựng (ảnh hoặc canvas),
+     `size` là cỡ vẽ của nó. Gọi TRƯỚC mọi phép xoay theo hướng bay: bóng thuộc về mặt
+     đất, nó không quay theo mũi máy bay.
+     Thiếu ảnh thì im lặng bỏ qua — mọi chỗ vẽ đều có đường lùi về hình vẽ tay. */
+  under(ctx, img, size, mul) {
+    if (!img || !size) return;
+    const m = mul == null ? 1 : mul;
+    /* VÙNG TỐI DÙNG VŨNG SÁNG, KHÔNG DÙNG BÓNG TỐI (18/10/2026).
+       Soi lại art: ở hư không / lõi núi lửa / vực sâu, bóng đen alpha 0,14 trên nền gần
+       đen là VÔ HÌNH — và đó là vật lý, không phải số sai: tô đen lên đen thì không có
+       tương phản nào để nhìn. Muốn vật "chạm đất" ở đó phải làm ngược lại — một vũng
+       SÁNG mờ dưới bụng, đúng như cách đèn sân khấu hắt lên sàn tối.
+       Nhờ vậy cả 10 vùng đều có tín hiệu tiếp đất, thay vì 4 vùng sáng có còn 6 vùng tối
+       thì không. Màu lấy `biome.cloud` nên mỗi vùng một sắc, không phải trắng chung. */
+    const b = SC.BIOMES && SC.Game && SC.Game.lv ? SC.BIOMES[SC.Game.lv.biome] : null;
+    if (b && (+b.star || 0) > 0.45) {
+      const a = 0.16 * m * Math.min(1, (+b.star || 0) + 0.3);
+      if (a < 0.02) return;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      SC.draw.glowRaw(ctx, size * 0.1, size * 0.2, size * 0.34, b.cloud || '#9fd8ff', a);
+      ctx.restore();
+      return;
+    }
+    const k = this.k() * m;
+    if (k < 0.04) return;
+    // 0,4 — chọn bằng mắt trên ảnh chụp headless: 0,3 (như quái) chìm mất trên cát sáng,
+    // 0,9 thành vệt mực. Quái giữ 0,32 vì chúng có viền tối đậm hơn tàu.
+    SC.SpriteArt.drawShadow(ctx, img, size, 0.4 * k);
+  }
+};
+
+;
+/* ===== js/system-ground-light.js ===== */
+/* system-ground-light.js — ÁNH SÁNG HẮT XUỐNG NỀN từ vụ nổ và nòng súng.
+ *
+ * VÌ SAO CÓ (17/10/2026, pha 09.5): game có cộng màu (`globalCompositeOperation`) ở 12 tệp
+ * — hạt, quầng trùm, FX sprite — nhưng KHÔNG lượt nào chạm tới NỀN. Nổ một quả bom giữa
+ * ruộng mà ruộng không sáng lên lấy một chút; nòng súng loé mà mặt đất bên dưới không biết.
+ * Hệ quả: mọi hiệu ứng trông như dán lên trên cảnh chứ không xảy ra TRONG cảnh. Đây là thứ
+ * rẻ nhất trong audit hình ảnh mà đổi cảm giác nhiều nhất.
+ *
+ * Cách làm: giữ một danh sách nguồn sáng ngắn hạn, vẽ NGAY SAU nền và TRƯỚC mọi vật thể
+ * (xem `system-renderer.js`) bằng gradient tròn cộng màu. Vẽ sau vật thể là thành quầng
+ * loá phủ lên quái — ngược hẳn ý đồ, và làm đạn khó đọc.
+ *
+ * TRẦN 18 nguồn: bom quét 20 con cùng lúc thì 20 gradient toàn màn là đủ giết khung hình
+ * trên máy yếu. Vượt trần thì bỏ nguồn CŨ NHẤT — nguồn mới luôn là thứ người chơi đang nhìn.
+ */
+
+SC.GroundLight = {
+  list: [],
+  MAX: 18,
+
+  clear() { this.list.length = 0; },
+
+  /* r = bán kính vùng sáng (px ảo), dur = giây. Màu nên là tông ấm của vụ nổ. */
+  add(x, y, r, col, dur) {
+    if (this.list.length >= this.MAX) this.list.shift();
+    this.list.push({ x, y, r, col: col || '#ffb45c', t: 0, life: dur || 0.22 });
+  },
+
+  update(dt) {
+    for (let i = this.list.length - 1; i >= 0; i--) {
+      const L = this.list[i];
+      L.t += dt;
+      if (L.t >= L.life) this.list.splice(i, 1);
+    }
+  },
+
+  render(ctx) {
+    if (!this.list.length) return;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (const L of this.list) {
+      const k = 1 - L.t / L.life;          // tắt dần tuyến tính
+      // nở nhẹ trong lúc tắt: ánh sáng vụ nổ lan ra chứ không co lại
+      const r = L.r * (0.75 + (1 - k) * 0.45);
+      const g = ctx.createRadialGradient(L.x, L.y, 0, L.x, L.y, r);
+      const n = parseInt(L.col.slice(1), 16);
+      const rgb = [(n >> 16) & 255, (n >> 8) & 255, n & 255].join(',');
+      g.addColorStop(0, `rgba(${rgb},${(0.42 * k * k).toFixed(3)})`);
+      g.addColorStop(1, `rgba(${rgb},0)`);
+      ctx.fillStyle = g;
+      ctx.fillRect(L.x - r, L.y - r, r * 2, r * 2);
+    }
+    ctx.restore();
+  }
+};
+
+;
+/* ===== js/system-level-ready.js ===== */
+/* system-level-ready.js — TRẠNG THÁI 'ready': bay trong mây tới khi người chơi chạm.
+ *
+ * VÌ SAO CÓ (17/10/2026, pha 03): xem clip Sky Force — chưa chạm thì máy bay cứ bay trong
+ * mây, màn chưa bắt đầu. Người chơi được một nhịp thở để nhìn vùng đất, chỉnh tư thế cầm
+ * máy, rồi TỰ QUYẾT lúc vào trận. Sky Chicken thì vừa bấm map là quái đổ xuống ngay —
+ * người chơi vào trận trước khi kịp nhìn.
+ *
+ * KHÔNG làm chậm ai: từ lúc chạm tới lúc có quái y hệt hiện nay (vén màn 0,6s rồi chạy
+ * tiếp đúng màn nhảy dù 2 giây vốn có). Ai muốn vào ngay thì chạm ngay.
+ *
+ * CHỐT AN TOÀN `AUTO`: quá 8 giây không ai chạm thì tự vén màn. Máy kẹt cảm ứng, người
+ * đặt điện thoại xuống, hay bot mô phỏng — không được treo ván vĩnh viễn.
+ *
+ * Mây vẽ trên CANVAS chứ không phải DOM: lớp `#ui` có hệ đo riêng (xem CLAUDE.md "HAI HỆ
+ * ĐO") nên một mảng mây đặt theo px của `#ui` sẽ lệch khỏi tàu ở mọi máy không phải 390px.
+ */
+
+SC.Ready = {
+  AUTO: 8,            // giây tối đa trước khi tự vào trận
+  OPEN: 0.55,         // giây vén màn
+
+  on: false,          // đang ở trạng thái chờ
+  t: 0,
+  opening: -1,        // >= 0 là đang vén màn, đếm lên tới OPEN
+  puffs: [],
+
+  start() {
+    this.on = true; this.t = 0; this.opening = -1;
+    this.puffs.length = 0;
+    /* Hai dải mây: dải TRÁI trôi sang trái khi vén, dải PHẢI sang phải. Mỗi dải vài cụm
+       cho dày, cỡ và độ mờ ngẫu nhiên để không ra hai khối hình chữ nhật. */
+    for (let i = 0; i < 14; i++) {
+      const side = i % 2 ? 1 : -1;
+      this.puffs.push({
+        side,
+        x: SC.W / 2 + side * SC.rnd(SC.W * 0.17, SC.W * 0.46),   // chừa HÀNH LANG GIỮA: ảnh chụp cho thấy mây bu vào giữa là tàu mờ tịt, mà tàu là thứ phải thấy rõ nhất
+        y: SC.rnd(-40, SC.H + 40),
+        s: SC.rnd(90, 210),
+        a: SC.rnd(0.30, 0.55),       // soi anh chup: 0,42-0,72 che gan kin mat dat — nguoi choi dang can NGAM vung dat
+        vy: SC.rnd(26, 58),           // trôi xuống như nền, nhanh hơn một chút (lớp gần)
+        ph: Math.random() * 6.283
+      });
+    }
+  },
+
+  /* Người chơi chạm / bấm / nhấn phím: bắt đầu vén màn. Gọi nhiều lần cũng chỉ ăn một lần. */
+  arm() {
+    if (!this.on || this.opening >= 0) return false;
+    this.opening = 0;
+    SC.Audio.wave && SC.Audio.wave();
+    return true;
+  },
+
+  update(dt) {
+    if (!this.on) return;
+    this.t += dt;
+    SC.BG.update(dt);                       // nền vẫn cuộn: máy bay đang BAY, không đứng
+    for (const p of this.puffs) {
+      p.y += p.vy * dt;
+      if (p.y > SC.H + p.s) p.y = -p.s;
+      if (this.opening >= 0) {
+        // vén: trượt ra khỏi mép theo phía của mình, càng về cuối càng nhanh
+        const k = Math.min(1, this.opening / this.OPEN);
+        p.x += p.side * (260 + 900 * k) * dt;
+      }
+    }
+    // tàu bồng bềnh tại chỗ; không bắn vì `Gun.fire` chỉ chạy trong Game.update
+    const pl = SC.Game.player;
+    if (pl) {
+      pl.y = SC.H * 0.45 + Math.sin(this.t * 1.6) * 9;
+      pl.x = SC.W / 2 + Math.sin(this.t * 0.9) * 26;
+      pl.t = (pl.t || 0) + dt;
+    }
+    if (this.opening < 0 && this.t >= this.AUTO) this.arm();
+    if (this.opening >= 0) {
+      this.opening += dt;
+      if (this.opening >= this.OPEN) { this.on = false; SC.Game.beginPlay(); }
+    }
+  },
+
+  /* Vẽ SAU tàu (mây tiền cảnh che tàu một phần) và TRƯỚC lớp chữ của FX. */
+  render(ctx) {
+    if (!this.on) return;
+    const fade = this.opening >= 0 ? Math.max(0, 1 - this.opening / this.OPEN) : 1;
+    ctx.save();
+    for (const p of this.puffs) {
+      ctx.globalAlpha = p.a * fade;
+      const g = ctx.createRadialGradient(p.x, p.y, p.s * 0.1, p.x, p.y, p.s);
+      g.addColorStop(0, 'rgba(255,255,255,.95)');
+      g.addColorStop(0.55, 'rgba(236,246,255,.55)');
+      g.addColorStop(1, 'rgba(236,246,255,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.ellipse(p.x, p.y, p.s, p.s * 0.62, 0, 0, 6.283);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    if (this.opening < 0) {
+      // Lời mời vẽ trên canvas: tránh hẳn chuyện sàn chữ 12px / vùng chạm 44px của `#ui`.
+      const pulse = 0.72 + Math.sin(this.t * 3.4) * 0.28;
+      ctx.globalAlpha = pulse;
+      ctx.textAlign = 'center';
+      ctx.font = '700 25px system-ui, sans-serif';
+      ctx.fillStyle = '#06101f';
+      ctx.fillText(SC.View.touch ? 'CHẠM ĐỂ VÀO TRẬN' : 'BẤM ĐỂ VÀO TRẬN', SC.W / 2 + 2, SC.H * 0.66 + 2);
+      ctx.fillStyle = '#fff';
+      ctx.fillText(SC.View.touch ? 'CHẠM ĐỂ VÀO TRẬN' : 'BẤM ĐỂ VÀO TRẬN', SC.W / 2, SC.H * 0.66);
+    }
+    ctx.restore();
+  }
+};
+
+;
 /* ===== js/system-particles.js ===== */
 /* system-particles.js — hạt hiệu ứng (nổ, lông gà, tia lửa) + số điểm bay lên */
 
@@ -3071,7 +3523,7 @@ SC.FX = {
   clear() {
     this.parts.length = 0; this.texts.length = 0;
     this.bolts.length = 0; this.rings.length = 0;
-    SC.FXS.clear(); SC.ToyMotion.clear();
+    SC.FXS.clear(); SC.ToyMotion.clear(); SC.GroundLight.clear();
     SC.TimeFX.clear(); SC.BossMoment.clear(); SC.PlayerMoment.clear(); SC.HudSeeThru.reset();
   },
 
@@ -3156,6 +3608,7 @@ SC.FX = {
   },
 
   update(dt) {
+    SC.GroundLight.update(dt);     // nguon sang hat xuong nen (pha 09.5)
     for (let i = this.parts.length - 1; i >= 0; i--) {
       const p = this.parts[i];
       p.life -= dt;
@@ -3402,6 +3855,90 @@ SC.TimeFX = {
 };
 
 ;
+/* ===== js/system-auto-pause.js ===== */
+/* system-auto-pause.js — BUÔNG TAY LÀ TRẬN CHẬM DẦN RỒI DỪNG (18/10/2026)
+ *
+ * Yêu cầu anh Đức: "khi user buông tay, màn chơi transform chậm dần rồi chuyển qua trạng
+ * thái pause trong 0,5s — cinematic; khi chạm/bấm lại thì game tiếp tục".
+ *
+ * VÌ SAO ĐÁNG LÀM: game này lái bằng CHẠM LIÊN TỤC. Nhấc tay ra (nghe điện thoại, đổi
+ * tay cầm, con gọi) là tàu đứng im giữa mưa đạn và chết oan — một cái chết không do kỹ
+ * năng. Màn TẠM DỪNG thật thì nặng nề: nó bật một màn phủ, dừng nhạc, đòi bấm nút để
+ * quay lại. Ở giữa hai thứ đó là cái này: thời gian trôi chậm dần về 0 trong 0,5s, cảnh
+ * vẫn vẽ (nên vẫn đẹp, vẫn thấy mình đang ở đâu), chạm lại là chạy tiếp ngay.
+ *
+ * HAI LOẠI THIẾT BỊ, HAI NGHĨA CỦA "BUÔNG TAY":
+ *   · CẢM ỨNG: nhấc ngón = buông. Rõ ràng.
+ *   · CHUỘT: người chơi KHÔNG giữ nút — tàu bám con trỏ (`Input.mode = 'absolute'`), nên
+ *     "thả nút chuột" xảy ra liên tục và không có nghĩa gì. Tương đương đúng nghĩa là
+ *     CON TRỎ RỜI KHỎI SÂN CHƠI. Lấy nhầm tín hiệu ở đây là game tự dừng mỗi lần bấm.
+ *
+ * KHÔNG đụng `Game.pause()`: đó là màn phủ thật, có nhạc và nút. Cái này chỉ hạ hệ số
+ * thời gian, nên không tốn một lần dựng UI nào và quay lại tức thì.
+ */
+
+SC.AutoPause = {
+  DOWN: 0.5,            // giây để chậm dần về đứng hẳn
+  UP: 0.12,             // chạm lại thì bật dậy nhanh, đừng bắt chờ
+  k: 1,                 // hệ số thời gian 1..0
+  ngung: false,         // đang trong pha buông tay
+
+  /* Hệ số nhân vào dt của vòng lặp. Dùng đường cong ease-in: lúc đầu gần như không chậm
+     (người chơi nhấc tay nửa giây để chỉnh thế cầm thì không cảm thấy gì), về cuối mới
+     rơi nhanh — đó mới ra cảm giác "cuốn phim chậm lại" thay vì "máy lag". */
+  scale() { return this.k * this.k; },
+
+  /* Buông tay. `Input` gọi ở `_up` (cảm ứng) và khi con trỏ rời sân (chuột). */
+  tha() {
+    if (!SC.Game || SC.Game.state !== 'play') return;
+    this.ngung = true;
+  },
+
+  /* Chạm/bấm/rê lại. Gọi ở `_down`, `_move` và khi con trỏ vào lại sân. */
+  cam() {
+    if (!this.ngung && this.k >= 1) return;
+    this.ngung = false;
+  },
+
+  /* Gọi mỗi khung bằng thời gian THẬT (chưa nhân hệ số) — nếu dùng dt đã bị chính mình
+     làm chậm thì càng chậm càng lâu hồi, không bao giờ về lại 1. */
+  update(dtThat) {
+    const dich = this.ngung ? 0 : 1;
+    const toc = this.ngung ? dtThat / this.DOWN : dtThat / this.UP;
+    this.k = SC.clamp(this.k + (dich > this.k ? toc : -toc), 0, 1);
+  },
+
+  /* Trận đã dừng hẳn chưa — dùng cho lớp chữ nhắc chạm lại. */
+  dungHan() { return this.ngung && this.k <= 0.02; },
+
+  /* Về trạng thái chạy, không chờ ease. Gọi lúc vào màn / rời màn. */
+  reset() { this.k = 1; this.ngung = false; },
+
+  /* Lớp nhắc: chỉ hiện khi đã dừng HẲN. Vẽ ở lớp MÀN HÌNH (ngoài phép rung) cùng chỗ với
+     mọi chữ to khác, nên không bị rung theo cảnh. */
+  render(ctx) {
+    if (this.k >= 0.999) return;
+    const mo = 1 - this.k;                 // càng dừng càng rõ
+    ctx.save();
+    ctx.globalAlpha = mo * 0.42;
+    ctx.fillStyle = '#040810';
+    ctx.fillRect(0, 0, SC.W, SC.H);
+    if (this.dungHan()) {
+      const nhip = 0.72 + Math.sin(performance.now() / 1000 * 3.4) * 0.28;
+      ctx.globalAlpha = nhip;
+      ctx.textAlign = 'center';
+      ctx.font = '700 23px ' + (SC.CFG.fontStack || "system-ui, sans-serif");
+      ctx.lineJoin = 'round'; ctx.lineWidth = 6; ctx.strokeStyle = '#04101f';
+      const chu = SC.View.touch ? 'CHẠM ĐỂ CHƠI TIẾP' : 'DI CHUỘT VÀO ĐỂ CHƠI TIẾP';
+      ctx.strokeText(chu, SC.W / 2, SC.H * 0.54);
+      ctx.fillStyle = '#fff';
+      ctx.fillText(chu, SC.W / 2, SC.H * 0.54);
+    }
+    ctx.restore();
+  }
+};
+
+;
 /* ===== js/system-moments-boss.js ===== */
 /* system-moments-boss.js — ba khoảnh khắc của TRÙM: xuất hiện, nổi điên, gục (12/10/2026)
  *
@@ -3622,7 +4159,8 @@ SC.BossWind = {
       w.portal = { x: SC.clamp(b.x + SC.rnd(-90, 90), 60, SC.W - 60), y: b.y + b.r * 0.9 };
     }
     if (SC.BossSkills.has(kind)) {
-      SC.BossCallout.show(SC.BossSkills.TÊN[kind] || SC.BossSig.nameOf(b, kind), b);
+      // không truyền `b` nữa: từ 18/10 băng đứng ở dải cố định, không bám trùm (xem file đó)
+      SC.BossCallout.show(SC.BossSkills.TÊN[kind] || SC.BossSig.nameOf(b, kind));
       if (kind !== 'laser') SC.AudioSamples.play('laser-charge');   // laze tự phát tiếng tụ lúc nháy
     }
   },
@@ -3762,22 +4300,21 @@ SC.BossCallout = {
   IN: 0.18, HOLD: 0.9, OUT: 0.25,
   cur: null,
 
-  /* Chỗ đặt THEO trùm: trùm ở nửa trên thì băng nằm DƯỚI trùm (bản đầu cố định 30% chiều cao ->
-     trùm lượn tới đó là băng đè lên bảng tên + thanh máu DOM của nó); trùm lao xuống thấp thì băng
-     lên TRÊN trùm. Bản 2 chốt chỗ lúc hô -> trùm vẫn lượn TRÚNG băng trong 1,3s (ảnh 12/10) —
-     nay băng TRƯỢT ÊM theo trùm mỗi khung (không giật theo từng bước nhún của thân). */
-  _at(b) {
-    // bảng tên + thanh máu DOM ghim ở chân trùm (ui-hud.moveBoss: top = b.y + r + 12, sàn 112px UI),
-    // cao ~63 đơn vị ảo — băng phải nằm DƯỚI cả cụm đó, DOM luôn đè lên canvas
-    const plate = Math.max(b.y + b.r + 12, SC.View.u2w(112));
-    return SC.clamp(b.y < SC.H * 0.42 ? plate + 118 : b.y - b.r - 80, SC.H * 0.14, SC.H * 0.6);
-  },
-  show(name, b) { this.cur = { name, t: 0, b, y: b ? this._at(b) : SC.H * 0.3 }; },
+  /* BĂNG KHÔNG CÒN BÁM THEO TRÙM (18/10/2026) — bản cũ đặt băng DƯỚI trùm rồi trượt theo nó
+     mỗi khung. Hệ quả đo được trên ảnh trận thật (`lv30-a`, `lv9-a`): băng rộng 88% màn nằm
+     đúng GIỮA trùm và người chơi, tức giữa LÀN NÉ — cộng bảng tên + thanh máu DOM cũng ghim
+     ở chân trùm là ba lớp giao diện xếp chồng ngay chỗ phải nhìn để sống.
+     Nay băng đứng YÊN ở một dải cố định CAO HƠN trùm: trên làn né, dưới HUD. Cái giá trị
+     thật của tính năng này là "đọc được tên chiêu 0,55s TRƯỚC khi phải né" — giá trị đó nằm
+     ở THỜI ĐIỂM, không nằm ở chỗ đặt, nên dời đi không mất gì.
+     BAND 0,16: dưới HUD (sàn thanh máu trùm là 112px UI ≈ 11,7% khung) và trên thân trùm
+     (trùm bay quanh 25-45% khung) — soi lại bằng ảnh, đừng tin con số suông. */
+  BAND: 0.16,
+  show(name) { this.cur = { name, t: 0, y: SC.H * this.BAND }; },
   update(dt) {
     const c = this.cur;
     if (!c) return;
-    if ((c.t += dt) > this.IN + this.HOLD + this.OUT) { this.cur = null; return; }
-    if (c.b && !c.b.dead) c.y += (this._at(c.b) - c.y) * Math.min(1, dt * 6);
+    if ((c.t += dt) > this.IN + this.HOLD + this.OUT) this.cur = null;
   },
   clear() { this.cur = null; },
 
@@ -3789,7 +4326,9 @@ SC.BossCallout = {
     const s = t < this.IN ? 0.55 + 0.53 * (t / this.IN) : t < this.IN + 0.08 ? 1.08 - (t - this.IN) : 1;
     const a = t > end ? 1 - (t - end) / this.OUT : 1;
     // tỉ lệ đọc từ ảnh thật: trim của sharp và của canvas lệch nhau 1-2px (512×144 vs 142)
-    const img = SC.SpriteArt.get('ui-frame', 'ribbon-boss'), W = Math.min(SC.W * 0.88, 470);
+    // 0,88 -> 0,62 bề ngang (470 -> 330): ở 88% băng cao ~13,5% khung hình, đủ to để tự nó
+    // thành một bức tường. Chữ vẫn tự co cho vừa (vòng lặp `fs` bên dưới) nên không mất chữ.
+    const img = SC.SpriteArt.get('ui-frame', 'ribbon-boss'), W = Math.min(SC.W * 0.62, 330);
     const H = W * (img ? img.naturalHeight / img.naturalWidth : 142 / 512), y = c.y - (t > end ? (t - end) * 60 : 0);
     ctx.save();
     ctx.globalAlpha = SC.clamp(a, 0, 1);
@@ -4313,6 +4852,8 @@ SC.FXS = {
   /* Quái gục: cầu lửa + khói + sóng xung kích + tia sáng. r = bán kính thân quái. */
   explode(x, y, r, big) {
     const k = big ? 1.5 : 1;
+    // pha 09.5 — vụ nổ phải LÀM SÁNG mặt đất bên dưới, không chỉ sáng chính nó
+    SC.GroundLight.add(x, y, r * 4.5 * k, '#ffb45c', 0.26 * k);
     const fb = ['fireball-a', 'fireball-b', 'fireball-c'][(Math.random() * 3) | 0];
     this.spawn('shockwave', x, y, { s0: r * 0.8, s1: r * 4.2 * k, life: 0.32, add: true, a: 0.85, tint: '#ffd27a' });
     this.spawn(fb, x, y, { s0: r * 1.3 * k, s1: r * 3.4 * k, life: 0.42 * k, spin: SC.rnd(-1.5, 1.5) });
@@ -4343,6 +4884,9 @@ SC.FXS = {
   /* Lửa đầu nòng: một lần mỗi loạt bắn, mũi chĩa theo hướng ngắm */
   muzzle(x, y, ang) {
     this.spawn('muzzle', x, y, { s0: 30, s1: 22, life: 0.06, add: true, rot: ang });
+    // Loé xuống nền một nhịp rất ngắn (pha 09.5). Nhỏ và nhanh có chủ đích: súng bắn
+    // liên tục nên để lâu hay to là cả màn hình nhấp nháy, chói và che mất đạn địch.
+    SC.GroundLight.add(x, y, 56, '#ffd9a0', 0.07);
   },
 
   update(dt) {
@@ -4571,6 +5115,38 @@ SC.BG = {
     for (const c of this.clouds) { c.y += c.sp * dt; if (c.y - c.s > SC.H) { c.y = -c.s * 2; c.x = SC.rnd(-60, SC.W + 60); } }
     for (const h of this.hills) h.off += h.sp * dt;
     SC.BGDecor.update(dt);
+    // Pha 05: thời tiết + mây tiền cảnh bám cùng một nhịp với nền (kể cả lúc SC.BG.rush
+    // tăng tốc mọi lớp khi trùm vào màn — `dt` ở trên đã nhân rồi, nên chúng tự theo).
+    SC.Weather.update(dt, this.biome.id);
+    SC.FgClouds.update(dt, this.biome.id);
+  },
+
+  /* SƯƠNG MÙ THEO CHIỀU SÂU (17/10/2026, pha 09.4).
+   *
+   * Xem clip Sky Force anh Đức quay: mặt đất của họ phủ một lớp sương trắng-xanh, dày hơn
+   * ở phía xa — nên đất nằm Ở XA. Sky Chicken lùi nền lúc DỰNG ẢNH (`make-bg-loops.mjs`:
+   * tương phản 0,72 · bão hoà 0,78 · blur 0,7) nên nền bị LÀM NHẠT chứ không bị ĐẨY RA XA:
+   * kết quả là trông mờ, không trông sâu. Hai chuyện khác nhau.
+   *
+   * Một `fillRect` gradient mỗi khung, dùng đúng màu trời cao nhất của vùng nên tự hợp tông
+   * mà không cần bảng màu riêng. Đặc ở mép trên (xa), tan hẳn ở khoảng 72% chiều cao — phần
+   * dưới là nơi người chơi và đạn sống, che ở đó là hại khả năng đọc. */
+  _haze(ctx, b) {
+    const top = b.sky && b.sky[2];
+    if (!top) return;
+    if (this._hz !== b.id) {                 // dựng một lần mỗi vùng, không mỗi khung
+      // `#rrggbb` -> `rgba(r,g,b,a)`. Phải tự pha alpha vào TỪNG mốc màu: đặt
+      // `globalAlpha` cho cả lượt vẽ thì ra một tấm màn phẳng, mất hẳn phần "dày dần
+      // về phía xa" — mà đó mới là thứ tạo chiều sâu.
+      const n = parseInt(top.slice(1), 16);
+      const rgb = [(n >> 16) & 255, (n >> 8) & 255, n & 255].join(',');
+      const g = ctx.createLinearGradient(0, 0, 0, SC.H * 0.72);
+      g.addColorStop(0, `rgba(${rgb},0.3)`);
+      g.addColorStop(1, `rgba(${rgb},0)`);
+      this._hzG = g; this._hz = b.id;
+    }
+    ctx.fillStyle = this._hzG;
+    ctx.fillRect(0, 0, SC.W, SC.H * 0.72);
   },
 
   render(ctx) {
@@ -4594,7 +5170,7 @@ SC.BG = {
 
     // Có ảnh nền + decor (10/10/2026) thì BỎ HẲN đồi răng cưa và mây elip: ảnh chụp trận
     // cũ, hai thứ đó chính là dải xanh đục hai mép và mảng sương giả giữa màn.
-    if (art && SC.BGDecor.render(ctx, b.id)) return;
+    if (art && SC.BGDecor.render(ctx, b.id)) { this._haze(ctx, b); return; }
 
     // đồi nền cuộn dọc (vẽ 2 bản để nối liền vô tận)
     for (const h of this.hills) {
@@ -4670,7 +5246,14 @@ SC.BG = {
  */
 
 SC.BGDecor = {
-  N: 3,                       // số mảnh sống cùng lúc
+  /* 3 -> 5 mảnh và tối đa 2 "vật" (pha 05.3, 18/10/2026): ở N=3 với đúng MỘT vật, toàn bộ
+     chiều sâu của màn do ba mảnh gánh, và hai trong ba luôn là mây — nên mọi vùng đọc ra
+     gần như nhau. Thêm một TẦNG SÂU THỨ BA ("vật XA": nhỏ hơn, mờ hơn, trôi chậm hơn) để
+     mắt có ba mốc khoảng cách thay vì hai.
+     GIỮ NGUYÊN luật "vật nằm sát mép" ở `_spawn` — đó là chủ đích, không phải thiếu sót:
+     bản đầu thả vật vào giữa màn và ảnh chụp cho thấy nó đọc ra như CHƯỚNG NGẠI VẬT. */
+  N: 5,                       // số mảnh sống cùng lúc
+  MAX_PROP: 2,                // trần số "vật" — phần còn lại luôn là mây
   list: [],
   id: null,
 
@@ -4685,14 +5268,18 @@ SC.BGDecor = {
      đá dung nham 110-170 nhìn như CHƯỚNG NGẠI VẬT. Nay mây mỏng như hơi sương, vật nhỏ, tối
      hơn một chút và mỗi lúc tối đa MỘT vật — decor phải lùi về sau, không tranh với quái. */
   _spawn(y) {
-    const prop = !this.list.some(d => d.k === 'prop') && Math.random() < 0.4;
+    const nProp = this.list.reduce((n, d) => n + (d.k === 'prop' ? 1 : 0), 0);
+    const prop = nProp < this.MAX_PROP && Math.random() < 0.45;
+    // Vật XA: tầng sâu thứ ba. Nhỏ + mờ + chậm = mắt đọc ra "ở xa", không cần ảnh riêng.
+    const xa = prop && Math.random() < 0.45;
     return {
       k: prop ? 'prop' : 'cloud',
+      // vật luôn SÁT MÉP (chủ đích, xem chú thích đầu file); mây rải tự do
       x: prop ? (Math.random() < 0.5 ? SC.rnd(20, 120) : SC.rnd(SC.W - 120, SC.W - 20)) : SC.rnd(-40, SC.W + 40),
       y,
-      s: prop ? SC.rnd(70, 105) : SC.rnd(170, 260),            // cạnh dài, đơn vị ảo
-      sp: prop ? SC.rnd(85, 105) : SC.rnd(60, 90),             // nền 18px/s
-      a: prop ? 0.72 : SC.rnd(0.22, 0.38),
+      s: prop ? (xa ? SC.rnd(40, 62) : SC.rnd(70, 105)) : SC.rnd(170, 260),   // cạnh dài, đơn vị ảo
+      sp: prop ? (xa ? SC.rnd(62, 78) : SC.rnd(85, 105)) : SC.rnd(60, 90),    // nền 18px/s
+      a: prop ? (xa ? 0.45 : 0.72) : SC.rnd(0.22, 0.38),
       flip: Math.random() < 0.5
     };
   },
@@ -4726,6 +5313,236 @@ SC.BGDecor = {
     ctx.restore();
     return true;
   },
+};
+
+;
+/* ===== js/system-weather.js ===== */
+/* system-weather.js — HẠT THỜI TIẾT theo vùng (pha 05.2, 18/10/2026)
+ *
+ * VÌ SAO CÓ: mười vùng hiện khác nhau ở MỘT tấm nền và ba mảng màu trời. Bay qua vùng nào
+ * cũng là cùng một bầu không khí tĩnh — nền trôi, mình bắn, hết. Thời tiết là thứ rẻ nhất
+ * biến "một tấm giấy dán tường cuộn" thành "đang bay XUYÊN QUA một nơi chốn": nó chuyển
+ * động ĐỘC LẬP với nền, nên mắt đọc ra không khí chứ không đọc ra ảnh.
+ *
+ * KHÔNG MỘT TẤM ẢNH NÀO — toàn hạt vẽ thủ tục. Lý do: hạt thời tiết phải MỜ và NHỎ, mà ảnh
+ * mờ-nhỏ thì nén cũng không rẻ hơn mấy phép vẽ này, lại thêm 10 tấm vào precache.
+ *
+ * LUẬT CỨNG — KHÔNG ĐƯỢC CHE ĐẠN ĐỊCH. Đạn là thứ phải nhìn để sống, và luật màu
+ * (`data-colour-law.js`) dành hẳn dải 330-358° cho nó. Vì thế:
+ *   · hạt vẽ DƯỚI gameplay (trong SC.BG.render), trừ `fg: true` thì một phần ở tiền cảnh;
+ *   · alpha trần 0,5 và hạt tiền cảnh trần 0,22;
+ *   · KHÔNG hạt nào mang sắc độ trong dải đạn địch — xem bảng màu bên dưới.
+ * Trần cứng 60 hạt, nhân `SC.CFG.fxScale` (máy cảm ứng đã 0,65) -> ~39 hạt trên điện thoại.
+ */
+
+SC.Weather = {
+  MAX: 60,
+  list: [],
+  id: null,
+
+  /* Mỗi vùng một kiểu. `vy` âm = bay LÊN (than hồng). `fg` = có một phần ở tiền cảnh.
+     MÀU: cố ý tránh dải 330-358° của đạn địch. `storm` dùng xanh lơ nhạt chứ không trắng
+     thuần — trắng thuần trùng với lõi sáng của đạn. */
+  KIND: {
+    farm:  { n: 22, vy: [34, 70],  vx: [-26, -8], s: [5, 11], a: [.16, .34], c: '#9fe08a', sh: 'leaf' },
+    dune:  { n: 34, vy: [12, 30],  vx: [-150, -90], s: [2, 5], a: [.12, .3], c: '#ffd9a0', sh: 'dash' },
+    frost: { n: 30, vy: [26, 58],  vx: [-22, 22], s: [2.5, 6], a: [.3, .6], c: '#eaf8ff', sh: 'dot' },
+    toxic: { n: 20, vy: [-16, 14], vx: [-14, 14], s: [2.5, 6], a: [.22, .5], c: '#8dffb4', sh: 'glow' },
+    magma: { n: 24, vy: [-96, -44], vx: [-18, 18], s: [2, 5], a: [.3, .62], c: '#ffb04a', sh: 'glow', fg: 1 },
+    ocean: { n: 22, vy: [-70, -30], vx: [-10, 10], s: [2.5, 7], a: [.14, .32], c: '#bff2ff', sh: 'ring' },
+    neon:  { n: 30, vy: [150, 230], vx: [-30, -12], s: [7, 16], a: [.14, .3], c: '#7fd8ff', sh: 'rain' },
+    scrap: { n: 26, vy: [22, 52],  vx: [-60, -20], s: [1.8, 4], a: [.14, .3], c: '#d8c69c', sh: 'dot' },
+    storm: { n: 34, vy: [220, 320], vx: [-86, -54], s: [10, 20], a: [.16, .32], c: '#bcd4f2', sh: 'rain', fg: 1 },
+    void:  { n: 20, vy: [10, 34],  vx: [-12, 12], s: [1.6, 4], a: [.3, .7], c: '#d6b4ff', sh: 'glow' }
+  },
+
+  reset(id) {
+    this.id = id;
+    this.list.length = 0;
+    const k = this.KIND[id];
+    if (!k || !SC.Settings.env) return;
+    const n = Math.min(this.MAX, Math.round(k.n * (SC.CFG.fxScale || 1)));
+    // rải sẵn khắp màn: vào trận là đã có không khí, không phải đợi hạt đầu trôi xuống
+    for (let i = 0; i < n; i++) this.list.push(this._one(k, SC.rnd(-40, SC.H + 40)));
+  },
+
+  _one(k, y) {
+    return {
+      x: SC.rnd(-60, SC.W + 60), y,
+      vx: SC.rnd(k.vx[0], k.vx[1]), vy: SC.rnd(k.vy[0], k.vy[1]),
+      s: SC.rnd(k.s[0], k.s[1]), a: SC.rnd(k.a[0], k.a[1]),
+      ph: Math.random() * 6.283,
+      // ~1/3 số hạt của vùng có `fg` được đẩy lên tiền cảnh, phần còn lại ở sau gameplay
+      fg: k.fg && Math.random() < 0.34
+    };
+  },
+
+  update(dt, id) {
+    if (id !== this.id) this.reset(id);
+    const k = this.KIND[this.id];
+    if (!k) return;
+    for (let i = 0; i < this.list.length; i++) {
+      const p = this.list[i];
+      p.ph += dt * 2.2;
+      p.x += (p.vx + (k.sh === 'leaf' ? Math.sin(p.ph) * 26 : 0)) * dt;
+      p.y += p.vy * dt;
+      // ra khỏi khung theo BẤT KỲ phía nào thì thả lại ở phía đối diện — than hồng bay lên
+      // nên phải hồi sinh ở ĐÁY, không phải ở đỉnh như mọi kiểu khác
+      const out = p.y > SC.H + 40 || p.y < -40 || p.x < -70 || p.x > SC.W + 70;
+      if (out) this.list[i] = this._one(k, p.vy < 0 ? SC.H + SC.rnd(5, 40) : -SC.rnd(5, 40));
+    }
+  },
+
+  /* `fg` = lượt vẽ TIỀN CẢNH (gọi từ system-renderer sau gameplay). Mặc định vẽ lớp nền. */
+  render(ctx, fg) {
+    if (!this.list.length) return;
+    const k = this.KIND[this.id];
+    if (!k) return;
+    ctx.save();
+    ctx.fillStyle = k.c;
+    ctx.strokeStyle = k.c;
+    for (const p of this.list) {
+      if (!p.fg !== !fg) continue;
+      // tiền cảnh phải mờ hơn hẳn: nó nằm giữa mắt người chơi và viên đạn sắp tới
+      ctx.globalAlpha = Math.min(p.a, fg ? 0.22 : 0.5);
+      this._shape(ctx, p, k.sh);
+    }
+    ctx.restore();
+  },
+
+  _shape(ctx, p, sh) {
+    if (sh === 'rain' || sh === 'dash') {
+      ctx.lineWidth = sh === 'rain' ? 1.6 : 1.2;
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y);
+      // vệt mưa đi ĐÚNG hướng bay: vẽ dọc trong khi gió thổi xiên là mắt đọc ra hai
+      // chuyển động khác nhau trên cùng một hạt
+      const L = sh === 'rain' ? p.s : p.s * 2.4, m = Math.hypot(p.vx, p.vy) || 1;
+      ctx.lineTo(p.x - p.vx / m * L, p.y - p.vy / m * L);
+      ctx.stroke();
+      return;
+    }
+    if (sh === 'ring') {
+      ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.s, 0, 6.283); ctx.stroke();
+      return;
+    }
+    if (sh === 'leaf') {                       // lá: ê-líp nghiêng, lật theo nhịp xoay
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.ph * 0.7);
+      ctx.beginPath(); ctx.ellipse(0, 0, p.s, p.s * (0.35 + Math.abs(Math.sin(p.ph)) * 0.4), 0, 0, 6.283);
+      ctx.fill(); ctx.restore();
+      return;
+    }
+    if (sh === 'glow') {                       // than hồng / bào tử: chấm cộng màu, có nhịp thở
+      const g = ctx.globalCompositeOperation;
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.s * (0.8 + Math.sin(p.ph) * 0.2), 0, 6.283); ctx.fill();
+      ctx.globalCompositeOperation = g;
+      return;
+    }
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.s, 0, 6.283); ctx.fill();   // 'dot'
+  },
+
+  clear() { this.list.length = 0; this.id = null; }
+};
+
+;
+/* ===== js/system-foreground-clouds.js ===== */
+/* system-foreground-clouds.js — MÂY BAY TRƯỚC MẶT (pha 05.1, 18/10/2026)
+ *
+ * VÌ SAO CÓ: mọi lớp môi trường của game đang nằm DƯỚI gameplay — nền, decor parallax, hạt
+ * thời tiết. Màn hình vì thế đọc ra như một tấm giấy dán tường cuộn ở phía sau, không phải
+ * một thế giới mình đang bay XUYÊN QUA. Một lớp mây mỏng trôi NHANH NHẤT ở TRƯỚC mặt là
+ * thứ duy nhất tạo được cảm giác đó, và nó không cần một tấm ảnh mới nào: dùng lại đúng
+ * `decor-<vùng>-cloud` đã trả tiền từ đợt style B.
+ *
+ * LUẬT CỨNG — KHÔNG ĐƯỢC CHE ĐẠN ĐỊCH (giống system-weather.js, cùng một lý do):
+ *   · chỉ 3 mảnh, alpha trần 0,28;
+ *   · TẮT (mờ dần 0,3s) khi trùm đang BÁO TRƯỚC CHIÊU hoặc đang có băng cảnh báo —
+ *     đó là lúc người chơi phải đọc vạch ngắm, một mảng mây vắt ngang là chết oan;
+ *   · tắt luôn khi người chơi tắt MÔI TRƯỜNG trong Cài đặt.
+ *
+ * KHÔNG dùng lại `SC.Ready.puffs`: mây của pha 03 có nhiệm vụ CHE (vén màn lúc vào trận)
+ * nên nó đặc và bu vào giữa; mây ở đây phải mỏng và đi nhanh. Chung một hàm vẽ thì sớm
+ * muộn một bên bị chỉnh hỏng vì bên kia.
+ */
+
+SC.FgClouds = {
+  N: 3,
+  FADE: 0.3,            // giây mờ vào/ra khi bị chặn
+  list: [],
+  id: null,
+  k: 1,                 // 0..1 — hệ số mờ hiện tại
+
+  reset(id) {
+    this.id = id;
+    this.list.length = 0;
+    this.k = 1;
+    if (!SC.Settings.env) return;
+    for (let i = 0; i < this.N; i++) this.list.push(this._one(SC.rnd(-0.3, 1) * SC.H));
+  },
+
+  _one(y) {
+    return {
+      x: SC.rnd(-80, SC.W + 80), y,
+      s: SC.rnd(210, 330),                 // to hơn mây nền: nó ở gần mắt hơn
+      sp: SC.rnd(160, 220),                // nhanh nhất mọi lớp — nền 30, decor 60-105
+      a: SC.rnd(0.14, 0.28),
+      flip: Math.random() < 0.5
+    };
+  },
+
+  /* Có đang phải nhường chỗ cho thứ người chơi BẮT BUỘC phải nhìn không? */
+  _chan() {
+    const b = SC.BossMoment && SC.BossMoment.warnT > 0;
+    const g = SC.Game && SC.Game.enemies;
+    if (b) return true;
+    // `BossWind.on(b)` = trùm đang gồng, tức vạch ngắm / cột trứng / tâm mực đang hiện
+    if (g && SC.BossWind) for (const e of g) if (e.isBoss && SC.BossWind.on(e)) return true;
+    return false;
+  },
+
+  update(dt, id) {
+    if (id !== this.id) this.reset(id);
+    if (!this.list.length) return;
+    const muc = this._chan() ? 0 : 1;
+    this.k += SC.clamp(muc - this.k, -dt / this.FADE, dt / this.FADE);
+    for (let i = 0; i < this.list.length; i++) {
+      const d = this.list[i];
+      d.y += d.sp * dt;
+      if (d.y - d.s > SC.H) this.list[i] = this._one(-SC.rnd(120, 340));
+    }
+  },
+
+  /* Vẽ SAU mọi thứ thuộc thế giới (gameplay, FX) nhưng TRONG khối camera — mây phải trôi
+     cùng thế giới, không dán chết vào màn hình. */
+  render(ctx) {
+    if (!this.list.length || this.k <= 0.01) return;
+    const img = SC.SpriteArt.get('decor', this.id + '-cloud');
+    ctx.save();
+    for (const d of this.list) {
+      ctx.globalAlpha = d.a * this.k;
+      if (img) {
+        const q = d.s / Math.max(img.naturalWidth, img.naturalHeight);
+        const w = img.naturalWidth * q, h = img.naturalHeight * q;
+        ctx.save(); ctx.translate(d.x, d.y);
+        if (d.flip) ctx.scale(-1, 1);
+        ctx.drawImage(img, -w / 2, -h / 2, w, h);
+        ctx.restore();
+      } else {
+        // chưa có ảnh vùng này: mảng sương vẽ tay, vẫn ra đúng cảm giác lớp gần
+        const g = ctx.createRadialGradient(d.x, d.y, d.s * 0.1, d.x, d.y, d.s);
+        g.addColorStop(0, 'rgba(255,255,255,.85)');
+        g.addColorStop(0.6, 'rgba(234,244,255,.4)');
+        g.addColorStop(1, 'rgba(234,244,255,0)');
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.ellipse(d.x, d.y, d.s, d.s * 0.52, 0, 0, 6.283); ctx.fill();
+      }
+    }
+    ctx.restore();
+  },
+
+  clear() { this.list.length = 0; this.id = null; }
 };
 
 ;
@@ -4845,7 +5662,7 @@ SC.FoeBullet = {
           if ((b.bn = (b.bn || 0) + 1) > 2) return true;
           b.x = SC.clamp(b.x, 9, SC.W - 9);
           b.vx = -b.vx;
-          SC.FX.burst(b.x, b.y, '#ff9d5c', 4, 130, 1.6);
+          SC.FX.burst(b.x, b.y, SC.COLOUR.f('bounce').glow, 4, 130, 1.6);
         }
         break;
 
@@ -4884,11 +5701,11 @@ SC.FoeBullet = {
       blast: 22, egg: 22, plasma: 15, rocket: 30 };
     const s = S[b.kind] || 20;
     switch (b.kind) {
-      case 'laser': SC.draw.glow(ctx, b.x, b.y, 18, '#ff4d7a', .55); break;
-      case 'arrow': SC.draw.glow(ctx, b.x, b.y, 13, '#ffb45c', .5); break;
-      case 'bounce': SC.draw.glow(ctx, b.x, b.y, 15, '#ff9d5c', .55); break;
-      case 'boomer': SC.draw.glow(ctx, b.x, b.y, 20, '#c58cff', .5); break;
-      case 'plasma': SC.draw.glow(ctx, b.x, b.y, 13, '#ff3b5c', .6); break;
+      case 'laser': SC.draw.glow(ctx, b.x, b.y, 18, SC.COLOUR.f('laser').glow, .55); break;
+      case 'arrow': SC.draw.glow(ctx, b.x, b.y, 13, SC.COLOUR.f('arrow').glow, .5); break;
+      case 'bounce': SC.draw.glow(ctx, b.x, b.y, 15, SC.COLOUR.f('bounce').glow, .55); break;
+      case 'boomer': SC.draw.glow(ctx, b.x, b.y, 20, SC.COLOUR.f('boomer').glow, .5); break;
+      case 'plasma': SC.draw.glow(ctx, b.x, b.y, 13, SC.COLOUR.f('plasma').glow, .6); break;
     }
     ctx.save(); ctx.translate(b.x, b.y);
     let k = 1;
@@ -4896,13 +5713,13 @@ SC.FoeBullet = {
       // giữ nhịp phồng nhanh dần khi sắp nổ — cảnh báo không lời của art cũ
       const near = SC.clamp(1 - b.life / 0.9, 0, 1);
       k = 1 + Math.sin(b.rot * (6 + near * 26)) * (0.12 + near * 0.3);
-      SC.draw.glow(ctx, 0, 0, 24 * k, '#ff6b2b', .6);
+      SC.draw.glow(ctx, 0, 0, 24 * k, SC.COLOUR.f('blast').glow, .6);
     } else if (b.kind === 'boomer') ctx.rotate(b.rot);
     // trứng: art cũ là hình oval nên chỉ lắc; sprite mới có mũi rõ ràng nên phải
     // xoay theo chiều rơi trước rồi mới lắc, không thì trứng rơi ngược đầu
     else if (b.kind === 'egg') ctx.rotate(a + b.rot * .3);
     else if (b.kind !== 'bounce' && b.kind !== 'plasma') ctx.rotate(a);
-    if (b.kind === 'rocket') SC.draw.glow(ctx, 0, 10, 22, '#ffb45c', .7);  // lửa đuôi
+    if (b.kind === 'rocket') SC.draw.glow(ctx, 0, 10, 22, SC.COLOUR.f('rocket').glow, .7);  // lửa đuôi
     ctx.drawImage(img, -s / 2 * k, -s / 2 * k, s * k, s * k);
     ctx.restore();
   },
@@ -4912,17 +5729,17 @@ SC.FoeBullet = {
     const a = Math.atan2(b.vy, b.vx) + Math.PI / 2;
     switch (b.kind) {
       case 'laser':
-        SC.draw.glow(ctx, b.x, b.y, 18, '#ff4d7a', .55);
+        SC.draw.glow(ctx, b.x, b.y, 18, SC.COLOUR.f('laser').glow, .55);
         ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(a);
-        ctx.fillStyle = 'rgba(255,120,150,.9)'; ctx.fillRect(-2, -20, 4, 40);
-        ctx.fillStyle = '#fff'; ctx.fillRect(-1, -16, 2, 32);
+        ctx.fillStyle = SC.COLOUR.f('laser').body; ctx.fillRect(-2, -20, 4, 40);
+        ctx.fillStyle = SC.COLOUR.f('laser').core; ctx.fillRect(-1, -16, 2, 32);
         ctx.restore();
         break;
 
       case 'arrow':
         ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(a);
-        SC.draw.glow(ctx, 0, 0, 13, '#ffb45c', .5);
-        ctx.fillStyle = '#ffd08a'; ctx.strokeStyle = 'rgba(10,16,32,.8)'; ctx.lineWidth = 1.4;
+        SC.draw.glow(ctx, 0, 0, 13, SC.COLOUR.f('arrow').glow, .5);
+        ctx.fillStyle = SC.COLOUR.f('arrow').body; ctx.strokeStyle = SC.COLOUR.FOE_EDGE; ctx.lineWidth = 1.4;
         ctx.beginPath();
         ctx.moveTo(0, 12); ctx.lineTo(4, -2); ctx.lineTo(0, -12); ctx.lineTo(-4, -2);
         ctx.closePath(); ctx.fill(); ctx.stroke();
@@ -4931,7 +5748,7 @@ SC.FoeBullet = {
 
       case 'dart':
         ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(a);
-        ctx.fillStyle = '#e0f0ff'; ctx.strokeStyle = 'rgba(10,16,32,.75)'; ctx.lineWidth = 1.2;
+        ctx.fillStyle = SC.COLOUR.f('dart').body; ctx.strokeStyle = SC.COLOUR.FOE_EDGE; ctx.lineWidth = 1.2;
         ctx.beginPath();
         ctx.moveTo(0, 9); ctx.lineTo(3.2, -4); ctx.lineTo(0, -1.5); ctx.lineTo(-3.2, -4);
         ctx.closePath(); ctx.fill(); ctx.stroke();
@@ -4939,20 +5756,20 @@ SC.FoeBullet = {
         break;
 
       case 'bounce':
-        SC.draw.glow(ctx, b.x, b.y, 15, '#ff9d5c', .55);
-        ctx.fillStyle = '#ffc48a';
-        ctx.strokeStyle = 'rgba(10,16,32,.75)'; ctx.lineWidth = 1.4;
+        SC.draw.glow(ctx, b.x, b.y, 15, SC.COLOUR.f('bounce').glow, .55);
+        ctx.fillStyle = SC.COLOUR.f('bounce').body;
+        ctx.strokeStyle = SC.COLOUR.FOE_EDGE; ctx.lineWidth = 1.4;
         ctx.beginPath(); ctx.arc(b.x, b.y, 7, 0, 6.283); ctx.fill(); ctx.stroke();
-        ctx.fillStyle = 'rgba(255,255,255,.7)';
+        ctx.fillStyle = SC.COLOUR.f('bounce').core;
         ctx.beginPath(); ctx.arc(b.x - 2, b.y - 2, 2.4, 0, 6.283); ctx.fill();
         break;
 
       case 'boomer':
         ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(b.rot);
-        SC.draw.glow(ctx, 0, 0, 20, '#c58cff', .5);
-        ctx.strokeStyle = '#d9b4ff'; ctx.lineWidth = 4.5; ctx.lineCap = 'round';
+        SC.draw.glow(ctx, 0, 0, 20, SC.COLOUR.f('boomer').glow, .5);
+        ctx.strokeStyle = SC.COLOUR.f('boomer').body; ctx.lineWidth = 4.5; ctx.lineCap = 'round';
         ctx.beginPath(); ctx.arc(0, 0, 8, -0.5, 2.4); ctx.stroke();
-        ctx.strokeStyle = 'rgba(255,255,255,.65)'; ctx.lineWidth = 1.6;
+        ctx.strokeStyle = SC.COLOUR.f('boomer').core; ctx.lineWidth = 1.6;
         ctx.beginPath(); ctx.arc(0, 0, 8, -0.4, 2.2); ctx.stroke();
         ctx.restore();
         break;
@@ -4961,9 +5778,9 @@ SC.FoeBullet = {
         // nhấp nháy nhanh dần khi sắp nổ — cảnh báo đọc được mà không cần chữ
         const near = SC.clamp(1 - b.life / 0.9, 0, 1);
         const pulse = 1 + Math.sin(b.rot * (6 + near * 26)) * (0.12 + near * 0.3);
-        SC.draw.glow(ctx, b.x, b.y, 24 * pulse, '#ff6b2b', .6);
-        ctx.fillStyle = near > 0.5 ? '#fff0c2' : '#ff8a3f';
-        ctx.strokeStyle = 'rgba(10,16,32,.8)'; ctx.lineWidth = 1.6;
+        SC.draw.glow(ctx, b.x, b.y, 24 * pulse, SC.COLOUR.f('blast').glow, .6);
+        ctx.fillStyle = near > 0.5 ? SC.COLOUR.f('blast').core : SC.COLOUR.f('blast').body;
+        ctx.strokeStyle = SC.COLOUR.FOE_EDGE; ctx.lineWidth = 1.6;
         ctx.beginPath(); ctx.arc(b.x, b.y, 9 * pulse, 0, 6.283); ctx.fill(); ctx.stroke();
         ctx.fillStyle = 'rgba(60,20,0,.55)';
         ctx.beginPath(); ctx.arc(b.x, b.y, 3.4, 0, 6.283); ctx.fill();
@@ -5048,13 +5865,17 @@ SC.MineArt = {
     // lượt 1: quầng sáng cộng màu dưới lõi — to + sáng dần theo cấp vũ khí (xem _pw)
     const pw = this._pw(), gk = 1 + pw * 0.14;
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    /* `glowRaw` thay `glow` (18/10/2026): vòng này đã đặt sẵn `lighter` và tự restore ở
+       cuối, nên mỗi lần `glow()` save/restore + gán lại chế độ trộn là thừa. Ở map 126
+       (đỉnh 126 viên, mỗi viên tới 2 quầng) đó là ~250 cặp save/restore mỗi khung. */
+    const a0 = this._alpha.bind(this);
     for (const b of list) {
-      ctx.globalAlpha = this._alpha(b) * (0.85 + pw * 0.05);
-      if (pw >= 3 && b.kind !== 'missile') SC.draw.glow(ctx, b.x, b.y, 12 * gk, '#fff6dc', .7);
-      if (b.kind === 'lance') SC.draw.glow(ctx, b.x, b.y, 34, '#5ad0ff', .6);
-      else if (b.kind === 'laser') SC.draw.glow(ctx, b.x, b.y, 28, '#3fe0ff', .55);
-      else if (b.kind === 'missile') SC.draw.glow(ctx, b.x, b.y, 20, '#ff9a2b', .6);
-      else SC.draw.glow(ctx, b.x, b.y, 22 * gk, '#ff8a1f', .6);
+      const al = a0(b);
+      if (pw >= 3 && b.kind !== 'missile') SC.draw.glowRaw(ctx, b.x, b.y, 12 * gk, '#fff6dc', al * .7);
+      if (b.kind === 'lance') SC.draw.glowRaw(ctx, b.x, b.y, 34, '#5ad0ff', al * .6);
+      else if (b.kind === 'laser') SC.draw.glowRaw(ctx, b.x, b.y, 28, '#3fe0ff', al * .55);
+      else if (b.kind === 'missile') SC.draw.glowRaw(ctx, b.x, b.y, 20, '#ff9a2b', al * .6);
+      else SC.draw.glowRaw(ctx, b.x, b.y, 22 * gk, '#ff8a1f', al * .6);
     }
     ctx.restore();
     // lượt 2: lõi ở chế độ thường (giữ màu)
@@ -5108,7 +5929,24 @@ SC.Bullets = {
     return b;
   },
 
+  /* TRẦN ĐẠN ĐỊCH (18/10/2026) — anh Đức chơi map 126: "thả nhiều đạn quá, gây giật lag,
+   * và cảm giác khó né đạn". Đo bằng `tools/perf-probe.mjs` ở chính map đó: đỉnh **152
+   * viên đạn địch** cùng lúc, 71-75% khung vượt 16,7 ms.
+   *
+   * 152 viên không phải là "khó", nó là một BỨC TƯỜNG: không còn khe để lách, người chơi
+   * trúng đòn vì mật độ chứ không vì đọc sai đường đạn. Vòng vô tận nhân nhịp bắn
+   * (`system-endless.fireMul`) mà không có trần nào, nên càng đi sâu càng dày vô hạn.
+   *
+   * Trần cứng ở ĐÂY chứ không ở từng chiêu: mọi đường đẻ đạn địch đều đi qua hàm này —
+   * quái thường, trùm, viện binh, tàu phản bội. Chặn một chỗ là chặn hết, và chiêu nào
+   * cũng giữ nguyên hình dáng, chỉ thưa bớt khi màn hình đã quá dày.
+   * 72: đo trên ảnh chụp — vẫn đọc ra "mưa đạn" mà còn khe để lách ở bề ngang 540. */
+  MAX_FOE: 72,
+
   spawnFoe(x, y, vx, vy, kind = 'egg') {
+    // Quá trần thì BỎ viên mới, không xoá viên cũ: viên cũ đang ở giữa màn, người chơi
+    // đã tính đường né cho nó rồi — xoá đi là đổi luật giữa chừng.
+    if (this.foe.length >= this.MAX_FOE) return null;
     const ext = SC.FoeBullet.is(kind);
     const b = {
       x, y, vx, vy, kind, rot: 0,
@@ -5818,7 +6656,7 @@ SC.Enemy.prototype.update = function (dt, player, lv) {
     case 'strafe':                                 // UFO: bay ngang qua lại
       this.y += (this.y < SC.H * 0.26 ? this.spd : 8 + this.retreat()) * dt;
       this.x += this.dir * this.spd * 1.5 * dt;
-      if (this.x < 40 || this.x > SC.W - 40) this.dir *= -1;
+      if (this.x < 40 || this.x > SC.WW - 40) this.dir *= -1;
       break;
     case 'push':                                   // tank: đi xuống chậm, lì đòn
       this.y += this.spd * dt;
@@ -5875,7 +6713,7 @@ SC.Enemy.prototype.update = function (dt, player, lv) {
   // danh sách quái không bao giờ rỗng -> hạ trùm xong màn treo vĩnh viễn. Chỉ xét con ĐÃ vào màn:
   // quái mới sinh còn nằm trên đỉnh (y âm) chờ ra quân. Lề 120 > biên lượn xa nhất (weave ±112).
   if (this.y > 0) this.seen = true;
-  if (this.seen && (this.y < -120 || this.x < -120 || this.x > SC.W + 120)) this.dead = true;
+  if (this.seen && (this.y < -120 || this.x < -120 || this.x > SC.WW + 120)) this.dead = true;
 };
 
 /* Quái lơ lửng bình thường cứ đứng bắn, nhưng khi màn đã hết wave mà chúng vẫn
@@ -7310,10 +8148,23 @@ Object.assign(SC.BossArt, {
  */
 
 SC.BossMove = {
+  /* ĐỘ CAO NGHỈ của trùm, theo TỈ LỆ chiều cao màn (17/10/2026, pha 04A).
+     Trước đây là hai số viết cứng 150 và 170 — trên màn 748px tức ~0,20H và ~0,23H, nên
+     những lúc không ra chiêu trùm dính sát mép trên. Anh Đức xem clip Sky Force: trùm của
+     họ đứng GIỮA BẦU TRỜI, ló nửa người; người chơi phải ngửa mặt lên đánh chứ không phải
+     bắn vào một dải băng ở đỉnh màn.
+     Hạ xuống 0,38H / 0,42H — ĐO RỒI: so với 0,20H cũ thì win rate giữ 96%, giây/màn giữ 46s,
+     còn đòn trúng GIẢM 7,4 → 6,6 (trùm thấp hơn thì đạn ta tới nhanh hơn, DPS lên). Tức là
+     đổi này gần như MIỄN PHÍ về cân bằng; 0,30H và 0,38H cho số gần hệt nhau nên chọn số
+     bạo hơn, đúng ý "bay giữa bầu trời". Đổi hai số này là ĐỔI
+     ĐỘ KHÓ map trùm, phải đo win rate trước/sau bằng sim (xem phase-04 trong plans/). */
+  REST: 0.38,
+  REST_SWAY: 0.42,
+
   /* Vùng bay hợp lệ: chừa mép và chừa dải đáy nơi người chơi hay đứng — trùm to
      bằng nửa bề ngang, xuống hẳn đáy là chèn chết người chơi chứ không phải thử thách. */
   bounds(b) {
-    return { x0: b.r + 26, x1: SC.W - b.r - 26, y0: 120, y1: SC.H * 0.62 };
+    return { x0: b.r + 26, x1: SC.WW - b.r - 26, y0: 120, y1: SC.H * 0.62 };
   },
 
   KIỂU: {
@@ -7324,7 +8175,7 @@ SC.BossMove = {
 
   reset(b) {
     b.mv = 'patrol'; b.mvT = 3.4; b.mvI = 0;
-    b.ax = b.x; b.ay = 150;                  // điểm neo của kiểu đang chạy
+    b.ax = b.x; b.ay = SC.H * this.REST;                  // điểm neo của kiểu đang chạy
   },
 
   update(b, dt, rage, player) {
@@ -7344,7 +8195,7 @@ SC.BossMove = {
     b.mvT = k === 'corners' ? 3.0 : k === 'dive' ? 2.6 : 4.2;
     b.mvI = 0;
     b.ax = b.x; b.ay = b.y;
-    if (k === 'corners' || k === 'dive') b.mvTx = player ? player.x : SC.W / 2;
+    if (k === 'corners' || k === 'dive') b.mvTx = player ? player.x : SC.WW / 2;
   },
 
   /* trượt ngang ở trên cao — kiểu cũ, giữ lại làm nhịp nghỉ */
@@ -7352,7 +8203,7 @@ SC.BossMove = {
     b.x += b.dir * 70 * rage * dt;
     if (b.x <= B.x0) b.dir = 1;
     if (b.x >= B.x1) b.dir = -1;
-    b.y = SC.lerp(b.y, 150 + Math.sin(b.t * 1.1) * 26, 1 - Math.pow(0.02, dt));
+    b.y = SC.lerp(b.y, SC.H * this.REST + Math.sin(b.t * 1.1) * 26, 1 - Math.pow(0.02, dt));
   },
 
   /* lắc lư quanh chỗ đang đứng, vừa dịch dần sang ngang */
@@ -7360,7 +8211,7 @@ SC.BossMove = {
     b.x += b.dir * 40 * rage * dt;
     if (b.x <= B.x0) b.dir = 1;
     if (b.x >= B.x1) b.dir = -1;
-    b.y = SC.lerp(b.y, 170 + Math.sin(b.t * 2.2) * 52, 1 - Math.pow(0.03, dt));
+    b.y = SC.lerp(b.y, SC.H * this.REST_SWAY + Math.sin(b.t * 2.2) * 52, 1 - Math.pow(0.03, dt));
   },
 
   /* số 8 nằm ngang, phủ gần hết bề ngang và nửa trên chiều cao */
@@ -7378,7 +8229,7 @@ SC.BossMove = {
     const k = Math.min(1, b.mvI);
     const s = Math.sin(k * Math.PI);                 // xuống rồi lên
     b.y = SC.lerp(B.y0, B.y1, s);
-    b.x = SC.lerp(b.ax, b.mvTx || SC.W / 2, Math.min(1, k * 1.4));
+    b.x = SC.lerp(b.ax, b.mvTx || SC.WW / 2, Math.min(1, k * 1.4));
   },
 
   /* lượn vòng tròn quanh nửa trên, bán kính lớn */
@@ -8263,8 +9114,12 @@ SC.Boss.prototype.update = function (dt, player) {
   SC.BossSig.update(this, dt, player);          // mỏ, bộ phận, laze bay độc lập với act
 
   if (this.entering) {                          // màn xuất hiện
+    // Đáp xuống ĐỘ CAO NGHỈ chung (pha 04A) thay vì số 150 viết cứng — nếu không thì
+    // trùm rơi tới đỉnh màn rồi mới trôi dần xuống chỗ `BossMove` muốn, nhìn như hai
+    // lần vào trận.
+    const yRest = SC.H * SC.BossMove.REST;
     this.y += 110 * dt;
-    if (this.y >= 150) { this.y = 150; this.entering = false; }
+    if (this.y >= yRest) { this.y = yRest; this.entering = false; }
     return;
   }
 
@@ -8921,8 +9776,16 @@ SC.Shield = {
   /* Hồi bền phải RẤT chậm. Bản đầu để 5-14/giây, đo ra người chơi đứng yên ở đáy màn
      gần như bất tử: hoả lực địch thưa hơn tốc hồi nên khiên không bao giờ cạn, kết
      thúc map 35 vẫn còn 318/350 máu. Khiên là ĐỆM CHỊU ĐÒN, không phải nguồn máu vô hạn. */
-  IDLE: SC.bal('shield.idle', 3.0),   // giây phải ngơi trước khi bắt đầu hồi
-  CAP: SC.bal('shield.cap', 0.6),     // chỉ tự hồi tới 60% độ bền, còn lại phải nhặt vật phẩm
+  /* GETTER chứ không phải giá trị chốt lúc nạp tệp (18/10/2026).
+     Bản cũ `IDLE: SC.bal(...)` đọc MỘT LẦN lúc trình duyệt nạp script, nên hai số này
+     không thể chỉnh lúc chạy — tức `--patch` của `tools/sim-variants.mjs` KHÔNG BAO GIỜ
+     tinh chỉnh được chúng, và lời hứa ở `data-levels.js:43` ("đặt SC.BALANCE.* trong
+     console để thử nhanh") là sai với riêng khiên.
+     Phát hiện lúc chạy A/B hạ khiên 18/10: bảng TRƯỚC và SAU ra GIỐNG HỆT nhau từng số —
+     một kết quả A/B "không đổi" mà thật ra là patch chưa hề chạm tới cần gạt nào.
+     Getter chạy vài lần mỗi khung, rẻ hơn hẳn một lần đọc nhầm. */
+  get IDLE() { return SC.bal('shield.idle', 3.0); },   // giây phải ngơi trước khi bắt đầu hồi
+  get CAP() { return SC.bal('shield.cap', 0.6); },     // chỉ tự hồi tới 60% độ bền, còn lại phải nhặt vật phẩm
 
   /* bền · bán kính (× bán kính thân) · sát thương/giây · hao bền/giây khi đang đốt */
   A: SC.bal('shield.A', [
@@ -9230,6 +10093,19 @@ SC.ShipArt = {
     return this._cache[k];
   },
 
+  /* Sprite có thật sự vẽ ra cái gì không? Quét thưa (mỗi 8 điểm) cho rẻ — chỉ cần biết
+     "rỗng hay không rỗng", không cần biết hình gì. */
+  _coHinh(c) {
+    try {
+      const g = c.getContext('2d');
+      const d = g.getImageData(0, 0, c.width, c.height).data;
+      for (let i = 3; i < d.length; i += 32) if (d[i] > 8) return true;
+      return false;
+    } catch (e) {
+      return true;   // không soi được (canvas tainted) thì cứ tin là có — đừng tự bỏ tàu
+    }
+  },
+
   /* ---------- dựng sprite ---------- */
   _build(r, evoArg) {
     const dpr = Math.min(3, (window.devicePixelRatio || 1) * 2);
@@ -9262,11 +10138,40 @@ SC.ShipArt = {
       g.fillRect(-size / 2, -size / 2, size, size);
       g.globalAlpha = 1;
       g.globalCompositeOperation = 'source-over';
-      return c;
+      /* LƯỚI AN TOÀN (18/10/2026) — anh Đức báo live: "lobby không hiện máy bay", và xác
+         nhận chỉ xảy ra khi đang bay TÀU AI TIẾN HOÁ.
+         Ảnh AI đến từ dataURL trong localStorage rồi qua `EvoAI._outlined` (vẽ viền trên
+         canvas rồi xuất ra Image). Chuỗi đó có vài chỗ trả về ảnh HỢP LỆ nhưng RỖNG —
+         canvas bị tainted, ảnh gốc hỏng, hoặc hết bộ nhớ khi dựng canvas 1024px. Lúc đó
+         `SpriteArt.get` vẫn thấy `complete && naturalWidth` nên nhận, và cả con tàu biến
+         mất KHÔNG một lời báo. Tàu là nhân vật chính — thà xấu còn hơn mất.
+         Soi một lần lúc DỰNG (kết quả có nhớ đệm) nên không tốn gì mỗi khung. */
+      if (!this._coHinh(c)) {
+        if (!this._daBao) { this._daBao = 1; console.warn('[ship] anh AI dung ra sprite RONG — lui ve tau ve tay'); }
+      } else {
+        return c;
+      }
+      g.clearRect(-size / 2, -size / 2, size, size);
     }
 
     this._wings(g, r, hue, evo);
     this._body(g, r, hue, evo);
+
+    /* LƯỚI AN TOÀN CUỐI CÙNG (18/10/2026). Bug live: `anh: false` (sprite mất) mà bản VẼ
+       TAY bên trên cũng không ra hình nào — người chơi thấy lobby trống trơn, console
+       sạch. Mọi màu ở đây đến từ `SC.Variant.hue()` và nhánh cây kỹ năng; chỉ cần một giá
+       trị lạ là `fillStyle` lặng lẽ giữ màu cũ và cả con tàu vẽ bằng màu trùng nền.
+       Soi một lần lúc DỰNG (có nhớ đệm nên không tốn gì mỗi khung): rỗng thì vẽ một chiếc
+       tàu tối giản bằng MÀU CỐ ĐỊNH, không phụ thuộc biến nào. Xấu còn hơn mất. */
+    if (!this._coHinh(c)) {
+      if (!this._daBaoVe) { this._daBaoVe = 1; console.warn('[ship] ban ve tay cung rong — dung tau du phong'); }
+      g.fillStyle = '#9fc4ff'; g.strokeStyle = '#16294a'; g.lineWidth = 2;
+      g.beginPath();
+      g.moveTo(0, -r * 1.7); g.lineTo(r * 1.25, r * 1.1); g.lineTo(0, r * 0.55); g.lineTo(-r * 1.25, r * 1.1);
+      g.closePath(); g.fill(); g.stroke();
+      g.fillStyle = '#5ae1ff';
+      g.beginPath(); g.ellipse(0, -r * 0.3, r * 0.26, r * 0.46, 0, 0, 6.283); g.fill();
+    }
     return c;
   },
 
@@ -9661,10 +10566,20 @@ SC.Player.prototype.render = function (ctx) {
   ctx.globalAlpha = blink ? 0.35 : 1;
   ctx.translate(this.x, this.y);
 
-  // Màn nhảy dù vào trận: phóng cả khối (thân + lửa + khiên xoay) rồi xẹp dần —
-  // hệ số do SC.Game.introScale() lo, hitbox không đổi (lúc đó chưa có đạn).
-  const isc = SC.Game.introScale ? SC.Game.introScale() : 1;
-  if (isc !== 1) ctx.scale(isc, isc);
+  /* PHÉP PHÓNG CỦA MÀN NHẢY DÙ ĐÃ CHUYỂN LÊN `system-renderer` (18/10/2026).
+     Bug live anh Đức: "chỉ mỗi chiến đấu cơ to ra, phi đội và khiên vẫn cỡ cũ, đè nhau".
+     Đúng vậy — scale cũ nằm ở ĐÂY nên chỉ phủ được thân tàu: `SC.ShieldArt.render` gọi
+     SAU `ctx.restore()` ở cuối hàm này (tức ngoài khối scale, dù chú thích cũ ghi là có),
+     còn `SC.Wingmen.render` thì ở hẳn file khác và vẽ theo toạ độ THẾ GIỚI.
+     Phóng một cụm phải phóng ở MỘT CHỖ, quanh TÂM TÀU — xem system-renderer.js. */
+
+  /* BÓNG ĐỔ (17/10/2026, pha 09.3). Trước đây CHỈ trùm và quái thường có bóng
+     (`drawShadow` được gọi đúng hai chỗ) — nên quái thì nằm trên mặt đất còn tàu, phi
+     đội, mèo, vật phẩm thì dán lên nền như sticker. Vẽ TRƯỚC khi xoay theo hướng ngắm:
+     bóng là của mặt đất, nó không quay theo mũi máy bay.
+     Độ đậm theo ĐỘ SÁNG NỀN của vùng — bóng đen 0,3 trên nền tím/đen map 56 là vô hình,
+     còn trên ruộng sáng thì vừa; `SC.BG.shadeK()` trả hệ số theo vùng. */
+  SC.Shadow.under(ctx, SC.ShipArt.sprite(this.r, SC.Tree.evo()), this.r * SC.ShipArt.PAD * 2);
 
   // hào quang động của dạng tiến hóa — dưới thân tàu, không xoay theo hướng ngắm
   SC.AuraFX.draw(ctx, this.r, this.t, SC.Tree.evo());
@@ -9895,6 +10810,7 @@ SC.DroneArt = {
     const r = w.r;
     SC.draw.glow(ctx, 0, r * 1.1, swarm ? 11 : 15, swarm ? '#5ad0ff' : '#c58cff', 0.5);
     const s = r * 2.6;
+    SC.Shadow.under(ctx, img, s, 0.8);   // pha 09.3 — phi đội cũng phải có bóng như quái
     // bập bềnh nhẹ theo thời gian riêng từng chiếc, thay cho cánh rung của art cũ
     ctx.drawImage(img, -s / 2, -s / 2 + Math.sin(w.t * 8) * 1.5, s, s);
     if (evo >= 1) {
@@ -10069,10 +10985,12 @@ SC.Rescue = {
   timer: 0,        // đếm ngược tới lần thả kế tiếp
   homing: false,   // hết quái rồi: mèo còn lại BAY THẲNG về tàu (xem home())
 
-  /* need = số phi công nhiệm vụ yêu cầu; luôn thả dư 1 cho dễ thở */
+  /* need = số mèo nhiệm vụ yêu cầu; luôn thả dư 1 cho dễ thở.
+     SÀN `SC.RESCUE_PER_MAP` (pha 01): map KHÔNG có nhiệm vụ cứu vẫn thả mèo — đó là
+     động từ NHẶT của game, không phải phần thưởng riêng của một nhiệm vụ. */
   start(need) {
     this.list.length = 0;
-    this.toSpawn = need > 0 ? need + 1 : 0;
+    this.toSpawn = Math.max(SC.RESCUE_PER_MAP || 0, need > 0 ? need + 1 : 0);
     this.timer = 4;
     this.homing = false;
   },
@@ -10128,7 +11046,7 @@ SC.Rescue = {
     this.toSpawn--;
     const doomed = Math.random() < this.tornChance();
     this.list.push({
-      x: SC.rnd(70, SC.W - 70), y: -40, r: 16,
+      x: SC.rnd(70, SC.WW - 70), y: -40, r: 16,
       t: SC.rnd(0, 6.28), sway: SC.rnd(24, 44), saved: false,
       skin: this.SKINS[(Math.random() * this.SKINS.length) | 0],
       // bị bắn quanh 1/3 màn (±3%). Bản đầu rải 20-50% -> nhiều bé quá nửa map mới
@@ -10148,7 +11066,10 @@ SC.Rescue = {
     if (this.toSpawn > 0 && !this.homing) {
       this.timer -= dt;
       if (this.timer <= 0) {
-        this.timer = SC.Waves.index >= SC.Waves.total ? 3 : 9;
+        // 9s → 5s (pha 01): nay thả 6 con/map thay vì 2-4, giữ 9 giây là quá nửa số mèo
+        // chưa kịp ra thì màn đã hết và `cutTail` xén sạch — người chơi không bao giờ
+        // thấy chúng. Wave cuối vẫn rút còn 3s như cũ.
+        this.timer = SC.Waves.index >= SC.Waves.total ? 3 : 5;
         this._tha();
       }
     }
@@ -10174,7 +11095,7 @@ SC.Rescue = {
         p.y += p.vy * dt;
       } else p.y += fall * dt;                         // dù rơi chậm
       p.x += Math.sin(p.t * 1.3) * p.sway * (p.torn ? 0.3 : 1) * dt;
-      p.x = SC.clamp(p.x, 26, SC.W - 26);
+      p.x = SC.clamp(p.x, 26, SC.WW - 26);
 
       // phải chạm tận nơi mới cứu được
       if (SC.dist2(p.x, p.y, player.x, player.y) < 34 * 34) {
@@ -10201,8 +11122,21 @@ SC.Rescue = {
     SC.FX.text(p.x, p.y - 58, 'DÙ LỦNG!', '#ff5c7a');
     // KHÔNG dùng Audio.alarm nữa: từ 12/10 nó phát CÒI TRÙM (file mẫu) — dù lủng mà hú còi
     if (!SC.AudioSamples.play('leak')) SC.Audio.alarm();
-  },
+  }
+};
 
+;
+/* ===== js/entity-rescue-art.js ===== */
+/* entity-rescue-art.js — phan VE cua meo nhay du.
+ *
+ * Tach khoi entity-rescue.js ngay 18/10/2026 (pha 01: meo rot o MOI map day file do len
+ * 205 dong, vuot tran 200). Ranh gioi: ben kia lo LUAT (tha luc nao, bao nhieu con, cuu
+ * duoc chua), ben nay lo HINH (sprite, du, bong, duong lui ve hinh ve tay).
+ *
+ * PHAI nap SAU entity-rescue.js trong index.html.
+ */
+
+Object.assign(SC.Rescue, {
   render(ctx) {
     for (const p of this.list) {
       // lủng dù thì lắc giật liên hồi thay cho đung đưa êm
@@ -10226,6 +11160,7 @@ SC.Rescue = {
         // -> vẽ to hơn + đẩy lên cho THÂN MÈO nằm đúng tâm vòng cứu
         const S = p.torn ? 112 : 91;
         const oy = p.torn ? -S * 0.7 : -S / 2 - 4;
+        SC.Shadow.under(ctx, img, S * 0.8, 0.7);   // pha 09.3 — mèo cũng đổ bóng xuống đất
         ctx.drawImage(img, -S / 2, oy, S, S);
         ctx.restore();
         continue;
@@ -10256,7 +11191,7 @@ SC.Rescue = {
       ctx.restore();
     }
   }
-};
+});
 
 ;
 /* ===== js/system-waves.js ===== */
@@ -10291,6 +11226,7 @@ SC.Waves = {
     this.lastCount = 0;
     this.queue.length = 0;
     this.spawning = false;
+    this.lots = []; this.pulse = 0; this.pulses = 0; this.pulseT = 0;   // tầng nhịp nhỏ
     this.bossSpawned = false;
     this.done = false;
   },
@@ -10328,13 +11264,16 @@ SC.Waves = {
       const spd = (SC.ENEMY_DEF[type] && SC.ENEMY_DEF[type].spd) || 60;
       const spots = this._spread(Array.from({ length: cnt }, (_, i) =>
         Object.assign(this._place(form, i, cnt), { delay: fi * 0.5 + i * gap })), r, spd);
+      // bạn diễn chọn MỘT LẦN cho cả đội hình, bảo đảm khác loài chính (xem
+      // system-waves-counter-mix.js — bản cũ bốc lại trên cả pool nên hay trùng loài chính)
+      const ban = this._mixPartner(lv.pool, type);
       for (let i = 0; i < cnt; i++) {
         const spot = spots[i];
-        // pha trộn thêm 1 loại quái khác cho đa dạng
-        const t = (i % 4 === 3 && lv.pool.length > 1) ? SC.pick(lv.pool) : type;
+        // 1/3 số con là bạn diễn — 1/4 (bản cũ) + hay trùng loài chính = nhìn như không trộn
+        const t = (i % 3 === 2 && ban) ? ban : type;
         this.queue.push({
           t,
-          x: SC.clamp(spot.x, 32, SC.W - 32),
+          x: SC.clamp(spot.x, 32, SC.WW - 32),
           y: spot.y,
           delay: spot.delay
         });
@@ -10344,40 +11283,19 @@ SC.Waves = {
     this._mixCounter(lv, inten);
     SC.DefectorSpawn.mix(this.queue, lv, this.index);   // tàu người chơi đã bán, ≤50% wave
     this.lastCount = this.queue.length;
-    this.spawning = true;
+    this._chunkIntoPulses();      // chẻ thành lô nhỏ (system-waves-formations.js)
     this.sinceWave = 0;
   },
 
-  /* Trộn quái khắc chế vào wave. Mỗi map chỉ một loại (xem entity-enemy-counter.js) và
-     chỉ từ wave 2 trở đi — wave đầu để người chơi làm quen nhịp map đã. */
-  _mixCounter(lv, inten) {
-    if (this.index < 2) return;                  // wave đầu để làm quen nhịp map đã
-    const type = SC.EnemyCounter.forLevel(lv);
-    if (type) {
-      // muỗi đi thành bầy đông, hai loại kia đi lẻ vài con
-      const n = type === 'midge' ? Math.round(12 * Math.min(1.3, inten)) : 1 + Math.round(inten);
-      this._swapIn(type, n);
-    }
-    // Nửa sau chiến dịch luôn có KHIÊN NGƯỢC kèm theo, dù map đó thuộc lượt loại nào.
-    // Nhưng CHẶN TRẦN số con đang sống: chúng không chết được nếu bắn từ dưới lên, nên
-    // thả đều mỗi wave là chúng dồn lại thành một bức tường không gỡ nổi — đo được
-    // map 45 không bot nào qua nổi vì tới wave 3 đã có 6 con chắn ngang màn.
-    const live = SC.Game.enemies.filter(e => !e.dead && e.type === 'guard').length;
-    this._swapIn('guard', Math.max(0, SC.EnemyCounter.guardCount(lv) - live));
+  /* Không còn quái nào sắp ra nữa: wave cuối đã đổ hết (+ trùm đã ra, nếu màn có trùm).
+     `pulse >= pulses` là BẮT BUỘC từ 17/10/2026: hàng chờ rỗng nay chỉ có nghĩa "lô vừa
+     rồi đã nhả xong", còn vài lô nữa đang chờ. Thiếu vế này thì mảnh tiến hoá 🧬 rơi
+     giữa macro wave cuối (`system-combat.js:125` hỏi hàm này) — đúng bệnh 12/10 nhưng
+     ngược chiều: lần đó mảnh KHÔNG BAO GIỜ rơi, lần này rơi quá sớm. */
+  allOut() {
+    return this.index >= this.total && !this.spawning && this.pulse >= this.pulses
+      && (!this.lv.boss || this.bossSpawned);
   },
-
-  /* Thay chỗ của n con thường: giữ nguyên mật độ tổng, chỉ đổi thành phần */
-  _swapIn(type, n) {
-    for (let i = 0; i < n; i++) {
-      const q = this.queue[Math.floor(Math.random() * this.queue.length)];
-      if (!q) break;
-      q.t = type;
-      if (type === 'midge') q.x = i % 2 ? SC.rnd(SC.W - 120, SC.W - 40) : SC.rnd(40, 120);
-    }
-  },
-
-  /* không còn quái nào sắp ra nữa: wave cuối đã đổ hết (+ trùm đã ra, nếu màn có trùm) */
-  allOut() { return this.index >= this.total && !this.spawning && (!this.lv.boss || this.bossSpawned); },
 
   update(dt, enemies) {
     if (this.done) return;
@@ -10402,6 +11320,9 @@ SC.Waves = {
     this.sinceWave += dt;
     this.timer -= dt;
 
+    // Còn lô chưa nhả của macro wave này thì lo tầng nhịp nhỏ trước (formations.js)
+    if (this.pulse < this.pulses) return this._tickPulse(dt, enemies);
+
     if (this.index < this.total) {
       // sang wave kế khi đã dọn gần hết, hoặc chờ quá lâu thì cứ đổ tiếp
       const nearlyClear = enemies.length <= Math.max(1, Math.floor(this.lastCount * 0.3));
@@ -10414,13 +11335,25 @@ SC.Waves = {
       // 10 GIÂY ĐẦU (12/10/2026, audit "WOW"): vũ khí cấp 1 chỉ một tia mảnh — người chơi
       // mới thấy mình yếu ngay từ phút đầu. Màn 1-2 thả sẵn 1 gói nâng vũ khí lúc wave đầu
       // đổ quân: ~3 giây vào trận đã có khoảnh khắc "VŨ KHÍ 2!" (system-moments-player).
-      if (this.index === 1 && lv.id <= 2) SC.Items.drop(SC.W / 2, 70, 'power');
+      if (this.index === 1 && lv.id <= 2) SC.Items.drop(SC.WW / 2, 70, 'power');
       SC.Rescue.onWave();                     // thả dù cùng nhịp wave, tránh đứng chờ
       this.timer = 0.7;                       // nhịp thở ngắn giữa hai wave
       SC.UI.setWave(this.index, this.total + (lv.boss ? 1 : 0));
       if (this.index > 1) {
         SC.UI.toast(this.intensity() >= 1.35 ? 'DỒN DẬP!' : 'WAVE ' + this.index);
         SC.Audio.wave();
+      }
+
+      /* TRÙM RA GIỮA MAP (17/10/2026, pha 04B). Trước đây trùm chỉ xuất hiện SAU khi dọn
+         sạch toàn bộ wave — map trùm thành "bắn hết gà rồi mới gặp trùm", hai nửa rời
+         nhau. Anh Đức xem clip Sky Force: trùm leak vào giữa màn trong khi màn vẫn chạy.
+         Nay trùm vào ĐÚNG LÚC wave CUỐI bắt đầu và wave đó VẪN đổ quân — hai cao trào
+         chồng lên nhau thay vì nối đuôi.
+         ĐẶT SAU `setWave` có chủ đích: `_spawnBoss` tự gọi `setWave(total+1, total+1)` để
+         thanh tiến độ nhảy sang mốc trùm; để trước thì dòng setWave của wave kéo ngược
+         thanh về, nhìn như trùm chưa ra. */
+      if (lv.boss && !this.bossSpawned && this.index >= this.total) {
+        this._spawnBoss(lv, enemies);
       }
       return;
     }
@@ -10435,26 +11368,30 @@ SC.Waves = {
       return;
     }
 
-    if (lv.boss && !this.bossSpawned) {
-      this.bossSpawned = true;
+    if (lv.boss && !this.bossSpawned) this._spawnBoss(lv, enemies);
+    else this.done = true;
+  },
 
-      // Tiếp tế trước trận trùm: map thấp người chơi mới vũ khí cấp 1, sát thương
-      // quá yếu nên trận trùm kéo lê. Thả sẵn 2 gói nâng vũ khí cho công bằng.
-      SC.Items.drop(SC.W * 0.35, 80, 'power');
-      SC.Items.drop(SC.W * 0.65, 80, 'power');
+  /* Đưa trùm vào trận. Tách riêng từ 17/10/2026 (pha 04B) vì nay có HAI đường gọi:
+     giữa map (đầu wave cuối) và đường cũ (sau khi dọn sạch, phòng khi wave cuối đã qua
+     mà trùm chưa ra). Một khối 15 dòng chép hai chỗ là chắc chắn trôi nhau sau vài lần sửa. */
+  _spawnBoss(lv, enemies) {
+    this.bossSpawned = true;
 
-      const boss = new SC.Boss(lv);
-      SC.DefectorSpawn.bossify(boss, lv);     // vô tận: có thể là tàu phản bội hạng trùm
-      enemies.push(boss);
-      SC.Game.boss = boss;
-      SC.UI.showBoss(boss.name);
-      SC.BossMoment.warn(boss);               // băng cảnh báo + nhạc trùm (system-moments-boss.js)
-      SC.addShake(12, 0.6);
-      SC.Audio.alarm();
-      SC.UI.setWave(this.total + 1, this.total + 1);
-    } else {
-      this.done = true;
-    }
+    // Tiếp tế trước trận trùm: map thấp người chơi mới vũ khí cấp 1, sát thương
+    // quá yếu nên trận trùm kéo lê. Thả sẵn 2 gói nâng vũ khí cho công bằng.
+    SC.Items.drop(SC.WW * 0.35, 80, 'power');
+    SC.Items.drop(SC.WW * 0.65, 80, 'power');
+
+    const boss = new SC.Boss(lv);
+    SC.DefectorSpawn.bossify(boss, lv);     // vô tận: có thể là tàu phản bội hạng trùm
+    enemies.push(boss);
+    SC.Game.boss = boss;
+    SC.UI.showBoss(boss.name);
+    SC.BossMoment.warn(boss);               // băng cảnh báo + nhạc trùm (system-moments-boss.js)
+    SC.addShake(12, 0.6);
+    SC.Audio.alarm();
+    SC.UI.setWave(this.total + 1, this.total + 1);
   }
 };
 
@@ -10476,15 +11413,15 @@ Object.assign(SC.Waves, {
   _place(form, i, n) {
     const half = (n - 1) / 2;
     switch (form) {
-      case 'line':  return { x: (SC.W / (n + 1)) * (i + 1), y: -40 };
-      case 'vee':   return { x: SC.W / 2 + (i - half) * 46, y: -40 - Math.abs(i - half) * 30 };
+      case 'line':  return { x: (SC.WW / (n + 1)) * (i + 1), y: -40 };
+      case 'vee':   return { x: SC.WW / 2 + (i - half) * 46, y: -40 - Math.abs(i - half) * 30 };
       case 'arc':   return {
-        x: SC.W / 2 + Math.sin((i / Math.max(1, n - 1) - .5) * 2.4) * 190,
+        x: SC.WW / 2 + Math.sin((i / Math.max(1, n - 1) - .5) * 2.4) * 190,
         y: -40 - Math.cos((i / Math.max(1, n - 1) - .5) * 2.4) * 60
       };
-      case 'swarm': return { x: SC.rnd(50, SC.W - 50), y: SC.rnd(-190, -40) };
-      case 'sides': return { x: i % 2 ? SC.rnd(SC.W - 110, SC.W - 40) : SC.rnd(40, 110), y: -40 };
-      default:      return { x: SC.rnd(40, SC.W - 40), y: -40 };   // 'rain'
+      case 'swarm': return { x: SC.rnd(50, SC.WW - 50), y: SC.rnd(-190, -40) };
+      case 'sides': return { x: i % 2 ? SC.rnd(SC.WW - 110, SC.WW - 40) : SC.rnd(40, 110), y: -40 };
+      default:      return { x: SC.rnd(40, SC.WW - 40), y: -40 };   // 'rain'
     }
   },
 
@@ -10516,7 +11453,7 @@ Object.assign(SC.Waves, {
         s.y = ny; hit = clash(s, i);
       }
       for (let t = 0; hit && t < 24; t++) {                      // nấc 2
-        s.x = SC.rnd(32, SC.W - 32); s.y = SC.rnd(floorY, -40); hit = clash(s, i);
+        s.x = SC.rnd(32, SC.WW - 32); s.y = SC.rnd(floorY, -40); hit = clash(s, i);
       }
       for (let t = 0; hit && t < 24; t++) {                      // nấc 3
         const need = (s.y - (v(hit) - Math.sqrt(Math.max(0, d2 - (s.x - hit.x) ** 2)) - 1)) / spd;
@@ -10525,7 +11462,150 @@ Object.assign(SC.Waves, {
       }
     }
     return spots;
+  },
+
+  /* ---------------- TẦNG NHỊP NHỎ (17/10/2026) ----------------
+   *
+   * VÌ SAO: bóc 23 màn Sky Force Reloaded ra được 25 nhịp/màn, mỗi nhịp 5,6 con và CHƯA
+   * BAO GIỜ quá 10. Sky Chicken dồn vào 4 nhịp, mỗi nhịp 5-44 con. Tổng quái hai bên gần
+   * bằng nhau (34-122 vs 108) — sai ở ĐỘ MỊN, không ở lượng.
+   * Và bệnh chính xác KHÔNG phải "đổ một cục": `_buildWave` đã nhỏ giọt 0,1 s/con sẵn.
+   * Bệnh là KHOẢNG TRỐNG — `update` chỉ sang wave sau khi dọn còn 30% HOẶC đã 9 giây, nên
+   * người kẹt nhìn màn hình trống 9 giây, lặp 4 lần. Họ không bị đánh dồn, họ bị BỎ ĐÓI.
+   *
+   * Cách chữa: giữ nguyên 4 macro wave (chúng là hợp đồng với HUD, toast, telemetry,
+   * dashboard, Rescue, _mixCounter — xem phase-07 trong plans/), chẻ RIÊNG hàng chờ của
+   * mỗi wave thành vài lô rồi nhả theo ĐỒNG HỒ. Cơ chế phản ứng cũ chỉ còn được phép
+   * GIỤC SỚM, không được phép hoãn → người giỏi vẫn được dồn nhanh, người kẹt không bao
+   * giờ phải đứng nhìn màn hình trống.
+   *
+   * TỔNG SỐ CON KHÔNG ĐỔI MỘT ĐƠN VỊ NÀO: chỉ chia lại hàng chờ đã dựng xong. */
+
+  /* Chia hàng chờ thành `k` lô theo thứ tự ra quân, phần dư dồn vào lô cuối.
+     Mỗi lô được đưa về mốc thời gian 0 của chính nó — nếu không, lô thứ ba mang delay
+     gốc ~2 giây sẽ đứng im thêm 2 giây nữa sau khi đã tới lượt. */
+  _split(queue, k) {
+    const q = queue.slice().sort((a, b) => a.delay - b.delay);
+    const n = Math.max(1, Math.min(k, q.length));
+    const per = Math.floor(q.length / n), lots = [];
+    for (let i = 0; i < n; i++) {
+      const lot = q.slice(i * per, i === n - 1 ? q.length : (i + 1) * per);
+      const t0 = lot.length ? lot[0].delay : 0;
+      for (const s of lot) s.delay = Math.max(0, s.delay - t0);
+      lots.push(lot);
+    }
+    return lots;
+  },
+
+  /* SÀN giãn cách giữa hai lô: lô trước phải kịp rời vạch sinh (y = −40) đủ xa, không thì
+     lô sau đẻ chồng lên nó thành đúng cục sprite mà `_spread` sinh ra để chữa. `_spread`
+     chỉ gỡ đè TRONG một lô nên không cứu được chuyện này. Lấy con CHẬM NHẤT và TO NHẤT
+     của lô làm chuẩn: gà giáp r=28 bò 26px/s cần 2,5 s mới đi hết 2,3r. */
+  _lotGap(lot) {
+    let worst = 0;
+    for (const s of lot) {
+      const d = SC.ENEMY_DEF[s.t] || {};
+      worst = Math.max(worst, Math.max(34, (d.r || 20) * 2.3) / (d.spd || 60));
+    }
+    return worst;
+  },
+
+  /* Gọi ở cuối `_buildWave`, sau khi hàng chờ đã dựng XONG (kể cả quái khắc chế và tàu
+     phản bội) — trộn trước rồi mới chia thì chúng tự rải đều ra các lô, miễn phí. */
+  _chunkIntoPulses() {
+    this.lots = this._split(this.queue, SC.bal('levels.pulses', SC.PULSES));
+    this.pulses = this.lots.length;
+    this.pulse = 0;
+    this.pulseT = 0;              // lô đầu ra NGAY, không chờ
+    this.queue.length = 0;
+    this.spawning = false;
+  },
+
+  /* Một khung hình của tầng nhịp nhỏ. Trả về đúng kiểu `undefined` như nhánh cũ. */
+  _tickPulse(dt, enemies) {
+    this.pulseT -= dt;
+    const lot = this.lots[this.pulse];
+    /* GIỤC SỚM — ngưỡng đo bằng "còn chỗ cho một lô nữa không", KHÔNG phải "đã dọn gần
+       hết lô này chưa". ĐO ĐƯỢC (sim ABB avg, map 6/26/42): ngưỡng 0,6 × cỡ lô gần như
+       không bao giờ nổ vì quái từ các lô trước còn sống trên màn (15 con sống so với
+       ngưỡng 3) → người giỏi bị đồng hồ giữ lại, màn dài thêm 28% và nhiệm vụ `fast`
+       thành bất khả ở map 42. Ngưỡng 2 lô giữ áp lực quanh 2-3 lô cùng lúc và trả lại
+       quyền "dọn nhanh thì được dồn nhanh". */
+    const early = enemies.length <= lot.length * 2;
+    if (this.pulseT > 0 && !early) return;
+    this.pulse++;
+    this.queue.push(...lot);
+    this.spawning = true;
+    const inten = this.curve[Math.max(0, this.index - 1)] || 1;
+    this.pulseT = Math.max(SC.bal('levels.pulseCadence', SC.PULSE_CADENCE) / Math.max(0.5, inten),
+      this._lotGap(lot));
   }
+});
+
+;
+/* ===== js/system-waves-counter-mix.js ===== */
+/* system-waves-counter-mix.js — trộn QUÁI KHẮC CHẾ vào hàng chờ của một wave.
+ *
+ * Tách khỏi system-waves.js ngày 17/10/2026: thêm tầng nhịp nhỏ (pha 07) đẩy file đó lên
+ * 208 dòng, vượt trần 200. Ranh giới tự nhiên — bên kia lo ĐIỀU PHỐI NHỊP (khi nào nhả,
+ * nhả bao nhiêu lô), bên này lo THÀNH PHẦN của một wave (trong đám đó có mấy con khắc chế).
+ *
+ * PHẢI nạp SAU system-waves.js trong index.html (nó `Object.assign` vào SC.Waves).
+ * Gọi ở `_buildWave` TRƯỚC `_chunkIntoPulses` — trộn trước rồi mới chia lô thì quái khắc
+ * chế tự rải đều ra các lô, không phải làm gì thêm.
+ */
+
+Object.assign(SC.Waves, {
+  /* Trộn quái khắc chế vào wave. Mỗi map chỉ một loại (xem entity-enemy-counter.js) và
+     chỉ từ wave 2 trở đi — wave đầu để người chơi làm quen nhịp map đã. */
+  _mixCounter(lv, inten) {
+    if (this.index < 2) return;                  // wave đầu để làm quen nhịp map đã
+    const type = SC.EnemyCounter.forLevel(lv);
+    if (type) {
+      // muỗi đi thành bầy đông, hai loại kia đi lẻ vài con
+      const n = type === 'midge' ? Math.round(12 * Math.min(1.3, inten)) : 1 + Math.round(inten);
+      this._swapIn(type, n);
+    }
+    // Nửa sau chiến dịch luôn có KHIÊN NGƯỢC kèm theo, dù map đó thuộc lượt loại nào.
+    // Nhưng CHẶN TRẦN số con đang sống: chúng không chết được nếu bắn từ dưới lên, nên
+    // thả đều mỗi wave là chúng dồn lại thành một bức tường không gỡ nổi — đo được
+    // map 45 không bot nào qua nổi vì tới wave 3 đã có 6 con chắn ngang màn.
+    const live = SC.Game.enemies.filter(e => !e.dead && e.type === 'guard').length;
+    this._swapIn('guard', Math.max(0, SC.EnemyCounter.guardCount(lv) - live));
+  },
+
+  /* BẠN DIỄN của wave (18/10/2026) — loài thứ hai trộn vào cùng đội hình.
+   *
+   * VÌ SAO: ảnh trận thật cho thấy mỗi khung hình gần như chỉ có MỘT dáng quái lặp 6-10
+   * lần (`lv30-b`: 10 con bọ xanh y hệt che mất con trùm vừa vào; `lv14-a`: 6 gà giáp
+   * vàng). Mã cũ có trộn — `i % 4 === 3 ? SC.pick(lv.pool) : type` — nhưng `SC.pick` bốc
+   * lại TRÊN CẢ POOL nên rất hay trúng đúng loài đang dùng, thành ra không trộn gì cả.
+   *
+   * Nay bạn diễn được CHỌN MỘT LẦN mỗi đội hình và bảo đảm KHÁC loài chính. Bốc "hơn
+   * trong hai": lấy hai ứng viên ngẫu nhiên rồi giữ con lệch bán kính nhiều hơn — to
+   * đứng cạnh nhỏ thì mắt đọc ra ngay là hai loại, mà vẫn còn ngẫu nhiên nên không phải
+   * lúc nào cũng lôi con nặng nhất vào (bốc con nặng nhất mỗi wave là âm thầm tăng máu
+   * cả màn). Đo lại bằng `tools/sim-variants.mjs` sau khi đổi, đừng tin ước lượng.
+   */
+  _mixPartner(pool, primary) {
+    if (!pool || pool.length < 2) return null;
+    const khac = pool.filter(t => t !== primary);
+    if (!khac.length) return null;
+    const r = t => (SC.ENEMY_DEF[t] && SC.ENEMY_DEF[t].r) || 20;
+    const r0 = r(primary);
+    const a = SC.pick(khac), b = SC.pick(khac);
+    return Math.abs(r(a) - r0) >= Math.abs(r(b) - r0) ? a : b;
+  },
+
+  /* Thay chỗ của n con thường: giữ nguyên mật độ tổng, chỉ đổi thành phần */
+  _swapIn(type, n) {
+    for (let i = 0; i < n; i++) {
+      const q = this.queue[Math.floor(Math.random() * this.queue.length)];
+      if (!q) break;
+      q.t = type;
+      if (type === 'midge') q.x = i % 2 ? SC.rnd(SC.WW - 120, SC.WW - 40) : SC.rnd(40, 120);
+    }
+  },
 });
 
 ;
@@ -10760,11 +11840,23 @@ SC.Combat = {
   },
 
   /* ---------- cứu được một phi công ---------- */
+  /* GIÁ MỖI CON HẠ 5◈/150đ → 1◈/40đ (18/10/2026, pha 01).
+   *
+   * Mèo nay rơi ở MỌI map và nhiều gấp đôi (`SC.RESCUE_PER_MAP`), giữ nguyên giá là lạm
+   * phát cả vàng lẫn BẢNG XẾP HẠNG ĐIỂM — `score` đi thẳng vào `scores/{id}`, dòng cũ
+   * không còn so được với dòng mới.
+   *
+   * ĐÃ ĐO, ĐÃ PHẢI HẠ HAI LẦN: ở 2◈/con thì tổng vàng cả chiến dịch chỉ +6% (đạt cổng
+   * ±15%), NHƯNG map ngắn thu nhập thấp thì vỡ — map 14 (15 giây, 55 vàng) lệch **+55%**.
+   * Trung bình đạt cổng mà một dải map vỡ thì vẫn là vỡ. Ở 1◈ thì map 14 còn ~+11%.
+   *
+   * Và đây là cách nghĩ đúng về mèo: nó là VIỆC ĐỂ LÀM + ô nhiệm vụ, KHÔNG phải nguồn
+   * thu. Sky Force cũng vậy — cứu người là điều kiện huy chương, sao thì đến từ chỗ khác. */
   rescue(g, x, y) {
     g.stats.rescued++;
-    g.coin += 5;
-    g.score += 150;
-    SC.FX.text(x, y - 16, 'ĐÃ CỨU! +5◈', '#4dff9f');
+    g.coin += 1;
+    g.score += 40;
+    SC.FX.text(x, y - 16, 'ĐÃ CỨU!', '#4dff9f');
     SC.FX.burst(x, y, '#4dff9f', 22, 240, 3.4);
     if (!SC.AudioSamples.play('rescue')) SC.Audio.heal();   // mèo meo khi được cứu
     SC.Input.vibrate(35);
@@ -10853,23 +11945,73 @@ SC.Renderer = {
       const s = SC.shake.power * SC.shake.t;
       ctx.translate(SC.rnd(-s, s), SC.rnd(-s, s));
     }
+    /* CAMERA (pha 02A) — đặt TRONG khối rung và TRƯỚC mọi thứ thuộc thế giới, nên mọi vật
+       thể, nền, hiệu ứng trong khối này tự đi theo mà không phải sửa chỗ nào.
+       `SC.Cam.x` luôn 0 khi `WORLD_K = 1`, tức bước này không đổi một điểm ảnh nào — tách
+       nghĩa trước, nới sân chơi sau (pha 02B).
+       Những thứ thuộc MÀN HÌNH (viền tối, chữ to, băng cảnh báo, mực che mắt) nằm NGOÀI
+       `ctx.restore()` bên dưới nên không bị camera kéo theo — đó là lý do mối nối sạch. */
+    if (SC.Cam.x) ctx.translate(-SC.Cam.x, 0);
 
     SC.BG.render(ctx);
+    // Hạt thời tiết LỚP NỀN (pha 05.2): trên nền + decor, dưới mọi vật thể. Gọi ở đây chứ
+    // không gọi trong SC.BG.render vì hàm đó có hai đường thoát khác nhau (có ảnh / vẽ tay)
+    // — nhét vào trong là sớm muộn một đường quên gọi.
+    if (g.state !== 'menu') SC.Weather.render(ctx);
+    // Ánh sáng vụ nổ / nòng súng hắt xuống NỀN — phải nằm ngay trên nền và DƯỚI mọi vật
+    // thể, không thì thành quầng loá phủ lên quái và đạn (pha 09.5).
+    if (g.state !== 'menu') SC.GroundLight.render(ctx);
 
-    // Ở lobby: máy bay đứng chờ, vẽ ngay trên nền và dưới lớp UI của DOM
-    if (g.state === 'menu') SC.LobbyShip.render(ctx);
+    /* Ở lobby: máy bay đứng chờ, vẽ ngay trên nền và dưới lớp UI của DOM.
+     *
+     * HỎI MÀN HÌNH ĐANG HIỆN, KHÔNG HỎI `g.state` (18/10/2026). Chính repo đã cảnh báo
+     * cái bẫy này ở `ui-victory.js:16`: có đường đi làm `state` kẹt ở 'result' trong khi
+     * người chơi đã về lobby — lúc đó điều kiện `state === 'menu'` sai, tàu KHÔNG được vẽ,
+     * và không có một lỗi nào để lần ra. Khớp đúng triệu chứng anh Đức gặp trên banga:
+     * console sạch, sprite bình thường, vị trí đo được, mà tàu vẫn mất — kể cả tàu mặc định.
+     * Màn hình đang hiện là sự thật nhìn thấy được; biến trạng thái thì có thể lệch. */
+    const oLobby = SC.UI && SC.UI.el.menu
+      ? !SC.UI.el.menu.classList.contains('hidden') : g.state === 'menu';
+    if (oLobby) {
+      if (g.state !== 'menu' && !this._baoKet) {
+        this._baoKet = 1;
+        console.warn('[lobby] dang o lobby nhung game.state =', g.state, '- van ve tau');
+      }
+      SC.LobbyShip.render(ctx);
+    }
 
     if (g.state !== 'menu') {
-      SC.Items.render(ctx);        // vật phẩm nằm dưới cùng
       SC.Rescue.render(ctx);
       for (const e of g.enemies) e.render(ctx);
+      // VẬT PHẨM VẼ TRÊN QUÁI (17/10/2026). Trước đây nằm dưới cùng — không sao khi đồ
+      // TỰ HÚT về tàu, vì người chơi không cần nhìn thấy chúng. Nhưng hướng "nhặt bằng
+      // tay" thì bắt người chơi bay tới một thứ bị quái che là thiết kế hỏng, nên dọn
+      // trước. Vẫn nằm DƯỚI đạn: đạn địch luôn phải là thứ dễ thấy nhất màn hình.
+      SC.Items.render(ctx);
       SC.BossMoment.renderWorld(ctx);   // thân trùm hấp hối (đã rời danh sách quái)
       SC.BossWind.renderWorld(ctx);     // báo trước chiêu: vạch ngắm, cột trứng, tâm mực, cổng
       SC.Bullets.render(ctx);
+      /* MÀN NHẢY DÙ phóng CẢ CỤM quanh tâm tàu (18/10/2026) — thân + phi đội + khiên.
+         Bug live: bản cũ đặt phép phóng trong `entity-player.render`, nên chỉ thân tàu
+         to ra; phi đội vẽ ở file khác theo toạ độ THẾ GIỚI, còn khiên thì gọi sau
+         `ctx.restore()` — cả hai giữ cỡ cũ và chui vào trong thân, lệch hẳn tỉ lệ.
+         Phóng quanh TÂM TÀU chứ không quanh gốc canvas: phóng quanh gốc là cả cụm
+         trôi về góc màn hình. Hitbox không đụng tới (intro có bất tử phủ trọn). */
+      const isc = SC.Game.introScale ? SC.Game.introScale() : 1;
+      const pp = g.player;
+      if (isc !== 1 && pp) { ctx.save(); ctx.translate(pp.x, pp.y); ctx.scale(isc, isc); ctx.translate(-pp.x, -pp.y); }
       SC.Wingmen.render(ctx);
       g.player.render(ctx);        // máy bay chính vẽ trên phi đội
+      if (isc !== 1 && pp) ctx.restore();
+      SC.Ready.render(ctx);        // mây tiền cảnh + lời mời (pha 03): che tàu, dưới chữ
       SC.FX.render(ctx);           // hạt và số điểm nằm trên hết
-      SC.PlayerMoment.renderWorld(ctx);   // nhãn chữ to "VŨ KHÍ 3!" 
+      SC.PlayerMoment.renderWorld(ctx);   // nhãn chữ to "VŨ KHÍ 3!"
+      /* TIỀN CẢNH (pha 05.1) — lớp DUY NHẤT nằm TRÊN gameplay, và là thứ duy nhất tạo được
+         cảm giác "đang bay xuyên qua" thay vì "ngắm một tấm nền cuộn". Vì nó che tàu và
+         quái nên cả hai module tự tắt khi trùm báo trước chiêu, và alpha bị chặn trần.
+         Vẫn nằm TRONG khối camera (trước ctx.restore) — mây phải trôi cùng thế giới. */
+      SC.Weather.render(ctx, true);
+      SC.FgClouds.render(ctx);
     }
     ctx.restore();
 
@@ -10882,6 +12024,8 @@ SC.Renderer = {
       SC.PlayerMoment.renderScreen(ctx); SC.BossMoment.renderScreen(ctx);
       SC.BossCallout.render(ctx); SC.BossVictory.render(ctx);   // băng tên chiêu, cảnh HẠ GỤC!
     }
+    // Buông tay: màn tối dần + lời nhắc chạm lại. Lớp MÀN HÌNH nên không rung theo cảnh.
+    if (g.state === 'play') SC.AutoPause.render(ctx);
     SC.ScreenFX.render(ctx);      // ngoài phép rung: chớp sáng và chữ phải đứng yên
   },
 
@@ -10980,6 +12124,14 @@ SC.Settings = {
   TEXT: [[1, 'THƯỜNG'], [1.1, 'LỚN'], [1.2, 'RẤT LỚN']],
   text: 1.1,
 
+  /* MÔI TRƯỜNG (18/10/2026, pha 05) — hạt thời tiết theo vùng + mây bay trước mặt.
+     MỘT công tắc cho cả hai chứ không phải hai: chúng cùng một loại rủi ro ("có thứ
+     chuyển động nằm giữa mắt người chơi và viên đạn"), nên ai tắt cái này thì cũng
+     muốn tắt cái kia. Hai công tắc chỉ làm màn Cài đặt dài thêm một dòng vô ích.
+     MẶC ĐỊNH BẬT: đó là phần lớn giá trị hình ảnh của pha 05; tắt sẵn thì coi như
+     không làm. Cả hai module đã có trần alpha + tự tắt khi trùm báo trước chiêu. */
+  env: true,
+
   load() {
     try {
       const raw = localStorage.getItem(this.KEY);
@@ -10987,6 +12139,7 @@ SC.Settings = {
       if (raw) {
         const o = JSON.parse(raw);
         if (typeof o.shake === 'boolean') this.shake = o.shake;
+        if (typeof o.env === 'boolean') this.env = o.env;
         if (o.tilt === 45 || o.tilt === 90) this.tilt = o.tilt;
         if (this.TEXT.some(t => t[0] === o.text)) this.text = o.text;
       }
@@ -10995,7 +12148,8 @@ SC.Settings = {
 
   save() {
     try {
-      localStorage.setItem(this.KEY, JSON.stringify({ shake: this.shake, tilt: this.tilt, text: this.text }));
+      localStorage.setItem(this.KEY, JSON.stringify(
+        { shake: this.shake, env: this.env, tilt: this.tilt, text: this.text }));
     } catch (e) {}
   },
 
@@ -11010,6 +12164,7 @@ SC.Settings = {
   bind(on) {
     on('btnShake', () => this.toggleShake());
     on('btnShake2', () => this.toggleShake());
+    on('btnEnv', () => this.toggleEnv());
     on('btnTilt', () => this.toggleTilt());
     on('btnText', () => this.toggleText());
     on('btnVoice', () => { SC.Voice.set(!SC.Voice.on); this.sync(); });
@@ -11038,6 +12193,18 @@ SC.Settings = {
     SC.UI.toast(this.shake ? 'RUNG MÀN HÌNH: BẬT' : 'RUNG MÀN HÌNH: TẮT');
   },
 
+  /* Bật/tắt hạt thời tiết + mây tiền cảnh. Phải DỰNG LẠI ngay chứ không đợi màn sau:
+     `reset()` của hai module đọc `Settings.env` lúc gieo hạt, nên không gọi lại thì
+     bật xong vẫn thấy màn trống cho tới khi đổi map — người chơi sẽ tưởng nút hỏng. */
+  toggleEnv() {
+    this.env = !this.env;
+    this.save();
+    this.sync();
+    const id = SC.BG.biome && SC.BG.biome.id;
+    if (id) { SC.Weather.reset(id); SC.FgClouds.reset(id); }
+    SC.UI.toast(this.env ? 'MÔI TRƯỜNG: BẬT' : 'MÔI TRƯỜNG: TẮT');
+  },
+
   /* Đổi qua lại 45° ↔ 90°. Đổi giữa trận cũng không sao: p.aim lạc khỏi bảng hướng
      thì system-facing tự quy về phương gần nhất ở nhịp sau. */
   toggleTilt() {
@@ -11054,6 +12221,8 @@ SC.Settings = {
       const b = document.getElementById(id);
       if (b) b.classList.toggle('off', !this.shake);
     }
+    const ev = document.getElementById('btnEnvLabel');
+    if (ev) ev.textContent = this.env ? 'BẬT' : 'TẮT';
     // nhãn ở đây là một <span> RIÊNG, ghi được mà không đụng icon (xem chú thích trên)
     const t = document.getElementById('btnTiltLabel');
     if (t) t.textContent = this.tilt === 45 ? 'NGHIÊNG 45°' : 'NGANG 90°';
@@ -11124,6 +12293,7 @@ SC.MenuCard = {
       // chip độ khó bên cạnh. "BẮT ĐẦU HÀNH TRÌNH" ở cỡ chữ mới cần 376 -> gãy đôi.
       : done ? 'CHƠI TIẾP' : next === 1 ? 'BẮT ĐẦU' : 'TIẾP THEO');
     set('nowMap', 'MÀN ' + String(lv.id).padStart(2, '0'));
+    this.scene(lv, biome);                       // số màn lùi về sau + trời của vùng
     set('nowBiome', endless
       ? `${biome.name} · khó ×${SC.Endless.mul(lv.id).toFixed(1)}`
       : `${biome.name} · ${lv.stage}/${per}`);
@@ -11199,6 +12369,21 @@ SC.MenuCard = {
 
   /* Nền lobby lấy đúng cảnh của vùng sắp tới. Gọi lại mỗi lần sync vì đổi hồ sơ
      hay xoá tiến độ đều làm chặng kế nhảy sang vùng khác. */
+  /* CẢNH LOBBY (17/10/2026): số màn đứng lùi về sau + trời của vùng sắp bay tới.
+     Trời mượn luôn 10 tấm nền map đã trả tiền mà lobby chưa đụng — 0 asset mới, 0 request
+     thêm (SW đã cache chúng cho màn chơi). */
+  scene(lv, biome) {
+    const num = document.getElementById('lbNum');
+    if (num) num.textContent = String(lv.id).padStart(2, '0');
+
+    const far = document.getElementById('lbFar');
+    if (far && biome && biome.id) {
+      // chỉ gán khi ĐỔI vùng: gán lại cùng ảnh mỗi lần mở lobby là trình duyệt vẽ lại nhấp nháy
+      const url = 'url(../assets/art-game/bg-' + biome.id + '.webp)';
+      if (far.dataset.bg !== biome.id) { far.style.backgroundImage = url; far.dataset.bg = biome.id; }
+    }
+  },
+
   syncBiome(lv) {
     if (SC.Game && SC.Game.state === 'menu' && SC.BG.biomeId !== lv.biome) SC.BG.setBiome(lv.biome);
   },
@@ -11462,7 +12647,17 @@ SC.Result = {
   _goldRows(win, r) {
     const row = (ten, gt, lop) => `<li class="${lop || ''}"><span>${ten}</span><b>${gt}</b></li>`;
 
-    if (!win) return row('Vàng nhặt được', '+' + r.gold, 'tong');
+    /* THUA (pha 08, 17/10/2026): từ nay thua được trả theo độ sâu map × hệ số cây vàng
+       (xem `system-level-finish.js`), nên tổng gần như luôn LỚN HƠN số vàng nhặt trong
+       màn. Gộp một dòng "Vàng nhặt được" là người chơi tưởng mình nhặt được nhiều thế —
+       rồi lần sau nhặt ít hơn mà vẫn ra số đó thì con số thành vô nghĩa. Tách hai dòng
+       để thấy rõ: phần mình nhặt, và phần game trả cho công đi xa. */
+    if (!win) {
+      if (r.gold <= r.coin) return row('Vàng nhặt được', '+' + r.gold, 'tong');
+      return row('Vàng nhặt trong màn', '+' + r.coin)
+        + row('Thưởng đi xa', '+' + (r.gold - r.coin))
+        + row('TỔNG', '+' + r.gold, 'tong');
+    }
     let out;
 
     /* Ba khoản cộng dồn, phải tách ĐÚNG BA DÒNG.
@@ -12710,9 +13905,12 @@ SC.Rank = {
     if (!rows.length) {
       wrap.innerHTML = banner + `<p class="rank-note">${this.EMPTY[this.tab]()}</p>`;
     } else {
-      // Top 3 đeo medal AI (đợt 2) thay số; hỏng ảnh thì onerror trả lại con số —
-      // cùng chiến thuật fallback với icon cây kỹ năng (ui-tree.js).
-      wrap.innerHTML = banner + rows.map(r => { const bar = this.bar(r, rows); return `
+      /* Top 3 nhấc khỏi danh sách thành BỤC VINH DANH (18/10/2026) — đủ 3 dòng mới dựng,
+         thiếu thì cả bảng về danh sách phẳng như cũ (xem ui-rank-podium.js). */
+      const top = rows.length >= SC.RankPodium.MIN ? rows.slice(0, 3) : [];
+      const rest = top.length ? rows.slice(3) : rows;
+      // Hạng 4 trở xuống đeo số; medal AI chỉ còn ở bục, nơi nó đủ to để nhìn ra.
+      wrap.innerHTML = banner + SC.RankPodium.html(top, t, this) + rest.map(r => { const bar = this.bar(r, rows); return `
         <div class="rank-row${r.me || (me && r.uid === SC.Cloud.scoreId(me.uid)) ? ' me' : ''}${bar ? ' bar' : ''}"${bar}>
           <span class="rank-pos${r.pos <= 3 ? ' top' : ''}">${r.pos <= 3
             ? `<img src="assets/art-game/ui-badge-medal-${r.pos}.webp" alt="${r.pos}" onerror="if(this.r)this.replaceWith('${r.pos}');else{this.r=1;this.src=this.src}">`
@@ -12831,6 +14029,108 @@ Object.assign(SC.Rank, {
 });
 
 ;
+/* ===== js/ui-rank-podium.js ===== */
+/* ui-rank-podium.js — BỤC VINH DANH cho top 3 của bảng xếp hạng (18/10/2026)
+ *
+ * VÌ SAO CÓ: bản cũ xếp 11 dòng y hệt nhau — hạng 1 và hạng 11 cùng khuôn, cùng cỡ chữ
+ * 12px, khác nhau duy nhất một tấm huy chương vẽ ở 19px. Một bảng xếp hạng mà không
+ * XẾP HẠNG BẰNG HÌNH thì nó chỉ là một bảng tính. Soi 24 màn chấm màn này 2/5.
+ *
+ * Hai tấm art đã trả tiền từ đợt style B đang nằm không ở đúng cái màn nói về cúp:
+ * `ui-badge-trophy-big.webp` và `ui-badge-avatar-frame.webp`. Đây là chỗ dùng chúng.
+ *
+ * THOÁI LUI BẮT BUỘC: dưới 3 dòng thì KHÔNG dựng bục — máy mới chỉ có 1 hồ sơ, hay tab
+ * TỐC ĐỘ lúc chưa ai đi hết chiến dịch, đều rơi vào đó. Một cái bục khuyết hai chân
+ * trông hỏng hơn hẳn một danh sách phẳng.
+ */
+
+SC.RankPodium = {
+  MIN: 3,
+
+  /* `rk` là SC.Rank truyền vào — dùng lại `avatar()` và `esc()` của nó thay vì chép
+     (avatar còn phải biết tab GARA đang khoe ảnh tàu, logic đó chỉ có một chỗ). */
+  html(top, t, rk) {
+    if (!top || top.length < this.MIN) return '';
+    // thứ tự DOM 2-1-3 để hạng NHẤT đứng GIỮA; bục cao thấp lo phần còn lại
+    const ord = [top[1], top[0], top[2]];
+    return `<div class="rank-podium">
+      <img class="pod-trophy" src="assets/art-game/ui-badge-trophy-big.webp" alt=""
+        onerror="this.style.display='none'">
+      ${ord.map(r => `
+        <div class="pod p${r.pos}${r.me ? ' me' : ''}">
+          <img class="pod-medal" src="assets/art-game/ui-badge-medal-${r.pos}.webp"
+            alt="${r.pos}" onerror="if(this.r)this.replaceWith('${r.pos}');else{this.r=1;this.src=this.src}">
+          <span class="pod-av">${rk.avatar(r)}</span>
+          <b class="pod-name">${rk.esc(r.name || 'Phi công')}</b>
+          <span class="pod-val">${t.val(r)}</span>
+          <i class="pod-base"></i>
+        </div>`).join('')}
+    </div>`;
+  }
+};
+
+/* VỆT TỈ LỆ cho cả ba tab gốc (hướng của art director): `.rank-row.bar` vốn đã dựng sẵn
+   cho LỰC CHIẾN/GARA từ 12/10 nhưng ba tab gốc không khai `bar` nên chưa bao giờ dùng.
+   Mắt đọc ra HÌNH DÁNG cuộc đua nhanh hơn đọc 11 con số.
+   TỐC ĐỘ CỐ Ý KHÔNG CÓ VỆT: ở đó nhỏ hơn là giỏi hơn, vệt dài-ngắn sẽ nói ngược. */
+for (const t of SC.Rank.TABS) {
+  if (t.k === 'level') t.bar = r => r.highestLevel || 0;
+  if (t.k === 'stars') t.bar = r => r.totalStars || 0;
+}
+
+;
+/* ===== js/ui-map-region-head.js ===== */
+/* ui-map-region-head.js — thanh tiêu đề MỘT VÙNG ở màn bản đồ (18/10/2026)
+ *
+ * VÌ SAO TÁCH: `ui-map-select.js` đã 215 dòng, quá trần 200 — nối thêm vào đó là sai
+ * hướng. Và phần tiêu đề vùng vốn là một khối độc lập: tên vùng, nhãn trạng thái, và
+ * (từ hôm nay) CHÂN DUNG TRÙM gác cổng.
+ *
+ * VÌ SAO CÓ CHÂN DUNG TRÙM: repo đang có 10 tấm `boss-<key>.webp` (384px, style B, có
+ * viền) đã trả tiền từ đợt art mà màn bản đồ KHÔNG dùng lấy một tấm — chặng trùm chỉ
+ * đổi nền từ navy sang mận. Thứ đáng "wow" nhất của một bản đồ là thấy con mình sắp
+ * phải đánh. Vùng chưa mở thì trùm tô ĐEN thành bóng: vẫn đọc được dáng, vẫn là củ
+ * cà rốt, mà không lộ hết.
+ *
+ * `loading="lazy"` không phải để cho đẹp: 10 chân dung 384px trong một danh sách cuộn
+ * là 10 lượt giải nén ảnh ngay lúc mở màn.
+ */
+
+SC.MapHead = {
+  /* Trả về phần tử tiêu đề đã gắn sẵn sự kiện. `box` cần cho nút bung/gập vùng khoá. */
+  make(sel, biome, bi, box, open, perfect, stars, max) {
+    const head = document.createElement(open ? 'div' : 'button');
+    head.className = 'saga-head' + (open ? '' : ' lock');
+    head.dataset.bi = bi;
+    head.innerHTML = `<b>${biome.name}</b>
+      <span>${this.tag(open, perfect, stars, max)}</span>
+      <img class="saga-boss" src="assets/art-game/boss-${biome.boss}.webp" alt=""
+        loading="lazy" onerror="this.remove()">`;
+    if (!open) {
+      // Vùng khoá: tiêu đề thành nút bấm để bung/gập xem trước
+      head.type = 'button';
+      head.onclick = () => {
+        SC.Audio.click();
+        sel.peek[bi] = !sel.peek[bi];
+        box.classList.toggle('collapsed', !sel.peek[bi]);
+      };
+    }
+    return head;
+  },
+
+  /* Nhãn bên phải tiêu đề vùng — mỗi trạng thái một câu, không dùng chung phân số */
+  tag(open, perfect, stars, max) {
+    if (!open) return '<svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg> CHƯA MỞ';
+    if (perfect) return '<svg class="ic" aria-hidden="true"><use href="#i-check"/></svg> HOÀN HẢO';
+    /* BỎ đuôi "· còn N" (18/10/2026): nó nối thành một chuỗi "★ 8/18 · còn 10" dài ~95px,
+       mà hàng này giờ phải chia chỗ cho ruy băng tên vùng VÀ chân dung trùm — tên vùng
+       dài ("VỰC SÂU ĐẠI DƯƠNG") bị cắt thành "VỰC SÂU ĐẠI…". Phân số đã nói đủ: còn bao
+       nhiêu là một phép trừ người chơi làm trong đầu nhanh hơn đọc. */
+    return `★ ${stars}/${max}`;
+  }
+};
+
+;
 /* ===== js/ui-map-select.js ===== */
 /* ui-map-select.js — bản đồ hành trình (saga): 10 vùng, mỗi vùng 6 chặng
  *
@@ -12875,7 +14175,7 @@ SC.MapSelect = {
     const mx = document.getElementById('maxStars');
     if (mx) mx.textContent = SC.TOTAL_STARS;
 
-    SC.MapJump.build(ui);
+    // (18/10/2026) `SC.MapJump.build(ui)` đã bỏ cùng dải chip nhảy vùng — xem index.html
     // Phải chạy SAU khi đã dựng xong mọi vùng: offsetTop của một chặng phụ thuộc
     // chiều cao các vùng phía trên, mà vùng khoá giờ có thể đang gập lại.
     this.scrollToCurrent(wrap);
@@ -12949,22 +14249,9 @@ SC.MapSelect = {
     const bimg = new URL(`assets/art-game/ui-banner-${biome.id}.webp`, document.baseURI).href;
     box.style.setProperty('--bimg', `url('${bimg}')`);
 
-    // Vùng khoá: tiêu đề thành nút bấm để bung/gập xem trước — thấy trước con trùm
-    // sắp phải đánh là một lý do để đi tiếp.
-    const head = document.createElement(open ? 'div' : 'button');
-    head.className = 'saga-head' + (open ? '' : ' lock');
-    head.dataset.bi = bi;
-    head.innerHTML = `<b>${biome.name}</b>
-      <span>${this._headTag(open, perfect, stars, max)}</span>`;
-    if (!open) {
-      head.type = 'button';
-      head.onclick = () => {
-        SC.Audio.click();
-        this.peek[bi] = !this.peek[bi];
-        box.classList.toggle('collapsed', !this.peek[bi]);
-      };
-    }
-    box.appendChild(head);
+    // Tiêu đề vùng + chân dung trùm gác cổng: ui-map-region-head.js (tách 18/10/2026,
+    // file này đã quá trần 200 dòng)
+    box.appendChild(SC.MapHead.make(this, biome, bi, box, open, perfect, stars, max));
 
     const path = document.createElement('div');
     path.className = 'saga-path';
@@ -12973,15 +14260,6 @@ SC.MapSelect = {
     levels.forEach((lv, k) => path.appendChild(this._node(ui, lv, k)));
     box.appendChild(path);
     return box;
-  },
-
-  /* Nhãn bên phải tiêu đề vùng — mỗi trạng thái một câu, không dùng chung phân số */
-  _headTag(open, perfect, stars, max) {
-    if (!open) return '<svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg> CHƯA MỞ';
-    if (perfect) return '<svg class="ic" aria-hidden="true"><use href="#i-check"/></svg> HOÀN HẢO';
-    // chỉ nhắc "còn N" khi đã bắt đầu cày vùng này; vùng chưa đụng tới thì 0/18 là đủ
-    const left = max - stars;
-    return `★ ${stars}/${max}` + (stars > 0 ? ` · còn ${left}` : '');
   },
 
   /* đường nối các chặng, vẽ bằng SVG cho mượt */
@@ -13075,7 +14353,8 @@ SC.Brief = {
 
     document.getElementById('briefBiome').textContent = SC.BIOMES[lv.biome].name
       + (lv.finalBoss ? ' · TRÙM VÙNG' : lv.boss ? ' · ELITE' : '');
-    document.getElementById('briefTitle').textContent = 'MAP ' + String(id).padStart(2, '0');
+    // 'MAP' -> 'MÀN' (18/10/2026): một cách gọi duy nhất cho sảnh, HUD, briefing và BXH
+    document.getElementById('briefTitle').textContent = 'MÀN ' + String(id).padStart(2, '0');
     // map có trùm thì khoe luôn tên đối thủ
     document.getElementById('briefFoe').textContent = lv.boss ? '☠ ' + lv.bossName : '';
     document.getElementById('briefStarTxt').textContent = earned + '/3';
@@ -13562,6 +14841,98 @@ SC.Mastery = {
 };
 
 ;
+/* ===== js/ui-codex-card.js ===== */
+/* ui-codex-card.js — dựng MỘT thẻ sưu tập của sổ tay biến thể (18/10/2026)
+ *
+ * VÌ SAO CÓ: bản cũ vẽ cả sổ tay bằng CHỮ — 7/8 thẻ cùng tiêu đề `?????` kèm câu
+ * "Chưa mở — cần tổ hợp", thẻ mở được thì ruột là bảng tính 5 dòng (hai dòng trong đó
+ * luôn rỗng). Soi 24 màn thì đây là màn thấp điểm nhất game, mà chỗ chữa rẻ nhất nằm
+ * ngay trong thư mục: `SC.VARIANT_PARTS` là wpn/drone/shield × A/B và `assets/art-game/`
+ * đang có đúng sáu tấm `ui-icon-<nhánh>-<a|b>.webp` khớp 1:1. Công thức đang được VIẾT
+ * trong khi HÌNH của nó đã trả tiền rồi, nằm im.
+ *
+ * Mảnh chưa biết KHÔNG còn là dấu "?" lọt giữa dòng chữ mà là một Ổ TRỐNG mang biểu
+ * tượng nhánh CHUNG (`ui-icon-shield.webp`…) mờ bên trong — người chơi đọc ra "còn
+ * thiếu một loại KHIÊN", cụ thể hơn hẳn một chữ "?".
+ *
+ * MỘT CỘT chứ không phải lưới 2 cột: ở bề ngang ảo 341px, hai cột làm dòng ✔/✘ vỡ
+ * thành 4 dòng chữ — đúng thứ "text và dev" đang phải chữa.
+ */
+
+SC.CodexCard = {
+  BASE: 'assets/art-game/ui-icon-',
+
+  /* Ổ tổ hợp. `ch` là 'A'/'B' khi đã biết, null khi còn giấu — lúc đó vẽ biểu tượng
+     nhánh chung thật mờ, nên ổ trống vẫn NÓI ra nó đang thiếu loại gì. */
+  _slot(br, ch) {
+    const src = this.BASE + br + (ch ? '-' + ch.toLowerCase() : '') + '.webp';
+    // ảnh hỏng thì giấu riêng tấm ảnh, đế ổ vẫn còn — thẻ không bao giờ trống hoác
+    return `<span class="cx-slot${ch ? '' : ' empty'}">
+      <img src="${src}" alt="" onerror="this.style.display='none'"></span>`;
+  },
+
+  /* Hàng ba ổ, đọc thẳng từ khoá biến thể ('ABB' -> wpn A, drone B, shield B).
+     `knownOnly` = chỉ số của mảnh bị giấu, -1 là hiện hết. */
+  sockets(k, hide) {
+    return '<div class="cx-sockets">' + SC.VARIANT_PARTS.map(
+      (p, i) => this._slot(p.br, i === hide ? null : k[i])).join('') + '</div>';
+  },
+
+  open(k, cur) {
+    const v = SC.VARIANTS[k];
+    const el = document.createElement('div');
+    el.className = 'codex-card' + (k === cur ? ' cur' : '');
+    el.style.setProperty('--vh', v.hue);
+    // Dòng rỗng bị LOẠI, không phải hiện ra rồi để "—": một dòng không mang tin mà vẫn
+    // chiếm đúng chừng ấy trọng lượng thị giác là cách nhanh nhất làm bảng trông như log.
+    const st = SC.Mastery.lines(k).filter(([, val]) => val && val !== '—' && val !== 0);
+    el.innerHTML = `
+      <div class="cx-top">
+        ${this.sockets(k, -1)}
+        <div class="cx-id">
+          <b class="cx-name">${SC.Rank.esc(v.name)}</b>
+          <span class="cx-tag">${SC.Rank.esc(v.tag)}</span>
+        </div>
+        ${k === cur ? '<em class="cx-cur">ĐANG DÙNG</em>' : ''}
+      </div>
+      <p class="cx-good">✔ ${SC.Rank.esc(v.good)}</p>
+      <p class="cx-bad">✘ ${SC.Rank.esc(v.bad)}</p>
+      ${st.length ? `<details class="cx-more"><summary>THÀNH TÍCH</summary>
+        <ul class="cx-stats">${st.map(([n, val]) =>
+          `<li><span>${n}</span><b>${val}</b></li>`).join('')}</ul></details>` : ''}`;
+    return el;
+  },
+
+  /* Thẻ khoá: cùng một bộ khung, chỉ xám đi — mẹo "độ hiếm = đổi TÔNG KHUNG, không vẽ
+     lại minh hoạ" bóc được từ bộ thẻ của Sky Force.
+     CÓ PHẢN HỒI KHI RÊ/CHẠM (18/10/2026) — anh Đức: "chưa biết thì cũng phải hiện một tí
+     hint để gợi tính tò mò chứ, đang im lìm không response, chưa game". Thẻ khoá cũ là
+     ngõ cụt: thấy thiếu một mảnh nhưng không nói phải làm gì để có. Nay rê/chạm thì hé
+     đúng MỘT câu: thiếu nhánh nào, và hai hướng rẽ của nhánh đó. Đủ để biết đường đi mà
+     vẫn giấu tên biến thể — phần thưởng vẫn còn nguyên. */
+  locked(k, i) {
+    const el = document.createElement('div');
+    el.className = 'codex-card locked';
+    // Giấu mảnh nào thì xoay theo VỊ TRÍ trong danh sách, không băm từ khoá: băm thì hai
+    // thẻ cạnh nhau hay ra cùng một gợi ý, đọc lên tưởng lỗi hiển thị.
+    const an = i % 3;
+    el.tabIndex = 0;                       // rê chuột KHÔNG tới được trên cảm ứng -> cần focus/chạm
+    el.innerHTML = `<div class="cx-top">${this.sockets(k, an)}
+      <div class="cx-id"><i class="cx-plate"></i></div></div>
+      <p class="cx-tease">${this.hint(an)}</p>`;
+    return el;
+  },
+
+  /* Câu gợi ý cho mảnh còn giấu. Tên nhánh lấy từ SC.TREE (cùng chữ với màn cây kỹ năng —
+     người chơi phải nhận ra ngay là nói về cái nút nào), hai hướng lấy từ VARIANT_PARTS. */
+  hint(an) {
+    const p = SC.VARIANT_PARTS[an];
+    const ten = (SC.TREE[p.br] && SC.TREE[p.br].name) || p.br;
+    return `Còn thiếu <b>${SC.Rank.esc(ten)}</b> — ${SC.Rank.esc(p.A)} hay ${SC.Rank.esc(p.B)}?`;
+  }
+};
+
+;
 /* ===== js/ui-codex.js ===== */
 /* ui-codex.js — sổ tay 8 biến thể, hé lộ dần
  *
@@ -13590,39 +14961,28 @@ SC.Codex = {
       keys.filter(k => seen[k]).length + '/' + keys.length;
 
     wrap.innerHTML = '';
-    keys.forEach((k, i) => wrap.appendChild(seen[k] ? this._open(k, cur) : this._locked(k, i)));
-  },
-
-  _open(k, cur) {
-    const v = SC.VARIANTS[k];
-    const el = document.createElement('div');
-    el.className = 'codex-card' + (k === cur ? ' cur' : '');
-    el.style.setProperty('--vh', v.hue);
-    el.innerHTML = `
-      <div class="cx-head"><b>${SC.Rank.esc(v.name)}</b>${k === cur ? '<em>ĐANG DÙNG</em>' : ''}</div>
-      <div class="cx-tag">${SC.Rank.esc(v.tag)}</div>
-      <div class="cx-good">✔ ${SC.Rank.esc(v.good)}</div>
-      <div class="cx-bad">✘ ${SC.Rank.esc(v.bad)}</div>
-      <ul class="cx-stats">${
-        SC.Mastery.lines(k).map(([n, val]) => `<li><span>${n}</span><b>${val}</b></li>`).join('')
-      }</ul>`;
-    return el;
-  },
-
-  /* Ô khoá: hé đúng 2 trong 3 mảnh, mảnh thứ ba để dấu hỏi */
-  _locked(k, i) {
-    const el = document.createElement('div');
-    el.className = 'codex-card locked';
-    // Giấu mảnh nào thì xoay theo VỊ TRÍ trong lưới, không theo mã của khoá: thử băm
-    // từ khoá thì hai ô cạnh nhau ra cùng một gợi ý, đọc lên tưởng lỗi hiển thị.
-    const hide = i % 3;
-    const parts = SC.VARIANT_PARTS.map((p, i) =>
-      i === hide ? '<i>?</i>' : SC.Rank.esc(p[k[i]]));
-    el.innerHTML = `
-      <div class="cx-head"><b>?????</b></div>
-      <div class="cx-tag">Chưa mở — cần tổ hợp:</div>
-      <div class="cx-hint">${parts.join(' + ')}</div>`;
-    return el;
+    /* CHẠM để hé gợi ý trên máy cảm ứng (18/10/2026): `:hover` không tồn tại ở đó, nên
+       không có dòng này thì nửa số người chơi không bao giờ thấy câu gợi ý. Uỷ quyền một
+       listener cho cả danh sách — thẻ dựng lại mỗi lần mở màn, gắn từng thẻ là rò bộ nhớ. */
+    if (!wrap._chamHint) {
+      wrap._chamHint = 1;
+      wrap.addEventListener('click', e => {
+        const card = e.target.closest('.codex-card.locked');
+        if (!card) return;
+        const dangMo = card.classList.contains('open');
+        wrap.querySelectorAll('.codex-card.open').forEach(c => c.classList.remove('open'));
+        if (!dangMo) { card.classList.add('open'); SC.Audio.click(); }
+      });
+    }
+    /* Thẻ ĐÃ MỞ lên trên, thẻ ĐANG DÙNG lên đầu bảng (18/10/2026): một màn sưu tập phải
+       có đúng MỘT thứ to để mắt bám vào, và phải khoe ngay thứ người chơi đã sưu tầm
+       được — bản cũ xếp theo thứ tự khai báo của `SC.VARIANTS`, tức là một cột dấu hỏi
+       rồi mới tới thẻ của mình. Lưu ý `cur` CÓ THỂ chưa mở (đang bay tổ hợp lạ) nên
+       phải xét `seen` trước, không thì thẻ khoá bị đẩy lên đầu. */
+    const hang = k => (seen[k] ? 1 : 0) + (seen[k] && k === cur ? 1 : 0);
+    const ord = keys.slice().sort((a, b) => hang(b) - hang(a));
+    ord.forEach(k => wrap.appendChild(
+      seen[k] ? SC.CodexCard.open(k, cur) : SC.CodexCard.locked(k, keys.indexOf(k))));
   }
 };
 
@@ -14003,10 +15363,16 @@ SC.EVO_KW = {
     { r: ['frame', 'class', 'color'], w: 3 },
     { r: ['frame', 'style', 'color'], w: 1 },
   ],
-  pickRecipe() {
-    let x = Math.random() * this.RECIPES.reduce((a, c) => a + c.w, 0);
-    for (const c of this.RECIPES) if ((x -= c.w) < 0) return c.r;
-    return this.RECIPES[0].r;
+  /* `dau` (tuỳ chọn, 18/10/2026) = ÉP loại của từ khóa ĐẦU BỘ: 'animal' cho dòng máy bay
+     thú, 'frame' cho dòng tiêm kích. Quà tân thủ nay chỉ tặng MỘT mảnh chứ không gen tàu,
+     nên lựa chọn "chiến đấu hay thú" của người chơi phải sống trong chính mảnh đó —
+     không có chỗ nào khác giữ nó. Không truyền thì bốc như cũ. */
+  pickRecipe(dau) {
+    const pool = dau ? this.RECIPES.filter(c => c.r[0] === dau) : this.RECIPES;
+    const list = pool.length ? pool : this.RECIPES;
+    let x = Math.random() * list.reduce((a, c) => a + c.w, 0);
+    for (const c of list) if ((x -= c.w) < 0) return c.r;
+    return list[0].r;
   },
 
   /* Chi tiết sơn/decal CÁ NHÂN (21/09/2026, goal "không ai giống ai"): 2 mục được
@@ -14089,26 +15455,32 @@ SC.EVO_KW = {
     const style = styleBtn || (kws.find(k => k.t === 'style') || {}).en;
     const a1 = animals[0] ? animals[0].en : 'rooster';
     const theme = animals.length > 1 ? `a FUSION of a ${a1} and a ${animals[1].en}` : `a ${a1}`;
-    const dna = animals.map(a => { const d = this._dnaKw(a); return d ? `${a.en}: ${d}` : ''; })
+    // dnaShip(): bỏ mệnh đề nói về chi/thân, giữ đầu/mặt/màu — xem data-evo-shape-contract.js
+    const dna = animals.map(a => { const d = this.dnaShip(this._dnaKw(a)); return d ? `${a.en}: ${d}` : ''; })
       .filter(Boolean).join('; ');
     return [
       'top-down view from directly above, vertical shoot-em-up game sprite of a FIGHTER AIRCRAFT, '
         + 'nose pointing up, two wings spread left and right',
-      ...(attempt >= 2 ? ['STRICTLY an aircraft silhouette seen from above, never a standing creature, '
-        + 'no legs, no arms, no full animal body, no human rider'] : []),
+      // Khoá "đã gen hỏng rồi" (lần thứ 3 trở đi) — hợp đồng hình dạng ở dưới vốn đã bật
+      // từ lần ĐẦU (18/10/2026), đây chỉ là một nhịp nhấn nữa khi model vẫn cứng đầu.
+      ...(attempt >= 2 ? ['the result MUST read as an aircraft at a glance, not as an animal'] : []),
       ...(this.styleText(style) ? [this.styleText(style)] : []),
-      `the aircraft is themed as ${theme}${cls ? ` ${cls.en} class` : ''}: the animal head forms `
-        + 'the nose and cockpit, its features blend into the fuselage, wings and tail',
-      ...(dna ? [`recognizable animal DNA built into the plane shape — ${dna}`] : []),
+      /* 18/10/2026 — bản cũ: "the animal head forms the nose and cockpit, its features blend
+         into the fuselage, wings and tail". Câu đó cho con vật CHIẾM HẾT thân tàu, và ảnh
+         gara thật ra con rùa / cái mặt mèo. Nay con vật chỉ được ở mũi + hoạ tiết. */
+      `the aircraft is themed as ${theme}${cls ? ` ${cls.en} class` : ''}`,
+      this.BEAST_RULE,
+      ...(dna ? [`recognizable cues for the nose motif and wing markings — ${dna}`] : []),
       // class = trang bị HOÁ vào thân tàu, không vẽ thêm người cưỡi
       ...(cls ? [`${cls.en} class gear fused into the aircraft itself (not a rider): ${this._dnaKw(cls)}`] : []),
       ...(seed ? [`unique personal livery: ${this.livery(seed)}`] : []),
-      ...(trait ? [`personality: ${trait} — show it clearly in the face and pose`] : []),
+      // "show it clearly in the FACE and POSE" (bản cũ) là câu mời model vẽ chân dung con
+      // vật. Tính cách nay phải đi qua HÌNH KHỐI và HOẠ TIẾT — thứ không phá được bố cục.
+      ...(trait ? [`design attitude: ${trait} — expressed through the nose motif, `
+        + 'wing shape and painted markings only'] : []),
       ...(color ? [`dominant color scheme: ${color}`] : []),
       this.VIBE,
-      this.STYLE_B,
-      this.TOPDOWN,
-      this.TAIL,
+      ...this.shapeTail(),
     ].join(', ');
   },
 
@@ -14122,7 +15494,7 @@ SC.EVO_KW = {
     const style = styleBtn || (kws.find(k => k.t === 'style') || {}).en;
     const cls = kws.find(k => k.t === 'class');
     const ten = animals.map(a => a.en).join(' and ') || 'rooster';
-    const dna = this._dnaOf(kws);
+    const dna = this.dnaShip(this._dnaOf(kws));   // drone cũng theo hợp đồng: không chi, không thân đứng
     return [
       ...(this.styleText(style) ? [this.styleText(style)] : []),
       `a tiny escort drone, companion of a ${ten}${cls ? ' ' + cls.en + ' class' : ''} themed fighter aircraft`,
@@ -14133,9 +15505,7 @@ SC.EVO_KW = {
         ? [`same dominant color scheme: ${kws.find(k => k.t === 'color').en}`] : []),
       // drone vẽ ~24px: dáng đồ chơi tròn TRỊA, chi tiết mấy cũng thành nhiễu
       'chunky rounded toy drone, very simple bold silhouette readable at 24 pixels, one glowing energy accent',
-      this.STYLE_B,
-      this.TOPDOWN,
-      this.TAIL,
+      ...this.shapeTail(1),
     ].join(', ');
   }
 };
@@ -14201,6 +15571,107 @@ Object.assign(SC.EVO_KW, {
    số (SC.EVO_KW[kw.t]) tự ăn theo vì đây là mảng như animal/trait/color. */
 SC.EVO_KW.style = Object.keys(SC.EVO_KW.STYLES)
   .map(k => ({ vi: SC.EVO_KW.STYLES[k].vi, en: k }));
+
+;
+/* ===== js/data-evo-shape-contract.js ===== */
+/* data-evo-shape-contract.js — HỢP ĐỒNG HÌNH DẠNG cho mọi tàu/drone Tiến hóa AI (18/10/2026)
+ *
+ * VÌ SAO CÓ — ảnh gara thật của anh Đức: #09 là con rùa đỏ nhìn từ trên, #07 là mặt mèo gắn
+ * cánh, #08 là tiêm kích sạch, #06 là con chim xanh. Bốn tấm không chung một ngôn ngữ hình
+ * khối nào. Truy ra hai nguyên nhân trong prompt cũ:
+ *   1. Prompt GIAO HẲN hình khối cho model: "the animal head forms the nose and cockpit, its
+ *      features blend into the fuselage" + "personality: … show it clearly in the FACE and
+ *      POSE" — hai câu đó kéo về chân dung con vật, không phải máy bay.
+ *   2. Khoá hình dạng ("STRICTLY an aircraft silhouette, never a standing creature") chỉ bật
+ *      từ `attempt >= 2`, tức LẦN GEN ĐẦU không có khoá nào. Mà lần đầu là lần đa số người
+ *      chơi giữ lại.
+ *
+ * HAI MỤC TIÊU anh Đức đặt, và vì sao từng câu dưới đây tồn tại:
+ *   (a) ĐẠT CHUẨN ART — mọi tàu phải đứng cạnh tàu gốc mà không lạc thế giới;
+ *   (b) GÒ VỀ MỘT HÌNH DẠNG để sau này RIG ĐƯỢC và DỰNG 3D ĐƯỢC.
+ *
+ * (b) là lý do có `PARTS`. Bộ xương trùm gà bưu tá (`entity-boss-rig.js`) đã chứng minh
+ * trong chính repo này: cắt được thành mảnh rời ⇔ các mảnh nằm ĐÚNG CHỖ ĐÃ HẸN và KHÔNG
+ * chồng lên nhau. Một con rùa nhìn từ trên thì không có "cánh trái / cánh phải" để cắt.
+ * Cùng lý do với `FLAT`: ảnh có bóng đổ nướng sẵn hoặc có phối cảnh thì ảnh→3D ra khối méo.
+ *
+ * DÙNG CHUNG cho cả dòng THÚ (data-evo-keywords.js) lẫn dòng TIÊM KÍCH
+ * (data-evo-fighter-jet-prompt.js) — một hợp đồng, hai dòng tàu. Nạp SAU
+ * data-evo-keywords.js (nó Object.assign vào SC.EVO_KW).
+ */
+
+Object.assign(SC.EVO_KW, {
+  /* BỐ CỤC MẢNH — câu quan trọng nhất của cả tệp. Viết theo kiểu "vị trí trên khung",
+     không phải "trông như cái gì": model bám toạ độ tốt hơn bám tính từ.
+     Năm mảnh này khớp đúng với thứ `tools/rig-boss/` cần để sinh xương. */
+  PARTS: 'strict airframe layout: pointed NOSE at top center, '
+    + 'CANOPY or energy core on the vertical center line in the upper third, '
+    + 'exactly TWO WINGS mirrored left and right with their roots at mid-body, '
+    + 'exactly TWO ENGINE nozzles at the bottom flanking the center line, '
+    + 'small TAIL fin at bottom center, '
+    + 'parts clearly separated and not overlapping each other',
+
+  /* TỈ LỆ — chốt bằng số để 14 chiếc trong gara đứng cạnh nhau cùng một cỡ.
+     Bản cũ không ràng gì nên có chiếc dài ngoẵng, có chiếc tròn vo. */
+  PROP: 'bilaterally symmetric about a vertical axis, '
+    + 'wingspan roughly equal to body length, subject fills about 85 percent of the frame, '
+    + 'nose near the top edge, engines near the bottom edge',
+
+  /* KHUNG HÌNH + ÁNH SÁNG cho đường ẢNH → 3D. `--transparent` lo phần nền, phần còn lại
+     phải ép ở đây: có phối cảnh hay có bóng đổ nướng sẵn là khối dựng ra bị méo và bị dính
+     một mảng tối không gỡ được. Cũng là lý do cấm motion blur. */
+  FLAT: 'orthographic top-down framing with no perspective distortion, '
+    + 'even soft light from directly above, no cast shadow on the ground, no ground plane, '
+    + 'no motion blur, no depth of field',
+
+  /* CẤM — viết thẳng những thứ đã THẬT SỰ ra sai trong gara, không viết cấm chung chung. */
+  NEG: 'not a standing creature, no legs, no paws, no arms, no tail limbs, '
+    + 'no full animal body, no pilot or rider figure, no humanoid, '
+    + 'single aircraft only, no background scenery',
+
+  /* Dòng THÚ: con vật chỉ được sống ở MŨI + HOẠ TIẾT, không được chiếm thân.
+     Trước đây nó được phép "blend into the fuselage, wings and tail" — tức là chiếm hết. */
+  BEAST_RULE: 'the animal identity appears ONLY as a stylized head motif shaping the nose cone '
+    + 'and as painted markings on the wings; the airframe underneath stays a clean aircraft',
+
+  /* Drone vẽ ~24px nên hợp đồng riêng, gọn hơn — nhưng vẫn phải GÒ, vì drone cũng sẽ
+     phải rig và dựng 3D cùng đợt với tàu. */
+  DRONE_PARTS: 'strict layout: one rounded core body on the center line, '
+    + 'exactly TWO small side pods mirrored left and right, one glowing thruster at the bottom, '
+    + 'symmetric, no limbs',
+
+  /* LỌC DNA CHO THÂN TÀU — 36 chuỗi DNA trong data-evo-keyword-pools-* mô tả NGUYÊN CON
+     VẬT, nên chúng chọi thẳng với danh sách CẤM ở trên: prompt corgi đẩy vào "stubby short
+     legs" trong khi hai mệnh đề sau ghi "no legs". Model gặp hai lệnh ngược nhau thì chọn
+     bừa — đó chính là cái chân thò ra ở mấy tấm trong gara.
+     DNA là chuỗi các mệnh đề ngăn bằng dấu phẩy, nên lọc THEO MỆNH ĐỀ là đủ và an toàn:
+     bỏ mệnh đề nói về chi/thân, GIỮ mệnh đề nói về đầu/mặt/màu/hoa văn — mà đó đúng là
+     phần duy nhất còn được dùng (mũi tàu + hoạ tiết, xem BEAST_RULE). */
+  /* CHỈ nhóm CHI và tư thế đứng. CỐ Ý không có "body / back / spine": chúng là chữ hợp lệ
+     ở chỗ khác trong cùng prompt ("wing roots at mid-body", "sword forming the fuselage
+     spine") — cấm rộng là tự cắt mất mô tả đúng. */
+  THAN: /\b(legs?|paws?|claws?|arms?|hands?|belly|butt|haunch|hind|stance|posture|standing|walking|four-?legged)\b/i,
+
+  dnaShip(text) {
+    if (!text) return '';
+    const giu = String(text).split(',').map(s => s.trim()).filter(s => s && !this.THAN.test(s));
+    return giu.join(', ');
+  },
+
+  /* Ghép phần đuôi dùng chung cho MỌI prompt tàu. Thứ tự có chủ đích: bố cục mảnh đứng
+     TRƯỚC phong cách — model đọc sau đè trước, mà cái phải giữ bằng mọi giá là hình dạng. */
+  shapeTail(drone) {
+    return [
+      drone ? this.DRONE_PARTS : this.PARTS,
+      drone ? '' : this.PROP,
+      this.NEG,
+      this.FLAT,
+      this.STYLE_B,
+      this.TOPDOWN,
+      this.TAIL,
+    ].filter(Boolean);
+  },
+});
 
 ;
 /* ===== js/data-evo-keyword-pools-animal-class-trait.js ===== */
@@ -14369,7 +15840,8 @@ Object.assign(SC.EVO_KW, {
     return [
       'top-down view from directly above, vertical shoot-em-up game sprite of a modern sci-fi FIGHTER JET, '
         + 'nose pointing up, two wings spread left and right',
-      ...(attempt >= 2 ? ['STRICTLY a single aircraft silhouette seen from above, clean readable shape'] : []),
+      // hợp đồng hình dạng bật từ lần ĐẦU (data-evo-shape-contract.js); đây chỉ là nhịp nhấn
+      ...(attempt >= 2 ? ['the result MUST read as a single clean aircraft at a glance'] : []),
       ...(this.styleText(style) ? [this.styleText(style)] : []),
       `airframe type: ${fr.en} — ${this._dnaKw(fr)}`,
       // class = bộ vũ khí/giáp của vai trò, gắn lên thân tàu (không có người)
@@ -14380,10 +15852,8 @@ Object.assign(SC.EVO_KW, {
         .replace('scattered paw-print decals', 'squadron kill-mark decals')}`] : []),
       ...(color ? [`dominant color scheme: ${color}`] : []),
       this.FIGHTER_VIBE,
-      'no animal features, no face, no pilot figure',
-      this.STYLE_B,
-      this.TOPDOWN,
-      this.TAIL,
+      'no animal features, no face',
+      ...this.shapeTail(),
     ].join(', ');
   },
 
@@ -14397,9 +15867,7 @@ Object.assign(SC.EVO_KW, {
       ...(color ? [`same dominant color scheme: ${color}`] : []),
       'chunky rounded toy drone, very simple bold silhouette readable at 24 pixels',
       this.FIGHTER_VIBE,
-      this.STYLE_B,
-      this.TOPDOWN,
-      this.TAIL,
+      ...this.shapeTail(1),
     ].join(', ');
   }
 });
@@ -14464,6 +15932,12 @@ SC.EvoAI = {
      không có buffer nên khỏi xoá cache gì thêm. */
   _apply(shipUrl, droneUrl) {
     this._outlined(shipUrl, img => {
+      // KHÔNG nhận ảnh rỗng (18/10/2026): gán một Image hỏng vào đây là `get()` trả null
+      // và tàu biến mất — thà giữ tàu gốc còn hơn mất nhân vật chính.
+      if (!img || (img.complete && !img.naturalWidth)) {
+        console.warn('[evo] anh tau AI khong dung duoc, giu tau goc');
+        return;
+      }
       SC.SpriteArt._imgs['ship-player'] = img;
       if (SC.ShipArt) SC.ShipArt._cache = {};
     });
@@ -14532,11 +16006,22 @@ SC.EvoAI = {
 
   /* Trả tàu + phi đội về sprite GỐC (hồ sơ chưa tiến hóa). Tham chiếu ảnh gốc
      chụp một lần ở init — SpriteArt.load() đã tạo sẵn các Image này. */
+  /* 18/10/2026 — KHÔNG BAO GIỜ gán một tham chiếu rỗng vào SpriteArt.
+     Bug live: chẩn đoán ở lobby in `"anh": false` trong khi tệp ship-player.webp lành
+     lặn. Nguyên nhân nằm ở đây: `_orig` được chụp lúc khởi động, và nếu chụp hụt (hoặc
+     chụp đúng lúc một ảnh AI đang thay chỗ, rồi ảnh đó hỏng) thì dòng dưới gán
+     `undefined` vào `_imgs` — `get()` trả null vĩnh viễn, tàu biến mất không một lỗi.
+     Tham chiếu hỏng thì NẠP LẠI TỪ TỆP, đó là nguồn sự thật duy nhất không bao giờ mất. */
   restoreDefault() {
-    if (!this._orig) return;
-    SC.SpriteArt._imgs['ship-player'] = this._orig.ship;
-    SC.SpriteArt._imgs['drone-swarm'] = this._orig.swarm;
-    SC.SpriteArt._imgs['drone-sniper'] = this._orig.sniper;
+    const ok = im => im && (im.complete ? im.naturalWidth > 0 : true);
+    const dat = (key, im) => {
+      if (ok(im)) SC.SpriteArt._imgs[key] = im;
+      else SC.SpriteArt.reload(key.split('-')[0], key.split('-').slice(1).join('-'));
+    };
+    const o = this._orig || {};
+    dat('ship-player', o.ship);
+    dat('drone-swarm', o.swarm);
+    dat('drone-sniper', o.sniper);
     if (SC.ShipArt) SC.ShipArt._cache = {};
   },
 
@@ -14657,14 +16142,35 @@ Object.assign(SC.EvoAI, {
     return kw;
   },
 
+  /* MẢNH TẶNG của quà tân thủ (18/10/2026) — không qua cổng `levelId % CHUNK`.
+   *
+   * VÌ SAO ĐỔI: bản cũ tặng hẳn MỘT CHIẾC TÀU AI ngay lúc vào game. Ba hệ quả anh Đức
+   * gặp thật: (1) người mới phải NGỒI ĐỢI ~20 giây gen ảnh mới được chơi; (2) tàu AI thay
+   * luôn sprite gốc nên người mới KHÔNG BAO GIỜ nhìn thấy máy bay mặc định; (3) phần
+   * thưởng lớn nhất của hệ tiến hóa bị tiêu ngay phút đầu, còn gì để mong nữa.
+   * Nay quà chỉ tặng MỘT MẢNH. Cộng với mảnh ở màn 3 và màn 6 (CHUNK = 3) là đủ bộ ba —
+   * tàu AI đầu tiên rơi vào ĐÚNG màn 6, sau khi người chơi đã hạ con trùm vùng đầu.
+   * Lựa chọn "chiến đấu / thú" vẫn còn nguyên giá trị: nó ép loại của mảnh ĐẦU BỘ, tức
+   * quyết định cả dòng tàu sẽ ghép ra. */
+  awardFree(dauBo) {
+    if (!this.active()) return null;
+    const e = this.st();
+    // chỉ tặng khi đang ở ĐẦU một bộ — giữa bộ mà chen vào là đổi công thức đang dở
+    if (e.kw.length % 3 !== 0) return null;
+    const kw = this._rollKw(e, dauBo);
+    SC.UI.save();
+    return kw;
+  },
+
   /* Roll + cất MỘT từ khóa theo công thức bộ đang dở. Dùng chung cho mảnh cuối màn
      VÀ phần thưởng bán tàu ở gara (system-evo-garage-sell.js). Chưa save. */
-  _rollKw(e) {
+  _rollKw(e, dauBo) {
     /* Mảnh ĐẦU của một bộ mới -> RNG luôn CÔNG THỨC của bộ (21/09/2026): bộ thường,
-       bộ lai hai con vật, hay bộ mang phong cách nghệ thuật — xem SC.EVO_KW.RECIPES. */
+       bộ lai hai con vật, hay bộ mang phong cách nghệ thuật — xem SC.EVO_KW.RECIPES.
+       `dauBo` (18/10/2026) ép loại của mảnh đầu, dùng cho mảnh TẶNG của quà tân thủ. */
     const viTriBo = e.kw.length % 3;
     if (viTriBo === 0)
-      e.recipe = SC.EVO_KW.pickRecipe();
+      e.recipe = SC.EVO_KW.pickRecipe(dauBo);
     const recipe = e.recipe || SC.EVO_KW.ORDER;
     const type = recipe[viTriBo];
     /* RNG có kiểm soát (21/09/2026, bị bắt quả tang trùng bộ): re-roll tối đa 10
@@ -16391,20 +17897,24 @@ SC.EvoAIUI = {
 
 ;
 /* ===== js/ui-evo-starter.js ===== */
-/* ui-evo-starter.js — TÀU AI TÂN THỦ: vào game là được gen ngay 1 chiến đấu cơ (22/09/2026)
+/* ui-evo-starter.js — MẢNH TIẾN HÓA TÂN THỦ: vào game được tặng 1 mảnh
  *
  * Chỉ kênh có tiến hóa (zingplay.dev). Nằm TRONG popup quà tân thủ (ui-gift.js): hai
- * lựa chọn MÁY BAY CHIẾN ĐẤU (khung máy + class + màu) hoặc MÁY BAY THÚ (con vật + class
- * + màu). Người chơi zingplay CŨ (đã nhận vàng từ trước) cũng được một lần — popup mở ở
- * chế độ chỉ-có-tàu (`evo-only`).
+ * lựa chọn MÁY BAY CHIẾN ĐẤU (dòng khung máy) hoặc MÁY BAY THÚ (dòng con vật).
  *
- * Trạng thái ở progress.evo.starter (theo mây):
- *   (chưa có)          -> mời chọn
- *   { k, kws }         -> ĐANG DỞ: đã chọn + đã roll từ khóa, chưa có tàu (lỗi mạng / F5
- *                         giữa lúc ấp). Chọn lại CÙNG loại thì dùng lại đúng bộ từ khóa —
- *                         F5 liên tục không roll được bộ mới.
- *   'done'             -> đã có tàu, không bao giờ mời nữa.
- * Tàu tân thủ KHÔNG đụng bộ từ khóa đang nhặt (evo.kw) — gen bằng kwsOverride.
+ * ---- ĐỔI HẲN CÁCH HOẠT ĐỘNG 18/10/2026 ----
+ * Bản 22/09 tặng hẳn MỘT CHIẾC TÀU AI ngay lúc vào game: bấm chọn là gọi mạng, gen ảnh,
+ * ~20 giây sau mới chơi được. Ba hệ quả anh Đức gặp thật khi xem người mới chơi:
+ *   1. người mới phải NGỒI ĐỢI mới vào được game;
+ *   2. tàu AI thay luôn sprite gốc, nên người mới KHÔNG BAO GIỜ thấy máy bay mặc định —
+ *      đúng chiếc vừa được vẽ lại cho đẹp;
+ *   3. phần thưởng lớn nhất của cả hệ tiến hóa bị tiêu sạch ở phút đầu tiên.
+ * Nay quà chỉ tặng MỘT MẢNH, không gọi mạng. Cộng mảnh màn 3 và màn 6 (CHUNK = 3) là đủ
+ * bộ ba -> tàu AI đầu tiên ở ĐÚNG màn 6, ngay sau con trùm vùng đầu.
+ *
+ * Trạng thái ở progress.evo.starter (theo mây): (chưa có) -> mời chọn · 'done' -> xong.
+ * Dạng cũ `{ k, kws }` (đã chọn, đang ấp dở) của bản 22/09 vẫn đọc được: `eligible()` chỉ
+ * hỏi `!== 'done'`, nên hồ sơ kẹt ở đó sẽ được mời lại và nhận mảnh như người mới.
  */
 
 SC.EvoStarter = {
@@ -16448,64 +17958,33 @@ SC.EvoStarter = {
     this._ok(evoOnly ? 'ĐỂ SAU' : 'NHẬN QUÀ', true);
   },
 
-  async choose(kind) {
+  /* Chọn dòng tàu = nhận MỘT MẢNH tiến hóa (18/10/2026 — xem EvoAI.awardFree).
+     KHÔNG gọi mạng, KHÔNG gen ảnh: người mới bấm xong là vào chơi ngay, và vẫn được
+     thấy máy bay mặc định suốt 6 màn đầu. Lựa chọn ở đây ép loại của mảnh ĐẦU BỘ nên
+     nó vẫn quyết định dòng tàu sẽ ghép ra ở màn 6. */
+  choose(kind) {
     if (this.busy || !this.eligible() || !this.RECIPE[kind]) return;
-    /* CỔNG MẠNG (22/09/2026): chặn TRƯỚC khi roll từ khóa + grant quà. Offline mà
-       vẫn chạy tiếp là tiêu luôn quà vàng và chốt bộ từ khóa cho một tấm ảnh không
-       bao giờ về — người chơi mở lại thấy "đang dở" mà chẳng có tàu. */
-    // + HẾT PHIÊN SSO (12/10/2026): proxy chặn relay từ cửa -> "Failed to fetch" mà bộ từ khóa đã chốt
     this.busy = true;
-    const chan = await SC.EvoAI.gate();
-    this.busy = false;
-    if (chan) { this._err(chan); return; }
+    const dauBo = kind === 'fighter' ? 'frame' : 'animal';
+    const kw = SC.EvoAI.awardFree(dauBo);
+    if (!kw) {                        // đang dở một bộ khác -> không chen mảnh vào giữa
+      this.busy = false;
+      this._err('Đang dở một bộ từ khóa — nhận mảnh ở màn kế tiếp.');
+      return;
+    }
     const e = SC.EvoAI.st();
-    // đang dở cùng loại -> dùng lại bộ cũ; khác loại / chưa có -> roll bộ mới
-    let kws = e.starter && e.starter.k === kind ? e.starter.kws : null;
-    if (!kws) kws = this.RECIPE[kind].map(t => SC.EVO_KW.roll(t));
-    e.starter = { k: kind, kws };
-    SC.Gift.grant();                     // chọn tàu = nhận luôn quà vàng (nếu còn)
+    e.starter = 'done';
+    SC.Gift.grant();                     // nhận luôn quà vàng (nếu còn)
     SC.UI.save();
     SC.Cloud.markDirty();
 
-    this.busy = true;
-    SC.Audio.click();
+    SC.Audio.gem();
     this._pick(false);
     this._err('');
-    this._ok('ĐANG ẤP…', false);
-    this._view('<div class="evo-egg hatching">🥚</div><span class="evoai-hint evoai-spin">'
-      + kws.map(k => SC.Rank.esc(k.vi.toUpperCase())).join(' · ') + '</span>');
-    // thanh tiến độ THẬT dưới quả trứng (ui-evo-gen-progress.js) — ~20s chờ không còn mù
-    const prog = SC.EvoGenProgress.start(document.getElementById('giftEvoView'));
-    try {
-      const pack = await SC.EvoAI.generate(undefined, undefined, kws, prog.net);
-      prog.step('save');
-      await SC.EvoGarage.add(pack, kws);              // cất gara + lên tàu luôn
-      SC.EvoAI._apply(pack.ship, pack.drone);
-      prog.finish();
-      const e2 = SC.EvoAI.st();
-      e2.hist = (e2.hist || []).slice(-19);
-      e2.hist.push(kws.map(k => k.en).join('|'));
-      e2.starter = 'done';
-      SC.UI.save();
-      SC.Cloud.markDirty();
-      this._view('<div class="evo-egg hatch">🐣</div>');
-      await new Promise(r => setTimeout(r, 550));
-      this._view(`<img src="${pack.ship}" alt="Chiến đấu cơ tân thủ">`
-        + (pack.drone ? `<img class="evoai-drone" src="${pack.drone}" alt="">` : ''));
-      this._ok('BAY THÔI!', true);
-      // khoe ở popup TIẾN HÓA THÀNH CÔNG (ui-evo-success) — quà vàng đã trao lúc chọn tàu nên
-      // đóng popup quà ở đây không mất gì; tiếng + pháo hoa do popup kia phát
-      SC.UI.hideOverlay('gift');
-      SC.EvoSuccess.show(pack, kws);
-      SC.UI.syncMenu();
-    } catch (err) {
-      prog.stop();
-      this._view('<div class="evo-egg">🥚</div>');
-      const w = await SC.EvoAI.why(err, prog.net);
-      this._err(w.msg === SC.EvoAI.EXPIRED ? w.msg : w.msg + ' — chọn lại để ấp tiếp');
-      this._pick(true);
-      this._ok('ĐỂ SAU', true);
-    }
+    this._view('<div class="evo-egg hatch">🧬</div><span class="evoai-hint">'
+      + `${SC.Rank.esc(kw.vi.toUpperCase())} · ${SC.EVO_KW.LABEL[kw.t] || ''}</span>`);
+    this._ok('BAY THÔI!', true);
+    SC.UI.syncMenu();
     this.busy = false;
   },
 
@@ -16529,213 +18008,156 @@ SC.EvoStarter = {
 };
 
 ;
-/* ===== js/ui-map-jump.js ===== */
-/* ui-map-jump.js — dải chip nhảy vùng ở đầu bản đồ hành trình
- *
- * Vì sao có: 10 vùng × 6 chặng trải ra khoảng 8 màn hình cuộn. scrollToCurrent()
- * chỉ cứu được lần mở đầu; muốn quay lại vùng cũ cày nốt sao là phải kéo tay rất lâu,
- * mà lại không biết vùng nào còn thiếu bao nhiêu.
- *
- * Tách khỏi ui-map-select.js để mỗi tệp lo một việc: bên đó dựng đường đi và các
- * chặng, bên này lo mục lục và điều hướng.
- */
-
-SC.MapJump = {
-  _io: null,
-
-  /* Dựng lại dải chip. Gọi mỗi lần bản đồ được dựng vì số sao có thể vừa đổi. */
-  build(ui) {
-    const bar = document.getElementById('sagaJump');
-    if (!bar) return;
-    const per = SC.LEVELS_PER_BIOME;
-
-    bar.innerHTML = SC.BIOMES.map((b, bi) => {
-      const levels = SC.LEVELS.slice(bi * per, (bi + 1) * per);
-      const st = levels.reduce((s, lv) => s + (ui.progress.stars[lv.id] || 0), 0);
-      const max = per * 3;
-      const open = levels.some(lv => lv.id <= ui.progress.unlocked);
-      const perfect = open && st >= max;
-      return `<button class="sj${open ? '' : ' lock'}${perfect ? ' perfect' : ''}"
-        data-bi="${bi}" style="--tint:hsl(${b.hue},70%,60%)">
-        <b>${SC.Rank.esc(b.name)}</b>
-        <em>${open ? '★ ' + st + '/' + max
-          : '<svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg>'}</em>
-      </button>`;
-    }).join('');
-
-    bar.onclick = e => {
-      const b = e.target.closest('button[data-bi]');
-      if (!b) return;
-      SC.Audio.click();
-      this.go(+b.dataset.bi);
-    };
-
-    this.watch(ui.el.mapList, bar);
-  },
-
-  /* Cuộn tới một vùng.
-     KHÔNG dùng scrollIntoView: nó cuộn cả trang chứa game nên làm vỡ khung nhúng
-     (xem ghi chú trong quy ước dự án). Tự đặt scrollTop của đúng khung cuộn. */
-  go(bi) {
-    const wrap = SC.UI.el.mapList;
-    const reg = wrap && wrap.children[bi];      // các vùng nằm đúng thứ tự biome
-    if (!reg) return;
-    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    // Dùng chung phép đo với scrollToCurrent — đọc thẳng reg.offsetTop là dính đúng
-    // cái bẫy offsetParent đã mô tả trong SC.MapSelect.topIn
-    const top = Math.max(0, SC.MapSelect.topIn(reg, wrap) - 6);
-    if (reduce || !wrap.scrollTo) wrap.scrollTop = top;
-    else wrap.scrollTo({ top, behavior: 'smooth' });
-    this.mark(bi);
-  },
-
-  /* Sáng chip của vùng đang xem */
-  mark(bi) {
-    const bar = document.getElementById('sagaJump');
-    if (!bar) return;
-    for (const c of bar.children) c.classList.toggle('on', +c.dataset.bi === bi);
-  },
-
-  /* Theo dõi vùng nào đang ở giữa tầm nhìn để tự sáng chip tương ứng.
-     Thiếu IntersectionObserver (WebView cũ) thì chỉ mất phần sáng chip, bấm nhảy
-     vùng vẫn chạy bình thường. */
-  watch(wrap, bar) {
-    if (this._io) { this._io.disconnect(); this._io = null; }
-    if (!wrap || !bar || !window.IntersectionObserver) return;
-
-    this._io = new IntersectionObserver(entries => {
-      for (const e of entries) {
-        if (e.isIntersecting) this.mark(+e.target.dataset.bi);
-      }
-    }, { root: wrap, rootMargin: '-45% 0px -50% 0px' });
-
-    for (const h of wrap.querySelectorAll('.saga-head')) this._io.observe(h);
-  }
-};
-
-;
 /* ===== js/ui-lobby-ship.js ===== */
 /* ui-lobby-ship.js — máy bay của người chơi đứng chờ ở lobby
  *
  * Vì sao có: mở game lên mà không thấy chiếc máy bay mình đang cày để nâng cấp thì
- * lobby chỉ là một cái menu. Ở đây nó hiện ngay giữa màn, mang đúng cấp vũ khí sẽ
- * vào trận và đúng số máy bay phụ đã mua — nên mua PHI ĐỘI xong quay ra là thấy liền.
+ * lobby chỉ là một cái menu. Nó mang đúng cấp vũ khí sẽ vào trận và đúng số máy bay phụ
+ * đã mua — nên mua PHI ĐỘI xong quay ra là thấy liền.
  *
- * Không dựng SC.Player: chỉ mượn SC.draw.fighter() để vẽ, nên không có va chạm,
+ * ---- ĐỔI SANG CANVAS RIÊNG TRONG #shipStage (18/10/2026) ----
+ * Trước đây vẽ lên CANVAS TRẬN ĐẤU (`#game`) rồi phải quy đổi vị trí ô sân bay từ hệ đo
+ * của `#ui` sang hệ đo ảo bằng `SC.View.u2w()`. Cách đó đẻ ra một chuỗi bug không dứt:
+ *   · đo `#shipStage` lúc màn còn `display:none` -> y = 0, tàu nằm trên đỉnh (banga);
+ *   · `ready` chốt một chiều -> đo hụt một lần là hỏng cả phiên;
+ *   · và cuối cùng là ca không lần ra nổi: mọi chẩn đoán đều sạch (`alpha:1`,
+ *     `tron:source-over`, toạ độ nằm trong khung) mà lobby vẫn trống trơn, kể cả tranh
+ *     nền vùng cũng mất — tức nội dung canvas trận đấu không tới được mắt người chơi.
+ *     Năm vòng truy không ra; bản cũ ở portal thì không dính.
+ * Thay vì truy tiếp một nguyên nhân chỉ xảy ra trên banga, bỏ hẳn sự phụ thuộc: tàu nay
+ * vẽ vào MỘT CANVAS RIÊNG đặt ngay trong `#shipStage`. Nó nằm cùng ngăn xếp hiển thị với
+ * phần UI lobby vốn vẫn hiện bình thường, nên hễ thấy được cái nút XUẤT KÍCH thì chắc
+ * chắn thấy được con tàu. Không còn phép quy đổi hệ đo, không còn đo offsetTop, không còn
+ * `ready` — ba nguồn bug cũ biến mất cùng lúc.
+ *
+ * Không dựng SC.Player: chỉ mượn SC.ShipArt/DroneArt để vẽ, nên không có va chạm,
  * không bắn, không đụng gì tới trạng thái ván chơi.
  */
 
 SC.LobbyShip = {
-  y: 0,               // tâm sân bay, đơn vị khung ảo — layout() tính lại
-  ready: false,
+  _cv: null,
 
-  /* Đọc vị trí ô .lobby-stage rồi quy về toạ độ ẢO để vẽ lên canvas.
-     TỪ 25/09/2026 PHẢI QUY ĐỔI: #ui có hệ đo riêng, không còn trùng khung ảo 540
-     (system-viewport.js). Bản cũ dùng thẳng offsetTop vì hai hệ tình cờ bằng nhau —
-     giữ nguyên là máy bay lobby vẽ lệch lên trên, đè vào logo trên máy màn ngắn. */
-  layout() {
-    const el = document.getElementById('shipStage');
-    if (!el || !el.offsetHeight) { this.ready = false; return; }
-    this.y = SC.View.u2w(el.offsetTop + el.offsetHeight / 2);
-    this.ready = true;
+  /* Canvas riêng, bám đúng ô sân bay. Trả null khi ô chưa đo được (màn còn ẩn) — khung
+     sau gọi lại, không chốt trạng thái gì cả. */
+  _canvas() {
+    const stage = document.getElementById('shipStage');
+    if (!stage) return null;
+    let c = this._cv;
+    if (!c) {
+      c = this._cv = document.createElement('canvas');
+      c.className = 'lobby-ship-cv';
+      c.setAttribute('aria-hidden', 'true');
+    }
+    if (c.parentNode !== stage) stage.appendChild(c);
+    const w = stage.clientWidth, h = stage.clientHeight;
+    if (!w || !h) return null;
+    // DPR trần 2: ô sân bay to nhất cũng chỉ ~400px, 3× là phí bộ nhớ mà mắt không thấy
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const W = Math.round(w * dpr), H = Math.round(h * dpr);
+    if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
+    return c;
   },
 
-  /* Cấp vũ khí sẽ mang vào chặng kế — nay chỉ còn do map quyết, cây kỹ năng lo
-     phần sơ đồ tia và sát thương (system-gun.js) */
-  _weapon() {
-    const lv = SC.levelAt(SC.UI.progress.unlocked);
-    return lv ? lv.startWeapon : 1;
-  },
-
-  /* Chao lượn theo con trỏ ở lobby (21/09/2026): tàu là nhân vật chính, phải
-     nghịch được chứ không chỉ ngắm. Chỉ nghe pointermove — không đụng Input của
-     ván chơi, không va chạm, rời chuột thì tự trôi về giữa. */
-  _mx: null,
-  _my: null,
-  _xNow: 0,
-  _yNow: 0,
+  /* Chao lượn theo con trỏ (21/09/2026): tàu là nhân vật chính, phải nghịch được chứ
+     không chỉ ngắm. Toạ độ quy về 0..1 trong Ô SÂN BAY — không còn dính hệ đo nào. */
+  _mx: null, _my: null, _xNow: 0.5, _yNow: 0.5,
   _bindPointer() {
     if (this._bp) return;
     this._bp = 1;
     window.addEventListener('pointermove', e => {
-      const c = SC.View.ctx && SC.View.ctx.canvas;
-      if (!c) return;
+      const c = this._cv;
+      if (!c || !c.parentNode) return;
       const rc = c.getBoundingClientRect();
-      if (!rc.width) return;
-      this._mx = (e.clientX - rc.left) / rc.width * SC.W;
-      this._my = (e.clientY - rc.top) / rc.height * SC.H;
+      if (!rc.width || !rc.height) return;
+      this._mx = (e.clientX - rc.left) / rc.width;
+      this._my = (e.clientY - rc.top) / rc.height;
     }, { passive: true });
   },
 
-  render(ctx) {
-    if (!this.ready) this.layout();
-    if (!this.ready) return;
+  /* `_` là ctx của canvas TRẬN ĐẤU do system-renderer truyền vào — cố ý BỎ QUA. Giữ chữ
+     ký cũ để chỗ gọi không phải đổi, và để nhắc rằng tàu lobby không còn vẽ ở đó nữa. */
+  render(_) {
+    const c = this._canvas();
+    if (!c) return;
     this._bindPointer();
+    const g = c.getContext('2d');
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.clearRect(0, 0, c.width, c.height);
+    // trạng thái vẽ luôn đặt lại: canvas này của riêng lobby, không ai khác đụng vào
+    g.globalAlpha = 1;
+    g.globalCompositeOperation = 'source-over';
 
-    // Người dùng bật "giảm chuyển động" thì đứng yên, vẫn thấy đủ máy bay
+    const W = c.width, H = c.height;
     const still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const t = still ? 0 : performance.now() / 1000;
 
-    // đích = con trỏ, lượn được CẢ HAI TRỤC (yêu cầu 21/09). X kẹp 1/4..3/4 bề
-    // ngang, Y kẹp quanh sân đậu ±90px — đủ nghịch mà không chui vào logo hay nút.
-    // Không có con trỏ (điện thoại chưa chạm) thì tự lượn quanh giữa màn.
-    const goalX = still ? SC.W / 2
-      : this._mx == null ? SC.W / 2 + Math.sin(t * 0.7) * 24
-      : SC.clamp(this._mx, SC.W * 0.25, SC.W * 0.75);
-    const goalY = still ? this.y
-      : this._my == null ? this.y
-      : SC.clamp(this._my, this.y - 90, this.y + 90);
-    if (!this._xNow) this._xNow = SC.W / 2;
-    if (!this._yNow) this._yNow = this.y;
+    // đích theo con trỏ, kẹp trong ô; không có con trỏ thì tự lượn quanh giữa
+    const gx = still ? 0.5 : this._mx == null ? 0.5 + Math.sin(t * 0.7) * 0.045
+      : SC.clamp(this._mx, 0.18, 0.82);
+    const gy = still ? 0.5 : this._my == null ? 0.5 : SC.clamp(this._my, 0.3, 0.7);
     const truoc = this._xNow;
-    this._xNow += (goalX - this._xNow) * 0.08;
-    this._yNow += (goalY - this._yNow) * 0.08;
+    this._xNow += (gx - this._xNow) * 0.08;
+    this._yNow += (gy - this._yNow) * 0.08;
 
-    const cx = this._xNow;
-    const cy = this._yNow + (still ? 0 : Math.sin(t * 1.6) * 5);
-    // ×3.6 so với lúc chơi (nâng lần 3, 21/09: "+50% nữa"): lobby là ảnh chân dung
-    // của tàu; phi đội tự giãn theo vì offset tính theo r
-    const r = SC.CFG.playerRadius * 3.6;
-    // nghiêng cánh theo hướng đang lướt — cảm giác "lái" thật thay vì trượt ngang
-    const tilt = still ? 0 : SC.clamp((this._xNow - truoc) * 0.09, -0.3, 0.3)
+    const cx = this._xNow * W;
+    const cy = this._yNow * H + (still ? 0 : Math.sin(t * 1.6) * H * 0.012);
+    /* CỠ VẼ theo Ô SÂN BAY, không theo bán kính va chạm: ô là thứ quyết định chỗ trống
+       thật sự có bao nhiêu. 0,42 bề ngang / 0,62 chiều cao — chốt bằng mắt để khớp cỡ
+       bản cũ (tàu chiếm ~35% bề ngang màn) ở mọi tỉ lệ ô. */
+    const size = Math.min(W * 0.42, H * 0.62);
+    const r = size / (SC.ShipArt.PAD * 2);
+    const tilt = still ? 0 : SC.clamp((this._xNow - truoc) * W * 0.012, -0.3, 0.3)
       + Math.sin(t * 0.9) * 0.08;
 
-    // Phi đội bay kèm, vẽ trước để nằm dưới máy bay chính. Khoảng cách tính THEO r
-    // (fix 21/09/2026): offset cứng 54px thời tàu nhỏ, giờ tàu ×2.4 thì cánh xoè
-    // ~1.62r che sạch phi đội. Đặt drone ngoài 1.95r + lùi xuống dưới đuôi cánh.
-    const dr = SC.Drones.tier();
-    const n = dr ? dr.n : 0;
-    const swarm = SC.Drones.kind() === 'A';
-    for (let i = 0; i < n; i++) {
-      const side = i % 2 === 0 ? -1 : 1;
-      const ring = Math.floor(i / 2);
-      SC.DroneArt.draw(ctx, {
-        x: cx + side * (r * 1.95 + ring * 34),
-        y: cy + r * 1.05 + ring * 18 + (still ? 0 : Math.sin(t * 2.2 + i) * 4),
-        r: swarm ? 11 : 15, t: still ? 0 : t + i
-      }, swarm, SC.Tree.evo());
+    // Phi đội bay kèm, vẽ TRƯỚC để nằm dưới máy bay chính. Bọc riêng: phi đội hỏng thì
+    // vẫn phải thấy tàu — nó mới là nhân vật chính.
+    try {
+      const dr = SC.Drones.tier();
+      const n = dr ? dr.n : 0;
+      const swarm = SC.Drones.kind() === 'A';
+      for (let i = 0; i < n; i++) {
+        const side = i % 2 === 0 ? -1 : 1;
+        const ring = Math.floor(i / 2);
+        SC.DroneArt.draw(g, {
+          x: cx + side * (r * 1.95 + ring * r * 0.6),
+          y: cy + r * 1.05 + ring * r * 0.32 + (still ? 0 : Math.sin(t * 2.2 + i) * r * 0.07),
+          r: (swarm ? 0.3 : 0.4) * r, t: still ? 0 : t + i
+        }, swarm, SC.Tree.evo());
+      }
+    } catch (e) {
+      if (!this._baoDrone) { this._baoDrone = 1; console.warn('[lobby] phi doi loi, bo qua:', e && e.message); }
     }
 
-    this._one(ctx, cx, cy, r, tilt);
+    try {
+      this._one(g, cx, cy, r, tilt);
+    } catch (e) {
+      if (!this._baoTau) {
+        this._baoTau = 1;
+        console.error('[lobby] KHONG VE DUOC TAU:', e && e.message,
+          { W, H, x: Math.round(cx), y: Math.round(cy), r: Math.round(r) });
+      }
+    }
   },
 
-  /* Máy bay chính, dựng đúng theo tổ hợp nhánh đang chạy — nên mua xong quay ra
-     lobby là thấy hình dáng đã đổi ngay, không phải vào màn mới biết. */
-  _one(ctx, x, y, r, tilt) {
-    ctx.save();
-    ctx.translate(x, y);
+  /* Máy bay chính, dựng đúng theo tổ hợp nhánh đang chạy — nên mua xong quay ra lobby
+     là thấy hình dáng đã đổi ngay, không phải vào màn mới biết. */
+  _one(g, x, y, r, tilt) {
+    g.save();
+    g.translate(x, y);
     const f = 1 + Math.sin(performance.now() / 1000 * 30) * 0.22;
-    SC.draw.glow(ctx, 0, r * 1.5, 18 * f, '#5ad0ff', 0.55);
-    ctx.fillStyle = 'rgba(140,230,255,.9)';
-    ctx.beginPath();
-    ctx.moveTo(-5, r * 1.1); ctx.lineTo(0, r * (1.5 + f * 0.5)); ctx.lineTo(5, r * 1.1);
-    ctx.closePath(); ctx.fill();
-    SC.AuraFX.draw(ctx, r, performance.now() / 1000, SC.Tree.evo());
-    // ShipArt tự phóng thêm SC.ArtScale.ship (10/10/2026, cho lúc CHƠI) — lobby đã chốt cỡ
-    // riêng bằng ×3.6 ở trên, không bù lại là tàu to gấp rưỡi, đè logo trên máy màn ngắn
-    SC.ShipArt.draw(ctx, r / SC.ArtScale.ship, tilt);
-    ctx.restore();
-  }
+    SC.draw.glow(g, 0, r * 1.5, r * 0.5 * f, '#5ad0ff', 0.55);
+    g.fillStyle = 'rgba(140,230,255,.9)';
+    g.beginPath();
+    g.moveTo(-r * 0.14, r * 1.1); g.lineTo(0, r * (1.5 + f * 0.5)); g.lineTo(r * 0.14, r * 1.1);
+    g.closePath(); g.fill();
+    SC.AuraFX.draw(g, r, performance.now() / 1000, SC.Tree.evo());
+    SC.ShipArt.draw(g, r, tilt);
+    g.restore();
+  },
+
+  /* Giữ cho mã cũ gọi không vỡ — không còn phép đo nào để làm lại. */
+  layout() {},
+  get ready() { return !!this._cv; }
 };
 
 ;
@@ -17029,11 +18451,18 @@ SC.UI = {
       + ' onerror="if(this.r)this.replaceWith(\'' + def.ic + '\');else{this.r=1;this.src=this.src}">';
   },
 
+  /* MỘT THÔNG BÁO MỘT LÚC (18/10/2026). Bản cũ tạo một div MỚI mỗi lần gọi, không trần,
+     không hàng đợi — ảnh trận thật `lv56-a.jpg` bắt được BA toast chồng lên nhau, không
+     đọc nổi chữ nào, mà chúng lại nằm đúng 19% khung hình tức ngay làn quái bay vào.
+     Ba thông báo cùng lúc = không có thông báo nào. Cái mới đẩy cái cũ đi ngay. */
   toast(msg, big) {
+    const zone = this.el.toastZone;
+    // gỡ THẲNG chứ không chờ hiệu ứng mờ: còn nằm đó là còn chiếm chỗ và còn che quái
+    while (zone.firstChild) zone.removeChild(zone.firstChild);
     const d = document.createElement('div');
     d.className = 'toast' + (big ? ' big' : '');
     d.textContent = msg;
-    this.el.toastZone.appendChild(d);
+    zone.appendChild(d);
     setTimeout(() => d.remove(), 1650);    // khớp toastHold 1,6s ở style.css (mục 11)
   },
 
@@ -17057,11 +18486,36 @@ Object.assign(SC.UI, {
     this.el.hpFill.parentNode.parentNode.classList.toggle('low', v > 0 && v / max < 0.3);
     this.el.shFill.style.width = (sh / shMax * 100) + '%';
   },
+  /* Ô VÀNG CHỈ NHÁY KHI VỪA ĂN (17/10/2026, cắt HUD đợt 2): con số vàng đứng im suốt
+     trận không giúp người chơi quyết định gì — tiêu vàng là việc ở sảnh, không phải
+     trong trận. Hiện 1,6 giây mỗi lần số TĂNG rồi tự thu lại, nên lúc nhặt được vẫn có
+     phản hồi mà màn hình không phải nuôi thêm một ô thường trực.
+     Bẫy: lần gọi ĐẦU của mỗi màn có coin = 0 và `_coin` chưa có → phải khởi tạo, không
+     thì vào màn nào cũng thấy ô vàng nháy một cái vô cớ. */
   setStats(score, coin) {
     this.el.score.textContent = score;
     this.el.coin.textContent = coin;
+    const chip = this.el.coin.parentNode;          // span.chip.gold
+    if (this._coin === undefined) { this._coin = coin; chip.classList.add('idle'); return; }
+    if (coin === this._coin) return;
+    this._coin = coin;
+    chip.classList.remove('idle');
+    clearTimeout(this._coinT);
+    this._coinT = setTimeout(() => chip.classList.add('idle'), 1600);
   },
-  setLevel(id) { this.el.level.textContent = String(id).padStart(2, '0'); },
+
+  /* main.start() gọi khi vào màn mới — quên gọi là ô vàng nháy ở khung đầu mỗi màn */
+  resetStats() { this._coin = undefined; },
+  /* NHÃN MAP CHỈ SỐNG 3 GIÂY (17/10/2026, cắt HUD): số map là thứ người chơi vừa tự bấm
+     ở màn chọn map — nhắc suốt trận là chiếm chỗ vô ích. Mờ đi chứ không `display:none`,
+     để không làm nhảy bố cục hàng nút bên cạnh. */
+  setLevel(id) {
+    const el = this.el.level.parentNode;        // .lvl-tag
+    this.el.level.textContent = String(id).padStart(2, '0');
+    el.classList.remove('faded');
+    clearTimeout(this._lvlT);
+    this._lvlT = setTimeout(() => el.classList.add('faded'), 3000);
+  },
   setWave(i, total) {
     this.el.waveFill.style.width = (i / total * 100) + '%';
     this.el.waveTxt.textContent = `WAVE ${i}/${total}`;
@@ -17121,7 +18575,9 @@ Object.assign(SC.UI, {
     // thẳng lên tai thỏ, mà đó lại đúng lúc cần đọc máu nhất.
     const V = SC.View, sf = V.safeUi;
     const w = V.uiW, h = V.w2u(SC.H);
-    el.style.left = SC.clamp(V.w2u(b.x), 72, w - 72) + 'px';
+    // 72 -> 96: nửa bề ngang MỚI của `.boss-wrap` (186px, nới 18/10 để tên trùm dài nằm
+    // gọn một dòng). Nới ô mà quên kẹp ở đây là tấm biển lòi khỏi mép màn.
+    el.style.left = SC.clamp(V.w2u(b.x), 96, w - 96) + 'px';
     // sàn 112 (cũ 44): lúc trùm còn ngoài mép trên, thanh kẹp ở 44 đè thẳng lên ô MAP + vàng
     el.style.top = SC.clamp(V.w2u(b.y + b.r + 12), 112 + sf.top, h - 87 - sf.bottom) + 'px';
     // trùm đang dịch chuyển (warp) thì làm mờ đi cho khớp với thân đang biến mất
@@ -17153,11 +18609,24 @@ Object.assign(SC.UI, {
     list.innerHTML = missions
       .map(m => `<li><span class="m-ic">${m.def.ic}</span>${m.def.label(m.n)}</li>`).join('');
 
+    this.revealMissions();
+    this.setRescue(0, rescueNeed);
+  },
+
+  /* Bật bảng nhiệm vụ VÀ hẹn giờ tắt — một cặp không tách rời.
+   *
+   * BUG LIVE 18/10/2026 (anh Đức: "pop nhiệm vụ hiện hoài không tắt"): `startLevel` gọi
+   * `showMissions` (hẹn 3,4 giây) rồi ẩn bảng ngay để nhường màn nhảy dù; tới mốc
+   * `INTRO.gameAt` thì `main.js` BẬT LẠI bảng — mà lúc đó cái hẹn giờ kia đã hết hạn từ
+   * lâu, nên không còn ai tắt nữa. Trước pha 03 thì vừa đủ kịp vì hai mốc cách nhau ~1
+   * giây; từ lúc có trạng thái 'ready' (bay trong mây, tối đa 8 giây) thì hẹn giờ luôn
+   * chết trước khi bảng kịp hiện. Nay mọi chỗ BẬT bảng đều phải đi qua đây. */
+  revealMissions() {
+    const panel = document.getElementById('missionPanel');
+    if (!panel) return;
     panel.classList.remove('hidden');
     clearTimeout(this._missionT);
     this._missionT = setTimeout(() => panel.classList.add('hidden'), 3400);
-
-    this.setRescue(0, rescueNeed);
   },
 
   /* Đồng hồ góc dưới phải. Map có nhiệm vụ tính giờ thì hiện luôn mốc cần đạt
@@ -17165,6 +18634,11 @@ Object.assign(SC.UI, {
   setTimer(sec, target) {
     const el = this.el.timer;
     const s = Math.floor(sec);
+    // CHỈ HIỆN Ở MAP CÓ NHIỆM VỤ TÍNH GIỜ (17/10/2026, cắt HUD): map không có nhiệm vụ
+    // `fast` thì con số giây chẳng để làm gì — nó chỉ là một thứ nữa đang nhấp nháy.
+    // Thời gian trận vẫn ghi đủ ở `g.stats.time` cho bảng kết quả và kỷ lục.
+    el.classList.toggle('idle', !target);
+    if (!target) return;
     el.querySelector('b').textContent = target ? `${s}s / ${target}s` : `${s}s`;
     el.classList.toggle('over', !!target && sec > target);
     el.classList.toggle('near', !!target && sec > target * 0.8 && sec <= target);
@@ -17512,8 +18986,22 @@ SC.Finish = {
     let prevBest = 0, record = false;
     let stars = 0, bonus = 0, depth = 1;
     const mul = SC.Tree.goldMul();
-    // thua vẫn giữ vàng nhặt được, nhưng không có thưởng và không nhân hệ số
-    let gold = g.coin;
+    /* THUA PHẢI TRẢ TIỀN (17/10/2026, pha 08).
+     *
+     * Bản cũ: thua giữ ĐÚNG `g.coin` thô — không `depth`, không `goldMul`, không thưởng.
+     * Mà cả ba thứ đó đều dốc lên theo map, nên CÀNG SÂU THUA CÀNG RẺ: đo ra map 3 một
+     * lần thua đáng 38% một lần thắng, map 20 còn 16%, **map 60 chỉ 7%**. Đúng chỗ người
+     * chơi bắt đầu kẹt thì thất bại gần như không trả gì — họ cày lại map cũ chứ không
+     * dám thử map mới. Sky Force đi đường ngược lại: sao nhặt được là của mình, thua vẫn
+     * tiến, và game tự khoe "HOÀN THÀNH TRONG {0} LƯỢT".
+     *
+     * Nay thua ăn theo `depth` và `goldMul` NHƯ THẮNG rồi nhân `loseKeep`, nhưng KHÔNG
+     * có `CLEAR_BONUS` — phần thưởng qua màn vẫn chỉ dành cho người qua màn.
+     * SÀN `g.coin`: không map nào tệ hơn hôm nay, nên không ai bị nerf ngầm. Thiếu sàn
+     * này là map 3 tụt 38% → 21%, tức nerf đúng người mới.
+     * Lùi lại: đặt `reward.loseKeep` = 0. */
+    let gold = Math.max(g.coin, Math.round(
+      g.coin * SC.GOLD_DEPTH(g.levelId) * mul * SC.bal('reward.loseKeep', 0.4)));
 
     if (win) {
       stars = missions.filter(m => m.done).length;
@@ -17651,6 +19139,12 @@ SC.BackStack = {
 
     // 3. Đang chơi -> tạm dừng (KHÔNG thoát thẳng: người chơi mất cả màn dở)
     if (this.game && this.game.state === 'play') { this.game.pause(true); return false; }
+
+    /* 3b. Đang bay trong mây ('ready', pha 03) -> VỀ THẲNG SẢNH. Màn chưa bắt đầu nên
+       chẳng có gì để mất, mà mở bảng tạm dừng cho một màn chưa chạy thì vô nghĩa.
+       Thiếu nhánh này là Back rơi xuống luật "bấm hai lần để thoát game" ở lobby — tức
+       là đang trong màn mà Back lại đòi thoát hẳn game. */
+    if (this.game && this.game.state === 'ready') { SC.Ready.on = false; this.ui.show('menu'); return false; }
 
     // 4. Ở lobby: bấm hai lần trong 2 giây mới thoát. Một lần là lỡ tay.
     const gio = Date.now();
@@ -17793,14 +19287,14 @@ SC.Game = {
     this.player.y = SC.H * 0.45;
     this.introT = this.INTRO.total;
     this._introPanel = false;
+    this._introDone = false;        // intro chua dut -> con phai tra lai cho con tro
     this.player.inv = this.INTRO.total + 0.6;
     SC.EvoShard.onLevelStart(id);      // màn 3×n chưa phát mảnh -> kẻ cuối sẽ nhả 🧬
     SC.Wingmen.spawn(this.player);
     SC.Variant.markSeen();              // ghi vào sổ tay biến thể
     SC.Variant.queue();                 // vừa đủ điều kiện tiến hoá thì xếp hàng chờ diễn
+    SC.Cam.reset();                 // camera ve 0 moi man (pha 02A)
     SC.BG.setBiome(this.lv.biome);
-    SC.Waves.start(this.lv);
-    SC.Music.start(this.lv.biome);
 
     // 3 nhiệm vụ cố định của map; chỉ thả dù khi có nhiệm vụ cứu phi công
     const missions = SC.Missions.start(id);
@@ -17813,6 +19307,7 @@ SC.Game = {
     SC.UI.hideOverlay('pause'); SC.UI.hideOverlay('result');
     SC.UI.hideBoss();
     SC.UI.setLevel(id); SC.UI.setWave(0, this.lv.waves + (this.lv.boss ? 1 : 0));
+    SC.UI.resetStats();                 // ô vàng khỏi nháy vô cớ ở khung đầu màn
     SC.UI.setWeapon(this.player.weapon); SC.UI.setCombo(1);
     SC.UI.toast(this.lv.name, true);
     // lần đầu chơi bằng cảm ứng: nhắc cách lái
@@ -17820,7 +19315,29 @@ SC.Game = {
       this.taughtTouch = true;
       setTimeout(() => SC.UI.toast('CHẠM & KÉO ĐỂ LÁI'), 1200);
     }
+    /* BAY TRONG MÂY TRƯỚC (pha 03): chưa chạm thì chưa có quái, chưa có wave, chưa có
+       nhạc trận. Người chơi nhìn vùng đất một nhịp rồi tự quyết lúc vào. Mọi thứ của
+       trận thật dời sang `beginPlay()` — gọi khi vén màn xong (hoặc sau 8 giây). */
+    this.state = 'ready';
+    SC.Ready.start();
+  },
+
+  /* Trận THẬT bắt đầu từ đây. Tách khỏi `startLevel` để trạng thái 'ready' có chỗ chen vào;
+     mọi thứ dưới đây trước kia nằm ngay trong `startLevel`, thứ tự giữ nguyên. */
+  beginPlay() {
+    /* TẮT HẲN màn chờ ở ĐÂY, không chỉ trong `Ready.update`. Bẫy đã sập ngay lần chụp
+       đầu: ba công cụ headless gọi thẳng `beginPlay()` (bot không chạm được), nên
+       `Ready.on` còn true và `Ready.render` vẽ mây + chữ "BẤM ĐỂ VÀO TRẬN" đè lên cả
+       trận đánh trùm. Mọi đường vào trận phải đi qua một chỗ tắt duy nhất. */
+    SC.Ready.on = false;
+    // vào trận là chạy ngay: nếu màn trước kết thúc lúc đang buông tay thì hệ số còn ~0
+    SC.AutoPause.reset();
     this.state = 'play';
+    SC.Waves.start(this.lv);
+    SC.Music.start(this.lv.biome);
+    // đồng hồ trận tính từ lúc VÀO TRẬN, không tính lúc đứng ngắm mây — nếu không thì
+    // nhiệm vụ `fast` bị ăn mất 8 giây mà người chơi không hiểu vì sao
+    this.stats.time = 0;
   },
 
   pause(on) {
@@ -17829,8 +19346,11 @@ SC.Game = {
   },
 
   quitToMenu() {
-    // bỏ ngang giữa trận (không phải từ bảng kết quả) cũng là một dữ kiện cân bằng
+    // bỏ ngang giữa trận (không phải từ bảng kết quả) cũng là một dữ kiện cân bằng.
+    // 'ready' KHÔNG ghi log: màn chưa bắt đầu, ghi vào là bảng cân bằng đầy trận rỗng
+    // (t=0, kills=0) làm hỏng mọi trung vị.
     if (this.state === 'play' || this.state === 'pause') SC.Telemetry.log(this, false, true);
+    SC.Ready.on = false;             // thoát lúc đang bay trong mây thì dọn luôn (pha 03)
     this.state = 'menu';
     SC.Music.stop();
     SC.Rescue.clear();
@@ -17859,7 +19379,16 @@ SC.Game = {
     this.last = now;
     SC.View.poll();
     // hit-stop / slow-mo (system-time-fx.js): k = 0 là khung đóng băng — vẫn vẽ, không chạy
-    if (this.state === 'play') { const k = SC.TimeFX.scale(dt); if (k > 0) this.update(dt * k); }
+    /* BUÔNG TAY = chậm dần rồi dừng (18/10/2026, system-auto-pause.js). Nhận dt THẬT:
+       nếu nuôi nó bằng dt đã bị chính nó làm chậm thì càng chậm càng lâu hồi, không bao
+       giờ về lại tốc độ thường. Nhân CHỒNG với hit-stop/slow-mo chứ không thay thế —
+       hai thứ đó là hiệu ứng kịch tính, cái này là ý định của người chơi. */
+    SC.AutoPause.update(dt);
+    if (this.state === 'play') {
+      const k = SC.TimeFX.scale(dt) * SC.AutoPause.scale();
+      if (k > 0) this.update(dt * k);
+    }
+    else if (this.state === 'ready') SC.Ready.update(dt);   // bay trong mây, tự cuộn nền
     else SC.BG.update(dt);        // nền vẫn chạy ở menu / pause cho sinh động
     /* Rung màn hình giảm dần ở MỌI trạng thái, không chỉ lúc chơi.
        BẪY ĐÃ SẬP (22/09/2026, live): bản cũ chỉ trừ shake.t trong update() — thoát màn
@@ -17877,12 +19406,16 @@ SC.Game = {
   /* Hệ số phóng đại tàu: phase khoe giữ nguyên 3.0 (nhìn cho RÕ), phase hạ cánh
      easeOutCubic 3.0 -> 1. Chỉ ảnh hưởng HÌNH VẼ (entity-player.render), hitbox
      giữ nguyên và bất tử phủ trọn intro nên không ai thiệt. */
+  /* 3,0 -> 2,4 (18/10/2026): từ hôm nay phép phóng phủ CẢ CỤM (thân + phi đội + khiên,
+     xem system-renderer) chứ không riêng thân tàu. Giữ nguyên 3,0 thì vòng khiên cấp cao
+     cộng 8 drone chiếm gần trọn bề ngang màn — đo trên ảnh chụp. 2,4 cho lại đúng khối
+     thị giác như bản cũ. Chỉ là HÌNH; hitbox không đổi, intro vẫn bất tử trọn vẹn. */
   introScale() {
     if (!this.introT || this.introT <= 0) return 1;
     const el = this.INTRO.total - this.introT;
-    if (el <= this.INTRO.hold) return 3.0;
+    if (el <= this.INTRO.hold) return 2.4;
     const k = Math.min(1, (el - this.INTRO.hold) / (this.INTRO.total - this.INTRO.hold));
-    return 1 + 2.0 * Math.pow(1 - k, 3);
+    return 1 + 1.4 * Math.pow(1 - k, 3);
   },
 
   update(dt) {
@@ -17904,9 +19437,19 @@ SC.Game = {
       p.t += dt;                                   // lửa động cơ vẫn thở
       if (!this._introPanel && el >= this.INTRO.gameAt) {
         this._introPanel = true;
-        document.getElementById('missionPanel').classList.remove('hidden');
+        SC.UI.revealMissions();      // bật KÈM hẹn giờ tắt — xem chú thích ở ui-hud.js
       }
       if (el < this.INTRO.gameAt) { SC.BG.update(dt); return; }
+    } else if (!this._introDone) {
+      /* INTRO VỪA DỨT — trả lái lại cho con trỏ (bug live 18/10/2026).
+         Anh Đức chơi trên web: "kêu nhấn nhưng lia chuột thì máy bay vẫn ở giữa map".
+         Nguyên nhân: suốt 2 giây nhảy dù, khối trên GHI ĐÈ `tx/ty` mỗi khung, nên mọi
+         cú lia chuột trong lúc đó bị xoá sạch; intro dứt thì tàu đứng im ở giữa cho tới
+         khi người chơi lia chuột MỘT LẦN NỮA. Trên cảm ứng không ai thấy vì phải chạm
+         mới lái, nhưng chuột thì người ta đã rê sẵn và tưởng game đơ.
+         Pha 03 làm lỗi này lộ hẳn: cú bấm "vào trận" nay tách rời lúc bắt đầu lái. */
+      this._introDone = true;
+      SC.Input.applyLastPointer && SC.Input.applyLastPointer();
     }
 
     this.stats.time += dt;
@@ -17923,6 +19466,10 @@ SC.Game = {
     // quyết hướng súng TRƯỚC khi bắn, nếu không loạt đạn của khung này còn dùng hướng cũ
     SC.Facing.update(dt, p, this.enemies, this.boss);
     p.update(dt);
+    // Camera bám tàu (pha 02A). Gọi NGAY SAU khi tàu di chuyển, trước khi bất cứ ai đọc
+    // toạ độ — để trong cùng một khung thì vị trí tàu và vị trí camera là một cặp khớp.
+    // Với `WORLD_K = 1` thì hàm này luôn đặt `Cam.x = 0`, không đổi gì.
+    SC.Cam.follow(p.x);
     SC.Wingmen.update(dt, p);
     SC.Shield.update(dt, p, this);      // khiên đốt quái / bật đạn, tuỳ hướng đã chọn
     SC.Waves.update(dt, this.enemies);

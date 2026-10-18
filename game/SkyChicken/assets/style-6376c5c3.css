@@ -567,21 +567,8 @@ body .m-txt i{font-size:14px}
 
 /* ---------- sổ tay biến thể ---------- */
 #scrCodex{background:radial-gradient(110% 70% at 50% 0%,#2a1b3f,#05070f 70%)}
-.codex-card{padding:8.7px 9.4px;border-radius:var(--r-md);background:var(--sf-raise);
-  box-shadow:var(--el-1),var(--hair-top)}
-.codex-card.cur{box-shadow:inset 0 0 0 2px var(--vh,#96beff)}
-.codex-card.locked{opacity:.55;box-shadow:inset 0 0 0 1px rgba(255,255,255,.1)}
-.cx-head{display:flex;align-items:baseline;gap:6.5px}
-.cx-head b{font-size:12px;letter-spacing:.16em;color:var(--vh,#8fb8e8)}
-.cx-head em{font-style:normal;font-size:12px;letter-spacing:.12em;color:var(--acc)}
-.cx-tag{font-size:12px;color:var(--dim);margin-top:2.2px}
-.cx-good{font-size:12px;color:#8ee6b0;margin-top:5.1px;line-height:1.45}
-.cx-bad{font-size:12px;color:#ff9aae;margin-top:2.2px;line-height:1.45}
-.cx-hint{font-size:12px;color:#7ae0ff;margin-top:4.3px;letter-spacing:.04em}
-.cx-hint i{font-style:normal;color:var(--dim)}
-.cx-stats{margin-top:6.5px;padding-top:5.1px;border-top:1px solid rgba(255,255,255,.1)}
-.cx-stats li{display:flex;justify-content:space-between;font-size:12px;color:var(--dim);padding:2px 0}
-.cx-stats li b{color:#fff}
+/* Khối tạo hình của sổ tay đã chuyển hẳn xuống "REWORK 4 MÀN" ở cuối file (18/10/2026) —
+   bản cũ vẽ thẻ bằng hộp bo tròn + 5 dòng chữ 12px. Giữ lại đây đúng một dòng nền màn. */
 
 /* Lời khuyên khi thua — nói thẳng nên làm gì tiếp, kèm số map cụ thể */
 .res-advice{margin:7.2px 0 2px;padding:6.5px 7.9px;border-radius:var(--r-sm);font-size:12px;line-height:1.5;
@@ -1341,6 +1328,103 @@ body .timer{font-size:14px}
   .btn:not(.text):not(.toggle):hover{background:none;box-shadow:none;filter:brightness(1.12)}
 }
 .btn:not(.text):not(.toggle):active{box-shadow:none;filter:brightness(.94)}
+
+/* ================= CẢNH LOBBY "QUỸ ĐẠO" (17/10/2026) =================
+ * Anh Đức: "/goal lobby rework phải wow, đẹp hơn mẫu số 4". Soát đo được: chrome 55,7%
+ * màn còn chiếc tàu 4,3% (tỉ lệ 13:1). Cách chữa là dựng CHIỀU SÂU rồi bỏ bớt khung,
+ * không phải trang trí thêm.
+ *
+ * BẪY ĐÃ SẬP MỘT LẦN (cùng ngày, bản đường băng): mọi phần tử cảnh đặt thẳng trong
+ * #scrMenu kèm z-index 2-4 thì nó vẽ ĐÈ LÊN thẻ xuất kích — #scrMenu là cột flex, thẻ
+ * không có z-index nên thua. Nay gói hết vào MỘT lớp nền z-index 0, và đẩy mọi con khác
+ * của #scrMenu lên z-index 1. Thêm/bớt phần tử cảnh sau này cứ bỏ vào .lb-scene.
+ *
+ * BẪY THỨ HAI (phát hiện khi soát, chưa trả giá): canvas #game đứng TRƯỚC #ui và cả hai
+ * đều position:absolute không z-index ⇒ MỌI DOM của lobby vẽ đè lên tàu canvas. Nên mọi
+ * lớp nằm "dưới" tàu ở đây đều phải TRONG SUỐT (ánh sáng), không được gần đặc. */
+/* KHÔNG đặt position:relative cho #scrMenu — `.layer` đã là position:absolute inset:0,
+   ghi đè thành relative là nó rơi khỏi luồng tuyệt đối, co lại theo nội dung và chừa
+   nửa dưới màn hình lộ nguyên canvas. (Đã sập đúng lỗi này một lần.) */
+#scrMenu > :not(.lb-scene){position:relative;z-index:1}
+.lb-scene{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.lb-far,.lb-tone{position:absolute;inset:0}
+/* trời của vùng sắp bay tới — mượn 10 tấm nền map đã trả tiền mà lobby chưa đụng */
+.lb-far{inset:-6%;background-position:center;background-size:cover;
+  filter:brightness(.46) saturate(.8) blur(3.6px)}
+.lb-tone{background:radial-gradient(118% 58% at 50% 42%,
+  rgba(22,66,150,.32),rgba(0,20,66,.86) 55%,#01050e 100%)}
+/* SỐ MÀN đứng LÙI VỀ SAU: viền rỗng, không nền — vừa là thông tin vừa là một lớp không
+   gian. Thay cả cụm "TIẾP THEO / MÀN 22 / huy hiệu lục giác" của bản cũ. */
+.lb-num{position:absolute;left:0;right:0;top:11%;text-align:center;
+  font:700 clamp(96px,30vmin,168px)/.82 var(--font-display);letter-spacing:-.03em;
+  color:transparent;-webkit-text-stroke:1.5px rgba(130,205,255,.5);
+  filter:drop-shadow(0 0 40px rgba(79,227,255,.35))}
+.lb-num span{display:block;font:600 12px/1 var(--font-display);letter-spacing:.6em;
+  text-indent:.6em;-webkit-text-stroke:0;color:rgba(79,227,255,.8);margin-bottom:10px}
+.lb-num::after{content:'';display:block;width:104px;height:1px;margin:12px auto 0;
+  background:linear-gradient(90deg,transparent,rgba(79,227,255,.7),transparent)}
+
+/* QUỸ ĐẠO: hai đường tròn 1px, nhưng rotateX biến chúng thành quỹ đạo — mắt đọc ngay ra
+   "tàu đang lơ lửng trong một không gian", không phải "có cái vòng vẽ trên kính".
+   BẪY: độ nghiêng phải nằm ở PHẦN TỬ. Để rotateX trong keyframe thì khung 0% không có
+   transform, trình duyệt nội suy từ phẳng -> vòng thành đường tròn dẹt lúc chụp. */
+.lobby-stage{position:relative}
+.lb-orb,.lb-disc,.lb-beam{position:absolute;left:50%;pointer-events:none}
+.lb-orb{top:50%;width:min(336px,calc(var(--uiw) * .9));aspect-ratio:1;
+  transform:translate(-50%,-50%);transform-style:preserve-3d}
+.lb-orb .tilt,.lb-orb .tilt2{position:absolute;inset:0;transform-style:preserve-3d}
+.lb-orb .tilt{transform:rotateX(74deg)}
+.lb-orb .tilt2{inset:12%;transform:rotateX(68deg) rotateZ(18deg)}
+.lb-orb i{position:absolute;inset:0;border-radius:50%;display:block}
+.lb-orb .tilt > i{border:1px solid rgba(79,227,255,.5);
+  box-shadow:0 0 26px rgba(79,227,255,.26),inset 0 0 26px rgba(79,227,255,.12)}
+.lb-orb .tilt2 > i{border:1px dashed rgba(79,227,255,.3)}
+/* chấm sáng bay quanh quỹ đạo — thứ CHỨNG MINH cái vòng nằm trong không gian */
+.lb-orb .dot{position:absolute;inset:0}
+.lb-orb .dot::after{content:'';position:absolute;left:50%;top:-6px;margin-left:-6px;
+  width:12px;height:12px;border-radius:var(--r-pill);background:var(--cy);
+  box-shadow:0 0 18px 5px rgba(79,227,255,.95)}
+.lb-orb .dot.d2::after{width:8px;height:8px;margin-left:-4px;opacity:.7;
+  box-shadow:0 0 12px 3px rgba(79,227,255,.8)}
+/* bệ chiếu + cột sáng: TRONG SUỐT, vì chúng phủ lên tàu canvas (xem bẫy thứ hai) */
+.lb-disc{top:76%;width:min(360px,calc(var(--uiw) * .95));height:17%;
+  transform:translateX(-50%);border-radius:50%;
+  background:radial-gradient(50% 50% at 50% 50%,rgba(79,227,255,.3),rgba(40,140,230,.1) 52%,transparent 74%),
+    repeating-radial-gradient(50% 50% at 50% 50%,transparent 0 16px,rgba(79,227,255,.12) 16px 17px)}
+.lb-beam{top:34%;width:min(250px,calc(var(--uiw) * .66));height:46%;
+  transform:translateX(-50%);mix-blend-mode:screen;opacity:.5;
+  clip-path:polygon(28% 0,72% 0,100% 100%,0 100%);
+  background:linear-gradient(0deg,rgba(79,227,255,.3),transparent 78%)}
+
+@media (prefers-reduced-motion: no-preference){
+  .lb-orb .dot{animation:lbSpin 11s linear infinite}
+  .lb-orb .dot.d2{animation:lbSpin 17s linear infinite reverse}
+  .lb-disc{animation:lbDisc 3.8s ease-in-out infinite}
+}
+@keyframes lbSpin{to{transform:rotateZ(360deg)}}
+@keyframes lbDisc{50%{transform:translateX(-50%) scale(1.05);opacity:.82}}
+
+/* ---------- DỌN LỚP CŨ CHO CẢNH THỞ (17/10/2026) ----------
+ * Số đo trước khi dọn: 43 từ · 13 khối · 11 mặt nền có viền · chrome 55,7% màn, tàu 4,3%.
+ * Cảnh đã nói thay phần lớn: SỐ MÀN đứng sau tàu, VÙNG nằm ngay dưới. Giữ thêm một lớp
+ * khung nữa là quay lại đúng chỗ bị chê "quá nặng".
+ * Ẩn bằng CSS chứ KHÔNG xoá DOM: ui-menu-card.js vẫn bơm số vào các ô đó và màn Hồ sơ /
+ * Bản đồ vẫn đọc — xoá là phải sửa năm chỗ JS cho một lần đổi giao diện, mà đổi lại thì
+ * không có đường về. */
+#scrMenu .logo{display:none}
+.now-card{background:none;border:0;box-shadow:none;padding:0 4px;clip-path:none;
+  grid-template-columns:1fr auto;gap:10px;align-items:center}
+.now-card .now-label,.now-card .now-chunk,.now-card .star-track,
+.now-card .now-foot,.lobby-hook{display:none}
+/* Số màn đã nằm SAU TÀU rồi, ở đây chỉ còn tên vùng + chặng — một dòng, không nền */
+.now-card .now-map{display:none}
+.now-card .now-biome{font:600 13px/1 var(--font-display);letter-spacing:.3em;
+  color:rgba(200,228,255,.8);text-shadow:0 1px 3px rgba(0,8,26,.9)}
+/* Nút XUẤT KÍCH thành CÁI CÒ: hình thang hướng về người chơi, thứ duy nhất sáng rực ở
+   đáy màn nên mọi đường của quỹ đạo và cột sáng đổ dồn về nó. */
+.btn-deploy{clip-path:polygon(9% 0,91% 0,100% 100%,0 100%);border-radius:0;
+  min-height:52px;padding:0 26px;letter-spacing:.2em}
+.btn-deploy i{display:none}
 
 /* ---------- CHROME LOBBY (17/10/2026) ----------
  * Anh Đức: "lobby nhìn vẫn Dev lắm". Đợt token trước mới đổi các THẺ; còn lại bảy thứ
@@ -2350,3 +2434,585 @@ body .lobby-top .prof-chip.tight .prof-txt>b{font-size:12px;letter-spacing:0}
 .lobby-top.row2{flex-wrap:wrap}
 .lobby-top.row2 .prof-chip{order:3;flex:1 1 100%}
 .lobby-top.row2 .icon-btn{margin-left:auto}
+
+/* ===== LOBBY QUỸ ĐẠO — ĐÈ CUỐI (17/10/2026) =====
+ * Khối border-image mặc cho .now-card hôm qua nằm SAU khối dọn ở trên nên vẫn thắng:
+ * thẻ còn nguyên khung 9-slice sáng chói, chọi thẳng với cảnh. Gỡ ở đây, nơi không rule
+ * nào còn đè lại được. (Khung đó vẫn đúng cho POPUP — chỉ lobby mới bỏ.) */
+.now-card{border:0;border-image:none;background:none;box-shadow:none;
+  padding:0 2px;grid-template-columns:1fr auto;gap:10px;align-items:center}
+/* tên vùng: cho đủ chỗ, bỏ phần "· 4/6" vì chặng đã có ở dòng tiến hoá và bản đồ */
+.now-card .now-biome{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font:600 13px/1 var(--font-display);letter-spacing:.24em;color:rgba(200,228,255,.8);
+  text-shadow:0 1px 3px rgba(0,8,26,.9)}
+/* dòng tiến hoá: lòng chìm mảnh, không thành cái hộp thứ hai */
+.now-evo{background:rgba(4,10,26,.45);box-shadow:inset 0 1px 0 rgba(150,210,255,.1);
+  border-radius:var(--r-sm)}
+
+
+/* ============================================================================
+   CẮT HUD TRONG TRẬN (17/10/2026)
+
+   Vì sao: đếm trên ảnh gameplay thật ra ~11 phần tử thường trực, trong khi Sky Force
+   chỉ có 3 (điểm · vạch tiến độ · cảnh báo) — xem
+   `plans/261017-1731-sky-chicken-gameplay-vs-skyforce/reports/audit-hinh-anh-anh-sang-vfx.md`
+   mục A. Vấn đề không phải HUD xấu, mà là nó ăn mất sân chơi. Anh Đức chốt: cắt, riêng
+   băng tên trùm GIỮ nhưng thu nhỏ.
+
+   Khối này chỉ ĐỔI ĐIỀU KIỆN HIỆN, không xoá phần tử nào — `ui-hud.js` vẫn ghi số vào
+   chúng, và `ui-hud-see-through.js` vẫn tìm thấy đủ nhóm để làm mờ.
+   ========================================================================== */
+
+/* 1. Chữ "WAVE n/4" — vạch tiến độ ngay trên nó đã nói đủ, và `system-waves` vẫn bắn
+      toast "WAVE n" mỗi lần đổi nhịp. Hai thứ nói cùng một điều, giữ thứ không chiếm chỗ. */
+.wave-wrap span{display:none}
+
+/* 2. Nhãn MAP chỉ sống 3 giây đầu màn (hẹn giờ ở `ui-hud.setLevel`). Mờ đi chứ không
+      `display:none` — hàng nút bên cạnh giữ nguyên chỗ, không giật bố cục. */
+.lvl-tag{transition:opacity .45s ease}
+.lvl-tag.faded{opacity:0}
+
+/* 3. Đồng hồ chỉ ở map có nhiệm vụ tính giờ (`ui-hud.setTimer` gắn .idle). */
+.timer.idle{display:none}
+
+/* 4. BĂNG TÊN TRÙM THU NHỎ — giữ lại theo ý anh Đức, nhưng Sky Force chỉ có một vạch
+      "13%" bé xíu cạnh trùm, còn bản mình là một tấm biển.
+      KHÔNG hạ cỡ chữ xuống dưới 12px: đó là sàn tuyệt đối của cả game (xem mục HAI HỆ ĐO
+      trong CLAUDE.md). Thu bằng BỀ NGANG, ĐỆM và ĐỘ DÀY THANH thay vì bằng cỡ chữ. */
+.boss-wrap{width:106px;margin-left:-53px}
+.boss-wrap span{padding:1.6px 7px;letter-spacing:.1em}
+.boss-bar{height:5.8px;margin-top:2.6px}
+
+/* Khối khung ảnh (mục "border-image" ở trên) đặt lại đệm và độ dày riêng — phải đè
+   bằng cùng mức ưu tiên, không thì băng vẫn to như cũ. */
+.boss-wrap span{padding:2px 9px}
+.boss-bar{border-width:2px}
+
+/* Bản `body` phóng cỡ chữ cho dễ đọc đang đẩy tên trùm lên 13px; về đúng sàn 12px để
+   băng gọn lại một nhịp nữa mà vẫn không phạm sàn. */
+body .boss-wrap span{font-size:12px}
+
+/* ---- CẮT HUD đợt 2 (17/10/2026) — xuống 5 phần tử thường trực ----
+   Hai thứ cuối, anh Đức chốt "làm nốt": */
+
+/* 5. NÚT TẮT TIẾNG rời khỏi HUD. Màn TẠM DỪNG đã có đủ TIẾNG / NHẠC / RUNG, nên nút
+      này là bản sao thứ ba của cùng một việc — và nó chiếm đúng góc trên phải, chỗ
+      ngón cái hay chạm nhầm giữa trận. Sky Force cũng để âm thanh trong màn tạm dừng.
+      `display:none` chứ không xoá thẻ: `ui-audio-controls.js` vẫn gắn/đồng bộ nó bình
+      thường, không phải sửa một dòng nào bên đó. */
+#btnMute{display:none}
+
+/* 6. Ô VÀNG chỉ nháy 1,6 giây mỗi lần ăn (hẹn giờ ở `ui-hud.setStats`).
+      BẪY ĐÃ SẬP (17/10/2026): bản đầu thu bằng `max-width:0` + `overflow:hidden` cho nó
+      trượt gọn vào. Bộ soát giao diện bắt ngay — một ô có CHỮ mà bề ngang 0 chính là định
+      nghĩa "chữ bị cắt", và nó đếm cả khi màn TẠM DỪNG / KẾT QUẢ đang phủ lên (HUD vẫn
+      nằm trong DOM). Nay chỉ mờ đi, GIỮ NGUYÊN chỗ: nhìn thì biến mất như cũ, mà không
+      tạo ra một ô rộng 0px chứa chữ. */
+.hud-stats .chip.gold{transition:opacity .35s ease}
+.hud-stats .chip.gold.idle{opacity:0;pointer-events:none}
+
+
+/* ---------- LOBBY: XUẤT KÍCH VÀO GIỮA (18/10/2026) ----------
+ * Anh Đức, nhìn ảnh chụp: "lobby này thừa text này e, để nút Play vào giữa, layout nhìn
+ * cho nó game đi".
+ *
+ * Dòng "ĐỈNH BĂNG GIÁ · 5/6" đúng là thừa: SỐ MÀN đã nằm to đùng sau lưng tàu rồi, tên
+ * vùng thì đọc được ở màn BẢN ĐỒ, còn chặng 5/6 không đổi được quyết định nào của người
+ * chơi ở màn này. Giữ nó chỉ để hàng dưới "có chữ cho cân" — mà cân bằng cách thêm chữ
+ * là thói quen của bản nháp.
+ *
+ * Bỏ nó đi thì hàng đáy còn ĐÚNG MỘT việc: bấm để bay. Nút vào giữa, to hơn một nhịp,
+ * và mọi đường của quỹ đạo + cột sáng phía trên đổ dồn về nó.
+ *
+ * Vẫn ẨN BẰNG CSS chứ không xoá DOM — `ui-menu-card.js` còn bơm chữ vào `#nowBiome`,
+ * xoá thẻ là phải sửa JS cho một lần đổi giao diện. */
+.now-card .now-biome{display:none}
+.now-card{grid-template-columns:1fr;justify-items:center}
+
+/* Nút nay là thứ DUY NHẤT ở hàng đó nên cho nó đứng bằng chính kích thước của mình,
+   không kéo full-width (một thanh ngang chạm hai mép trông như thanh công cụ, không
+   trông như cái cò). Trần 62% bề ngang để trên máy to nó không phình ra. */
+.btn-deploy{width:auto;min-width:min(62%,250px);min-height:58px;font-size:17px}
+
+
+/* ---------- SỬA SAU KHI ANH ĐỨC CHƠI LIVE (18/10/2026) ---------- */
+
+/* 1. NÚT XUẤT KÍCH NHỎ LẠI. Lần trước tôi cho `min-width:min(62%,250px)` + cao 58 +
+      chữ 17 — anh Đức xem xong: "cái nút vẫn quá to". Đúng: nó là MỘT nút trong màn,
+      không phải cái biển. Về đúng cỡ một nút chính: cao 50, chữ 16, rộng vừa đủ chữ.
+      Vẫn trên sàn chạm 44px. */
+.btn-deploy{min-width:0;width:auto;min-height:50px;font-size:16px;padding:0 34px}
+
+/* 2. BẢNG NHIỆM VỤ bớt "tech vibe". Anh Đức: "pop up này cũng xấu, tech vibe, text only".
+      Cũ: hộp xám xanh đặc 90%, viền tóc xanh lơ 1px, ba dòng chữ xám đều nhau — đúng
+      kiểu bảng debug. Giờ cho nó chất GAME: nền sẫm ấm có chiều sâu, viền vàng mảnh
+      như khung nhiệm vụ, tiêu đề vàng, và mỗi dòng có ô biểu tượng tròn nổi rõ thay vì
+      một ô vuông mờ. KHÔNG đổi chữ và KHÔNG đổi cấu trúc DOM — `ui-hud.showMissions`
+      vẫn bơm đúng như cũ. */
+.mission-box{
+  background:linear-gradient(180deg,rgba(18,26,52,.96),rgba(10,16,36,.96));
+  border-radius:var(--r-lg);padding:15px 20px;min-width:208px;
+  box-shadow:inset 0 1px 0 rgba(255,222,140,.22),
+             inset 0 0 0 1px rgba(255,196,80,.28),
+             0 18px 42px rgba(0,0,0,.66)}
+.mission-box h4{color:var(--acc);letter-spacing:.3em;margin-bottom:11px;
+  text-shadow:0 1px 3px rgba(0,0,0,.8)}
+.mission-box li{gap:9px;color:#dce8ff}
+/* Ô biểu tượng: tròn, có quầng ấm — đọc ra "phần thưởng" chứ không phải "ô checkbox" */
+.m-ic{border-radius:50%;background:radial-gradient(circle at 35% 30%,
+    rgba(255,226,150,.95),rgba(255,176,46,.85));color:#2a1a04;font-weight:700;
+  box-shadow:0 2px 6px rgba(0,0,0,.45),inset 0 -1px 2px rgba(120,70,0,.4)}
+
+/* ================= REWORK 4 MÀN "TEXT VÀ DEV" (18/10/2026) =================
+ * Anh Đức: "pop up bản đồ, kỹ năng, sổ tay, bxh nhìn còn text và dev lắm, cần rework".
+ * Soi 24 ảnh chụp tìm ra BA chỗ khác nhau giữa ba màn ĐÃ DUYỆT (lobby / bay-trong-mây /
+ * thắng trận) và bốn màn này — cả ba đều đo được, không phải chuyện gu:
+ *   1. ba màn kia MẶC KHUNG (`.panel` → ui-frame-panel 9-slice); bốn màn này chỉ có
+ *      `background: radial-gradient(...)` rồi hết;
+ *   2. ba màn kia có đúng MỘT thứ to; bốn màn này có 5-11 thứ bằng nhau — mắt không có
+ *      điểm vào;
+ *   3. ba màn kia chạy dải cỡ chữ 12 → 20 → 140; cả bảng chữ bốn màn này nằm gọn trong
+ *      12-14px, nên không thể trông như đã được thiết kế.
+ * Chẩn đoán này ĐÃ NẰM SẴN trong chính file này ở dòng 1863 ("game mặc hai bộ áo") từ
+ * 17/10 — hôm đó mới chữa đúng một chỗ là thẻ xuất kích. Đây là phần còn lại của câu ấy.
+ * KHÔNG một tấm ảnh mới nào: tất cả dùng lại art style B đã trả tiền và đang nằm không. */
+
+/* ---------- 04 SỔ TAY: bảng chữ → THẺ SƯU TẬP ----------
+ * Thứ đáng tiền nhất ở đây: `SC.VARIANT_PARTS` là wpn/drone/shield × A/B, và thư mục
+ * art có đúng sáu tấm `ui-icon-<nhánh>-<a|b>.webp` khớp 1:1 — công thức biến thể vốn
+ * đang được VIẾT bằng chữ trong khi HÌNH của nó đã có sẵn. */
+#scrCodex{background:radial-gradient(118% 62% at 50% 0%,#2e1f46,#06070f 72%)}
+
+.codex-card{
+  border:11.6px solid transparent;
+  border-image:url(../assets/art-game/ui-frame-panel.webp) 80 fill / 11.6px stretch;
+  background:none;box-shadow:none;padding:7.2px 7.9px 9.4px;flex-shrink:0}
+/* Thẻ ĐANG DÙNG mặc KHUNG VÀNG — đây là "một thứ to" của màn này. Độ hiếm đổi bằng TÔNG
+   KHUNG chứ không vẽ lại minh hoạ (mẹo bóc được từ bộ thẻ Sky Force). */
+.codex-card.cur{
+  border-width:13px;
+  border-image:url(../assets/art-game/ui-frame-panel-gold.webp) 84 fill / 13px stretch}
+/* Thẻ khoá: CÙNG bộ khung, chỉ xám và lùi lại — không phải một hộp viền khác.
+   0,72/0,8 chứ không phải 0,88/0,6: soi ảnh chụp thì mức đầu làm biểu tượng nhánh chìm
+   hẳn, mà chính chúng là manh mối duy nhất còn lại sau khi bỏ dòng chữ gợi ý. */
+.codex-card.locked{opacity:1;box-shadow:none;filter:grayscale(.72) brightness(.8);
+  padding:5.8px 7.9px}
+.codex-card.locked .cx-id{flex:1}
+
+.cx-top{position:relative;display:flex;flex-wrap:wrap;align-items:center;gap:6.5px}
+/* Thẻ mở: hàng ổ chiếm nguyên một dòng, phần chữ xuống dòng dưới để câu ✔/✘ có đủ bề
+   ngang. Thẻ khoá không có chữ nên tấm biển trống nằm ngay cạnh hàng ổ. */
+.codex-card:not(.locked) .cx-id{flex:1 1 100%;margin-top:1.4px}
+
+.cx-sockets{display:flex;gap:5.8px}
+/* Ổ tổ hợp — đế lõm, biểu tượng nổi trên. 52px: ba ổ + khe = 170px, còn thừa bề ngang
+   cho tấm biển của thẻ khoá ở mốc hẹp nhất (bề ngang ảo 320). */
+.cx-slot{width:52px;height:52px;border-radius:var(--r-sm);display:grid;place-items:center;
+  background:radial-gradient(circle at 50% 28%,rgba(255,255,255,.07),rgba(0,0,0,.42));
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.12),inset 0 3px 7px rgba(0,0,0,.55)}
+.cx-slot img{width:41px;height:41px;object-fit:contain;
+  filter:drop-shadow(0 2px 4px rgba(0,0,0,.5))}
+/* Ổ TRỐNG thay cho dấu "?" giữa dòng chữ: vẫn cho thấy biểu tượng NHÁNH chung thật mờ,
+   nên người chơi đọc ra "còn thiếu một loại KHIÊN" chứ không phải "thiếu một chữ". */
+.cx-slot.empty{box-shadow:inset 0 0 0 1px rgba(122,224,255,.2),inset 0 4px 10px rgba(0,0,0,.72)}
+.cx-slot.empty img{opacity:.2;filter:grayscale(1)}
+.cx-slot.empty::after{content:'?';position:absolute;font-family:var(--font-display);
+  font-size:17px;font-weight:700;color:rgba(122,224,255,.55)}
+.cx-slot{position:relative}
+
+/* Tấm biển chưa khắc tên của thẻ khoá — kéo hết bề ngang còn lại, không để một mảng
+   trống bên phải: khoảng trống đó đọc ra là "chưa làm xong", không phải "chưa mở khoá". */
+.cx-plate{display:block;height:13px;width:100%;border-radius:2.9px;
+  background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(0,0,0,.3));
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
+
+/* DẢI CỠ CHỮ — đây là chỗ chữa điểm 3 ở đầu khối: tên 16px đứng hẳn trên nền chữ 12px */
+.cx-name{display:block;font-family:var(--font-display);font-size:16px;font-weight:700;
+  letter-spacing:.14em;color:var(--vh,#9fc4ff);text-shadow:0 1px 3px rgba(0,0,0,.7)}
+.cx-tag{display:block;font-size:12px;color:var(--dim);margin-top:2.2px;line-height:1.45}
+.cx-cur{position:absolute;top:0;right:0;font-style:normal;font-size:12px;
+  letter-spacing:.12em;color:#3a1d00;background:var(--acc);
+  padding:2.2px 6.5px;border-radius:999px}
+.cx-good{font-size:12px;color:#8ee6b0;margin-top:6.5px;line-height:1.45}
+.cx-bad{font-size:12px;color:#ff9aae;margin-top:2.9px;line-height:1.45}
+
+/* Chỉ số thành tích vào NGĂN KÉO: bản cũ để 5 dòng `nhãn ..... số` lộ thiên, trong đó
+   hai dòng luôn rỗng ("—" và 0) mà vẫn chiếm đúng chừng ấy trọng lượng thị giác — đó là
+   cách nhanh nhất làm một màn game trông như bảng log. Dòng rỗng nay bị LOẠI ở JS. */
+.cx-more{margin-top:6.5px;border-top:1px solid rgba(255,255,255,.1)}
+.cx-more summary{display:flex;align-items:center;min-height:44px;cursor:pointer;
+  font-size:12px;letter-spacing:.16em;color:var(--dim);list-style:none}
+.cx-more summary::-webkit-details-marker{display:none}
+.cx-more summary::before{content:'▸';margin-right:5.8px;color:var(--acc);
+  transition:transform .18s ease}
+.cx-more[open] summary::before{transform:rotate(90deg)}
+.cx-stats li{display:flex;justify-content:space-between;font-size:12px;color:var(--dim);
+  padding:2.9px 0}
+.cx-stats li b{color:#fff;font-size:13px}
+
+/* ---------- 05 BXH: 11 dòng y hệt → BỤC VINH DANH + vệt tỉ lệ ----------
+ * Bản cũ typeset hạng 1 và hạng 11 giống hệt nhau (`.rank-pos`/`.rank-name`/`.rank-val`
+ * đều 12px), thứ duy nhất phân biệt top 3 là tấm huy chương vẽ ở 18,8px. Một bảng xếp
+ * hạng mà không XẾP HẠNG BẰNG HÌNH thì nó là bảng tính, không phải phần thưởng. */
+
+/* Nền cũ `#1a2f14` là một mảng xanh ô liu tối — trong ảnh chụp đọc ra "chưa làm xong".
+   Đổi sang tông vàng tối cho cùng một nhà với cúp và huy chương. */
+#scrRank{background:radial-gradient(120% 62% at 50% 0%,#2d2817,#05070f 70%)}
+
+.rank-podium{position:relative;display:grid;grid-template-columns:1fr 1.18fr 1fr;
+  align-items:end;gap:4.3px;padding:5.8px 2.9px 0;margin-bottom:8.7px}
+/* Cúp to nằm CHÌM phía sau: `ui-badge-trophy-big.webp` đã trả tiền từ đợt style B mà
+   chưa chỗ nào dùng — và chỗ đúng của nó là cái màn nói về cúp. */
+.pod-trophy{position:absolute;left:50%;top:-5.8px;transform:translateX(-50%);
+  width:127px;opacity:.16;pointer-events:none;filter:saturate(.55)}
+.pod{position:relative;display:flex;flex-direction:column;align-items:center;gap:2.9px;
+  min-width:0;text-align:center}
+.pod-medal{width:35px;height:35px;object-fit:contain;
+  filter:drop-shadow(0 2.9px 5.8px rgba(0,0,0,.6))}
+.pod.p1 .pod-medal{width:50px;height:50px}
+/* Khung avatar `ui-badge-avatar-frame.webp` — cũng đã có sẵn, cũng chưa dùng ở đây */
+.pod-av{display:grid;place-items:center;width:43px;height:43px;
+  background:url(../assets/art-game/ui-badge-avatar-frame.webp) center/contain no-repeat}
+.pod-av .rank-av{width:26px;height:26px}
+.pod-av .rank-av.emo{font-size:19px}
+.pod.p1 .pod-av{width:56px;height:56px}
+.pod.p1 .pod-av .rank-av{width:34px;height:34px}
+.pod.p1 .pod-av .rank-av.emo{font-size:25px}
+.pod-name{max-width:100%;font-size:13px;font-weight:600;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.pod.p1 .pod-name{font-size:15px}
+/* DẢI CỠ CHỮ: 12 → 15 → 20. Trước đây cả màn nằm gọn trong 12px. */
+.pod-val{font-size:15px;color:var(--acc);letter-spacing:.03em}
+.pod.p1 .pod-val{font-size:20px;font-family:var(--font-display);font-weight:700}
+.pod-val small{display:block;font-size:12px;color:var(--dim)}
+/* Bục: cao thấp mới là thứ nói ra thứ hạng, không phải con số */
+.pod-base{display:block;width:100%;height:16px;margin-top:2.9px;
+  border-radius:var(--r-sm) var(--r-sm) 0 0;
+  background:linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,.03));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.22)}
+.pod.p1 .pod-base{height:33px;
+  background:linear-gradient(180deg,rgba(255,210,63,.5),rgba(255,171,31,.1))}
+.pod.p2 .pod-base{height:23px;
+  background:linear-gradient(180deg,rgba(214,228,255,.42),rgba(170,190,220,.08))}
+.pod.p3 .pod-base{height:14px;
+  background:linear-gradient(180deg,rgba(226,152,86,.42),rgba(180,110,60,.08))}
+.pod.me .pod-name{color:var(--cy)}
+
+/* Danh sách hạng 4+ : con SỐ là vật thể to nhất dòng, vệt tỉ lệ lo phần xếp hạng */
+.rank-row{padding:7.2px 8.7px}
+.rank-av{width:27px;height:27px}
+.rank-av.emo{font-size:17px}
+.rank-name{font-size:13px}
+.rank-val{font-size:15px;font-weight:600}
+.rank-pos{width:23px;font-size:13px}
+
+/* Tab đang chọn: bản cũ là MẢNG VÀNG ĐẶC duy nhất trên màn, nằm ở góc trên trái — nó
+   kéo mắt ra khỏi đúng cái bảng mà màn này tồn tại để khoe. Nay chỉ còn chữ vàng +
+   gạch chân; mảng vàng để dành cho bục. */
+.rank-tabs button.on{color:#ffe27a;
+  background:linear-gradient(180deg,rgba(255,226,122,.2),rgba(255,171,31,.1));
+  box-shadow:inset 0 -2.2px 0 var(--acc)}
+
+/* ---------- 03 CÂY KỸ NĂNG: sáu cụm chữ bằng nhau → MỘT thẻ có mặt trước ----------
+ * Đo được ở bản cũ: mỗi thẻ có tên nhánh 12px + tên hướng 12px + viên Lv + viên
+ * "563 → 745" 12px + hàng chấm 6,5px + mô tả 12px + nút giá — thứ duy nhất có cỡ khác
+ * trên cả màn là nút giá. Ở đây đổi ba thứ: icon nhánh thành MẶT của thẻ, con số đầu
+ * tàu thành chữ to nhất thẻ, hàng chấm 6,5px thành THANH đọc được.
+ * Mọi luật đều phải ghi `.tree-row ...`: `.shop-ic` / `.shop-buy` dùng chung với cửa
+ * hàng và GARA, sửa trần là đổi luôn hai màn khác. */
+#scrTree{background:radial-gradient(118% 64% at 50% 0%,#23344f,#05070f 72%)}
+
+.tree-row{border:11.6px solid transparent;
+  border-image:url(../assets/art-game/ui-frame-panel.webp) 80 fill / 11.6px stretch;
+  background:none;box-shadow:none;padding:5.8px 5.1px 7.2px;flex-shrink:0}
+/* Nhánh đã tối đa / vượt bảng: khung VÀNG thay vì đắp thêm một viền nữa lên khung xanh */
+.tree-row.maxed,.tree-row.beyond{border-width:13px;background:none;box-shadow:none;
+  border-image:url(../assets/art-game/ui-frame-panel-gold.webp) 84 fill / 13px stretch}
+
+/* MẶT của thẻ: icon nhánh 58px trên đế nhuộm màu nhánh. Bản cũ để 30px lọt thỏm giữa
+   rừng chữ nên ảnh đã trả tiền coi như không có. */
+.tree-row .shop-ic{width:58px;height:58px;border-radius:var(--r-md);
+  background:radial-gradient(circle at 50% 28%,
+    color-mix(in srgb,var(--bh,#96beff) 34%,transparent),rgba(0,0,0,.45));
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--bh,#96beff) 45%,transparent),
+             inset 0 3px 7px rgba(0,0,0,.45)}
+.tree-row .shop-ic img{width:44px;height:44px}
+
+/* DẢI CỠ CHỮ: tên 15 · con số đầu tàu 16 · mô tả 12.
+   `body .tree-name` chứ không phải `.tree-name`: dòng 2063 đã có `body .tree-name{14px}`
+   (hạng 0,1,1) — viết thường thì luật mới thua, mà thua IM LẶNG. */
+body .tree-name{display:flex;align-items:center;gap:5.8px;font-size:15px;letter-spacing:.1em}
+body .tree-name em{font-size:12px}
+/* Con số đầu tàu LUÔN xuống dòng riêng, căn phải. Để nó tự quyết thì thẻ tên ngắn giữ
+   một dòng còn thẻ tên dài tụt xuống hai — năm thẻ ra năm dáng khác nhau, nhìn như
+   chưa canh xong. Miếng chèn `::after` rộng 100% ép ngắt dòng trước chip. */
+.tree-hl{font-size:16px;padding:2.9px 7.9px;border-radius:var(--r-pill);order:2}
+.tree-name::after{content:'';flex-basis:100%;height:0;order:1}
+
+/* Hàng chấm 6,5-7,9px → THANH CHIA ĐOẠN. Chấm nhỏ cỡ đó không đếm nổi trên điện thoại,
+   mà chính hàng này mới là thứ trả lời "còn bao xa nữa". Chỗ rẽ và mốc tiến hoá vẫn
+   phân biệt được, chỉ là bằng MÀU/VIỀN thay vì bằng hình dạng tí hon. */
+.tree-track{gap:2.9px;margin:6.5px 0 5.1px}
+.tree-track i{flex:1 1 0;width:auto;height:9px;min-width:5.8px;border-radius:2.9px;
+  background:rgba(255,255,255,.14);transform:none}
+.tree-track i.fork{border-radius:2.9px;width:auto;height:13px;
+  box-shadow:inset 0 0 0 1.4px rgba(122,232,255,.75)}
+.tree-track i.evo{height:13px;box-shadow:inset 0 0 0 1.4px rgba(255,210,63,.8)}
+.tree-track i.on{background:linear-gradient(180deg,var(--bh,#ffd23f),
+  color-mix(in srgb,var(--bh,#ff8a2b) 55%,#000))}
+
+/* Nút giá: `.shop-buy` không phải `.btn` nên chưa bao giờ được khoác da nút của đợt
+   17/10. Khai riêng ở đây — và CHỈ trong cây, để cửa hàng/GARA giữ nguyên. */
+.tree-row .shop-buy{border:14px solid transparent;
+  border-image:url(../assets/art-game/ui-frame-btn-primary.webp) 90 fill / 14px stretch;
+  background:none;box-shadow:none;min-height:44px;min-width:76px;padding:0 7.2px;
+  font-size:13px;color:#3a1d00;text-shadow:0 1px 0 rgba(255,255,255,.4)}
+.tree-row .shop-buy:active{transform:none;filter:brightness(.94)}
+/* Chưa đủ vàng: xám đi NHƯNG vẫn đọc được giá — brightness .62 làm nút trông như một
+   hòn đá hỏng, mà con số trên đó chính là thứ người chơi cần để biết còn thiếu bao nhiêu. */
+.tree-row .shop-buy.poor{background:none;filter:grayscale(.92) brightness(.88);
+  opacity:.72;color:#241c0e}
+.tree-row .shop-buy.fork{animation:forkPulse 1.1s ease-in-out infinite;box-shadow:none;
+  border-image:url(../assets/art-game/ui-frame-btn-ghost.webp) 85 fill / 14px stretch;
+  color:#bff4ff;text-shadow:0 1px 2px rgba(0,8,26,.6)}
+/* MÀU VÀNG = BẤM ĐỂ MUA. Không gì khác được mặc màu đó.
+   Anh Đức 18/10: "nút gara phải màu khác để đỡ nhầm là có thể nâng cấp" — và đúng là
+   LỖI DO LUẬT `.tree-row .shop-buy` ở trên: nó khoác da nút chính cho MỌI nút trong
+   thẻ cây, nên GARA (vốn tím, là nút ĐI SANG MÀN KHÁC) và TỐI ĐA (vốn viền rỗng, là
+   TRẠNG THÁI chứ không phải việc để làm) đều thành nút vàng mời mua.
+   Cả hai về da nút phụ; chữ mang màu của chính nó. */
+.tree-row .shop-buy.done{
+  border-image:url(../assets/art-game/ui-frame-btn-ghost.webp) 85 fill / 14px stretch;
+  background:none;box-shadow:none;filter:none;color:var(--acc);
+  text-shadow:0 1px 2px rgba(0,8,26,.6)}
+.tree-row .shop-buy.gar-open{
+  border-image:url(../assets/art-game/ui-frame-btn-ghost.webp) 85 fill / 14px stretch;
+  background:none;box-shadow:none;color:#e0c8ff;
+  text-shadow:0 1px 2px rgba(26,10,42,.8)}
+
+/* XÂY LẠI CÂY: một dải chữ trần chứa ba con số → nút phụ có da, phí và tiền hoàn
+   tách hẳn hai cỡ chữ */
+.tree-rebuild{border:14px solid transparent;
+  border-image:url(../assets/art-game/ui-frame-btn-ghost.webp) 85 fill / 14px stretch;
+  background:none;box-shadow:none;min-height:44px;padding:0 10.1px;font-size:12px;
+  color:#b6cae6;text-shadow:0 1px 2px rgba(0,8,26,.6);margin-top:7.2px}
+.tree-rebuild em{font-size:13px}
+
+/* ---------- 02 BẢN ĐỒ: cho xem thứ mình sắp đánh ----------
+ * Ba thứ đã trả tiền mà màn này không dùng: 10 banner vùng (bị ép còn ~1/4 cường độ),
+ * 10 chân dung trùm (không dùng tấm nào), và tấm ruy băng tiêu đề. Dưới đây dùng cả ba. */
+#scrMaps{background:radial-gradient(118% 64% at 50% 0%,#17305c,#05070f 72%)}
+
+/* Banner vùng: .5 → .85. Ở .5 CỘNG thêm một gradient trời phủ toàn mặt thì rừng độc
+   chỉ còn đoán ra là "màu xanh lá". Gradient trời nay chỉ còn một vệt ở ĐÁY — vừa đủ
+   kéo tối chỗ chữ, vừa trả lại cảnh vẽ. Số trên nút chặng KHÔNG dính rủi ro tương phản:
+   mỗi nút có đĩa nền tối riêng (.saga-node) nên chữ không bao giờ nằm thẳng trên tranh. */
+.saga-path::before{
+  background:
+    linear-gradient(180deg,transparent 52%,
+      color-mix(in srgb,var(--sky2) 52%,transparent) 100%),
+    var(--bimg,linear-gradient(180deg,var(--sky0),var(--sky1),var(--sky2))) center/cover no-repeat;
+  opacity:.85}
+/* Lớp kéo tối đậm thêm một bậc để bù phần banner vừa sáng lên */
+.saga-path::after{
+  background:radial-gradient(122% 62% at 50% 0%,rgba(5,7,15,.26) 38%,rgba(5,7,15,.68) 100%)}
+
+/* Tên vùng lên RUY BĂNG — cùng tấm `ui-frame-ribbon-title.webp` mà mọi popup đã duyệt
+   đang dùng cho `h3`. Đây chính là "mặc cùng một bộ áo". */
+.saga-head{align-items:center;gap:5.8px}
+/* `body .saga-head b` chứ không phải `.saga-head b`: dòng 1097 đã có `body .saga-head b`
+   (hạng 0,1,1). Giãn chữ .22em → .08em và lề 11,6px: ruy băng phải chia bề ngang với
+   nhãn sao VÀ chân dung trùm, mà tên dài nhất ("VỰC SÂU ĐẠI DƯƠNG") không được cắt. */
+body .saga-head b{font-family:var(--font-display);font-size:14px;letter-spacing:.03em;
+  padding:5.8px 8.7px;line-height:1.15;text-align:center;
+  background:url(../assets/art-game/ui-frame-ribbon-title.webp) center/100% 100% no-repeat;
+  text-shadow:0 1.4px 3px rgba(0,0,0,.8)}
+body .saga-head span{font-size:12px;letter-spacing:.06em}
+
+/* Chân dung trùm gác cổng vùng. Âm margin đáy cho nó ĐỨNG ĐÈ lên mép banner bên dưới:
+   trùm thuộc về cảnh vùng, không phải một icon trong thanh tiêu đề. */
+.saga-boss{width:54px;height:54px;object-fit:contain;margin:-5.8px -2.9px -14px auto;
+  flex:none;pointer-events:none;position:relative;z-index:3;
+  filter:drop-shadow(0 4.3px 8.7px rgba(0,0,0,.6))}
+/* Vùng chưa mở: bóng đen — vẫn đọc được dáng con trùm, chưa lộ hết */
+.saga-head.lock .saga-boss{filter:brightness(0) opacity(.55)}
+.saga-region.collapsed .saga-boss{margin-bottom:-5.8px}
+
+/* Chặng TRÙM: bản cũ chỉ đổi màu nền navy → mận, nên 60 nút tròn vẫn y hệt nhau.
+   Thêm vành gai sáng + chữ số to hơn để DÁNG nút tự nói ra "chỗ này khác". */
+.saga-node.boss{box-shadow:inset 0 0 0 2px rgba(255,120,150,.55),
+  0 0 0 3px rgba(255,90,120,.16),0 4.3px 10.1px rgba(0,0,0,.5)}
+.saga-node.boss .sn-num{font-size:19px}
+.saga-node.final .sn-num{font-size:21px}
+.saga-node.boss.done,.saga-node.final.done{
+  box-shadow:inset 0 0 0 2px var(--acc),0 0 0 3px rgba(255,190,60,.18),
+             0 0 18.8px rgba(255,190,60,.4)}
+
+/* Dải chip nhảy vùng: bản cũ cắt cụt giữa chữ ở mép phải mà không có dấu hiệu nào báo
+   là CUỘN ĐƯỢC — mắt đọc ra lỗi hiển thị. Mặt nạ mờ dần ở mép phải nói "còn nữa". */
+.saga-jump{-webkit-mask-image:linear-gradient(90deg,#000 88%,transparent);
+  mask-image:linear-gradient(90deg,#000 88%,transparent)}
+
+/* ---------- LỚP OVERLAY LÚC ĐÁNH NHAU (18/10/2026) ----------
+ * Bảng chấm hình ảnh có một mục "automatic failure": *UI đè lên đường chơi / cắt chữ*.
+ * Ảnh trận thật dính cả hai vế:
+ *   `lv30-a.jpg` — tên trùm "PHƯỢNG DUNG NHAM" vỡ 3 dòng và TRÀN RA NGOÀI tấm biển;
+ *   `lv9-b.jpg`  — "BỌ CẠP CÁT" chạy khỏi mép phải màn hình.
+ * Nguyên nhân: `.boss-wrap` rộng 106px mà `span` là `inline-block` — inline-block KHÔNG bị
+ * bề ngang của cha kẹp lại, nó cứ nở ra hoặc xuống dòng tuỳ chữ. Tên trùm dài nhất trong
+ * `data-biomes.js` là "CỰ THẠCH DUNG NHAM" (18 ký tự) — gần gấp đôi chỗ đang có.
+ * Chữa: nới ô, ÉP MỘT DÒNG, và chặn trần bằng `max-width` + `text-overflow` làm lưới an
+ * toàn (tên dài hơn nữa thì cắt bằng dấu ba chấm, KHÔNG tràn ra ngoài biển).
+ * `ui-hud.moveBoss` kẹp x theo nửa bề ngang MỚI — sửa một chỗ mà quên chỗ kia là biển
+ * vẫn lòi ra mép màn. */
+.boss-wrap{width:186px;margin-left:-93px}
+.boss-wrap span{max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ---------- 08 GARA: màn rỗng nhất bộ → khoác khung, cho thuộc tính làm nhân vật chính ----
+ * Đo được: trong 24 ảnh chụp desktop, `08-garage` là tấm RỖNG NHẤT —
+ * colorEntropyBits 1,40 · edgeDensity 0,042 · dominantColorShare 0,823 (tức 82% màn là
+ * MỘT màu). Cùng một chẩn đoán với bốn màn đã chữa: không mặc khung, không có thứ gì to.
+ *
+ * Thứ đáng làm nhân vật chính ở đây là DÃY THUỘC TÍNH CỘNG DỒN trên đầu màn: đó đúng là
+ * lý do người chơi vào gara, mà nó đang là bốn viên chữ 12px xám. Thẻ tàu thì đã có sẵn
+ * ảnh tàu — chỉ thiếu cái khung để chúng thành "bộ sưu tập" thay vì "danh sách". */
+#scrGarage{background:radial-gradient(120% 64% at 50% 0%,#2b1d55,#05070f 74%)}
+
+/* Thuộc tính cộng dồn = thứ to nhất màn. 12px → 20px cho CON SỐ, nhãn giữ 12. */
+.gar-perks{gap:5.8px;padding:0 11.6px 8.7px}
+.gar-perks span{min-width:62px;padding:6.5px 7.2px;gap:1.4px;
+  background:linear-gradient(180deg,rgba(197,140,255,.16),rgba(197,140,255,.05));
+  box-shadow:inset 0 1px 0 rgba(230,200,255,.25),inset 0 0 0 1px rgba(197,140,255,.38)}
+.gar-perks b{font-size:20px;color:#f0dcff;line-height:1.05;
+  text-shadow:0 1px 4px rgba(80,20,140,.8)}
+
+/* Thẻ tàu mặc ĐÚNG bộ khung của popup — cùng một bộ áo với cả game (xem khối
+   "REWORK 4 MÀN" ở trên). Chiếc ĐANG BAY mặc khung VÀNG: một thứ nổi bật duy nhất. */
+.gar-card{border:11.6px solid transparent;
+  border-image:url(../assets/art-game/ui-frame-panel.webp) 80 fill / 11.6px stretch;
+  background:none;box-shadow:none;padding:4.3px 2.9px 7.2px;gap:5.1px}
+.gar-card.on{border-width:13px;box-shadow:none;
+  border-image:url(../assets/art-game/ui-frame-panel-gold.webp) 84 fill / 13px stretch}
+/* lòng khung đã là mặt kính của ảnh nên bệ tàu bớt đặc đi một bậc, không chọi với khung */
+.gar-stage{background:radial-gradient(58% 42% at 50% 2%,rgba(197,140,255,.26),transparent 70%),
+    radial-gradient(62% 13% at 50% 90%,rgba(197,140,255,.34),transparent 70%),rgba(6,4,16,.55)}
+.gar-card.on .gar-stage{background:radial-gradient(58% 42% at 50% 2%,rgba(255,210,63,.3),transparent 70%),
+    radial-gradient(62% 13% at 50% 90%,rgba(255,210,63,.42),transparent 70%),rgba(14,10,4,.55)}
+/* tên tàu là danh tính của chiếc đó — nhích lên một bậc khỏi nền chữ 12px */
+.gar-name{font-size:13px;line-height:1.35}
+
+/* ---------- SỔ TAY: thẻ khoá PHẢI CÓ PHẢN HỒI (18/10/2026) ----------
+ * Anh Đức: "chưa biết thì cũng phải hiện một tí hint để gợi tính tò mò chứ, đang im lìm
+ * không response, chưa game". Thẻ khoá cũ đọc ra là một ngõ cụt — thấy thiếu một mảnh
+ * nhưng không có đường nào biết phải làm gì để lấp.
+ *
+ * Câu gợi ý nằm SẴN trong DOM, `opacity:0` + `position:absolute` nên:
+ *   - không chiếm chỗ (thẻ khoá giữ nguyên chiều cao, lưới không nhảy khi rê chuột);
+ *   - bộ soát giao diện tự BỎ QUA nó lúc ẩn (nó skip phần tử `opacity:0`), nên không
+ *     bị báo nhầm "chữ bị cắt" — bẫy đã gặp với chip vàng ở HUD hồi 17/10, lúc đó dùng
+ *     `max-width:0;overflow:hidden` và soát báo "clipped text" đúng như thế. */
+
+/* Trước khi rê: ổ trống tự thở nhẹ — dấu hiệu DUY NHẤT nói "thẻ này bấm được" */
+.codex-card.locked{cursor:pointer;transition:filter .18s ease,transform .18s ease}
+.cx-slot.empty::after{animation:cxWait 2.4s ease-in-out infinite}
+@keyframes cxWait{0%,100%{opacity:.55}50%{opacity:1}}
+
+.cx-tease{position:absolute;left:0;right:0;bottom:0;margin:0;
+  padding:7.2px 11.6px calc(7.2px + 2px);
+  font-size:12px;line-height:1.4;color:#bfe4ff;text-align:center;
+  background:linear-gradient(180deg,rgba(6,12,28,0),rgba(6,12,28,.92) 42%);
+  opacity:0;transform:translateY(5.8px);pointer-events:none;
+  transition:opacity .16s ease,transform .16s ease}
+.cx-tease b{color:var(--acc);letter-spacing:.06em}
+.codex-card{position:relative}
+
+/* Rê chuột (máy tính) · focus bàn phím · CHẠM (ui-codex gắn class .open) */
+@media (hover:hover){
+  .codex-card.locked:hover{filter:grayscale(.35) brightness(1.04);transform:translateY(-2.2px)}
+  .codex-card.locked:hover .cx-tease{opacity:1;transform:none}
+  .codex-card.locked:hover .cx-slot.empty{box-shadow:inset 0 0 0 1px rgba(122,224,255,.55),
+    inset 0 4px 10px rgba(0,0,0,.72),0 0 11.6px rgba(122,224,255,.3)}
+}
+.codex-card.locked:focus-visible{outline:2px solid var(--cy);outline-offset:2px}
+.codex-card.locked:focus-visible .cx-tease,
+.codex-card.locked.open .cx-tease{opacity:1;transform:none}
+.codex-card.locked.open{filter:grayscale(.35) brightness(1.04)}
+.codex-card.locked.open .cx-slot.empty{box-shadow:inset 0 0 0 1px rgba(122,224,255,.55),
+  inset 0 4px 10px rgba(0,0,0,.72),0 0 11.6px rgba(122,224,255,.3)}
+/* thẻ khoá cao thêm một nhịp để dải gợi ý không đè lên hàng ổ */
+.codex-card.locked{padding-bottom:26px}
+
+/* ---------- THANH ĐẦU MÀN: MỘT HÀNG, KHÔNG BAO GIỜ XUỐNG DÒNG (18/10/2026) ----------
+ * Anh Đức: "cái icon kỹ năng chỏng chơ nằm ở 1 hàng". Đúng, và nguyên nhân là hai luật
+ * cãi nhau ở cuối file: dòng 2120 cho `.scr-head{flex-wrap:wrap}`, còn 2121 lại khoá
+ * `h2{white-space:nowrap}`. Tiêu đề không co được + hàng được phép xuống dòng = phần tử
+ * CUỐI (`#btnShop2`, nút tắt sang Cây kỹ năng) bị đẩy xuống một hàng riêng, đứng trơ.
+ *
+ * Chữa đúng chỗ: cấm xuống dòng, và cho TIÊU ĐỀ là thứ nhường chỗ (cắt bằng dấu ba chấm)
+ * thay vì đẩy một cái nút đi. `min-width:0` là bắt buộc — thiếu nó thì `flex:1` vẫn không
+ * co nổi dưới bề rộng nội dung, đây là bẫy flexbox kinh điển và đã dính đúng một lần nữa
+ * ở tên trùm sáng nay (`.boss-wrap span`). */
+.scr-head{flex-wrap:nowrap}
+.scr-head h2{min-width:0;overflow:hidden;text-overflow:ellipsis}
+/* số sao không bao giờ bị ép vỡ: nó là con số, cắt là vô nghĩa */
+.scr-head .total-star{flex:none;white-space:nowrap}
+
+/* ---------- MÁY BAY SẢNH: canvas RIÊNG trong ô sân bay (18/10/2026) ----------
+ * Tàu lobby trước đây vẽ lên canvas TRẬN ĐẤU rồi quy đổi vị trí qua hai hệ đo. Bug live
+ * trên banga: lobby trống trơn, mất cả tranh nền vùng, mà mọi chẩn đoán đều sạch — tức
+ * nội dung canvas trận đấu không tới được mắt người chơi, truy năm vòng không ra.
+ * Nay tàu nằm trong `#shipStage`, cùng ngăn xếp với phần UI sảnh vốn vẫn hiện bình
+ * thường: thấy được nút XUẤT KÍCH thì chắc chắn thấy được con tàu.
+ * `pointer-events:none` vì `.lobby-stage` vốn đã không nhận chạm — tàu chỉ để ngắm. */
+.lobby-ship-cv{position:absolute;inset:0;width:100%;height:100%;
+  pointer-events:none;display:block}
+
+/* Ô SÂN BAY PHẢI GIÃN HẾT BỀ NGANG (18/10/2026).
+ * Đo được: `#shipStage` ra `clientWidth = 0` (cao 381, rộng 0). Nó là con của một cột
+ * flex canh giữa, mà ruột nó toàn `::before`/`::after` đặt tuyệt đối — không có nội dung
+ * nào để đẩy bề ngang ra, nên trục ngang co về 0.
+ * Hệ quả dây chuyền: vòng quỹ đạo và cột sáng khai `width:62%`/`52%` -> 62% của 0 = 0,
+ * và canvas tàu đặt trong ô cũng rộng 0 nên không vẽ được gì.
+ * `flex:1` chỉ lo trục DỌC của cột; bề ngang phải nói riêng. */
+.lobby-stage{align-self:stretch;width:100%}
+
+/* Số màn to ở sảnh: 11% -> 15,5% (18/10/2026).
+ * Ở cỡ chữ RẤT LỚN thẻ phi công cao ~110px, còn `.lb-num` neo ở 11% ≈ 89px — nhãn "MÀN"
+ * chui vào sau thẻ, ảnh chụp đọc ra "PHI CÔNG 1 👑 À N". Lỗi có sẵn từ trước, lộ ra khi
+ * soi lại sảnh. Đẩy xuống dưới đáy thẻ ở mốc chữ lớn nhất. */
+.lb-num{top:15.5%}
+
+/* ---------- 06 HỒ SƠ + 07 CÀI ĐẶT: hai cửa cuối của sảnh ----------
+ * Soi 24 màn chấm hai màn này 2 và 2,5 — cùng một chẩn đoán với bốn màn đã chữa sáng nay:
+ * không mặc khung, không có thứ gì to, cả bảng chữ nằm trong 12-14px. Thanh điều hướng
+ * đáy sảnh có 5 cửa; chữa xong bốn cửa mà để lại hai thì đi cửa nào cũng còn tụt.
+ * Vẫn 0 ảnh mới — dùng lại đúng bộ art style B đã trả tiền. */
+
+/* --- 06 HỒ SƠ --- */
+#scrProfile{background:radial-gradient(118% 62% at 50% 0%,#15453c,#05070f 72%)}
+/* Thẻ hồ sơ mặc khung như mọi popup; hồ sơ ĐANG CHƠI mặc khung vàng — "một thứ to" của màn */
+.prof-row{border:11.6px solid transparent;
+  border-image:url(../assets/art-game/ui-frame-panel.webp) 80 fill / 11.6px stretch;
+  background:none;box-shadow:none;padding:5.1px 5.8px}
+.prof-row.me{border-width:13px;background:none;box-shadow:none;
+  border-image:url(../assets/art-game/ui-frame-panel-gold.webp) 84 fill / 13px stretch}
+/* Avatar: emoji hệ điều hành 17px đứng cạnh art style B là hai thế giới. Đóng khung nó
+   bằng `ui-badge-avatar-frame` (đã trả tiền, chưa dùng ở đây) và phóng lên cho ra dáng. */
+body .prof-ava .ava{width:46px;height:46px;
+  background:url(../assets/art-game/ui-badge-avatar-frame.webp) center/contain no-repeat}
+body .prof-ava .ava-emo{font-size:23px}
+.prof-mid b,.prof-mid>b{font-size:15px}
+
+/* --- 07 CÀI ĐẶT --- */
+#scrOptions{background:radial-gradient(118% 62% at 50% 0%,#182a4e,#05070f 72%)}
+/* Nhãn mục lên RUY BĂNG — cùng tấm mà mọi popup đã duyệt dùng cho tiêu đề. Năm nút xanh
+   xếp dọc giống hệt nhau là thứ làm màn này đọc ra "bảng cấu hình", không phải màn game. */
+/* lề 26px chứ không 15,9: hai đuôi ruy băng trong ảnh là hoa văn, nhãn dài như
+   "ÂM THANH & PHẢN HỒI" chạm vào đó là đọc ra chữ tràn khỏi băng */
+.opt-lb{display:block;width:max-content;max-width:100%;margin:11.6px auto 5.8px;
+  padding:5.8px 26px;font-size:13px;letter-spacing:.14em;color:#fff;
+  background:url(../assets/art-game/ui-frame-ribbon-title.webp) center/100% 100% no-repeat;
+  text-shadow:0 1.4px 3px rgba(0,0,0,.8)}
+.opt-lb.danger-lb{color:#ffd7de}
+/* Ghi chú dưới mỗi nút lùi hẳn về sau, để NÚT là thứ mắt bắt trước */
+.opt-note{opacity:.78;padding:0 2.9px;margin-top:-1.4px}

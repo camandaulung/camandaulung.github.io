@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="icon" type="image/png" href="icons/icon-192.png">
-<link rel="stylesheet" href="assets/style-bcbdc9c6.css">
+<link rel="stylesheet" href="assets/style-6376c5c3.css">
 </head>
 <body>
 <!-- MÀN TẢI VÀO GAME (12/10/2026): hiện NGAY khi HTML về, trước cả lúc JS chạy. Kiểm tra bản
@@ -137,7 +137,9 @@
         </div>
       </div>
       <div class="hud-right">
-        <div class="lvl-tag">MAP <b id="hudLevel">01</b></div>
+        <!-- 18/10/2026: "MAP" -> "MÀN". Sảnh, bảng xếp hạng và băng vào trận đều gọi là
+           MÀN; riêng HUD gọi là MAP, cùng một thứ mà hai cái tên. -->
+      <div class="lvl-tag">MÀN <b id="hudLevel">01</b></div>
         <!-- img mang đúng class ic-on/ic-off nên cơ chế .ic-swap trong CSS giữ nguyên -->
         <button id="btnMute" class="icon-btn ic-swap" aria-label="Tắt/bật âm thanh">
           <img class="ic ic-on" src="assets/art-game/ui-icon-sound-on.webp" alt="" aria-hidden="true" onerror="if(!this.r){this.r=1;this.src=this.src}">
@@ -185,6 +187,17 @@
        Nền để trong suốt cho parallax của canvas lộ ra — xem #scrMenu trong style.css. -->
   <div id="scrMenu" class="layer screen">
 
+    <!-- ===== CẢNH LOBBY "QUỸ ĐẠO" (17/10/2026) =====
+         Thiết kế: plans/261017-1032-sky-chicken-lobby-rework (hướng C, biến thể quỹ đạo).
+         TẤT CẢ ở đây là lớp NỀN, z-index 0, nằm dưới mọi nội dung lobby.
+         Vì sao không phải đường băng (ý tưởng mạnh hơn): canvas #game đứng TRƯỚC #ui nên
+         mọi DOM vẽ ĐÈ lên tàu — mặt đường gần đặc sẽ CẮT MẤT ĐUÔI TÀU. Quỹ đạo thì mọi
+         lớp dưới tàu đều là ánh sáng trong suốt nên không dính. -->
+    <div class="lb-scene" aria-hidden="true">
+      <i class="lb-far" id="lbFar"></i><i class="lb-tone"></i>
+      <div class="lb-num"><span>MÀN</span><b id="lbNum">01</b></div>
+    </div>
+
     <div class="lobby-top">
       <button class="portal-back hidden" id="btnPortal" aria-label="Về Portal" title="Về Portal">‹<span class="pb-l"> PORTAL</span></button>
       <!-- Hồ sơ chơi trên máy này (tối đa 3), khác với đăng nhập Google -->
@@ -214,7 +227,18 @@
 
     <!-- Sân trống: máy bay của người chơi được vẽ TRÊN CANVAS đúng ô này
          (xem ui-lobby-ship.js). Để rỗng nên không có gì che nó. -->
-    <div class="lobby-stage" id="shipStage"></div>
+    <!-- Quỹ đạo + bệ chiếu nằm NGAY TRONG ô sân bay, không đặt bằng px tuyệt đối:
+         ui-lobby-ship.js vẽ tàu ở CHÍNH GIỮA ô này, nên tâm ô LÀ tâm tàu. Nhờ vậy vành
+         luôn ôm đúng tàu ở mọi cỡ màn mà không phải dời tàu cho khớp một vành DOM
+         (đó là rủi ro nặng nhất mà pha 03 của kế hoạch cảnh báo). -->
+    <div class="lobby-stage" id="shipStage">
+      <i class="lb-beam" aria-hidden="true"></i>
+      <i class="lb-disc" aria-hidden="true"></i>
+      <div class="lb-orb" aria-hidden="true">
+        <div class="tilt"><i></i><div class="dot"></div></div>
+        <div class="tilt2"><i></i><div class="dot d2"></div></div>
+      </div>
+    </div>
 
     <div class="lobby-deploy">
       <!-- Thẻ xuất kích: mọi số liệu do ui-menu-card.js bơm vào -->
@@ -308,6 +332,12 @@
       <button class="btn ghost opt-wide" id="btnVoice">
         <span>GIỌNG ĐỌC: <b id="btnVoiceLabel">BẬT</b></span>
       </button>
+      <!-- MÔI TRƯỜNG (18/10/2026, pha 05): hạt thời tiết theo vùng + mây bay trước mặt.
+           Một công tắc cho cả hai — xem lý do ở ui-settings.js. -->
+      <button class="btn ghost opt-wide" id="btnEnv">
+        <span>MÔI TRƯỜNG: <b id="btnEnvLabel">BẬT</b></span>
+      </button>
+      <p class="opt-note">Mây và thời tiết từng vùng. Tắt nếu thấy rối mắt.</p>
       <span class="opt-lb">ĐIỀU KHIỂN</span>
       <button class="btn ghost opt-wide" id="btnTilt">
         <span>XOAY SÚNG: <b id="btnTiltLabel">NGHIÊNG 45°</b></span>
@@ -420,9 +450,15 @@
         <img class="ic" src="assets/art-game/ui-icon-skill.webp" alt="" aria-hidden="true" onerror="if(!this.r){this.r=1;this.src=this.src}">
       </button>
     </div>
-    <!-- Dải chip nhảy vùng: 60 chặng trải ra ~8 màn hình cuộn, không có lối tắt thì
-         muốn quay lại cày sao ở vùng cũ là phải kéo tay rất lâu. -->
-    <div class="saga-jump" id="sagaJump"></div>
+    <!-- DẢI CHIP NHẢY VÙNG ĐÃ BỎ (18/10/2026) — anh Đức: "vừa bị lỗi vừa bị dư".
+         Lỗi: cuộn ngang nhưng không có dấu hiệu nào báo là cuộn được, nên mép phải luôn
+         cắt cụt giữa chữ ("ĐỈNH BĂ…") và mắt đọc ra là lỗi hiển thị chứ không phải
+         "còn nữa, vuốt đi". Dư: mỗi vùng đã có thanh tiêu đề DÍNH (`.saga-head`) mang
+         đúng tên + số sao đó, và nó theo người chơi suốt lúc cuộn.
+         MẤT THEO: lối nhảy nhanh về vùng cũ. Nếu cày vòng vô tận thấy cuộn lâu thì dựng
+         lại dạng RAY DỌC mảnh ở mép phải — đừng dựng lại dạng chip ngang, nó đã hỏng
+         đúng một lần vì lý do trên. -->
+
     <div class="map-scroll" id="mapList"></div>
   </div>
 
@@ -430,7 +466,7 @@
   <div id="scrBrief" class="layer screen dim hidden">
     <div class="panel brief">
       <span class="brief-biome" id="briefBiome">ĐỒNG QUÊ</span>
-      <h3 id="briefTitle">MAP 01</h3>
+      <h3 id="briefTitle">MÀN 01</h3>
       <div class="brief-foe" id="briefFoe"></div>
       <div class="brief-star">
         <div class="stars small" id="briefStars"><i></i><i></i><i></i></div>
@@ -572,7 +608,11 @@
       <p class="gift-note">Đủ mở hai cấp đầu của cây kỹ năng.</p>
       <!-- tàu AI tân thủ — chỉ kênh zingplay (ui-evo-starter.js) -->
       <div class="gift-evo hidden" id="giftEvo">
-        <h4>+ 1 CHIẾN ĐẤU CƠ AI</h4>
+        <!-- 18/10/2026: quà tặng MỘT MẢNH chứ không còn gen hẳn một chiếc tàu — xem
+             ui-evo-starter.js. Chọn dòng nào thì mảnh đầu bộ theo dòng đó. -->
+        <h4>+ 1 MẢNH TIẾN HÓA</h4>
+        <p class="gift-note">Chọn dòng tàu. Nhặt thêm 2 mảnh ở MÀN 3 và MÀN 6 là ghép
+          được chiến đấu cơ AI đầu tiên.</p>
         <div class="gift-evo-view evoai-view" id="giftEvoView"></div>
         <div class="gift-evo-pick" id="giftEvoPick">
           <button class="btn small" data-starter="fighter"><img class="ci" src="assets/art-game/ui-icon-starter-jet.webp" alt="" onerror="if(this.r)this.replaceWith('✈️');else{this.r=1;this.src=this.src}"> MÁY BAY<br>CHIẾN ĐẤU</button>
@@ -793,8 +833,12 @@
     <p>Xoay dọc máy để chơi</p>
   </div>
 </div>
+<!-- buông tay = chậm dần rồi dừng; nhân chồng lên hệ số của system-time-fx -->
+<!-- pha 05: SC.BG.update gọi hai module này, SC.Renderer gọi lượt vẽ tiền cảnh -->
 <!-- Ma dung chung ca cong game. Duong dan TUONG DOI de chay duoc o sub-path.
      Xem shared/README.md truoc khi sua. -->
+<!-- sau power-garage: podium khai thêm `bar` cho ba tab gốc, cần TABS đã đủ 5 mục -->
+<!-- hợp đồng hình dạng: Object.assign vào SC.EVO_KW, phải sau data-evo-keywords.js -->
 <!-- PHAI ngay sau system-evo-ai.js: Object.assign vao SC.EvoAI da ton tai -->
 <!-- chot chan qua tan thu: phai co truoc ui-screens.init() goi NewbieGate.start() -->
 <!-- Sau ui-screens.js (cần SC.UI.el), trước main.js (main gọi hai hàm init này).
@@ -812,7 +856,7 @@
 <script src="../../shared/portal-cloud.js"></script>
 <script src="../../shared/portal-rank.js"></script>
 <script src="../../shared/portal-player.js"></script>
-<script src="assets/app-df7463be.js" onerror="window.__shellHong=1"></script>
+<script src="assets/app-0d55462c.js" onerror="window.__shellHong=1"></script>
 <script>
 /* LOP TU CUU KHI VO UNG DUNG HONG — dung xoa.
  *
