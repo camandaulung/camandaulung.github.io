@@ -3137,6 +3137,50 @@ body .prof-ava .ava-emo{font-size:23px}
   margin-top:0;text-shadow:0 1px 3px rgba(0,0,0,.8)}
 .panel.result .res-grid:has(.rs.record){margin-bottom:17.3px}
 
+/* ============ KHỬ VỆT 9-SLICE Ở DA NÚT (18/10/2026) ============
+ * Soi ảnh phóng to nút XUẤT KÍCH: hai VỆT DỌC rõ ở hai mép, đúng chỗ ranh giới 9-slice.
+ * Tính ra thì không tránh được: ảnh 512×203, slice 90, mà `border-width` chỉ 14px — góc
+ * bị nén 6,4 lần trong khi RUỘT thì giãn ra 0,79 lần. Hai tỉ lệ lệch nhau gần 5 lần thì
+ * chỗ tiếp giáp chắc chắn khác độ sáng. Muốn hết vệt bằng 9-slice thì `border-width` phải
+ * ≈ 51px cho một cái nút chỉ cao 44px — vô lý.
+ * Gốc rễ: tấm ảnh được vẽ như MỘT CÁI NÚT HOÀN CHỈNH, không phải một cái KHUNG. Thứ đúng
+ * để làm với nó là dán nguyên tấm rồi giãn cả tấm.
+ *
+ * GIỮ NGUYÊN `border:14px solid transparent` của luật cũ — đổi sang `background` mà bỏ
+ * viền là mọi phép đo lề/chiều cao của 9 luật nút trôi hết. `background-origin:border-box`
+ * cho ảnh phủ cả phần viền, nên nhìn y như cũ, chỉ mất vệt.
+ * Đánh đổi: ở nút rất hẹp (nút giá trong cây, 76px) góc bo bị dẹt theo chiều ngang. Đã soi
+ * 24 màn — dễ chịu hơn hẳn vệt nối. */
+.btn:not(.text):not(.toggle),
+.tree-row .shop-buy,
+.tree-rebuild{
+  border-image:none;background-color:transparent;
+  background-image:url(../assets/art-game/ui-frame-btn-primary.webp);
+  background-repeat:no-repeat;background-position:0 0;background-size:100% 100%;
+  background-origin:border-box;background-clip:border-box}
+.btn.ghost:not(.text):not(.toggle),
+.tree-row .shop-buy.fork,
+.tree-row .shop-buy.done,
+.tree-row .shop-buy.gar-open,
+.tree-rebuild{background-image:url(../assets/art-game/ui-frame-btn-ghost.webp)}
+.btn.ghost.danger:not(.text):not(.toggle){
+  background-image:url(../assets/art-game/ui-frame-btn-danger.webp)}
+/* `.poor` (chưa đủ vàng) khai `background:none` từ hồi còn dùng border-image — hồi đó vô
+   hại vì mặt nút nằm ở border-image. Giờ mặt nút CHÍNH LÀ background, nên phải trả lại,
+   không thì nút giá hết tiền biến mất hẳn chỉ còn con số trôi giữa không khí. */
+.tree-row .shop-buy.poor{
+  background-image:url(../assets/art-game/ui-frame-btn-primary.webp)}
+
+/* ============ VỆT DANH HIỆU: ĐÃ ĐỈNH KHÁC VỚI ĐANG CHẠY (18/10/2026) ============
+ * Công thức `prog` vốn ĐÚNG — người chơi đạt HUYỀN THOẠI thì vệt đầy 100% là đúng thật.
+ * Cái sai là nó trông y hệt một thanh tiến độ bị kẹt ở đầy: không nhãn, không mốc, nên
+ * đọc ra "trang trí" hoặc "hỏng". Cho nó hình dạng riêng — vạch khía đều + ánh vàng —
+ * tức một huy hiệu, không phải một phép đo. */
+.prof-next.max::after{background:linear-gradient(90deg,#ffb020,#ffe79a 45%,#ffb020)}
+.prof-next.max{height:4px;bottom:2.5px;
+  background:repeating-linear-gradient(90deg,transparent 0 5px,rgba(255,220,120,.5) 5px 6px);
+  box-shadow:0 0 7px rgba(255,190,70,.55)}
+
 /* --- SỐ MÀN: từ khung dây thành tấm kính khói ---
  * Viền rỗng trên nền navy phẳng thì đọc ra "chữ to nhất màn hình". Trên một bức tranh thì
  * nó phải là một LỚP: thêm ruột tối mờ để nhãn MÀN còn đọc được khi mặt đất sáng, và bỏ

@@ -13796,11 +13796,16 @@ SC.AuthPanel = {
       `<span class="ava-wrap">${SC.Ava.ofLobby(cur)}${badge}</span>` +
       `<span class="prof-txt"><b>${SC.Rank.esc(cur.name)}</b><em class="prof-title">${P.rank()}</em>` +
       `<i class="prof-rank">${dot}<span class="pw-l">POWER </span><span class="pw-i">⚡</span>${pw}</i></span><em>ĐỔI</em>` +
-      `<i class="prof-next" style="--p:${Math.round(SC.clamp(prog, 0, 1) * 100)}%"></i>`;
+      /* ĐÃ ĐỈNH thì vệt đầy 100% là ĐÚNG, nhưng một vệt vàng đầy không nhãn thì đọc ra
+         "trang trí" hoặc "hỏng" — một bộ soi độc lập đọc đúng như vậy. Gắn class `max`
+         để nó mang hình dạng RIÊNG (vạch khía + ánh vàng) thay vì giống hệt một vệt
+         tiến độ đang chạy. Chữ giải thích nằm ở tooltip bên dưới. */
+      `<i class="prof-next${i < 0 ? ' max' : ''}" style="--p:${Math.round(SC.clamp(prog, 0, 1) * 100)}%"></i>`;
     // chung hàng với ⚙ thì thiếu chỗ: bỏ dần danh hiệu -> chữ ĐỔI, TÊN + POWER không mất (ui-prof-chip-fit.js)
     requestAnimationFrame(() => SC.ProfChipFit.fit(chip)); SC.ProfChipFit.watch(chip);
     chip.title = `${cur.name} · ${P.rank()} · lực chiến ${pw}`
-      + (nx ? ` · còn ${P.fmt(nx.need)} nữa lên ${nx.name}` : '') + (u ? ` · ${tip}` : '');
+      + (nx ? ` · còn ${P.fmt(nx.need)} nữa lên ${nx.name}`
+        : ' · đã đạt danh hiệu cao nhất') + (u ? ` · ${tip}` : '');
   },
 
   /* ---------- khối tài khoản ở màn hồ sơ ---------- */
