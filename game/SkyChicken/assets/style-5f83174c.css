@@ -1319,13 +1319,14 @@ body .timer{font-size:14px}
  * năm dòng vàng liền nhau. Giữ cùng khuôn `:not()` để hai bên cùng hạng, ai sau thắng. */
 .btn.ghost:not(.text):not(.toggle){
   border-image:url(../assets/art-game/ui-frame-btn-ghost.webp) 85 fill / 14px stretch;
-  background:none;box-shadow:none;color:var(--ink);text-shadow:0 1px 2px rgba(0,8,26,.6)}
+  /* KHÔNG viết `background:none` ở đây nữa — xem khối KHỬ VỆT 9-SLICE cuối tệp. */
+  box-shadow:none;color:var(--ink);text-shadow:0 1px 2px rgba(0,8,26,.6)}
 .btn.ghost.danger:not(.text):not(.toggle){
   border-image:url(../assets/art-game/ui-frame-btn-danger.webp) 92 fill / 14px stretch;
   color:#fff0f2;text-shadow:0 1px 2px rgba(60,0,10,.7)}
 /* nền là ẢNH nên hover không đổi gradient được nữa — sáng lên bằng filter, rẻ và đều */
 @media (hover:hover){
-  .btn:not(.text):not(.toggle):hover{background:none;box-shadow:none;filter:brightness(1.12)}
+  .btn:not(.text):not(.toggle):hover{box-shadow:none;filter:brightness(1.12)}
 }
 .btn:not(.text):not(.toggle):active{box-shadow:none;filter:brightness(.94)}
 
@@ -2112,7 +2113,11 @@ body .tree-rebuild{font-size:13px}
       là con số người chơi cần nhất ("còn thiếu bao nhiêu"). Giữ khác màu nút mua được,
       nhưng chữ phải đọc rõ. */
 .tree-row .shop-buy{min-height:44px}
-.tree-row .shop-buy.poor{opacity:1;background:rgba(255,255,255,.08);color:#c9d5ea;
+/* 18/10/2026: BỎ `background:rgba(...)` ở đây. Nó là mảng màu phẳng của thời nút chưa có
+   da; từ lúc mặt nút là `background-image` thì câu này (hạng 0,3,0) đè chết ảnh của luật
+   nền (0,2,0) — nút chưa đủ vàng ra một mảng tối có vệt chéo. Khác biệt "mua được / chưa
+   mua được" nay do `grayscale` + `opacity` ở luật 2774 lo. */
+.tree-row .shop-buy.poor{opacity:1;color:#c9d5ea;
   box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.16)}
 .tree-rebuild{min-height:44px}
 /* tiêu đề màn rớt 2-3 dòng ("CÂY / KỸ / NĂNG") khi đứng cạnh POWER + vàng. Tiêu đề
@@ -2770,7 +2775,7 @@ body .tree-name em{font-size:12px}
 .tree-row .shop-buy:active{transform:none;filter:brightness(.94)}
 /* Chưa đủ vàng: xám đi NHƯNG vẫn đọc được giá — brightness .62 làm nút trông như một
    hòn đá hỏng, mà con số trên đó chính là thứ người chơi cần để biết còn thiếu bao nhiêu. */
-.tree-row .shop-buy.poor{background:none;filter:grayscale(.92) brightness(.88);
+.tree-row .shop-buy.poor{filter:grayscale(.92) brightness(.88);
   opacity:.72;color:#241c0e}
 .tree-row .shop-buy.fork{animation:forkPulse 1.1s ease-in-out infinite;box-shadow:none;
   border-image:url(../assets/art-game/ui-frame-btn-ghost.webp) 85 fill / 14px stretch;
@@ -2783,11 +2788,11 @@ body .tree-name em{font-size:12px}
    Cả hai về da nút phụ; chữ mang màu của chính nó. */
 .tree-row .shop-buy.done{
   border-image:url(../assets/art-game/ui-frame-btn-ghost.webp) 85 fill / 14px stretch;
-  background:none;box-shadow:none;filter:none;color:var(--acc);
+  box-shadow:none;filter:none;color:var(--acc);
   text-shadow:0 1px 2px rgba(0,8,26,.6)}
 .tree-row .shop-buy.gar-open{
   border-image:url(../assets/art-game/ui-frame-btn-ghost.webp) 85 fill / 14px stretch;
-  background:none;box-shadow:none;color:#e0c8ff;
+  box-shadow:none;color:#e0c8ff;
   text-shadow:0 1px 2px rgba(26,10,42,.8)}
 
 /* XÂY LẠI CÂY: một dải chữ trần chứa ba con số → nút phụ có da, phí và tiền hoàn
@@ -3165,11 +3170,20 @@ body .prof-ava .ava-emo{font-size:23px}
 .tree-rebuild{background-image:url(../assets/art-game/ui-frame-btn-ghost.webp)}
 .btn.ghost.danger:not(.text):not(.toggle){
   background-image:url(../assets/art-game/ui-frame-btn-danger.webp)}
-/* `.poor` (chưa đủ vàng) khai `background:none` từ hồi còn dùng border-image — hồi đó vô
-   hại vì mặt nút nằm ở border-image. Giờ mặt nút CHÍNH LÀ background, nên phải trả lại,
-   không thì nút giá hết tiền biến mất hẳn chỉ còn con số trôi giữa không khí. */
-.tree-row .shop-buy.poor{
-  background-image:url(../assets/art-game/ui-frame-btn-primary.webp)}
+/* BUG ĐÃ ĐẨY LÊN BẢN THẬT RỒI MỚI THẤY (18/10/2026) — `background:none` LÀ SHORTHAND.
+ * Năm luật nút cũ còn khai `background:none` từ thời mặt nút nằm ở `border-image`: khi đó
+ * câu ấy vô hại. Từ lúc mặt nút CHÍNH LÀ background thì nó reset luôn cả `background-size`
+ * / `-repeat` / `-origin` về mặc định, và mấy luật đó ĐỘ ƯU TIÊN CAO HƠN luật nền mới
+ * (`.btn.ghost:not(.text):not(.toggle)` hạng 0,4,0 so với 0,3,0). Hệ quả: ảnh VẪN được gán
+ * nhưng vẽ ở CỠ GỐC 512×203, lặp, cắt cụt — nút ra một mảng tối có vệt chéo, chính là một
+ * góc của tấm ảnh ở tỉ lệ 1:1. Anh Đức bắt được ở nút "chưa đủ vàng" trên banga.
+ *
+ * Đã gỡ `background:none` khỏi đúng năm luật đó (ghost, :hover, .poor, .done, .gar-open)
+ * thay vì chồng thêm độ ưu tiên — chữa gốc, không đua hạng.
+ *
+ * BÀI HỌC: lúc kiểm em chỉ hỏi `background-image` có không, mà thứ hỏng lại là
+ * `background-size`. Đổi sang `background` thì phải soát CẢ NHÓM longhand, và phải grep
+ * `background:none` trước — shorthand không reset cái mình nhìn, nó reset cả họ. */
 
 /* ============ VỆT DANH HIỆU: ĐÃ ĐỈNH KHÁC VỚI ĐANG CHẠY (18/10/2026) ============
  * Công thức `prog` vốn ĐÚNG — người chơi đạt HUYỀN THOẠI thì vệt đầy 100% là đúng thật.
