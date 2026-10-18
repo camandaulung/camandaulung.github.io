@@ -3535,6 +3535,7 @@ SC.FX = {
     this.bolts.length = 0; this.rings.length = 0;
     SC.FXS.clear(); SC.ToyMotion.clear(); SC.GroundLight.clear();
     SC.TimeFX.clear(); SC.BossMoment.clear(); SC.PlayerMoment.clear(); SC.HudSeeThru.reset();
+    SC.Surge.reset();
   },
 
   /* Quái gục — gom mọi hiệu ứng vào một chỗ (10/10/2026): hạt chấm + lông gà như cũ
@@ -3640,6 +3641,7 @@ SC.FX = {
     SC.ToyMotion.update(dt);
     SC.BossMoment.update(dt);       // khoảnh khắc trùm/người chơi — system-moments-*.js
     SC.PlayerMoment.update(dt);     // (gọi SAU Player.update: cảnh phóng lên ghi đè vị trí)
+    SC.Surge.update(dt);            // thanh LÁCH → BÙNG NỔ, xem system-surge.js
     SC.HudSeeThru.update(SC.Game);  // HUD mờ khi quái/đạn chui bên dưới (ui-hud-see-through.js)
   },
 
@@ -5997,9 +5999,14 @@ SC.Bullets = {
     // Lực chiến càng cao thì đạn plasma càng bẻ lái bám theo người chơi. Đây là
     // mặt "khó" duy nhất đòi kỹ năng né thật, không phải chỉ tăng số.
     const orbit = SC.Power.orbit();
+    /* BÙNG NỔ làm chậm RIÊNG đạn địch (system-surge.js): đổi bước thời gian của khối này
+       chứ không đổi `b.vx/vy`, nên hết bùng nổ là đạn trở lại đúng tốc cũ mà không phải
+       nhớ giá trị gốc của từng viên. Trả về 1 khi không bùng nổ ⇒ đường đạn y hệt. */
+    const dtF = dt * SC.Surge.foeK();
 
     for (let i = this.foe.length - 1; i >= 0; i--) {
       const b = this.foe[i];
+      const dt = dtF;        // che `dt` cho cả vòng lặp đạn địch — cố ý
 
       // Hoả tiễn của trùm: bẻ lái mạnh và tăng tốc dần, nhưng bán kính vòng có hạn
       // nên vẫn né được bằng cách cắt ngang mặt nó — không phải đòn không thể tránh.
@@ -9527,11 +9534,114 @@ SC.Bank = {
   onGraze(g, p, b) {
     this.grazed++;
     g.score += 15;
+    SC.Surge.nap();        // nạp thanh BÙNG NỔ — xem system-surge.js
     SC.FX.burst(b.x, b.y, '#bfe9ff', 5, 190, 1.7);
     if (this.grazed % 5 === 0) {                   // 5 pha liền mới kêu, đỡ ồn
       SC.FX.text(p.x, p.y - p.r * 2.2, 'LÁCH ĐẸP!', '#bfe9ff');
       SC.Audio.shield();
     }
+  }
+};
+
+;
+/* ===== js/system-surge.js ===== */
+/* system-surge.js — THANH LÁCH → BÙNG NỔ (pha P5, 18/10/2026).
+ *
+ * VÌ SAO CÓ — đây là câu trả lời cho một phép đo, không phải một ý tưởng trang trí.
+ * Sau khi chữa khiên cho tốn máu thật (P2), khoảng cách tay nghề ở màn 100+ vẫn 0,02 và
+ * −0,02 (mục tiêu D3 là ≥ 0,35). Tách máu mất theo nguồn thì ra nguyên nhân:
+ *
+ *     màn 100/114 — bot giỏi: đạn trúng 374/378 · THỦNG LƯỚI 142/164
+ *                   bot kém : đạn trúng 342/422 · THỦNG LƯỚI 146/133
+ *
+ * Thủng lưới ≈ 30% máu mất, XUYÊN THẲNG qua khiên (`Player.leak` không đi qua `hurt`), và
+ * MÙ HOÀN TOÀN với tay nghề — bot kém còn để lọt ít hơn. Né giỏi tới mấy cũng chỉ chạm
+ * được 70% còn lại, nên không một con số khiên hay đạn nào mở được D3.
+ *
+ * Tệp này bắc đúng cây cầu còn thiếu: **né giỏi → dọn màn nhanh → ít thủng lưới hơn**.
+ * Lách đạn nạp thanh; thanh đầy thì BÙNG NỔ: sát thương nhân lên và đạn địch chậm lại.
+ * Vì thế nó vừa thưởng cho người dám bay sát đạn, vừa đánh vào đúng nguồn máu mất đang
+ * làm phẳng tay nghề.
+ *
+ * TỰ KÍCH KHI ĐẦY, không có nút bấm. Ba lý do: game vốn là AUTO BẮN (thêm một nút là cãi
+ * lại chính mình); người chơi đang bận né, bắt bấm đúng lúc là phạt thêm lần nữa; và bot
+ * mô phỏng phải dùng được nó, không thì KHÔNG ĐO được D3 — mà cả tệp này sinh ra vì một
+ * phép đo.
+ *
+ * Nạp SAU `system-bank.js` (nhận sự kiện lách) và `util-draw.js`.
+ */
+
+SC.Surge = {
+  /* ĐO RỒI MỚI ĐẶT. Bản đầu để GAIN 0,055 (≈18 pha lách là đầy) và DECAY 0,03/s — chạy
+     sim ra số GIỐNG HỆT lúc chưa có tệp này, vì bot **chưa bao giờ** nạp đầy nổi: đo được
+     nó chỉ lách 2,5-3,3 pha mỗi trận (đỉnh 14). Một cơ chế không bao giờ chạy thì nhìn y
+     như một cơ chế không hiệu quả — phải đếm `grz`/`sg` mới phân biệt được.
+     Nay ≈7 pha là đầy, và rò chậm hơn 2,5 lần (0,012/s ≈ mất nửa thanh sau 40 giây) vì
+     với nhịp lách thật thì mức rò cũ nuốt sạch công sức. */
+  GAIN: 0.14,    // mỗi pha lách nạp ngần này — ~7 pha là đầy
+  DECAY: 0.012,  // rò mỗi giây khi không lách: không cho tích trữ rồi bay an toàn
+  DUR: 3.0,      // giây bùng nổ
+  DMG: 1.8,      // nhân sát thương trong lúc bùng nổ
+  SLOW: 0.55,    // đạn địch còn ngần này tốc độ — vừa thưởng vừa giúp né tiếp
+
+  v: 0,          // 0..1 thanh nạp
+  t: 0,          // giây bùng nổ còn lại
+  da: 0,         // số lần bùng nổ trong trận (cho tổng kết + telemetry)
+
+  reset() { this.v = 0; this.t = 0; this.da = 0; },
+
+  /* Gọi từ `SC.Bank.onGraze`. Đang bùng nổ thì KHÔNG nạp tiếp — không thì một pha lách
+     may mắn giữa lúc đạn đang chậm lại kéo dài vô tận. */
+  nap() {
+    if (this.t > 0) return;
+    this.v += this.GAIN;
+    if (this.v >= 1) { this.v = 0; this.t = this.DUR; this.da++; this._bung(); }
+  },
+
+  _bung() {
+    const p = SC.Game && SC.Game.player;
+    if (!p) return;
+    SC.FX.text(p.x, p.y - p.r * 2.6, 'BÙNG NỔ!', '#ffd23f');
+    SC.FX.burst(p.x, p.y, '#ffd23f', 30, 360, 4.2);
+    SC.addShake(7, 0.2);
+    if (!SC.AudioSamples.play('power')) SC.Audio.power && SC.Audio.power();
+  },
+
+  update(dt) {
+    if (this.t > 0) { this.t -= dt; if (this.t < 0) this.t = 0; return; }
+    if (this.v > 0) this.v = Math.max(0, this.v - this.DECAY * dt);
+  },
+
+  on() { return this.t > 0; },
+  /* Hệ số nhân sát thương — `system-gun` hỏi mỗi loạt bắn. */
+  dmgMul() { return this.t > 0 ? this.DMG : 1; },
+  /* Hệ số thời gian cho RIÊNG đạn địch. Trả 1 khi không bùng nổ nên đường đạn không đổi. */
+  foeK() { return this.t > 0 ? this.SLOW : 1; },
+
+  /* Thanh nạp vẽ NGAY DƯỚI TÀU chứ không lên HUD: lúc lách thì mắt đang dán vào tàu, một
+     thanh ở mép màn hình thì không ai thấy mình vừa được thưởng. Vẽ bằng canvas nên không
+     đụng bộ soát 24 màn. */
+  render(ctx) {
+    const p = SC.Game && SC.Game.player;
+    if (!p || p.dead) return;
+    if (this.t > 0) {
+      // đang bùng nổ: vòng vàng quanh tàu, mờ dần theo thời gian còn lại
+      const k = this.t / this.DUR;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      SC.draw.glowRaw(ctx, p.x, p.y, p.r * (2.4 + (1 - k) * 1.2), '#ffd23f', 0.30 * k);
+      ctx.restore();
+      return;
+    }
+    if (this.v <= 0.01) return;
+    const w = p.r * 2.2, h = 3, y = p.y + p.r * 1.7;
+    ctx.save();
+    ctx.globalAlpha = 0.5 + this.v * 0.5;
+    ctx.fillStyle = 'rgba(4,12,26,.65)';
+    ctx.fillRect(p.x - w / 2, y, w, h);
+    ctx.fillStyle = this.v > 0.75 ? '#ffd23f' : '#bfe9ff';
+    ctx.fillRect(p.x - w / 2, y, w * this.v, h);
+    ctx.restore();
   }
 };
 
@@ -9656,7 +9766,9 @@ SC.Gun = {
     const w = p.weapon;
     // nhân thuộc tính ẩn SÁT THƯƠNG SAU khi làm tròn — làm tròn sau thì +1% của
     // đạn 2-4 sát thương mất trắng
-    const dmg = Math.max(1, Math.round(2 * t.dmgMul * this.runMul(w))) * SC.EvoGarage.mul('atk');
+    // `Surge.dmgMul()` = 1 khi không bùng nổ, nên đường sát thương thường không đổi
+    const dmg = Math.max(1, Math.round(2 * t.dmgMul * this.runMul(w)))
+      * SC.EvoGarage.mul('atk') * SC.Surge.dmgMul();
 
     // Cả loạt tính là MỘT lần bắn. Loạt bắn vào chỗ trống không có gì để trúng nên
     // không tính vào độ chính xác.
@@ -9698,7 +9810,8 @@ SC.Gun = {
     const lv = lvOverride === undefined ? SC.Tree.lv('wpn') : lvOverride;
     const t = SC.Tree.tierOf(this[path], Math.max(1, lv));
     const ww = w || 1;
-    const dmg = Math.max(1, Math.round(2 * t.dmgMul * this.runMul(ww))) * SC.EvoGarage.mul('atk');
+    const dmg = Math.max(1, Math.round(2 * t.dmgMul * this.runMul(ww)))
+      * SC.EvoGarage.mul('atk') * SC.Surge.dmgMul();
     const n = t.n + (path === 'B' ? 0 : this.runExtra(ww));
     return n * dmg / (SC.CFG.fireBase * t.rateMul);
   }
@@ -12117,6 +12230,7 @@ SC.Renderer = {
       SC.Ready.render(ctx);        // mây tiền cảnh + lời mời (pha 03): che tàu, dưới chữ
       SC.FX.render(ctx);           // hạt và số điểm nằm trên hết
       SC.PlayerMoment.renderWorld(ctx);   // nhãn chữ to "VŨ KHÍ 3!"
+      SC.Surge.render(ctx);               // thanh nạp dưới bụng tàu + quầng lúc bùng nổ
       /* TIỀN CẢNH (pha 05.1) — lớp DUY NHẤT nằm TRÊN gameplay, và là thứ duy nhất tạo được
          cảm giác "đang bay xuyên qua" thay vì "ngắm một tấm nền cuộn". Vì nó che tàu và
          quái nên cả hai module tự tắt khi trùm báo trước chiêu, và alpha bị chặn trần.
