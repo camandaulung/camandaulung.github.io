@@ -56,7 +56,7 @@ SC.BALANCE = {
   },
   "power": {
     "scale": {"den": 0.45, "hp": 0.7, "dmg": 0.55, "fire": 0.45, "spd": 0.3, "orbit": 1.1},
-    "variant": {"AAA": [0.9, 0.75], "AAB": [0.95, 0.9], "ABA": [1.05, 1.1], "ABB": [1.1, 1.36], "BAA": [1.12, 0.84], "BAB": [0.95, 0.95], "BBA": [1.65, 1.24], "BBB": [1.05, 1.36]}
+    "variant": {"AAA": [0.9, 0.75, 1], "AAB": [0.98, 1.02, 1.05], "ABA": [1.02, 0.98, 1], "ABB": [1.1, 1.36, 1], "BAA": [0.9, 0.76, 1], "BAB": [1.35, 0.95, 1.16], "BBA": [1.65, 1.24, 1.16], "BBB": [1.3, 1.08, 1.16]}
   },
   "enemies": {
     "chick": {"hp": 3, "r": 15, "spd": 62, "score": 10, "drop": 0.3, "fire": 0, "move": "sine"},
@@ -1696,7 +1696,13 @@ SC.Power = {
   den()   { return (1 + this._t() * this.S.den) * this._v(0) * this._mid('den'); },   // mật độ quái
   // × cân bằng động của gara tiến hóa: tàu mới ngấm dần vào độ khó trong 1-6 màn
   hp()    { return (1 + this._t() * this.S.hp) * this._v(1) * SC.EvoGarage.enemyHpMul(SC.Game.levelId || 1); },
-  dmg()   { return (1 + this._t() * this.S.dmg) * SC.EvoGarage.enemyDmgMul(SC.Game.levelId || 1) * this._mid('dmg')
+  /* `_v(2)` = SÁT THƯƠNG QUÁI theo biến thể, thêm 19/10/2026 (pha P4).
+     Vì sao cần thêm cần gạt thứ ba: tiêu chí D4(c) đòi không hướng nào có máu còn trung vị
+     1,00 từ màn 41, mà BAB/BBA/BBB đo ra đúng 1,00 — kể cả BBA đang chịu mật độ 1,65 và
+     máu quái 1,24. Lý do: ba hướng đó dọn quái quá nhanh, nên THÊM QUÁI hay QUÁI TRÂU HƠN
+     không biến thành máu mất, chỉ biến thành màn dài hơn (và kéo D4(a) đi xuống).
+     Thứ đụng được vào máu của chúng là mỗi đòn ĐAU hơn — đó là cần gạt này. */
+  dmg()   { return (1 + this._t() * this.S.dmg) * this._v(2) * SC.EvoGarage.enemyDmgMul(SC.Game.levelId || 1) * this._mid('dmg')
     * this.lateEase() * this.earlyEase(); },
 
   /* earlyEase() / leakEase() / earlyBossHp() — NÂNG ĐỠ 6 MÀN ĐẦU: xem
