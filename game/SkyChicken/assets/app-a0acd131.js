@@ -6687,7 +6687,12 @@ SC.Enemy.prototype.update = function (dt, player, lv) {
   // bắn trả
   if (this.def.fire > 0) {
     this.fireT -= dt;
-    if (this.fireT <= 0 && this.y > 20 && this.y < SC.H * 0.75) {
+    /* 18/10/2026 (P2 bước 5): 0,75H -> 0,60H. Quái trôi tới 3/4 màn là đã sát mặt tàu;
+       một viên đạn sinh ra ở đó không có đường né nào, nó chỉ là thuế. Cắt xuống 0,6H để
+       mọi viên đạn đều có quãng đường đủ dài mà đọc. Đổi lại quái gần đáy im lặng — và đó
+       đúng là lúc người chơi đang bận bắn chúng. */
+    SC.FoeWind.tick(this);
+    if (this.fireT <= 0 && this.y > 20 && this.y < SC.H * 0.60) {
       this.fireT = this.def.fire / this.fireMul;
       // 22 loại quái mới khai báo đường đạn riêng: [loại, số viên, độ toả, tốc độ]
       const blt = this.def.blt;
@@ -10550,14 +10555,36 @@ SC.Player.prototype.hurt = function (dmg) {
   this.damaged++;
   dmg = dmg / SC.EvoGarage.mul('armor');    // thuộc tính ẩn GIÁP của gara tiến hóa
   dmg = SC.Shield.mitigate(this, dmg);      // khiên từ trường đỡ bớt, xem system-shield.js
-  if (this.shield > 0) {
+  /* KHIÊN TỐN MÁU THẬT (18/10/2026, pha P2 — lõi của cả kế hoạch WOW).
+   *
+   * Bản cũ: `shield -= dmg*1.6; if (shield < 0) shield = 0;` — PHẦN DƯ BỊ VỨT ĐI. Còn
+   * đúng 1 điểm bền mà ăn một đòn 100 sát thương thì vẫn mất 0 máu. Đó là lý do đo được
+   * ở mọi bảng sim: bot kém về đích với máu gần đầy y như bot giỏi, khoảng cách tay nghề
+   * 0,00-0,03 (mục tiêu D3 là ≥ 0,35), và vì "khiên nuốt hết" nên đợt 14/10 phải nhân
+   * mật độ ×1,3 + nhịp bắn ×1,5 mới sứt nổi khiên — đẻ ra tường 2.427 viên đạn ở màn 114.
+   * Chữa một chỗ này là tháo ngòi cho cả D3, D4 và lý do tồn tại của mấy hệ số nhân kia.
+   *
+   * Quy đổi: 1 máu = 1,6 bền (giữ nguyên hệ số cũ nên khiên đầy vẫn đỡ đúng như trước).
+   * Thiếu bao nhiêu bền thì chia ngược 1,6 ra máu — KHÔNG trừ thẳng `dmg`, làm thế là
+   * đòn xuyên khiên đau hơn đòn trúng trần máu. */
+  const canBen = dmg * 1.6;
+  if (this.shield >= canBen) {
     SC.AudioSamples.play('shield-hit');
-    this.shield -= dmg * 1.6;
-    if (this.shield < 0) this.shield = 0;
+    this.shield -= canBen;
     this.shIdle = 0;                    // vừa ăn đòn thì hoãn hồi bền
     SC.FX.burst(this.x, this.y, '#3fe0ff', 12, 200, 3);
   } else {
-    this.hp -= dmg;
+    /* Khiên vỡ GIỮA đòn: ăn nốt phần bền còn lại, phần dư quy về máu.
+       Phải thấy ĐƯỢC là mình vừa mất máu — nổ xanh rồi thôi là người chơi tưởng vẫn an
+       toàn, mà đây đúng là khoảnh khắc đáng sợ nhất của trận. */
+    const duMau = (canBen - this.shield) / 1.6;
+    if (this.shield > 0) {
+      SC.AudioSamples.play('shield-hit');
+      SC.FX.burst(this.x, this.y, '#3fe0ff', 12, 200, 3);
+    }
+    this.shield = 0;
+    this.shIdle = 0;
+    this.hp -= duMau;
     SC.FX.burst(this.x, this.y, '#ff3b5c', 16, 260, 3.4);
   }
   this.inv = this.invTime || SC.CFG.iFrame;
@@ -11957,6 +11984,60 @@ SC.Combat = {
 };
 
 ;
+/* ===== js/system-enemy-telegraph.js ===== */
+/* system-enemy-telegraph.js — LOÉ NÒNG báo trước mỗi loạt đạn của quái thường.
+ *
+ * VÌ SAO CÓ (18/10/2026, pha P2 bước 5). Đo được, không phải cảm tính: sau khi chữa khiên
+ * cho tốn máu thật, khoảng cách tay nghề giữa bot GIỎI (phản xạ 3 khung) và bot KÉM (8
+ * khung) vẫn chỉ 0,00–0,07 — mục tiêu D3 là ≥ 0,35. Nhìn vào cột "không trúng đòn" thì rõ
+ * vì sao: **0% cho CẢ HAI** từ màn 42. Không ai né nổi, nên phản xạ tốt hơn chẳng đổi gì.
+ *
+ * Lý do nằm ở chỗ quái bắn: KHÔNG báo trước, pha ngẫu nhiên, và bắn cả khi đã trôi xuống
+ * sát tàu. Phản xạ nhanh hơn 5 khung (~83 ms) không cứu được một viên đạn xuất hiện cách
+ * mặt 80px. Muốn tay nghề có chỗ thể hiện thì người chơi phải ĐỌC được loạt đạn trước khi
+ * nó ra — đó là toàn bộ việc của tệp này.
+ *
+ * KHÔNG ĐỔI NHỊP BẮN (mượn đúng cách của `system-boss-windup.js`): gồng bắt đầu khi đồng
+ * hồ bắn còn ≤ LEAD giây, đạn vẫn ra đúng lúc đồng hồ về 0. Nhờ vậy mọi số cân bằng về
+ * lượng đạn giữ nguyên, chỉ thêm thông tin cho người chơi.
+ *
+ * Màu lấy dải 330-358° độc quyền của đạn địch (`data-colour-law.js`): loé nòng CHÍNH LÀ
+ * lời báo "chỗ này sắp có đạn", nên nó phải nói cùng một thứ tiếng với đạn.
+ *
+ * Nạp SAU `util-draw.js`, trước `system-renderer.js`.
+ */
+
+SC.FoeWind = {
+  LEAD: 0.3,          // giây gồng trước mỗi loạt — đủ để mắt bắt, chưa đủ để thành nhàm
+
+  /* Gọi từ `entity-enemy.update` khi con này có bắn. Trả về 0..1 (0 = chưa gồng). */
+  tick(e) {
+    const L = this.LEAD;
+    e.wind = e.fireT > 0 && e.fireT <= L ? 1 - e.fireT / L : 0;
+    return e.wind;
+  },
+
+  /* Vẽ MỘT LẦT cho cả đàn trong một khối `lighter` duy nhất.
+   * Bật/tắt chế độ cộng màu cho từng con là đúng cái đã làm đạn tốn 1,0 ms/khung trước
+   * đây — mở một lần rồi vẽ hết là rẻ gần như không. */
+  render(ctx, g) {
+    if (!g || !g.enemies || !g.enemies.length) return;
+    let mo = false;
+    for (const e of g.enemies) {
+      const w = e.wind;
+      if (!w || e.dead) continue;
+      if (!mo) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; mo = true; }
+      /* Lớn dần rồi nháy gắt ở cuối: 80% đầu là "sắp bắn", 20% cuối là "BẮN NGAY".
+         Hai nhịp khác nhau để mắt phân biệt được còn kịp né hay phải né rồi. */
+      const gap = w < 0.8 ? w * 0.9 : 0.72 + (w - 0.8) * 5 * 0.28;
+      const r = e.r * (0.26 + gap * 0.5);
+      SC.draw.glowRaw(ctx, e.x, e.y + e.r * 0.6, r, '#ff3b5c', 0.3 + gap * 0.45);
+    }
+    if (mo) ctx.restore();
+  }
+};
+
+;
 /* ===== js/system-renderer.js ===== */
 /* system-renderer.js — thứ tự vẽ một khung hình
  *
@@ -12010,6 +12091,9 @@ SC.Renderer = {
     if (g.state !== 'menu') {
       SC.Rescue.render(ctx);
       for (const e of g.enemies) e.render(ctx);
+      // Loé nòng báo trước loạt đạn — vẽ SAU thân quái để không bị sprite che, và TRƯỚC
+      // vật phẩm/đạn vì nó là lời báo, không phải vật thể.
+      SC.FoeWind.render(ctx, g);
       // VẬT PHẨM VẼ TRÊN QUÁI (17/10/2026). Trước đây nằm dưới cùng — không sao khi đồ
       // TỰ HÚT về tàu, vì người chơi không cần nhìn thấy chúng. Nhưng hướng "nhặt bằng
       // tay" thì bắt người chơi bay tới một thứ bị quái che là thiết kế hỏng, nên dọn
