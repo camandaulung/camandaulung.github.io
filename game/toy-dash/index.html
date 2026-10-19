@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Toy Tower — Sức khoẻ màn chơi</title>
+<link rel="stylesheet" href="dash.css">
+</head>
+<body>
+<main class="page">
+  <header class="top">
+    <div>
+      <h1>Toy Tower — sức khoẻ màn chơi</h1>
+      <p class="sub" id="range">Đang tải log…</p>
+    </div>
+    <div class="seg" id="src" role="group" aria-label="Nguồn log">
+      <button data-src="player" aria-pressed="true">Người chơi</button>
+      <button data-src="bot" aria-pressed="false">Bot (sim)</button>
+      <button data-src="all" aria-pressed="false">Tất cả</button>
+    </div>
+  </header>
+
+  <p class="note" id="note" hidden></p>
+
+  <section class="kpis" id="kpis" aria-label="Chỉ số tổng"></section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2>Ngưỡng cảnh báo</h2>
+      <p class="hint">Chỉnh thoải mái — cờ ở bảng bên dưới tính lại ngay, giá trị nhớ trong trình duyệt này.</p>
+    </div>
+    <div class="thresholds" id="thresholds"></div>
+  </section>
+
+  <section class="card">
+    <div class="card-head"><h2>Win rate · thắng lần đầu · thử lại sau thua, theo màn</h2></div>
+    <div class="legend" id="legend-lines"></div>
+    <div class="chart" id="chart-lines"></div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2>Sao khi thắng, theo màn</h2>
+      <p class="hint">Mỗi cột = 100% lượt thắng của màn. 3★ nằm sát đáy để so giữa các màn; vạch đứt = ngưỡng 3★ quá cao.</p>
+    </div>
+    <div class="legend" id="legend-stars"></div>
+    <div class="chart" id="chart-stars"></div>
+  </section>
+
+  <section class="card">
+    <div class="card-head"><h2>Bảng từng màn</h2><p class="hint">Bấm tiêu đề cột để sắp xếp. Cờ luôn kèm chữ — không chỉ dựa vào màu.</p></div>
+    <div class="table-wrap"><table id="table"></table></div>
+  </section>
+
+  <section class="card defs">
+    <h2>Cách tính</h2>
+    <ul>
+      <li><b>Lượt hoàn tất</b> = thắng + sập + hết khối. <b>Bỏ giữa trận</b> (chơi lại / sang màn sau khi đã thả ≥ 1 khối) đếm riêng.</li>
+      <li><b>Win rate</b> = thắng / lượt hoàn tất.</li>
+      <li><b>Thắng lần đầu</b> = % người mà lượt hoàn tất đầu tiên ở màn đó là thắng.</li>
+      <li><b>Thử lại sau thua</b> = trong số người từng thua màn, % còn chơi thêm sau lần thua đầu · <b>Vượt sau thua</b> = % về sau thắng.</li>
+      <li><b>Sao</b> tính trên mọi lượt thắng (3★ = dư ≥ 2 khối và Perfect ≥ 50%). Trung vị sao 2 nghĩa là nửa số lượt thắng ≤ 2★.</li>
+      <li>Người chơi ẩn danh (băm email, không hiện tên). Log bot luôn thử lại 100% nên chỉ dùng xem win rate / sao, không dùng đọc hành vi thử lại.</li>
+    </ul>
+  </section>
+</main>
+<div class="tip" id="tip" role="status" hidden></div>
+<script type="module" src="dash.js"></script>
+</body>
+</html>
