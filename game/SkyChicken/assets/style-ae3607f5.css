@@ -245,25 +245,10 @@ body.is-touch #game{cursor:auto}
 .lobby-top .prof-chip{min-width:0}
 /* Sân bay: để RỖNG có chủ ý — máy bay được vẽ trên canvas đúng ô này.
    ui-lobby-ship.js đọc offsetTop/offsetHeight của nó để biết vẽ vào đâu. */
-/* BỆ ĐỖ cho máy bay lobby (17/10/2026). Soát hướng nghệ thuật: lobby trống 45% chiều
- * cao, máy bay lơ lửng giữa khoảng không — không bệ, không bóng, không đèn — trong khi
- * thẻ GARA cho đúng con tàu đó đứng dưới chùm đèn có vũng sáng và đẹp hẳn.
- * Chép ngôn ngữ của GARA bằng CSS THUẦN, 0 asset mới, 0 request.
- * KHÔNG đổi `flex`/`min-height`: ui-lobby-ship.js đọc offsetTop/offsetHeight của ô này
- * để biết vẽ máy bay vào đâu — đổi chiều cao là máy bay dời chỗ (đã từng đè logo). */
+/* Ô sân bay: canvas tàu (ui-lobby-ship.js) phủ kín ô này và vẽ tàu ở CHÍNH GIỮA.
+ * Chùm đèn hình thang + vũng sáng "bệ đỗ" (17/10) ĐÃ BỎ 21/10/2026: trên nền nét chúng đọc
+ * ra một tấm nhựa xám, và bệ đỗ cãi nhau với bóng đổ xuống mặt đất — tàu đang BAY. */
 .lobby-stage{flex:1;min-height:46.2px;pointer-events:none;}
-.lobby-stage::before{content:'';position:absolute;left:50%;top:0;bottom:0;width:62%;
-  transform:translateX(-50%);
-  background:linear-gradient(180deg,rgba(130,200,255,0),rgba(130,200,255,.07) 55%,rgba(130,200,255,.14));
-  clip-path:polygon(34% 0,66% 0,100% 100%,0 100%);   /* chùm đèn hình thang rọi xuống */
-  mix-blend-mode:screen}
-/* Vũng sáng đặt NGAY DƯỚI máy bay, không phải dưới đáy ô: ui-lobby-ship.layout() vẽ tàu
- * ở CHÍNH GIỮA ô (offsetTop + offsetHeight/2), nên vũng phải nằm quanh 62% chiều cao ô
- * thì mới ra cảm giác tàu đứng trên bệ. Đặt ở đáy ô thì cách tàu cả trăm px, nhìn như
- * một vệt sáng vô duyên — lần đầu đã đặt sai đúng kiểu đó. */
-.lobby-stage::after{content:'';position:absolute;left:50%;top:60%;width:52%;height:11%;
-  transform:translateX(-50%);border-radius:var(--r-pill);
-  background:radial-gradient(50% 50% at 50% 50%,rgba(160,215,255,.42),rgba(120,190,255,.16) 58%,transparent 74%)}
 .lobby-deploy{display:flex;flex-direction:column;flex:none}
 .lobby-rail{display:flex;flex:none}
 
@@ -1384,8 +1369,12 @@ body .timer{font-size:14px}
   rgba(22,66,150,.32),rgba(0,20,66,.86) 55%,#01050e 100%)}
 /* SỐ MÀN đứng LÙI VỀ SAU: viền rỗng, không nền — vừa là thông tin vừa là một lớp không
    gian. Thay cả cụm "TIẾP THEO / MÀN 22 / huy hiệu lục giác" của bản cũ. */
+/* Cỡ theo `--uiw`/`--uih` chứ KHÔNG `vmin` (21/10/2026): vmin đo cửa sổ thật rồi còn bị
+   nhân uiScale — cửa sổ máy tính 567px ra số cao ~270px, tàu đè nửa dưới con số. Lấy chiều
+   nào chật hơn: máy ngang/cửa sổ thấp thì chiều cao quyết. */
 .lb-num{position:absolute;left:0;right:0;text-align:center;
-  font:700 clamp(96px,30vmin,168px)/.82 var(--font-display);letter-spacing:-.03em;
+  font:700 clamp(80px,min(calc(var(--uiw) * .32),calc(var(--uih) * .15)),150px)/.82 var(--font-display);
+  letter-spacing:-.03em;
   color:transparent;
   filter:drop-shadow(0 0 40px rgba(79,227,255,.35))}
 .lb-num span{display:block;font:600 12px/1 var(--font-display);letter-spacing:.6em;
@@ -1398,8 +1387,8 @@ body .timer{font-size:14px}
    BẪY: độ nghiêng phải nằm ở PHẦN TỬ. Để rotateX trong keyframe thì khung 0% không có
    transform, trình duyệt nội suy từ phẳng -> vòng thành đường tròn dẹt lúc chụp. */
 .lobby-stage{position:relative}
-.lb-orb,.lb-disc,.lb-beam{position:absolute;left:50%;pointer-events:none}
-.lb-orb{top:50%;width:min(336px,calc(var(--uiw) * .9));aspect-ratio:1;
+.lb-orb{position:absolute;left:50%;pointer-events:none;
+  top:56%;width:min(336px,calc(var(--uiw) * .9));aspect-ratio:1;
   transform:translate(-50%,-50%);transform-style:preserve-3d}
 .lb-orb .tilt,.lb-orb .tilt2{position:absolute;inset:0;transform-style:preserve-3d}
 .lb-orb .tilt{transform:rotateX(74deg)}
@@ -1415,23 +1404,11 @@ body .timer{font-size:14px}
   box-shadow:0 0 18px 5px rgba(79,227,255,.95)}
 .lb-orb .dot.d2::after{width:8px;height:8px;margin-left:-4px;opacity:.7;
   box-shadow:0 0 12px 3px rgba(79,227,255,.8)}
-/* bệ chiếu + cột sáng: TRONG SUỐT, vì chúng phủ lên tàu canvas (xem bẫy thứ hai) */
-.lb-disc{top:76%;width:min(360px,calc(var(--uiw) * .95));height:17%;
-  transform:translateX(-50%);border-radius:50%;
-  background:radial-gradient(50% 50% at 50% 50%,rgba(79,227,255,.3),rgba(40,140,230,.1) 52%,transparent 74%),
-    repeating-radial-gradient(50% 50% at 50% 50%,transparent 0 16px,rgba(79,227,255,.12) 16px 17px)}
-.lb-beam{top:34%;width:min(250px,calc(var(--uiw) * .66));height:46%;
-  transform:translateX(-50%);mix-blend-mode:screen;opacity:.5;
-  clip-path:polygon(28% 0,72% 0,100% 100%,0 100%);
-  background:linear-gradient(0deg,rgba(79,227,255,.3),transparent 78%)}
-
 @media (prefers-reduced-motion: no-preference){
   .lb-orb .dot{animation:lbSpin 11s linear infinite}
   .lb-orb .dot.d2{animation:lbSpin 17s linear infinite reverse}
-  .lb-disc{animation:lbDisc 3.8s ease-in-out infinite}
 }
 @keyframes lbSpin{to{transform:rotateZ(360deg)}}
-@keyframes lbDisc{50%{transform:translateX(-50%) scale(1.05);opacity:.82}}
 
 /* ---------- DỌN LỚP CŨ CHO CẢNH THỞ (17/10/2026) ----------
  * Số đo trước khi dọn: 43 từ · 13 khối · 11 mặt nền có viền · chrome 55,7% màn, tàu 4,3%.
@@ -3029,20 +3006,23 @@ body .prof-ava .ava-emo{font-size:23px}
   --lb-key:#ffffff; --lb-key-a:.14; --lb-lum:1;
   --lb-ac:#4fe3ff; --lb-ac-d:rgba(79,227,255,.46); --lb-ac-f:rgba(79,227,255,.16)}
 
-/* --- MẶT ĐẤT: vòng lặp dọc liền mạch, trôi xuống như lúc đang bay ---
- * Mẹo ăn sẵn: `make-bg-loops.mjs` đã crossfade đầu-cuối cho màn chơi, nên `repeat-y` của
- * CSS khít luôn, không phải làm gì thêm.
- * Phần tử cao 300% và mỗi ô nền cao 33,334% ⇒ một ô = đúng 100% chiều cao sảnh, nên
- * `translateY(-33.334%)` dịch TRÒN một ô. Chạy bằng transform chứ KHÔNG bằng
- * background-position: transform được hợp thành ở GPU, còn dịch nền thì vẽ lại cả lớp đã
- * blur mỗi khung — trên máy yếu là sảnh giật. */
-#scrMenu .lb-far{inset:auto;left:-6%;right:-6%;top:-6%;height:300%;
+/* --- MẶT ĐẤT: vòng lặp dọc liền mạch, trôi XUỐNG như lúc đang bay ---
+ * Mẹo ăn sẵn: ảnh nền đã crossfade đầu-cuối, nên `repeat-y` của CSS khít luôn.
+ * ĐÚNG TỈ LỆ (21/10/2026). Bản cũ cho mỗi ô nền = 112% bề ngang × 100% chiều cao sảnh,
+ * tức ảnh 720×864 (0,833) bị ép vào khung ~0,52 ⇒ MÉO DỌC ~1,6×, rồi còn phóng 2,8× ở
+ * điện thoại DPR 3 + blur — đó là "bg mờ" anh Đức chụp. Nay phần tử cao đúng 4 ô theo tỉ
+ * lệ ảnh: 1,12 × uiw × 4916/1024 = 5,377 × uiw (viết thẳng, KHÔNG `aspect-ratio`: Safari < 15
+ * không có, `height:auto` không nội dung là 0px = mất nền), mỗi ô 25%; `translateY(-25%)` tròn một ô.
+ * 4 ô chứ không 3: máy rất hẹp và cao (320×900) thì 3 ô hụt đáy ở cuối vòng.
+ * Ảnh nền màn chơi và ảnh sảnh (art-lobby) CÙNG tỉ lệ 1024:1229, nên cùng hình học này.
+ * Trôi bằng transform chứ KHÔNG bằng background-position: transform hợp thành ở GPU. */
+#scrMenu .lb-far{inset:auto;left:-6%;right:-6%;top:0;height:calc(var(--uiw) * 5.377);
   background-image:var(--lb-img);background-repeat:repeat-y;
-  background-position:center top;background-size:100% 33.334%;
-  /* Kéo lại phần `make-bg-loops` đã cố tình bỏ đi: nó hạ tương phản .72 + bão hoà .78 để
-     quái nổi trên nền LÚC ĐÁNH NHAU. Ở sảnh không có quái nào phải nổi, nên trả lại —
-     đây mới là chỗ khác nhau thật giữa "ảnh nền" và "bức tranh". */
-  filter:brightness(var(--lb-lum)) saturate(1.22) contrast(1.12) blur(.7px)}
+  background-position:center top;background-size:100% 25%;
+  /* Đang đứng tạm bằng nền MÀN CHƠI (đã lùi nền cho quái nổi) thì kéo màu lại; bản sảnh
+     (.hd, ảnh nguồn) thì không cần — kéo thêm là cháy màu. */
+  filter:brightness(var(--lb-lum)) saturate(1.22) contrast(1.12)}
+#scrMenu .lb-far.hd{filter:brightness(var(--lb-lum))}
 
 /* --- MÂY: hai tầng, tầng gần to hơn + nhanh hơn + nhoè hơn (xa gần bằng tiêu cự) ---
  * Nằm DƯỚI tàu, không phải tiền cảnh thật. Muốn phủ lên tàu thì phải ra ngoài `.lb-scene`,
@@ -3083,13 +3063,6 @@ body .prof-ava .ava-emo{font-size:23px}
 #scrMenu .lb-orb .tilt2 > i{border-color:var(--lb-ac-f)}
 #scrMenu .lb-orb .dot::after{background:var(--lb-ac);box-shadow:0 0 18px 5px var(--lb-ac-d)}
 #scrMenu .lb-orb .dot.d2::after{box-shadow:0 0 12px 3px var(--lb-ac-d)}
-#scrMenu .lb-disc{background:
-  radial-gradient(50% 50% at 50% 50%,var(--lb-ac-d),var(--lb-ac-f) 52%,transparent 74%),
-  repeating-radial-gradient(50% 50% at 50% 50%,transparent 0 16px,var(--lb-ac-f) 16px 17px)}
-/* Cột sáng + bệ lấy bản MỜ chứ không bản đậm: nền cũ là navy phẳng nên một vệt sáng đè
-   lên chẳng mất gì, còn nền giờ là bức tranh — ở Đồng quê (`cloud` = trắng) cột sáng .46
-   phủ screen làm bay màu hẳn nửa dưới khung hình. */
-#scrMenu .lb-beam{background:linear-gradient(0deg,var(--lb-ac-f),transparent 78%);opacity:.4}
 
 /* ============ MÀN TỔNG KẾT KHÔNG BAO GIỜ TRÀN KHỎI CỬA SỔ (18/10/2026) ============
  * Anh Đức: *"popup tổng kết rất nhỏ và dài, trên pc 22 inch nó còn tràn ra ngoài màn hình
@@ -3186,6 +3159,17 @@ body .prof-ava .ava-emo{font-size:23px}
  * nhạt .46 trên tán lá xanh gần như mất hẳn. */
 #scrMenu .lb-num{color:rgba(4,12,26,.38);-webkit-text-stroke:1.8px var(--lb-ac);
   filter:drop-shadow(0 0 3px rgba(0,0,0,.85)) drop-shadow(0 2px 12px rgba(0,0,0,.5))}
+/* --- SỐ MÀN thành CHỮ KIM LOẠI (21/10/2026) ---
+ * Ruột tối mờ + viền sắc vùng ở trên đọc ra một cái KHUNG RỖNG to nhất màn hình — trên nền
+ * nét thì nó là mảng xám chết giữa bức tranh. Nay ruột là dải kim loại: trắng ở đỉnh, ngả
+ * sắc vùng (`--lb-ac`) ở giữa, chìm tối ở đáy, kèm một vệt sáng lướt qua mỗi ~5s. Đáy chìm
+ * cố ý: tàu bay NGAY TRƯỚC nửa dưới con số, số đậm ở đó là giành chỗ nhân vật chính.
+ * Lớp 1 là vệt sáng (rộng 250%, dời bằng background-position), lớp 2 là dải kim loại. */
+#scrMenu .lb-num b{display:block;color:transparent;-webkit-text-stroke:1.2px rgba(255,255,255,.42);
+  background-image:linear-gradient(105deg,transparent 42%,rgba(255,255,255,.9) 50%,transparent 58%),
+    linear-gradient(180deg,rgba(255,255,255,.96) 4%,var(--lb-ac) 48%,rgba(6,14,30,.5) 100%);
+  background-size:250% 100%,100% 100%;background-repeat:no-repeat;
+  background-position:160% 0,0 0;-webkit-background-clip:text;background-clip:text}
 #scrMenu .lb-num span{color:var(--lb-ac);text-shadow:0 1px 4px rgba(0,0,0,.7)}
 #scrMenu .lb-num::after{background:linear-gradient(90deg,transparent,var(--lb-ac-d),transparent)}
 
@@ -3196,5 +3180,22 @@ body .prof-ava .ava-emo{font-size:23px}
   #scrMenu .lb-cl1{animation:lbCloud 41s linear infinite}
   #scrMenu .lb-cl2{animation:lbCloud 26s linear infinite -9s}
 }
-@keyframes lbGround{to{transform:translateY(-33.334%)}}
+/* Từ -25% về 0 = mặt đất trôi XUỐNG. Bản cũ chạy 0 → -33% tức trôi LÊN: tàu mũi hướng lên
+   mà mặt đất chạy theo nó, đọc ra đang bay lùi. */
+@keyframes lbGround{from{transform:translateY(-25%)}to{transform:translateY(0)}}
+
+/* VỪA MỞ SẢNH (`#scrMenu.lb-in`, ui-lobby-ship._enter gắn ~1,6s): tàu bay từ dưới lên trên
+ * canvas, số màn rơi vào chỗ, nút XUẤT KÍCH trồi lên sau cùng — mắt đi đúng thứ tự tàu → màn
+ * → nút. Chỉ opacity + transform: `filter` của số màn là danh sách drop-shadow, đưa vào
+ * keyframe là trình duyệt nội suy rời rạc (nhảy cóc). */
+@media (prefers-reduced-motion: no-preference){
+  #scrMenu.lb-in .lb-num{animation:lbNumIn .8s .12s cubic-bezier(.2,.9,.25,1.12) both}
+  #scrMenu.lb-in .lobby-deploy{animation:lbRise .45s .25s cubic-bezier(.2,.9,.3,1.25) both}
+  #scrMenu.lb-in .lobby-ship-cv{animation:lbFade .3s ease-out both}
+  #scrMenu .lb-num b{animation:lbNumShine 5.2s ease-in-out 1.4s infinite}
+}
+@keyframes lbNumIn{from{opacity:0;transform:translateY(-18px) scale(1.14)}}
+@keyframes lbRise{from{opacity:0;transform:translateY(22px)}}
+@keyframes lbFade{from{opacity:0}}
+@keyframes lbNumShine{0%,64%{background-position:160% 0,0 0}100%{background-position:-60% 0,0 0}}
 @keyframes lbCloud{from{transform:translateY(-120%)}to{transform:translateY(270%)}}

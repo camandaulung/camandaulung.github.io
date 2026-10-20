@@ -2066,6 +2066,7 @@ SC.View = {
     // Bề ngang lớp UI, cho CSS dùng THAY CHO vw. `vw` đo cửa sổ thật nên trên máy tính
     // (uiScale > 1) nó vừa lớn hơn khung sân khấu vừa bị nhân thêm lần nữa.
     this.ui.style.setProperty('--uiw', this.uiW + 'px');
+    this.ui.style.setProperty('--uih', uiH + 'px');     // cùng lý do, cho chiều dọc (số màn sảnh)
     this._syncSafe();
 
     if (this.onResize) this.onResize();
@@ -3126,6 +3127,61 @@ SC.draw = {
 };
 
 ;
+/* ===== js/util-image-upscale-sharpen.js ===== */
+/* util-image-upscale-sharpen.js — phóng một ảnh NHỎ lên cỡ cần vẽ, có làm nét (21/10/2026)
+ *
+ * VÌ SAO CÓ: tàu AI trong gara chỉ được cất bản 256px (localStorage trần 5MB), mà tàu sảnh ở
+ * điện thoại DPR 3 vẽ ~480px thiết bị. Kéo giãn trơn ×1,9 ra một con tàu nhoè; ảnh gốc 1024px
+ * thì đã mất từ lúc cất gara nên không có đường lấy lại chi tiết. Việc làm được là phóng một
+ * lần bằng làm mịn "high" rồi UNSHARP MASK nhẹ — mép và nét viền đọc rõ lại như ảnh vẽ đúng cỡ.
+ * Tàu cất từ hôm nay có bản 512px ở IndexedDB (system-evo-ship-hd-store.js) nên ít khi tới đây.
+ *
+ * Làm MỘT LẦN cho mỗi (ảnh, cỡ) rồi nhớ trên chính object ảnh — ShipArt cũng nướng sprite một
+ * lần, nên tốn ~5ms lúc dựng chứ không tốn gì mỗi khung.
+ */
+SC.ImgSharp = {
+  /* Ảnh đã đủ to (≥ 90% cỡ cần) thì trả nguyên: thu nhỏ không cần làm nét, và làm nét ảnh
+     đã nét là ra viền răng cưa. */
+  fit(img, px) {
+    const w = img.naturalWidth || img.width;
+    px = Math.round(px);
+    if (!w || w >= px * 0.9 || px > 2048) return img;
+    if (img._sharpPx !== px) { img._sharp = this._up(img, px, px / w); img._sharpPx = px; }
+    return img._sharp;
+  },
+
+  _up(img, px, f) {
+    const c = document.createElement('canvas');
+    c.width = c.height = px;
+    const g = c.getContext('2d');
+    g.imageSmoothingQuality = 'high';
+    g.drawImage(img, 0, 0, px, px);
+    try {
+      // bản mờ cùng cỡ: bán kính theo hệ số phóng, vì nhoè sinh ra tỉ lệ với nó
+      const b = document.createElement('canvas');
+      b.width = b.height = px;
+      const bg = b.getContext('2d');
+      bg.filter = 'blur(' + Math.max(0.6, f * 0.55).toFixed(2) + 'px)';
+      bg.drawImage(c, 0, 0);
+      const id = g.getImageData(0, 0, px, px), d = id.data;
+      const bd = bg.getImageData(0, 0, px, px).data;
+      // trình duyệt không có ctx.filter (Safari cũ) thì bd y hệt d, hiệu số 0 — vô hại
+      const amt = 0.85;
+      for (let i = 0; i < d.length; i += 4) {
+        if (d[i + 3] < 8) continue;               // điểm trong suốt: làm nét là đẻ quầng
+        for (let j = 0; j < 3; j++) {
+          const v = d[i + j] + (d[i + j] - bd[i + j]) * amt;
+          d[i + j] = v < 0 ? 0 : v > 255 ? 255 : v;
+        }
+      }
+      g.putImageData(id, 0, 0);
+      b.width = b.height = 0;                     // iOS tính trần bộ nhớ canvas theo tổng — trả ngay
+    } catch (e) { /* canvas tainted: giữ bản phóng trơn, vẫn hơn kéo giãn lúc vẽ */ }
+    return c;
+  }
+};
+
+;
 /* ===== js/system-sprite-art.js ===== */
 /* system-sprite-art.js — nạp sprite AI (assets/art-game/*.webp) cho các lớp vẽ
  *
@@ -3154,7 +3210,9 @@ SC.SpriteArt = {
       'neonRooster', 'scrapDragon', 'stormEye', 'voidEgg'],
     elite: ['scarecrow', 'scorpion', 'iceBear', 'wasp', 'golem', 'shark',
       'droneEye', 'crusher', 'thunderbird', 'voidPrism'],
-    ship: ['player'],
+    /* `player-hd` (640px, 21/10/2026) chỉ sảnh dùng: tàu sảnh to gấp ~3 tàu trong trận.
+       Ô này luôn giữ BẢN NÉT NHẤT của tàu đang bay — lên tàu AI thì EvoAI thay cả nó. */
+    ship: ['player', 'player-hd'],
     drone: ['swarm', 'sniper'],
     /* Chỉ đạn của QUÁI. Đạn người chơi giữ thủ tục: màu đạn là tín hiệu nhánh
      * vũ khí, đổi động theo mod — sprite tĩnh làm mất tín hiệu đó. */
@@ -10209,8 +10267,8 @@ SC.ShipArt = {
     ].join('|');
   },
 
-  draw(ctx, r, tilt) {
-    const s = this.sprite(r, SC.Tree.evo());
+  draw(ctx, r, tilt, hd) {
+    const s = this.sprite(r, SC.Tree.evo(), hd);
     const size = r * this.PAD * 2;
     ctx.save();
     ctx.rotate(tilt * 0.32);
@@ -10221,9 +10279,10 @@ SC.ShipArt = {
   /* Sprite theo mức tiến hoá CHỈ ĐỊNH — màn tiến hoá cần vẽ được cả dạng cũ lẫn dạng
      mới cạnh nhau, mà dạng cũ thì trạng thái cây đã không còn mô tả nữa.
      Kho nhớ theo khoá nên hai dạng cùng tồn tại, không đá nhau. */
-  sprite(r, evo) {
-    const k = this.sig(r, evo);
-    if (!this._cache[k]) this._cache[k] = this._build(r, evo);
+  sprite(r, evo, hd) {
+    const k = this.sig(r, evo) + (hd ? '|hd' : '');
+    if (!this._cache[k] && hd) for (const o in this._cache) if (o.endsWith('|hd')) delete this._cache[o];
+    if (!this._cache[k]) this._cache[k] = this._build(r, evo, hd);
     return this._cache[k];
   },
 
@@ -10241,12 +10300,17 @@ SC.ShipArt = {
   },
 
   /* ---------- dựng sprite ---------- */
-  _build(r, evoArg) {
-    const dpr = Math.min(3, (window.devicePixelRatio || 1) * 2);
+  /* `hd` = sảnh (21/10/2026): `r` ĐÃ là px thiết bị. Nhân DPR lần nữa là nướng 3× rồi thu 3× bằng
+     làm mịn "low" (= "máy bay vỡ pixel" ở banga). Vẽ theo bán kính TRONG TRẬN rồi phóng đúng 1:1. */
+  _build(r, evoArg, hd) {
+    const R0 = SC.CFG.playerRadius || 18;
+    const dpr = hd ? r / R0 : Math.min(3, (window.devicePixelRatio || 1) * 2);
+    if (hd) r = R0;
     const size = r * this.PAD * 2;
     const c = document.createElement('canvas');
     c.width = c.height = Math.ceil(size * dpr);
     const g = c.getContext('2d');
+    g.imageSmoothingQuality = 'high';
     g.scale(dpr, dpr);
     g.translate(size / 2, size / 2);
 
@@ -10259,13 +10323,14 @@ SC.ShipArt = {
     // Sprite AI thay cánh + thân; hào quang GIỮ vẽ thủ tục vì nó là tín hiệu
     // đọc nhánh khiên/tiến hoá. Nhuộm màu biến thể lên sprite để variant vẫn
     // phân biệt được (sprite tĩnh chỉ có một bản màu gốc).
-    const img = SC.SpriteArt && SC.SpriteArt.get('ship', 'player');
+    const img = SC.SpriteArt && ((hd && SC.SpriteArt.get('ship', 'player-hd')) || SC.SpriteArt.get('ship', 'player'));
     if (img) {
       // 2.3 -> 2.8 (21/09/2026): trên điện thoại tàu bé quá nhìn không ra asset.
       // Chỉ phóng HÌNH — hitbox vẫn theo r, buffer PAD 2.6 (đường kính 5.2r) dư chỗ.
       // × ArtScale.ship (10/10/2026): 2.8 × 1.6 = 4.48r vẫn nằm trong buffer PAD 2.6 (5.2r)
       const s = r * 2.8 * SC.ArtScale.ship;
-      g.drawImage(img, -s / 2, -s / 2, s, s);
+      // tàu AI cũ chỉ còn bản 256px: phóng có làm nét thay vì kéo giãn trơn (util-image-upscale)
+      g.drawImage(hd && SC.ImgSharp ? SC.ImgSharp.fit(img, s * dpr) : img, -s / 2, -s / 2, s, s);
       g.globalCompositeOperation = 'source-atop';
       g.globalAlpha = 0.2;
       g.fillStyle = hue;
@@ -10307,8 +10372,18 @@ SC.ShipArt = {
       g.beginPath(); g.ellipse(0, -r * 0.3, r * 0.26, r * 0.46, 0, 0, 6.283); g.fill();
     }
     return c;
-  },
+  }
+};
 
+;
+/* ===== js/entity-ship-art-hand-drawn.js ===== */
+/* entity-ship-art-hand-drawn.js — tàu VẼ TAY bằng canvas: hào quang theo KHIÊN, cánh theo VŨ KHÍ,
+ * thân theo GIÁP. Tách khỏi entity-ship-art.js (21/10/2026, file chạm trần 200 dòng) — y nguyên.
+ *
+ * Vẫn sống vì hai lẽ: hào quang thủ tục là tín hiệu đọc nhánh khiên/tiến hoá vẽ đè lên sprite AI,
+ * và cánh + thân là lưới an toàn khi ảnh tàu không tải được. Nạp SAU entity-ship-art.js.
+ */
+Object.assign(SC.ShipArt, {
   /* Hào quang theo KHIÊN — chỉ hiện từ tiến hoá 1, là dấu hiệu đọc được từ xa */
   _aura(g, r, hue, evo) {
     // Đã thành biến thể thì hào quang là VFX ĐỘNG vẽ mỗi khung (system-aura-vfx.js,
@@ -10390,7 +10465,7 @@ SC.ShipArt = {
     g.fillStyle = hue;
     g.fillRect(-r * 0.42, h * 0.2, r * 0.84, evo >= 2 ? 5 : 3);
   }
-};
+});
 
 ;
 /* ===== js/system-aura-vfx.js ===== */
@@ -12524,6 +12599,22 @@ SC.LobbyScene = {
     return 'rgba(' + (n >> 16 & 255) + ',' + (n >> 8 & 255) + ',' + (n & 255) + ',' + a + ')';
   },
 
+  /* NỀN NÉT RIÊNG CỦA SẢNH (21/10/2026). `bg-<vùng>` là nền MÀN CHƠI: 720px, đã bị lùi nền
+     (tương phản .72, bão hoà .78, blur .7) cho quái nổi — sảnh phóng nó 2,8× lên điện thoại
+     nên anh Đức thấy "bg mờ". `art-lobby/lobby-<vùng>` là ảnh NGUỒN 1024px giữ nguyên màu
+     (tools/make-lobby-hd-art.mjs), cùng khung cắt nên thay vào không giật. Không precache:
+     tải xong mới thay, chưa về (mạng chậm, offline lần đầu) thì nền màn chơi đứng tạm. */
+  _hd(id, far) {
+    const src = 'assets/art-lobby/lobby-' + id + '.webp';
+    const im = new Image();
+    im.onload = () => {
+      if (this._id !== id) return;             // người chơi đã sang vùng khác trong lúc tải
+      far.style.backgroundImage = 'url(' + src + ')';
+      far.classList.add('hd');
+    };
+    im.src = src;
+  },
+
   /* Đổ bảng màu của `biome` vào các biến CSS của `.lb-scene`. CSS tự lo phần còn lại —
      không có `if (biome.id === …)` ở đây, thêm vùng thứ 11 là chạy ngay. */
   paint(biome) {
@@ -12556,7 +12647,7 @@ SC.LobbyScene = {
     const sl = 'url(assets/art-game/bg-' + biome.id + '.webp)';
     const cl = 'url(assets/art-game/decor-' + biome.id + '-cloud.webp)';
     const far = document.getElementById('lbFar');
-    if (far) far.style.backgroundImage = sl;
+    if (far) { far.style.backgroundImage = sl; far.classList.remove('hd'); this._hd(biome.id, far); }
     sc.querySelectorAll('.lb-cl1,.lb-cl2').forEach(e => { e.style.backgroundImage = cl; });
 
     /* Sương xa (aerial perspective): mép màn ngả về màu TRỜI của vùng, tâm để trong.
@@ -12568,7 +12659,9 @@ SC.LobbyScene = {
        NHẤT tách được tàu khỏi nền, nên để đậm hơn một bậc (cùng lý do với
        `system-shadow.under`: tô đen lên nền đen thì không có tương phản nào). */
     s.setProperty('--lb-key', biome.cloud || '#cfefff');
-    s.setProperty('--lb-key-a', (0.14 + st * 0.12).toFixed(3));
+    /* Vùng SÁNG không cần đèn (21/10/2026): nền sảnh giờ là ảnh nguồn nét, ở Băng giá vũng
+       trắng .17 phủ screen sau lưng tàu làm tàu kem-trắng cháy sáng, chìm vào tuyết. */
+    s.setProperty('--lb-key-a', (st * 0.26).toFixed(3));
 
     /* Quỹ đạo / bệ chiếu / cột sáng: vẫn là ánh sáng kỹ thuật nhưng NGẢ theo vùng, nếu
        không thì 10 vùng vẫn chung một sắc lơ. Giữ độ sáng cao để còn ra chất "đèn". */
@@ -16266,7 +16359,9 @@ SC.EvoAI = {
      Drone (nếu có) thay CẢ hai kind swarm/sniper — DroneArt đọc thẳng mỗi khung,
      không có buffer nên khỏi xoá cache gì thêm. */
   _apply(shipUrl, droneUrl) {
+    const tok = this._tok = (this._tok || 0) + 1;
     this._outlined(shipUrl, img => {
+      if (tok !== this._tok) return;             // đã đổi tàu khác trong lúc chờ viền
       // KHÔNG nhận ảnh rỗng (18/10/2026): gán một Image hỏng vào đây là `get()` trả null
       // và tàu biến mất — thà giữ tàu gốc còn hơn mất nhân vật chính.
       if (!img || (img.complete && !img.naturalWidth)) {
@@ -16274,9 +16369,12 @@ SC.EvoAI = {
         return;
       }
       SC.SpriteArt._imgs['ship-player'] = img;
+      // sảnh dùng tạm bản này tới khi bản nét về (EvoHD.wear) — không thì sảnh hiện TÀU GỐC
+      if (this._hdTok !== tok) SC.SpriteArt._imgs['ship-player-hd'] = img;
       if (SC.ShipArt) SC.ShipArt._cache = {};
     });
     if (droneUrl) this._outlined(droneUrl, di => {
+      if (tok !== this._tok) return;
       SC.SpriteArt._imgs['drone-swarm'] = di;
       SC.SpriteArt._imgs['drone-sniper'] = di;
     });
@@ -16313,6 +16411,7 @@ SC.EvoAI = {
         out.onload = () => done(out);
         out.onerror = () => done(src);
         out.src = c.toDataURL('image/png');
+        sil.width = c.width = 0;                  // trả bộ nhớ canvas (iOS có trần tổng)
       } catch (e) { done(src); }
     };
     src.src = url;
@@ -16353,8 +16452,10 @@ SC.EvoAI = {
       if (ok(im)) SC.SpriteArt._imgs[key] = im;
       else SC.SpriteArt.reload(key.split('-')[0], key.split('-').slice(1).join('-'));
     };
+    this._tok = (this._tok || 0) + 1;            // ảnh AI đang viền dở về sau thì bỏ
     const o = this._orig || {};
     dat('ship-player', o.ship);
+    dat('ship-player-hd', o.hd);
     dat('drone-swarm', o.swarm);
     dat('drone-sniper', o.sniper);
     if (SC.ShipArt) SC.ShipArt._cache = {};
@@ -16374,6 +16475,7 @@ SC.EvoAI = {
   init() {
     this._orig = {
       ship: SC.SpriteArt._imgs['ship-player'],
+      hd: SC.SpriteArt._imgs['ship-player-hd'],
       swarm: SC.SpriteArt._imgs['drone-swarm'],
       sniper: SC.SpriteArt._imgs['drone-sniper']
     };
@@ -16748,6 +16850,105 @@ SC.EvoShard = {
 SC.ITEM_DEF.push({ k: 'evoShard', w: 0, c: '#c58cff', ic: '🧬' });
 
 ;
+/* ===== js/system-evo-ship-hd-store.js ===== */
+/* system-evo-ship-hd-store.js — bản NÉT 512px của từng tàu AI, cất ở IndexedDB (21/10/2026)
+ *
+ * VÌ SAO CÓ: gara cất ảnh tàu ở localStorage (trần ~5MB cả trang) nên phải nén về 256px —
+ * đủ cho tàu trong trận, nhưng tàu ở SẢNH vẽ to gấp ~3 lần và anh Đức chụp banga thấy "máy
+ * bay vỡ pixel" đúng ở đó. IndexedDB không chung trần với localStorage, nên bản 512px
+ * (~60-120KB/tàu) nằm đây, còn sổ gara giữ nguyên như cũ.
+ *
+ * Kho này là PHẦN THÊM, không phải nguồn sự thật: thiếu (tàu cất trước hôm nay, máy chặn
+ * IndexedDB, đổi máy) thì sảnh dùng bản 256px. Mọi lỗi đều nuốt và trả null — mất ảnh nét
+ * không được phép làm mất tàu.
+ *
+ * BẪY (soát review 21/10): `EvoRecover.attach` CHỜ `put` trong Promise.all. IndexedDB có ca
+ * `open` không bao giờ trả lời (Safari 14 lần mở đầu) — không có trần giờ thì việc cất tàu treo
+ * theo: mất ảnh 256px, mất lượt đúc lại. Nên MỌI lời gọi ra ngoài đều chạy đua với `WAIT`.
+ * Khoá = id HỒ SƠ + id tàu: tàu dựng lại từ lịch sử có id băm theo tổ hợp, hai hồ sơ cùng tổ
+ * hợp là cùng id — khoá trần thì hồ sơ này đúc lại là đè ảnh sảnh của hồ sơ kia.
+ */
+SC.EvoHD = {
+  SIZE: 512,
+  WAIT: 3000,
+  _db: null,
+
+  _key(id) { const p = SC.Profiles && SC.Profiles.cur(); return (p ? p.id : 0) + ':' + id; },
+  _cap(p, v) { return Promise.race([p, new Promise(r => setTimeout(r, this.WAIT, v))]); },
+
+  _open() {
+    if (this._db) return this._db;
+    this._db = new Promise((ok, fail) => {
+      if (!window.indexedDB) return fail(new Error('no idb'));
+      const rq = indexedDB.open('sc-evo-hd', 1);
+      rq.onupgradeneeded = () => rq.result.createObjectStore('ships');
+      rq.onsuccess = () => {
+        const db = rq.result;
+        // Safari đóng kết nối ngầm ("server lost") thì mở lại ở lần sau, không kẹt cả phiên
+        db.onclose = db.onversionchange = () => { this._db = null; try { db.close(); } catch (e) {} };
+        ok(db);
+      };
+      rq.onerror = () => fail(rq.error);
+      rq.onblocked = () => fail(new Error('idb blocked'));
+      setTimeout(() => fail(new Error('idb open timeout')), this.WAIT);
+    });
+    this._db.catch(() => { this._db = null; });   // lần sau thử lại, không kẹt lỗi cả phiên
+    return this._db;
+  },
+
+  _tx(mode, fn) {
+    return this._open().then(db => new Promise((ok, fail) => {
+      let t;
+      try { t = db.transaction('ships', mode); } catch (e) { this._db = null; return fail(e); }
+      const rq = fn(t.objectStore('ships'));
+      t.oncomplete = () => ok(rq && rq.result);
+      t.onerror = t.onabort = () => fail(t.error);
+    }));
+  },
+
+  /* `url` là ảnh GỐC (1024px) — nén ở đây để chỗ gọi khỏi phải biết cỡ */
+  put(id, url) {
+    if (!id || !url) return Promise.resolve(null);
+    const k = this._key(id);
+    return this._cap(SC.EvoGarage.compress(url, this.SIZE)
+      .then(small => this._tx('readwrite', s => s.put(small, k)).then(() => small))
+      .catch(() => null), null);
+  },
+
+  get(id) {
+    if (!id) return Promise.resolve(null);
+    return this._cap(this._tx('readonly', s => s.get(this._key(id))).then(v => v || null).catch(() => null), null);
+  },
+
+  del(id) {
+    if (!id) return Promise.resolve();
+    return this._cap(this._tx('readwrite', s => s.delete(this._key(id))).catch(() => {}));
+  },
+
+  /* Xoá hồ sơ (system-profile-cleanup.purge) = xoá mọi ảnh nét của hồ sơ đó */
+  delProfile(pid) {
+    const lo = pid + ':';
+    return this._cap(this._tx('readwrite', s => s.delete(IDBKeyRange.bound(lo, lo + '￿'))).catch(() => {}));
+  },
+
+  /* Lên bản nét cho ô của SẢNH (`ship-player-hd`), viền tối như bản 256px. Về sớm hay muộn
+     hơn bản 256px đều đúng: `EvoAI._hdTok` cấm bản 256 đè lại, `EvoAI._tok` (tăng mỗi lần
+     đổi tàu / về tàu gốc) cấm ảnh của tàu cũ đè lên tàu vừa đổi — nên `tok` phải chụp lúc
+     GỬI yêu cầu đọc kho, không phải lúc nhận. */
+  wear(url, tok) {
+    const A = SC.EvoAI;
+    if (tok == null) tok = A._tok;
+    if (!url) return;
+    A._outlined(url, img => {
+      if (tok !== A._tok || !img || !img.naturalWidth) return;
+      SC.SpriteArt._imgs['ship-player-hd'] = img;
+      A._hdTok = tok;
+      if (SC.ShipArt) SC.ShipArt._cache = {};
+    });
+  }
+};
+
+;
 /* ===== js/system-evo-garage.js ===== */
 /* system-evo-garage.js — GARA chiến đấu cơ tiến hóa + thuộc tính ẩn (22/09/2026)
  *
@@ -16880,7 +17081,11 @@ SC.EvoGarage = {
     SC.EvoRecover.migrate().catch(() => {}).then(() => {
       const e = SC.UI.progress.evo;
       const im = e && e.equip ? this.imageOf(e.equip) : null;
-      if (im) SC.EvoAI._apply(im.ship, im.drone || '');
+      if (im) {
+        SC.EvoAI._apply(im.ship, im.drone || '');
+        const tok = SC.EvoAI._tok, id = e.equip;    // sảnh: bản 512px nếu tàu có (EvoHD)
+        SC.EvoHD.get(id).then(hd => SC.EvoHD.wear(hd, tok));
+      }
       else SC.EvoAI.restoreDefault();
       if (SC.GarageUI && SC.UI.el.garage && !SC.UI.el.garage.classList.contains('hidden'))
         SC.GarageUI.build();
@@ -17021,12 +17226,14 @@ SC.EvoRecover = {
     SC.Cloud.markDirty();
   },
 
-  /* Cất ảnh cho một tàu: bản 256px vào gara máy này + bản thu nhỏ vào sổ (theo mây) */
+  /* Cất ảnh cho một tàu: bản 256px vào gara máy này + bản thu nhỏ vào sổ (theo mây) + bản
+     512px cho sảnh vào IndexedDB (EvoHD — lỗi thì thôi, không chặn việc cất) */
   async attach(o, ship, drone) {
     const [big, dr, th] = await Promise.all([
       SC.EvoGarage.compress(ship, 256),
       drone ? SC.EvoGarage.compress(drone, 128) : '',
-      SC.EvoGarage.compress(ship, this.THUMB)
+      SC.EvoGarage.compress(ship, this.THUMB),
+      SC.EvoHD.put(o.id, ship)
     ]);
     const list = SC.EvoGarage.images().filter(x => x.id !== o.id);
     list.push({ id: o.id, ship: big, drone: dr });
@@ -17107,6 +17314,7 @@ SC.EvoSell = {
       e.sold.push(this.key(o));
     }
     SC.EvoGarage._saveImages(SC.EvoGarage.images().filter(x => x.id !== id));
+    SC.EvoHD.del(id);
 
     SC.UI.progress.coin = (SC.UI.progress.coin || 0) + this.GOLD;
     const kw = SC.EvoAI._rollKw(e);
@@ -18343,6 +18551,204 @@ SC.EvoStarter = {
 };
 
 ;
+/* ===== js/ui-lobby-ship-fx.js ===== */
+/* ui-lobby-ship-fx.js — những thứ làm con tàu ở sảnh trông như ĐANG BAY (21/10/2026)
+ *
+ * VÌ SAO CÓ: anh Đức chụp banga — "lobby vừa vỡ vừa mờ, nhìn đã ko muốn chơi; user phải wow
+ * và muốn chơi ngay". Sửa nét xong thì con tàu vẫn là một tấm ảnh đứng im giữa bức tranh.
+ * Bốn tín hiệu chuyển động, cái nào cũng rẻ (ảnh nướng một lần, mỗi khung chỉ drawImage):
+ *   - BÓNG ĐỔ xuống mặt đất, lệch xuống-phải: mắt đọc ra ngay "tàu đang ở trên cao";
+ *   - VỆT GIÓ trôi xuống: mặt đất cuộn 54s/vòng thì chậm quá, không ai thấy là đang bay tới;
+ *   - HẠT THEO VÙNG lấy đúng bảng `SC.Weather.KIND` của màn chơi (than hồng, tuyết, mưa...);
+ *   - TIA SÁNG LƯỚT THÂN tàu mỗi ~4s — kiểu "khoe nhân vật" của màn chọn tướng.
+ * Toạ độ đều là px THIẾT BỊ của canvas sảnh; số của Weather tính theo bề ngang ảo 540 nên
+ * nhân `W / SC.W`.
+ */
+SC.LobbyFX = {
+  _sp: {},                 // ảnh nướng sẵn theo màu: chấm sáng, vệt dọc
+  _ps: [], _ws: [], _key: '',
+
+  /* Chấm sáng mềm + vệt dọc thuôn hai đầu, nướng MỘT lần mỗi màu. Gradient dựng mỗi khung
+     cho từng hạt là đúng cái đã tốn 1 ms/khung ở đạn trong trận. */
+  _sprite(kind, col) {
+    const k = kind + col;
+    if (this._sp[k]) return this._sp[k];
+    const c = document.createElement('canvas'), g = c.getContext('2d');
+    if (kind === 'dot') {
+      c.width = c.height = 32;
+      const gr = g.createRadialGradient(16, 16, 0, 16, 16, 16);
+      gr.addColorStop(0, '#fff'); gr.addColorStop(0.25, col); gr.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = gr; g.fillRect(0, 0, 32, 32);
+    } else {
+      c.width = 4; c.height = 64;
+      const gr = g.createLinearGradient(0, 0, 0, 64);
+      gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(0.7, col); gr.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = gr; g.fillRect(0, 0, 4, 64);
+    }
+    return (this._sp[k] = c);
+  },
+
+  /* Gieo lại khi đổi vùng hoặc đổi cỡ canvas — rải sẵn khắp khung để mở sảnh là có không khí */
+  _seed(W, H, b) {
+    const key = (b && b.id) + W + 'x' + H;
+    if (key === this._key) return;
+    this._key = key;
+    const k = (b && SC.Weather && SC.Weather.KIND[b.id]) || null, u = W / SC.W;
+    this._kind = k;
+    this._ps = [];
+    for (let i = 0; k && i < Math.round(k.n * 0.7); i++) this._ps.push(this._p(k, u, W, Math.random() * H));
+    this._ws = [];
+    for (let i = 0; i < 14; i++) this._ws.push(this._w(W, H, Math.random() * H));
+  },
+  _p(k, u, W, y) {
+    return { x: Math.random() * W, y, vx: SC.rnd(k.vx[0], k.vx[1]) * u, vy: SC.rnd(k.vy[0], k.vy[1]) * u,
+      s: SC.rnd(k.s[0], k.s[1]) * u, a: SC.rnd(k.a[0], k.a[1]), ph: Math.random() * 6.3 };
+  },
+  _w(W, H, y) {
+    return { x: Math.random() * W, y, l: H * SC.rnd(0.07, 0.18), v: H * SC.rnd(1.3, 2.4),
+      a: SC.rnd(0.1, 0.26), w: Math.max(1, W / 380) * SC.rnd(0.8, 1.7) };
+  },
+
+  /* Mờ dần ở mép trên/dưới canvas: canvas chỉ phủ ô sân bay, hạt bị cắt ngang ở đó là lộ khung */
+  _edge(y, H) {
+    const m = H * 0.14;
+    return Math.max(0, Math.min(1, y / m, (H - y) / m));
+  },
+
+  /* Lớp DƯỚI tàu: vệt gió, hạt vùng, bóng đổ. `boost` > 1 lúc tàu đang bay vào (vệt dài + sáng) */
+  under(g, W, H, ship, t, dt, boost) {
+    const b = SC.LobbyScene && SC.LobbyScene.biome;
+    this._seed(W, H, b);
+    const tint = (b && b.cloud) || '#cfefff';
+    const ws = this._sprite('streak', tint);
+    g.save(); try {
+    g.globalCompositeOperation = 'lighter';
+    for (const w of this._ws) {
+      w.y += w.v * dt * boost;
+      if (w.y - w.l > H) Object.assign(w, this._w(W, H, -Math.random() * H * 0.3));
+      const l = w.l * (1 + (boost - 1) * 0.45);   // dài quá 2,4× là thành sợi tóc kẻ dọc màn
+      g.globalAlpha = Math.min(0.4, w.a * (1 + (boost - 1) * 0.5)) * this._edge(w.y - l / 2, H);
+      g.drawImage(ws, w.x, w.y - l, w.w, l);
+    }
+    const k = this._kind;
+    if (k) {
+      const u = W / SC.W, rain = k.sh === 'rain' || k.sh === 'dash';
+      const im = this._sprite(rain ? 'streak' : 'dot', k.c);
+      g.globalCompositeOperation = k.sh === 'glow' ? 'lighter' : 'source-over';
+      for (const p of this._ps) {
+        p.ph += dt * 2.2;
+        p.x += (p.vx + (k.sh === 'leaf' ? Math.sin(p.ph) * 26 * u : 0)) * dt;
+        p.y += p.vy * dt;
+        const ngang = p.x < -40 || p.x > W + 40;
+        if (ngang || p.y > H + 40 || p.y < -40) {
+          Object.assign(p, this._p(k, u, W, ngang ? Math.random() * H : p.vy < 0 ? H + 30 : -30));
+          if (ngang) p.x = p.vx < 0 ? W + 30 : -30;          // cát sa mạc bay ngang, đừng rơi từ đỉnh
+        }
+        g.globalAlpha = p.a * this._edge(p.y, H) * (0.75 + Math.sin(p.ph * 1.7) * 0.25);
+        if (rain) {
+          g.setTransform(1, 0, 0, 1, p.x, p.y); g.rotate(-Math.atan2(p.vx, p.vy));
+          g.drawImage(im, -p.s * 0.12, -p.s * 1.5, Math.max(1, p.s * 0.25), p.s * 3);
+          g.setTransform(1, 0, 0, 1, 0, 0);
+        } else g.drawImage(im, p.x - p.s * 1.5, p.y - p.s * 1.5, p.s * 3, p.s * 3);
+      }
+    }
+    } finally { g.restore(); }
+    if (ship) this._shadow(g, ship, t);
+  },
+
+  /* Bóng của CẢ sprite (thân + hào quang), đen mờ, nướng một lần trên chính canvas sprite.
+     Tô đen bằng `source-in` chứ không bằng `ctx.filter` — Safari cũ không có filter, và khi
+     đó bản cũ ra một con tàu MÀU thứ hai thay vì cái bóng. */
+  _shadow(g, s, t) {
+    const sp = s.sprite;
+    if (!sp._lbSh) {
+      const c = document.createElement('canvas'), n = sp.width, pad = Math.round(n * 0.08);
+      c.width = c.height = n + pad * 2;
+      const x = c.getContext('2d');
+      x.filter = 'blur(' + Math.max(2, Math.round(n / 70)) + 'px)';
+      x.drawImage(sp, pad, pad);
+      x.filter = 'none';
+      x.globalCompositeOperation = 'source-in';
+      x.fillStyle = '#02060f';
+      x.fillRect(0, 0, c.width, c.height);
+      sp._lbSh = c;
+    }
+    const sh = sp._lbSh, bob = Math.sin(t * 1.6);
+    const S = s.size * (1 + 0.16) * (0.66 - bob * 0.02);
+    g.save(); try {
+    g.globalAlpha = 0.34 - bob * 0.03;
+    g.translate(s.x + s.r * 0.55, s.y + s.r * 2.1);
+    g.rotate(s.tilt * 0.32);
+    g.drawImage(sh, -S / 2, -S / 2, S, S);
+    } finally { g.restore(); }
+  },
+
+  /* Tia sáng lướt thân tàu. Gọi TRONG phép biến đổi của tàu (đã dời + xoay) để dải sáng bám
+     đúng thân kể cả khi tàu chao. `source-in` trên một canvas đệm: dải chỉ còn lại ở những
+     điểm ảnh có tàu, rồi cộng màu lên — nền xung quanh không bị loé. */
+  shine(g, sp, size, t) {
+    const T = 4.2, ph = (t % T) / 0.75;
+    if (ph > 1) return;
+    const n = sp.width;
+    let b = this._buf;
+    if (!b || b.width !== n) { b = this._buf = document.createElement('canvas'); b.width = b.height = n; }
+    const x = b.getContext('2d');
+    x.globalCompositeOperation = 'source-over';
+    x.clearRect(0, 0, n, n);
+    x.drawImage(sp, 0, 0);
+    x.globalCompositeOperation = 'source-in';
+    const c = (-0.35 + ph * 1.7) * n;
+    const gr = x.createLinearGradient(c - n * 0.18, c - n * 0.42, c + n * 0.18, c + n * 0.42);
+    gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(0.5, 'rgba(255,255,255,.95)');
+    gr.addColorStop(1, 'rgba(255,255,255,0)');
+    x.fillStyle = gr;
+    x.fillRect(0, 0, n, n);
+    g.save(); try {
+    g.globalCompositeOperation = 'lighter';
+    g.globalAlpha = 0.5 * Math.sin(ph * Math.PI);
+    g.drawImage(b, -size / 2, -size / 2, size, size);
+    } finally { g.restore(); }
+  },
+
+  /* Vòng sóng lúc tàu bay vào tới chỗ: `k` 0→1 trong ~0,6s sau khi hạ cánh xuống tâm */
+  ring(g, x, y, r, k, col) {
+    if (k <= 0 || k >= 1) return;
+    g.save(); try {
+    g.globalCompositeOperation = 'lighter';
+    g.globalAlpha = (1 - k) * 0.7;
+    g.strokeStyle = col || '#bff2ff';
+    g.lineWidth = r * 0.12 * (1 - k) + 1;
+    g.beginPath();
+    g.ellipse(x, y + r * 0.4, r * (1.4 + k * 3.2), r * (0.5 + k * 1.1), 0, 0, 6.283);
+    g.stroke();
+    } finally { g.restore(); }
+  },
+
+  /* ÁNH SÁNG CỦA VÙNG HẮT LÊN TÀU (18/10/2026). Sảnh đổi bảng màu theo vùng mà tàu y hệt
+   * từng điểm ảnh ở dung nham lẫn băng giá thì đọc ra "miếng dán lên ảnh". `source-atop`:
+   * vệt màu chỉ ăn vào ĐIỂM ẢNH ĐÃ VẼ (tàu, phi đội, bóng, hạt), nền trong suốt giữ nguyên.
+   * Trên hắt màu TRỜI, dưới dội màu MẶT ĐẤT (`near`). Alpha nhẹ (.2 / .4): quá tay là mất
+   * sắc đỏ-kem của tàu, mà tàu phải nhận ra được là CHÍNH NÓ ở cả mười vùng. */
+  tint(g, W, H, cy, r) {
+    const LS = SC.LobbyScene;
+    const b = LS && LS.biome;
+    if (!b || !r) return;
+    const tren = LS._rgba((b.sky && b.sky[2]) || b.cloud, 0.2);
+    const duoi = LS._rgba(b.near, 0.4);
+    if (!tren || !duoi) return;
+    const gr = g.createLinearGradient(0, cy - r * 1.3, 0, cy + r * 1.5);
+    gr.addColorStop(0, tren);
+    gr.addColorStop(0.5, 'rgba(0,0,0,0)');
+    gr.addColorStop(1, duoi);
+    g.save(); try {
+    g.globalCompositeOperation = 'source-atop';
+    g.fillStyle = gr;
+    g.fillRect(0, cy - r * 3, W, r * 7);              // dải tàu + phi đội + bóng, không cả canvas
+    } finally { g.restore(); }
+  },
+};
+
+;
 /* ===== js/ui-lobby-ship.js ===== */
 /* ui-lobby-ship.js — máy bay của người chơi đứng chờ ở lobby
  *
@@ -18350,20 +18756,10 @@ SC.EvoStarter = {
  * lobby chỉ là một cái menu. Nó mang đúng cấp vũ khí sẽ vào trận và đúng số máy bay phụ
  * đã mua — nên mua PHI ĐỘI xong quay ra là thấy liền.
  *
- * ---- ĐỔI SANG CANVAS RIÊNG TRONG #shipStage (18/10/2026) ----
- * Trước đây vẽ lên CANVAS TRẬN ĐẤU (`#game`) rồi phải quy đổi vị trí ô sân bay từ hệ đo
- * của `#ui` sang hệ đo ảo bằng `SC.View.u2w()`. Cách đó đẻ ra một chuỗi bug không dứt:
- *   · đo `#shipStage` lúc màn còn `display:none` -> y = 0, tàu nằm trên đỉnh (banga);
- *   · `ready` chốt một chiều -> đo hụt một lần là hỏng cả phiên;
- *   · và cuối cùng là ca không lần ra nổi: mọi chẩn đoán đều sạch (`alpha:1`,
- *     `tron:source-over`, toạ độ nằm trong khung) mà lobby vẫn trống trơn, kể cả tranh
- *     nền vùng cũng mất — tức nội dung canvas trận đấu không tới được mắt người chơi.
- *     Năm vòng truy không ra; bản cũ ở portal thì không dính.
- * Thay vì truy tiếp một nguyên nhân chỉ xảy ra trên banga, bỏ hẳn sự phụ thuộc: tàu nay
- * vẽ vào MỘT CANVAS RIÊNG đặt ngay trong `#shipStage`. Nó nằm cùng ngăn xếp hiển thị với
- * phần UI lobby vốn vẫn hiện bình thường, nên hễ thấy được cái nút XUẤT KÍCH thì chắc
- * chắn thấy được con tàu. Không còn phép quy đổi hệ đo, không còn đo offsetTop, không còn
- * `ready` — ba nguồn bug cũ biến mất cùng lúc.
+ * CANVAS RIÊNG TRONG #shipStage (18/10/2026): vẽ lên canvas trận đấu rồi quy đổi hệ đo đẻ ra
+ * một chuỗi bug (có ca banga truy năm vòng không ra). Cùng ngăn xếp với nút XUẤT KÍCH thì thấy
+ * nút là thấy tàu. NÉT THEO MÀN HÌNH THẬT (21/10/2026, "máy bay vỡ pixel"): `_canvas()` +
+ * `ShipArt._build(…, hd)`. Bóng, vệt gió, hạt, tia sáng, đèn vùng: ui-lobby-ship-fx.js.
  *
  * Không dựng SC.Player: chỉ mượn SC.ShipArt/DroneArt để vẽ, nên không có va chạm,
  * không bắn, không đụng gì tới trạng thái ván chơi.
@@ -18371,9 +18767,15 @@ SC.EvoStarter = {
 
 SC.LobbyShip = {
   _cv: null,
+  INTRO: 1.05,             // giây tàu bay từ dưới lên chỗ đứng khi vừa mở sảnh
 
   /* Canvas riêng, bám đúng ô sân bay. Trả null khi ô chưa đo được (màn còn ẩn) — khung
-     sau gọi lại, không chốt trạng thái gì cả. */
+     sau gọi lại, không chốt trạng thái gì cả.
+     BITMAP THEO CỠ HIỆN THẬT × DPR (21/10/2026). Bản cũ lấy `clientWidth` — px TRƯỚC phép
+     `transform:scale(uiScale)` của #ui (cỡ chữ LỚN ×1,1, máy tính tới ×1,6) — rồi còn trần
+     DPR 2, nên trình duyệt kéo giãn bitmap lên màn hình: đo ra 1,65× ở điện thoại DPR 3 và
+     1,60× ở cửa sổ 567px. `getBoundingClientRect` đã tính cả transform. Trần 3,2 triệu điểm
+     ảnh chỉ chạm ở màn rất to (4K); ở đó tàu vẫn vẽ trên 1:1. */
   _canvas() {
     const stage = document.getElementById('shipStage');
     if (!stage) return null;
@@ -18384,18 +18786,20 @@ SC.LobbyShip = {
       c.setAttribute('aria-hidden', 'true');
     }
     if (c.parentNode !== stage) stage.appendChild(c);
-    const w = stage.clientWidth, h = stage.clientHeight;
-    if (!w || !h) return null;
-    // DPR trần 2: ô sân bay to nhất cũng chỉ ~400px, 3× là phí bộ nhớ mà mắt không thấy
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
-    const W = Math.round(w * dpr), H = Math.round(h * dpr);
+    const rc = stage.getBoundingClientRect();
+    if (!rc.width || !rc.height) return null;
+    let dpr = Math.min(3, window.devicePixelRatio || 1);
+    const px = rc.width * rc.height * dpr * dpr;
+    if (px > 3.2e6) dpr *= Math.sqrt(3.2e6 / px);
+    const W = Math.round(rc.width * dpr), H = Math.round(rc.height * dpr);
     if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
     return c;
   },
 
   /* Chao lượn theo con trỏ (21/09/2026): tàu là nhân vật chính, phải nghịch được chứ
      không chỉ ngắm. Toạ độ quy về 0..1 trong Ô SÂN BAY — không còn dính hệ đo nào. */
-  _mx: null, _my: null, _xNow: 0.5, _yNow: 0.5,
+  _mx: null, _my: null, _xNow: 0.5, _yNow: 0.56,
+  Y: 0.56,                 // tâm tàu theo chiều cao ô: số màn chiếm phía trên, nút ở dưới
   _bindPointer() {
     if (this._bp) return;
     this._bp = 1;
@@ -18407,6 +18811,19 @@ SC.LobbyShip = {
       this._mx = (e.clientX - rc.left) / rc.width;
       this._my = (e.clientY - rc.top) / rc.height;
     }, { passive: true });
+  },
+
+  /* VỪA MỞ SẢNH = canvas không được vẽ quá 2,5s (đang trong trận, ở màn khác, tab ẩn).
+     Tàu bay từ dưới lên, sảnh bật lớp `lb-in` cho số màn + nút XUẤT KÍCH hiện theo nhịp. */
+  _enter(now) {
+    this._t0 = now;
+    const m = document.getElementById('scrMenu');
+    if (!m) return;
+    m.classList.remove('lb-in');
+    void m.offsetWidth;                      // gỡ rồi gắn lại trong cùng khung: ép chạy lại
+    m.classList.add('lb-in');
+    clearTimeout(this._inT);
+    this._inT = setTimeout(() => m.classList.remove('lb-in'), 1600);
   },
 
   /* `_` là ctx của canvas TRẬN ĐẤU do system-renderer truyền vào — cố ý BỎ QUA. Giữ chữ
@@ -18421,31 +18838,55 @@ SC.LobbyShip = {
     // trạng thái vẽ luôn đặt lại: canvas này của riêng lobby, không ai khác đụng vào
     g.globalAlpha = 1;
     g.globalCompositeOperation = 'source-over';
+    g.imageSmoothingQuality = 'high';
 
     const W = c.width, H = c.height;
     const still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const t = still ? 0 : performance.now() / 1000;
+    const now = performance.now();
+    if (!still && now - (this._last || 0) > 2500) this._enter(now);
+    const dt = Math.min(0.05, (now - (this._last || now)) / 1000);
+    this._last = now;
+    const t = still ? 0 : now / 1000;
+    // tiến độ bay vào 0→1, easeOutBack: vọt quá chỗ một chút rồi phanh lại — ra cảm giác lái
+    const a = still || !this._t0 ? 1 : Math.min(1, (now - this._t0) / 1000 / this.INTRO);
+    const e = 1 + 2.2 * Math.pow(a - 1, 3) + 1.2 * Math.pow(a - 1, 2);
+    const land = still || !this._t0 ? 1 : (now - this._t0) / 1000 / this.INTRO - 0.82;
 
     // đích theo con trỏ, kẹp trong ô; không có con trỏ thì tự lượn quanh giữa
     const gx = still ? 0.5 : this._mx == null ? 0.5 + Math.sin(t * 0.7) * 0.045
       : SC.clamp(this._mx, 0.18, 0.82);
-    const gy = still ? 0.5 : this._my == null ? 0.5 : SC.clamp(this._my, 0.3, 0.7);
+    const gy = still || this._my == null ? this.Y : SC.clamp(this._my, 0.36, 0.74);
     const truoc = this._xNow;
     this._xNow += (gx - this._xNow) * 0.08;
     this._yNow += (gy - this._yNow) * 0.08;
 
     const cx = this._xNow * W;
-    const cy = this._yNow * H + (still ? 0 : Math.sin(t * 1.6) * H * 0.012);
-    /* CỠ VẼ theo Ô SÂN BAY, không theo bán kính va chạm: ô là thứ quyết định chỗ trống
-       thật sự có bao nhiêu. 0,42 bề ngang / 0,62 chiều cao — chốt bằng mắt để khớp cỡ
-       bản cũ (tàu chiếm ~35% bề ngang màn) ở mọi tỉ lệ ô. */
-    const size = Math.min(W * 0.42, H * 0.62);
+    const cy = this._yNow * H + (still ? 0 : Math.sin(t * 1.6) * H * 0.012) + (1 - e) * H * 0.62;
+    /* CỠ VẼ theo Ô SÂN BAY: 0,42 → 0,56 bề ngang (21/10/2026) — giờ ảnh đủ nét để tàu làm
+       nhân vật chính thật sự. 0,52 chiều cao giữ cho ô thấp (cửa sổ máy tính) không đè số màn. */
+    const size = Math.min(W * 0.56, H * 0.52);
     const r = size / (SC.ShipArt.PAD * 2);
+    /* Lúc bay vào tàu nhỏ hơn một chút. Phóng bằng phép biến hình của canvas, KHÔNG đổi `r`:
+       `ShipArt` nhớ sprite theo `r` — đổi `r` mỗi khung là nướng ~60 sprite cỡ 600px trong
+       một giây (đã đo: p95 vẽ 5 ms, kho nhớ phình). */
+    const k = 0.84 + 0.16 * Math.min(1, e);
     const tilt = still ? 0 : SC.clamp((this._xNow - truoc) * W * 0.012, -0.3, 0.3)
-      + Math.sin(t * 0.9) * 0.08;
+      + Math.sin(t * 0.9) * 0.08 + (1 - a) * Math.sin(t * 9) * 0.12;
 
+    let sprite = null;
+    try { sprite = SC.ShipArt.sprite(r, SC.Tree.evo(), true); } catch (err) { /* _one tự báo */ }
+    // lớp hiệu ứng hỏng thì vẫn phải thấy tàu — nó mới là nhân vật chính. "Giảm chuyển động"
+    // thì chỉ giữ bóng đổ: nó là hình tĩnh, mà thiếu nó tàu lại thành miếng dán.
+    try {
+      const sh = sprite && { sprite, size: r * SC.ShipArt.PAD * 2, x: cx, y: cy, r, tilt };
+      if (!still) SC.LobbyFX.under(g, W, H, sh, t, dt, 1 + (1 - a) * 3);
+      else if (sh) SC.LobbyFX._shadow(g, sh, 0);
+    } catch (err) { this._bao('fx', err); }
+
+    g.save(); try {
+    g.translate(cx, cy); g.scale(k, k); g.translate(-cx, -cy);
     // Phi đội bay kèm, vẽ TRƯỚC để nằm dưới máy bay chính. Bọc riêng: phi đội hỏng thì
-    // vẫn phải thấy tàu — nó mới là nhân vật chính.
+    // vẫn phải thấy tàu.
     try {
       const dr = SC.Drones.tier();
       const n = dr ? dr.n : 0;
@@ -18459,58 +18900,36 @@ SC.LobbyShip = {
           r: (swarm ? 0.3 : 0.4) * r, t: still ? 0 : t + i
         }, swarm, SC.Tree.evo());
       }
-    } catch (e) {
-      if (!this._baoDrone) { this._baoDrone = 1; console.warn('[lobby] phi doi loi, bo qua:', e && e.message); }
-    }
+    } catch (err) { this._bao('drone', err); }
 
     try {
-      this._one(g, cx, cy, r, tilt);
-    } catch (e) {
+      this._one(g, cx, cy, r, tilt, sprite, t);
+    } catch (err) {
       if (!this._baoTau) {
         this._baoTau = 1;
-        console.error('[lobby] KHONG VE DUOC TAU:', e && e.message,
+        console.error('[lobby] KHONG VE DUOC TAU:', err && err.message,
           { W, H, x: Math.round(cx), y: Math.round(cy), r: Math.round(r) });
       }
     }
+    } finally { g.restore(); }
 
-    this._denVung(g, W, H, cy, r);
+    try { SC.LobbyFX.tint(g, W, H, cy, r); } catch (err) { this._bao('tint', err); }
+    try {
+      const LS = SC.LobbyScene;
+      SC.LobbyFX.ring(g, cx, cy, r, land / 0.6, LS && LS.biome && LS.biome.cloud);
+    } catch (err) { this._bao('ring', err); }
   },
 
-  /* ÁNH SÁNG CỦA VÙNG HẮT LÊN TÀU (18/10/2026).
-   *
-   * Vì sao: sảnh giờ đổi cả bảng màu theo vùng, mà tàu thì vẫn y hệt từng điểm ảnh ở
-   * dung nham, băng giá lẫn hư không — một bộ soi độc lập chấm đúng chỗ này, và nó làm
-   * tàu đọc ra "miếng dán lên ảnh" chứ không phải "đang bay trong đó".
-   *
-   * Cách rẻ nhất mà đúng: `source-atop` — vệt màu chỉ ăn vào ĐIỂM ẢNH ĐÃ VẼ, nền trong
-   * suốt giữ nguyên. Vẽ SAU cả phi đội lẫn tàu nên cả cụm chung MỘT nguồn sáng, không
-   * phải mỗi thứ một kiểu. Trên thì hắt màu TRỜI, dưới thì dội màu MẶT ĐẤT (`near`) —
-   * đúng chiều của một vật bay trên cao nhìn thẳng xuống.
-   *
-   * Alpha giữ nhẹ (.2 / .4): quá tay là mất luôn sắc đỏ-kem của tàu, mà tàu phải nhận ra
-   * được là CHÍNH NÓ ở cả mười vùng. */
-  _denVung(g, W, H, cy, r) {
-    const LS = SC.LobbyScene;
-    const b = LS && LS.biome;
-    if (!b || !r) return;
-    const tren = LS._rgba((b.sky && b.sky[2]) || b.cloud, 0.2);
-    const duoi = LS._rgba(b.near, 0.4);
-    if (!tren || !duoi) return;
-    const gr = g.createLinearGradient(0, cy - r * 1.3, 0, cy + r * 1.5);
-    gr.addColorStop(0, tren);
-    gr.addColorStop(0.5, 'rgba(0,0,0,0)');
-    gr.addColorStop(1, duoi);
-    g.save();
-    g.globalCompositeOperation = 'source-atop';
-    g.fillStyle = gr;
-    g.fillRect(0, 0, W, H);
-    g.restore();
+  _bao(k, err) {
+    if (this['_bao' + k]) return;
+    this['_bao' + k] = 1;
+    console.warn('[lobby] ' + k + ' loi, bo qua:', err && err.message);
   },
 
   /* Máy bay chính, dựng đúng theo tổ hợp nhánh đang chạy — nên mua xong quay ra lobby
      là thấy hình dáng đã đổi ngay, không phải vào màn mới biết. */
-  _one(g, x, y, r, tilt) {
-    g.save();
+  _one(g, x, y, r, tilt, sprite, t) {
+    g.save(); try {
     g.translate(x, y);
     const f = 1 + Math.sin(performance.now() / 1000 * 30) * 0.22;
     SC.draw.glow(g, 0, r * 1.5, r * 0.5 * f, '#5ad0ff', 0.55);
@@ -18519,8 +18938,12 @@ SC.LobbyShip = {
     g.moveTo(-r * 0.14, r * 1.1); g.lineTo(0, r * (1.5 + f * 0.5)); g.lineTo(r * 0.14, r * 1.1);
     g.closePath(); g.fill();
     SC.AuraFX.draw(g, r, performance.now() / 1000, SC.Tree.evo());
-    SC.ShipArt.draw(g, r, tilt);
-    g.restore();
+    SC.ShipArt.draw(g, r, tilt, true);
+    if (sprite && t) {
+      g.rotate(tilt * 0.32);                 // đúng góc ShipArt.draw vừa xoay
+      try { SC.LobbyFX.shine(g, sprite, r * SC.ShipArt.PAD * 2, t); } catch (err) { this._bao('shine', err); }
+    }
+    } finally { g.restore(); }
   },
 
   /* Giữ cho mã cũ gọi không vỡ — không còn phép đo nào để làm lại. */
@@ -20254,6 +20677,7 @@ SC.ProfileCleanup = {
 
   /* Gọi NGAY TRƯỚC SC.Profiles.remove() — cần prof còn trong danh sách để lấy id */
   async purge(prof) {
+    if (prof && SC.EvoHD) SC.EvoHD.delProfile(prof.id);   // ảnh tàu nét 512px ở IndexedDB máy này
     if (!prof || !window.Portal || !Portal.FB || !Portal.FB.configured()) return;
     const u = Portal.Auth && Portal.Auth.user;
     if (!u) return;
