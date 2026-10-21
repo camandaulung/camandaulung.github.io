@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Studio Tycoon — Cân bằng</title>
+<link rel="stylesheet" href="dash.css">
+</head>
+<body>
+<!-- Dashboard CÂN BẰNG Studio Tycoon (game 50000b, 21/10/2026): đọc stats.json SNAPSHOT cạnh trang, do bot chạy sim thật của
+     game sinh ra (50000b-devtools scripts/qa/balance-dashboard-data.ts --portal=<SoloStudio>). Không có dữ liệu người chơi. -->
+<main class="page">
+  <header class="top">
+    <div>
+      <h1>Studio Tycoon — bảng cân bằng</h1>
+      <p class="sub" id="range">Đang tải số liệu…</p>
+    </div>
+    <div class="seg" id="src" role="group" aria-label="Chiến lược bot"></div>
+  </header>
+
+  <p class="note" id="note"></p>
+  <section class="kpis" id="kpis" aria-label="Chỉ số chính"></section>
+
+  <section class="card">
+    <div class="card-head"><h2>Đạt / lệch mục tiêu <small class="hint" id="flag-count"></small></h2>
+      <p class="hint">Mục tiêu lấy từ plan cân bằng late game (G8, G10). Chỉnh ngưỡng thoải mái — cờ tính lại ngay, giá trị nhớ trong trình duyệt này.</p></div>
+    <ul class="flags" id="flags"></ul>
+    <details class="tune"><summary>Chỉnh ngưỡng</summary><div class="thresholds" id="thresholds"></div></details>
+  </section>
+
+  <section class="card">
+    <div class="card-head"><h2>Doanh thu theo năm</h2><p class="hint">Thang log. Ô xám = đường doanh thu 2022–2027 chủ game chốt; vạch đứt = mốc thắng. Rê chuột / chạm vào năm để xem số.</p></div>
+    <div class="legend" id="lg-rev"></div>
+    <div class="chart" id="ch-rev"></div>
+  </section>
+
+  <section class="grid2">
+    <div class="card"><h2>Đạt mục tiêu năm</h2><p class="hint">% studio đạt mục tiêu doanh thu của năm. Ô xám = dải 40–70% cho năm 8–25.</p><div class="chart" id="ch-hit"></div></div>
+    <div class="card"><h2>Năm lỗ</h2><p class="hint">% studio có chi phí năm cao hơn doanh thu. Ô xám = dải 20–40% từ năm 10. Lỗ 4 năm liền = giải thể.</p><div class="chart" id="ch-loss"></div></div>
+  </section>
+
+  <section class="card">
+    <div class="card-head"><h2>Sống sót và chiến thắng, mọi chiến lược</h2><p class="hint">% studio còn sống (tính cả đã thắng) ở cuối mỗi năm; nét đứt = % đã thắng của chiến lược đang chọn.</p></div>
+    <div class="legend" id="lg-surv"></div>
+    <div class="chart" id="ch-surv"></div>
+  </section>
+
+  <section class="card">
+    <div class="card-head"><h2>Cơ cấu cấp nhân sự</h2><p class="hint">Mỗi cột = 100% nhân viên (trừ nhà sáng lập) cuối năm. Hai nhóm đậm nhất là người đủ cấp ngồi ghế BOD.</p></div>
+    <div class="legend" id="lg-levels"></div>
+    <div class="chart" id="ch-levels"></div>
+  </section>
+
+  <section class="grid2">
+    <div class="card"><h2>Đường ống lãnh đạo</h2><p class="hint">Thăng cấp → ghế BOD → công ty con (cần GĐ sản phẩm) → thêm chỗ game. Trung vị các studio.</p><div class="legend" id="lg-lead"></div><div class="chart" id="ch-lead"></div></div>
+    <div class="card"><h2>Chỗ game so với trần</h2><p class="hint">Game đang chạy + dự án + bom tấn, so với trần (maxGames × AI + 5 mỗi công ty con có GĐ).</p><div class="legend" id="lg-slots"></div><div class="chart" id="ch-slots"></div></div>
+  </section>
+
+  <section class="grid2">
+    <div class="card"><h2>Doanh thu theo mảng game</h2><p class="hint">Mảng = nhóm thể loại của từng ghế GĐ sản phẩm. Rê chuột xem từng thể loại.</p><div class="legend" id="lg-genre"></div><div class="chart" id="ch-genre"></div></div>
+    <div class="card"><h2>Áp lực đối thủ</h2><p class="hint">Thị phần của studio trong nhóm 6 studio (studio + 5 đối thủ), theo doanh thu năm.</p><div class="chart" id="ch-rival"></div></div>
+  </section>
+
+  <section class="grid2">
+    <div class="card"><h2>Quyết định mỗi năm</h2><p class="hint">Sự kiện đã quyết + thương vụ + bom tấn. Plan cần ≥ 8 mỗi năm ở late game.</p><div class="chart" id="ch-dec"></div></div>
+    <div class="card"><h2>Bom tấn và thương vụ</h2><p class="hint">Cộng dồn, trung bình mỗi studio (công ty con: trung vị).</p><div class="legend" id="lg-moves"></div><div class="chart" id="ch-moves"></div></div>
+  </section>
+
+  <section class="card">
+    <div class="card-head"><h2>Lương tháng mỗi người</h2><p class="hint">Trung vị. Ô xám = ~30 triệu năm 2022 (mục tiêu G10a), sau đó chỉ tăng theo lạm phát.</p></div>
+    <div class="chart" id="ch-pay"></div>
+  </section>
+
+  <section class="card">
+    <div class="card-head"><h2>Từng năm</h2><p class="hint">p50 = trung vị các studio còn chơi năm đó. ▲ = lệch mục tiêu. Dòng mờ = quá ít studio còn chơi.</p></div>
+    <div class="table-wrap"><table id="years"></table></div>
+  </section>
+
+  <section class="card">
+    <div class="card-head"><h2>So sánh chiến lược</h2></div>
+    <div class="table-wrap"><table id="compare"></table></div>
+  </section>
+
+  <section class="card defs">
+    <h2>Cách đọc và cách chạy lại</h2>
+    <ul>
+      <li><b>Nguồn số:</b> mỗi studio là một lần chạy trọn sim của game (src/sim.ts) với bot tự chơi, seed cố định; năm 1 = năm mở studio (bắt đầu giữa năm). Thắng hoặc chết thì studio dừng, nên các năm cuối chỉ còn ít studio.</li>
+      <li><b>p50 / p10–p90:</b> trung vị và khoảng giữa 80% các studio còn chơi năm đó.</li>
+      <li><b>Thăng cấp / người:</b> tổng số cấp lên trong năm chia số người. Điều kiện thăng: điểm KPI hạng A (tối đa 30% số người), làm ≥ 240 ngày, cách lần trước ≥ 2 năm, đủ kỹ năng của cấp mới. Ghế GĐ sản phẩm cần cấp 5, ghế chuyên môn cần cấp 6.</li>
+      <li><b>Quyết định:</b> thẻ sự kiện đã trả lời + thương vụ (công ty con, mua đối thủ, game phần 2) + bom tấn bắt đầu trong năm.</li>
+      <li><b>Thị phần:</b> doanh thu năm của studio / (studio + tổng doanh thu năm gần nhất của 5 đối thủ).</li>
+      <li><b>Chạy lại</b> (máy có 50000b + 50000b-devtools + SoloStudio cạnh nhau, Node 22.6+), rồi commit <code>portal/game/studio-dash/stats.json</code> lên <code>main</code> của SoloStudio — CI tự đẩy lên trang này:
+        <pre>cd 50000b-devtools
+node --experimental-strip-types scripts/qa/balance-dashboard-data.ts --portal=../SoloStudio</pre></li>
+    </ul>
+  </section>
+</main>
+<div class="tip" id="tip" role="status" hidden></div>
+<script type="module" src="dash.js"></script>
+</body>
+</html>

@@ -695,6 +695,13 @@
         <span>Log &amp; dashboard cân bằng · Toy Tower</span>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
       </a>
+      <!-- Dashboard Studio Tycoon (game 50000b, 21/10/2026) — studio-dash/ đọc stats.json SNAPSHOT do bot chạy sim thật sinh ra
+           (50000b-devtools scripts/qa/balance-dashboard-data.ts). Game không có thẻ ở đây nên link là lối vào duy nhất. -->
+      <a class="dash-link" href="./studio-dash/" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+        <span>Dashboard cân bằng · Studio Tycoon</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </a>
       </div>
     </section>
 
@@ -758,9 +765,9 @@
   </script>
 
   <script>
-    /* Các nút "Log & dashboard cân bằng" (Sky Chicken + Toy Tower 19/10/2026): CHỈ 2 tài khoản quản trị
-     * thấy (22/09/2026). Chặn THẬT của Sky là luật Firestore `runs` — đây chỉ giấu nút; Toy chỉ là số tổng
-     * hợp ẩn danh nhưng đi cùng cổng cho gọn. Chỉ nạp Firebase khi máy này đã từng đăng nhập (portal
+    /* Các nút "Log & dashboard cân bằng" (Sky Chicken + Toy Tower 19/10/2026, Studio Tycoon 21/10/2026): CHỈ 2 tài khoản
+     * quản trị thấy (22/09/2026). Chặn THẬT của Sky là luật Firestore `runs` — đây chỉ giấu nút; Toy chỉ là số tổng
+     * hợp ẩn danh, Studio chỉ là số bot mô phỏng, nhưng đi cùng cổng cho gọn. Chỉ nạp Firebase khi máy này đã từng đăng nhập (portal
      * hoặc dashboard), khách thường không tốn ~200KB SDK.
      * Đổi danh sách thì sửa cả firestore.rules + sky-dash/dash-data.js. */
     window.addEventListener('load', function () {
