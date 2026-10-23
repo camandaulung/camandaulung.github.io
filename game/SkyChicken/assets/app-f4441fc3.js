@@ -19495,7 +19495,7 @@ SC.LobbyShipGL = {
 SC.LobbyShip = {
   _cv: null,
   INTRO: 1.05,             // giây tàu bay từ dưới lên chỗ đứng khi vừa mở sảnh
-
+  SIZE: 0.85,              // hệ số cỡ tàu sảnh (24/10/2026, anh Đức: "zoom to quá") — xem chỗ tính `size`
   /* Canvas riêng, bám đúng ô sân bay. Trả null khi ô chưa đo được (màn còn ẩn) — khung
      sau gọi lại, không chốt trạng thái gì cả.
      BITMAP THEO CỠ HIỆN THẬT × DPR (21/10/2026). Bản cũ lấy `clientWidth` — px TRƯỚC phép
@@ -19525,8 +19525,8 @@ SC.LobbyShip = {
 
   /* Chao lượn theo con trỏ (21/09/2026): tàu là nhân vật chính, phải nghịch được chứ
      không chỉ ngắm. Toạ độ quy về 0..1 trong Ô SÂN BAY — không còn dính hệ đo nào. */
-  _mx: null, _my: null, _xNow: 0.5, _yNow: 0.56,
-  Y: 0.56,                 // tâm tàu theo chiều cao ô: số màn chiếm phía trên, nút ở dưới
+  _mx: null, _my: null, _xNow: 0.5, _yNow: 0.64,
+  Y: 0.64,                 // tâm tàu: GIỮA số màn và nút XUẤT KÍCH (.56 → .64, 24/10). PHẢI khớp `.lb-orb{top}` trong CSS
   _bindPointer() {
     if (this._bp) return;
     this._bp = 1;
@@ -19589,9 +19589,9 @@ SC.LobbyShip = {
 
     const cx = this._xNow * W;
     const cy = this._yNow * H + (still ? 0 : Math.sin(t * 1.6) * H * 0.012) + (1 - e) * H * 0.62;
-    /* CỠ VẼ theo Ô SÂN BAY: 0,42 → 0,56 bề ngang (21/10/2026) — giờ ảnh đủ nét để tàu làm
-       nhân vật chính thật sự. 0,52 chiều cao giữ cho ô thấp (cửa sổ máy tính) không đè số màn. */
-    const size = Math.min(W * 0.56, H * 0.52);
+    /* CỠ VẼ theo Ô SÂN BAY: 0,56 bề ngang · 0,52 chiều cao (ô thấp không đè số màn), × SIZE 0,85 (24/10:
+       ở 1,0 tàu AI 512px bị phóng 1,06× trên điện thoại DPR 3 = mềm, và mũi tàu sát số màn ở cửa sổ rộng). */
+    const size = Math.min(W * 0.56, H * 0.52) * this.SIZE;
     const r = size / (SC.ShipArt.PAD * 2);
     /* Lúc bay vào tàu nhỏ hơn một chút. Phóng bằng phép biến hình của canvas, KHÔNG đổi `r`:
        `ShipArt` nhớ sprite theo `r` — đổi `r` mỗi khung là nướng ~60 sprite cỡ 600px trong

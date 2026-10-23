@@ -1387,8 +1387,9 @@ body .timer{font-size:14px}
    BẪY: độ nghiêng phải nằm ở PHẦN TỬ. Để rotateX trong keyframe thì khung 0% không có
    transform, trình duyệt nội suy từ phẳng -> vòng thành đường tròn dẹt lúc chụp. */
 .lobby-stage{position:relative}
+/* top PHẢI khớp `SC.LobbyShip.Y` (tâm tàu): .56 → .64 ngày 24/10 khi hạ tàu về giữa số màn và nút */
 .lb-orb{position:absolute;left:50%;pointer-events:none;
-  top:56%;width:min(336px,calc(var(--uiw) * .9));aspect-ratio:1;
+  top:64%;width:min(336px,calc(var(--uiw) * .9));aspect-ratio:1;
   transform:translate(-50%,-50%);transform-style:preserve-3d}
 .lb-orb .tilt,.lb-orb .tilt2{position:absolute;inset:0;transform-style:preserve-3d}
 .lb-orb .tilt{transform:rotateX(74deg)}
