@@ -3845,6 +3845,13 @@ SC.ToyMotion = {
   pop(e) {
     if (this.reduced || e.isBoss || !SC.EnemySprite.cacheable(e)) return;
     if (this.ghosts.length >= this.MAX) this.ghosts.shift();
+    // máy bay AI thành quái không nằm trong bộ đệm sprite (entity-enemy-sprite.draw dán thẳng
+    // ảnh tàu) — lấy bộ đệm là loé ra dáng CON GÀ gốc của loại quái đó
+    if (e.dz) {
+      this.ghosts.push({ img: e.dz.img, x: e.x, y: e.y, size: e.r * 4.56 * SC.ArtScale.enemy(e.r),
+        rot: (e._lean || 0) + Math.PI, t: 0 });
+      return;
+    }
     this.ghosts.push({
       img: SC.EnemySprite.get(e, SC.EnemySprite.frame(e.flap || 0)),
       x: e.x, y: e.y, size: e.r * SC.EnemySprite.PAD * 2, rot: e._lean || 0, t: 0
@@ -6962,8 +6969,7 @@ SC.EnemySprite = {
   },
 
   get(e, fi) {
-    // tàu phản bội: cùng loại quái nhưng mỗi chiếc một ảnh -> khoá cache theo tàu
-    const key = e.type + '|' + fi + (e.dz ? '|' + e.dz.id : '');
+    const key = e.type + '|' + fi;
     let c = this._cache[key];
     if (c) return c;
 
@@ -6987,17 +6993,6 @@ SC.EnemySprite = {
     // Sprite AI có thì dùng, chưa tải xong thì rơi về art thủ tục bên dưới.
     // 0.85: sprite đã trim sát cánh, vẽ full box PAD thì thân to hơn hitbox r
     // rõ rệt — thu lại cho cảm giác va chạm khớp mắt.
-    // tàu phản bội (system-defector-spawn.js): ảnh gen mũi hướng LÊN -> xoay 180° cho
-    // chúi xuống phía người chơi như mọi quái khác
-    if (e.dz) {
-      const s = e.r * 4.56 * SC.ArtScale.enemy(e.r);     // 4.56 = 2.4 × 2 × 0.95 (cỡ cũ)
-      g.save();
-      g.rotate(Math.PI);
-      g.scale(1 + flap * 0.03, 1 - flap * 0.03);
-      g.drawImage(e.dz.img, -s / 2, -s / 2, s, s);
-      g.restore();
-      return;
-    }
     const img = SC.SpriteArt && SC.SpriteArt.get('enemy', e.type);
     if (img) {
       const s = e.r * this.SPRITE * SC.ArtScale.enemy(e.r);
@@ -7031,8 +7026,6 @@ SC.EnemySprite = {
 
   /* Dán ảnh. Góc xoay và ánh chớp trúng đạn áp ở đây vì chúng đổi theo từng con. */
   draw(ctx, e) {
-    const s = this.get(e, this.frame(e.flap));
-    const size = e.r * this.PAD * 2;
     ctx.save();
     // nhấp nhô nhẹ: sprite AI là ảnh tĩnh, 6 khung "vỗ cánh" chỉ là bóp méo — thêm nhịp
     // trôi lên xuống cho con nào cũng như đang lơ lửng thật. Lệch pha theo e.t riêng.
@@ -7041,7 +7034,19 @@ SC.EnemySprite = {
     // nghiêng, lắc, bật ra, nảy thạch khi trúng (thay cú bóp cứng 1.08 × 0.92 cũ)
     SC.ToyMotion.enemy(ctx, e);
     if (e.flash > 0) ctx.filter = 'brightness(2.6)';
-    ctx.drawImage(s, -size / 2, -size / 2, size, size);
+    if (e.dz) {
+      // MÁY BAY AI THÀNH QUÁI (system-defector-spawn.js): dán THẲNG ảnh tàu, KHÔNG nướng.
+      // Bản 22/09 nướng 6 khung cho mỗi (loại quái × tàu) — từ 23/10 kho 90 tàu + ~80% quái
+      // là tàu AI, nhân ra hàng nghìn canvas ~0,5MB (bộ đệm không bao giờ dọn) = cháy bộ nhớ
+      // điện thoại. Dán một ảnh 192px đã giải mã thì rẻ; cái đắt mà bộ đệm né là gradient +
+      // đường vẽ thủ tục, ở đây không có. Ảnh gen mũi hướng LÊN -> xoay 180° cho chúi xuống.
+      const s = e.r * 4.56 * SC.ArtScale.enemy(e.r);     // 4.56 = 2.4 × 2 × 0.95 (cỡ cũ)
+      ctx.rotate(Math.PI);
+      ctx.drawImage(e.dz.img, -s / 2, -s / 2, s, s);
+    } else {
+      const s = this.get(e, this.frame(e.flap)), size = e.r * this.PAD * 2;
+      ctx.drawImage(s, -size / 2, -size / 2, size, size);
+    }
     ctx.filter = 'none';
     ctx.restore();
   }
@@ -11512,7 +11517,7 @@ SC.Waves = {
     });
 
     this._mixCounter(lv, inten);
-    SC.DefectorSpawn.mix(this.queue, lv, this.index);   // tàu người chơi đã bán, ≤50% wave
+    SC.DefectorSpawn.mix(this.queue, lv, this.index);   // máy bay AI của mọi người chơi, ~80% wave
     this.lastCount = this.queue.length;
     this._chunkIntoPulses();      // chẻ thành lô nhỏ (system-waves-formations.js)
     this.sinceWave = 0;
@@ -12285,6 +12290,7 @@ SC.Renderer = {
     if (g.state !== 'menu') {
       SC.Rescue.render(ctx);
       for (const e of g.enemies) e.render(ctx);
+      SC.DefectorTag.render(ctx, g.enemies);   // "đệ của ducdm" trên đầu máy bay AI thành quái
       // Loé nòng báo trước loạt đạn — vẽ SAU thân quái để không bị sprite che, và TRƯỚC
       // vật phẩm/đạn vì nó là lời báo, không phải vật thể.
       SC.FoeWind.render(ctx, g);
@@ -17239,6 +17245,9 @@ SC.EvoRecover = {
     list.push({ id: o.id, ship: big, drone: dr });
     SC.EvoGarage._saveImages(list);
     o.thumb = th;
+    // tàu AI mới ra trận làm quái cho MỌI người chơi (23/10/2026) — không chờ, lỗi thì
+    // lần nạp kho đầu phiên sau đẩy bù (system-defector-pool-owned-ships.js)
+    SC.DefectorOwned.share(o, big);
   },
 
   /* Tàu này đúc lại được không: kênh có tiến hóa, có tổ hợp, chưa đúc lần nào */
@@ -17397,6 +17406,10 @@ SC.DefectorGrade = {
 /* ===== js/system-defector-pool.js ===== */
 /* system-defector-pool.js — KHO TÀU PHẢN BỘI: tàu người chơi bán ở gara gia nhập quân địch
  *
+ * TỪ 23/10/2026 kho nhận cả tàu AI ĐANG GIỮ (system-defector-pool-owned-ships.js), không chỉ
+ * tàu bán — "máy bay địch là máy bay AI của tất cả người chơi". Tên kho giữ nguyên để khỏi
+ * dán lại firestore.rules; phần dưới đây tả đường BÁN, đường GIỮ đi y hệt.
+ *
  * Mỗi lần AI đó bán tàu (system-evo-garage-sell.js), tàu được chấm hạng
  * (system-defector-grade.js) rồi đẩy lên Firestore `defectors/{uid}_{idTàu}` — kho
  * CHUNG của mọi người chơi. Máy nào vào trận cũng đọc 60 tàu mới nhất làm quân địch
@@ -17409,13 +17422,15 @@ SC.DefectorGrade = {
  *   - thấy ngay tàu mình vừa bán trong trận kế, không phải đợi mây;
  *   - đẩy mây lỗi (mất mạng, luật Firestore chưa dán) thì còn bản chờ, lần nạp sau
  *     đẩy lại. Doc id cố định theo uid+tàu nên đẩy lại không nhân bản.
- * Tài liệu có `seller` = phần trước @ của email (KHÔNG bao giờ cả email) để thỉnh thoảng
- * trùm phản bội khoe "PHẢN ĐỒ CỦA ducdm" — duyệt 22/09/2026.
+ * Tài liệu có `seller` = phần trước @ của email (KHÔNG bao giờ cả email) — duyệt 22/09/2026;
+ * từ 23/10 nó là <domain> trong nhãn "<câu đùa> của <domain>" (system-defector-nametag.js).
  */
 
 SC.Defectors = {
   COL: 'defectors',
-  LIMIT: 60,
+  // 60 -> 90 (23/10/2026): kho nay nhận MỌI tàu AI chứ không chỉ tàu bán, và ~80% quái thường
+  // là tàu AI — 60 chiếc mới nhất dễ bị vài người ghép nhiều chiếm hết. ~15KB/chiếc, đọc 1 lần/phiên.
+  LIMIT: 90,
   MINE: 'sc.defectors.mine',
   MINE_MAX: 8,
   pool: [],            // { id, img:Image, tier, score, cls, ens, bird }
@@ -17433,8 +17448,11 @@ SC.Defectors = {
 
   _add(d) {
     if (!d || !d.img || typeof d.img !== 'string') return;
-    const k = this._key(String(d.id));
-    if (this.pool.some(x => this._key(x.id) === k)) return;
+    // Trùng = cùng doc, HOẶC cùng tàu mà một bên là bản MÁY ('m_'). Hai bản MÂY khác uid cùng
+    // idTàu là HAI người: tàu dựng lại từ lịch sử có id băm theo TỔ HỢP từ khóa ('h'+băm),
+    // bỏ một là mất lặng lẽ tàu của người thứ hai (review 23/10).
+    const id = String(d.id), k = this._key(id), loc = id.startsWith('m_');
+    if (this.pool.some(x => x.id === id || (this._key(x.id) === k && (loc || x.id.startsWith('m_'))))) return;
     const img = new Image();
     img.src = d.img;
     const ens = Array.isArray(d.ens) ? d.ens : [];
@@ -17454,6 +17472,8 @@ SC.Defectors = {
     if (this._p) return this._p;
     if (!SC.EvoAI.active()) return (this._p = Promise.resolve());
     this._mine().forEach(d => this._add(d));
+    // tàu ĐANG GIỮ ở máy này — xem system-defector-pool-owned-ships.js
+    SC.DefectorOwned.local().catch(e => console.warn('[defectors] tàu của mình:', e));
     if (!Portal.FB.configured()) return (this._p = Promise.resolve());
     this._p = (async () => {
       try {
@@ -17463,6 +17483,7 @@ SC.Defectors = {
           orderBy('at', 'desc'), limit(this.LIMIT))), 'đọc tàu phản bội');
         snap.forEach(s => this._add(Object.assign({ id: s.id }, s.data())));
         this._retry(fb);
+        SC.DefectorOwned.backfill(fb);    // tàu ghép trước 23/10 (hoặc lần đẩy trước hỏng) lên kho
       } catch (e) {
         console.warn('[defectors] chưa đọc được kho tàu phản bội:', (e && e.code) || e);
         this._p = null;                   // lần vào màn sau thử lại
@@ -17505,7 +17526,8 @@ SC.Defectors = {
   _seller() {
     const em = SC.M365 && SC.M365.info && SC.M365.info.email;
     const s = em ? String(em).split('@')[0] : SC.Cloud.playerName();
-    return String(s || '').replace(/[\x00-\x1F<>]/g, '').slice(0, 24);
+    // bỏ mọi thứ từ '@': tên hồ sơ có thể là một email, mà luật defectors từ chối seller có '@'
+    return String(s || '').replace(/@.*/, '').replace(/[\x00-\x1F<>]/g, '').slice(0, 24);
   },
 
   async _upload(fb, d) {
@@ -17537,14 +17559,18 @@ SC.Defectors = {
  *   - Vòng vô tận (61+): hạng 'mob' làm quái thường, hạng 'boss' làm TRÙM (thay tạo hình
  *     trùm của map). Đường đạn đổi theo CLASS của tàu (cung thủ bắn tên, pháp sư cầu
  *     plasma...) nhưng GIỮ số viên, tốc độ, nhịp bắn — cân bằng vô tận không đổi.
- *   - TRẦN: tối đa 50% quân một wave. Tỉ lệ động, gieo theo SỐ MAP: mỗi map một "khẩu
- *     vị" cố định (map này nhiều, map kia ít), từng wave dao động quanh mức đó.
+ *   - TỈ LỆ (23/10/2026, Anh chọn "phần lớn ~80%"): máy bay AI là QUÂN CHỦ LỰC — mỗi wave
+ *     ~70-90% quái thường (gieo theo wave). Bản 22/09 trần 50% + "khẩu vị" theo map.
+ *     Quái khắc chế (khiên, tổ ong) KHÔNG khoác áo: cơ chế của chúng đọc bằng hình.
+ *   - MỖI TÀU TỐI ĐA DUP BẢN SAO một wave: kho mới có 3 chiếc mà 30 con cùng ba mặt là
+ *     nhàm và lộ — thiếu tàu thì gà lấp chỗ trống. Gán XOAY VÒNG trên kho đã xáo để một
+ *     wave có nhiều mặt nhất có thể.
  */
 
 SC.DefectorSpawn = {
-  CAP: 0.5,
+  SHARE: 0.8,
+  DUP: 3,
   BOSS_CHANCE: 0.9,    // vòng vô tận: xác suất map trùm được giao tàu phản bội (duyệt 22/09)
-  SELLER_CHANCE: 0.35, // xác suất băng tên trùm phản bội khai tên người đã bán nó
 
   /* RNG gieo theo chuỗi — cùng map cùng wave thì luôn cùng kết quả */
   _r(...k) {
@@ -17559,15 +17585,17 @@ SC.DefectorSpawn = {
     let pool = SC.Defectors.ready(endless ? 'mob' : null);
     if (endless && !pool.length) pool = SC.Defectors.ready();
     if (!pool.length || !queue.length) return;
-    const base = this.CAP * this._r('map', lv.id);
-    const share = Math.min(this.CAP, base * (0.5 + this._r('wave', lv.id, wave)));
+    const share = this.SHARE * (0.875 + 0.25 * this._r('wave', lv.id, wave));
     // quái khắc chế có cơ chế riêng nhìn bằng hình (khiên, tổ ong) — không khoác áo
     const slots = queue.filter(q => !SC.EnemyCounter.is(q.t));
-    let k = Math.floor(queue.length * share);
-    while (k-- > 0 && slots.length) {
-      const q = slots.splice((Math.random() * slots.length) | 0, 1)[0];
-      q.dz = pool[(Math.random() * pool.length) | 0];
+    const k = Math.min(Math.round(slots.length * share), pool.length * this.DUP);
+    const deck = pool.slice();
+    for (let i = deck.length - 1; i > 0; i--) {
+      const j = (Math.random() * (i + 1)) | 0;
+      [deck[i], deck[j]] = [deck[j], deck[i]];
     }
+    for (let i = 0; i < k && slots.length; i++)
+      slots.splice((Math.random() * slots.length) | 0, 1)[0].dz = deck[i % deck.length];
   },
 
   /* Vòng vô tận: thay trùm của map bằng tàu hạng trùm. Giữ máu/chiêu vùng của trùm gốc. */
@@ -17592,10 +17620,12 @@ SC.DefectorSpawn = {
     const dz = pool[k];
     boss.dz = dz;
     const ten = dz.names.length ? dz.names.join(' ').toUpperCase() : 'VÔ DANH';
-    // THỈNH THOẢNG (~35%, gieo theo map) khai ra ai đã bán nó — vui vì bất ngờ; lần nào
-    // cũng hiện thì thành nhàm và giống bảng tên hơn là trò đùa
-    boss.name = dz.seller && this._r('seller', lv.id) < this.SELLER_CHANCE
-      ? `PHẢN ĐỒ CỦA ${dz.seller.toUpperCase()} · ${ten}` : 'PHẢN ĐỒ · ' + ten;
+    // 23/10/2026: quái thường nay LUÔN đeo nhãn "<câu đùa> của <domain>" (system-defector-
+    // nametag.js), nên trùm cũng luôn khai — cùng câu đùa của tàu đó trên map này. Bản 22/09
+    // chỉ khai ~35% vì khi đó tên người là điều bất ngờ duy nhất. Có câu đùa thì băng tên
+    // CHỈ ghi câu đó: kèm "· TÊN TỔ HỢP" là băng tên máy 414px cắt cụt ở dấu "·" (ảnh chụp).
+    const tag = SC.DefectorTag.of(dz, lv.id);
+    boss.name = tag ? tag.toUpperCase() : 'PHẢN ĐỒ · ' + ten;
     // chiêu mổ chỉ hợp gia cầm — tàu phản bội không phải chim thì mổ đổi thành laze
     if (!dz.bird) boss.atkList = boss.atkList.map(a => (a === 'peck' ? 'laser' : a));
   },
@@ -17626,6 +17656,301 @@ SC.DefectorSpawn = {
     }
     return true;
   }
+};
+
+;
+/* ===== js/system-defector-pool-owned-ships.js ===== */
+/* system-defector-pool-owned-ships.js — MỌI tàu AI người chơi đang giữ cũng ra trận làm quái
+ *
+ * Trước 23/10/2026 kho `defectors` chỉ nhận tàu BÁN ở gara (system-defector-pool.publish).
+ * Anh Đức: "máy bay địch sẽ là các máy bay AI của tất cả người chơi" — nên tàu ĐANG GIỮ
+ * cũng lên kho, ngay lúc ghép xong (EvoRecover.attach gọi share) và bù cho tàu cũ ở lần
+ * nạp kho đầu phiên (Defectors.load gọi local + backfill).
+ *
+ * DÙNG CHUNG kho + doc id `defectors/{uid}_{idTàu}` với đường BÁN, trường y hệt — nên
+ * KHÔNG phải sửa hay dán lại firestore.rules. Hệ quả có chủ đích: tàu đã lên kho lúc còn giữ
+ * thì lúc bán `_upload` gặp permission-denied (luật chỉ cho create) — tàu vẫn ở kho.
+ *
+ * BẪY permission-denied (review 23/10): Firestore trả CÙNG một mã cho "doc đã có" và "doc sai
+ * luật" (ảnh quá trần, seller lạc '@', luật Console lệch repo). Coi cả hai là "xong" là tàu mất
+ * lặng lẽ vĩnh viễn — nên gặp mã đó thì ĐỌC LẠI doc, có thật mới ghi sổ.
+ *
+ * Ảnh tàu chỉ nằm ở máy đã ghép ra nó (gara localStorage), nên chỉ máy đó đẩy được. Sổ
+ * `sc.defectors.pub` = { idTàu: {at, tier, score} }: tàu nào đã đẩy xong + hạng đã chấm (lần
+ * sau khỏi giải mã + chấm lại — mỗi tàu 10-30ms trên Android tầm trung, đúng lúc wave 1).
+ */
+
+SC.DefectorOwned = {
+  PUB: 'sc.defectors.pub',
+  PUB_MAX: 400,
+  IMG_MAX: 110000,     // luật defectors: img < 120000 ký tự — chừa lề
+  _g: {},              // idTàu -> {tier, score} chấm trong phiên (tàu chưa đẩy xong)
+
+  _pub() { try { return JSON.parse(localStorage.getItem(this.PUB) || '{}') || {}; } catch (e) { return {}; } },
+  _mark(id, rec) {
+    const p = this._pub();
+    p[id] = rec;
+    const ks = Object.keys(p);
+    if (ks.length > this.PUB_MAX) ks.sort((a, b) => p[a].at - p[b].at).slice(0, ks.length - this.PUB_MAX).forEach(k => delete p[k]);
+    try { localStorage.setItem(this.PUB, JSON.stringify(p)); } catch (e) {}
+  },
+
+  /* tàu đang giữ ở hồ sơ đang mở + ảnh 256px của nó trong gara máy này */
+  _owned() {
+    const e = SC.EvoAI.st(), imgs = SC.EvoGarage.images();
+    return ((e && e.owned) || []).map(o => ({ o, url: (imgs.find(x => x.id === o.id) || {}).ship }))
+      .filter(x => x.url && Array.isArray(x.o.ens) && x.o.ens.length);
+  },
+
+  _img(url) {
+    return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+  },
+
+  /* hạng tàu: sổ đã-đẩy -> chấm trong phiên -> chấm mới (giải mã + Laplacian, đắt) */
+  async _grade(o, url) {
+    const p = this._pub()[o.id];
+    if (p && p.tier) return p;
+    if (!this._g[o.id]) {
+      const g = SC.DefectorGrade.grade(await this._img(url), o.ens);
+      this._g[o.id] = { tier: g.tier, score: g.score };
+    }
+    return this._g[o.id];
+  },
+
+  /* Bản ghi giống hệt đường BÁN; img = ảnh gara 256px (bản ở máy) hoặc bản nén để đẩy */
+  _doc(o, img, g, at) {
+    return { id: 'm_' + o.id, img, ens: o.ens.slice(0, 4),
+      names: (o.names || []).slice(0, 4).map(n => String(n).slice(0, 24)),
+      cls: o.ens.find(e => SC.EVO_KW.class.some(c => c.en === e)) || '', tier: g.tier, score: g.score,
+      at, seller: SC.Defectors._seller() };
+  },
+
+  /* Chỉ đẩy khi biết CHẮC domain: luật chỉ cho tạo, seller sai là sai vĩnh viễn. Vé anonymous
+     có thể hồi từ IndexedDB TRƯỚC khi /whoami trả lời; máy dev (token vkm_, không M365) thì
+     seller là tên phi công — và không được đẩy tàu thử lên kho thật của mọi người. */
+  _canSend() { return !!(SC.M365 && SC.M365.active() && SC.M365.info && SC.M365.info.email); },
+
+  /* nhường khung hình giữa các tàu — local() chạy đúng lúc vào màn */
+  _idle() { return new Promise(r => (window.requestIdleCallback || setTimeout)(() => r(), { timeout: 400 })); },
+
+  /* Thấy NGAY tàu của mình trong trận, không đợi mây (Anh chọn: tàu mình lẫn trong đám) */
+  async local() {
+    const pub = this._pub();
+    for (const { o, url } of this._owned()) {
+      if (SC.Defectors.pool.some(x => SC.Defectors._key(x.id) === o.id)) continue;
+      try { SC.Defectors._add(this._doc(o, url, await this._grade(o, url), (pub[o.id] && pub[o.id].at) || o.at || Date.now())); } catch (e) {}
+      await this._idle();
+    }
+  },
+
+  /* Đẩy những tàu chưa có trong sổ đã-đẩy. Tuần tự từng chiếc: lần đầu một người cũ có thể
+     có cả chục tàu, bắn song song là chục lệnh ghi ~15KB cùng lúc qua 4G. */
+  async backfill(fb) {
+    if (!this._canSend()) return;
+    const pub = this._pub();
+    for (const { o, url } of this._owned()) {
+      if (pub[o.id] && pub[o.id].tier) continue;
+      await this._send(fb, o, url).catch(e => console.warn('[defectors] chưa đẩy được tàu', o.id, (e && e.code) || e));
+      await this._idle();
+    }
+  },
+
+  async _send(fb, o, url) {
+    const g = await this._grade(o, url);
+    let img = await SC.EvoGarage.compress(url, 192);
+    if (img.length >= this.IMG_MAX) img = await SC.EvoGarage.compress(url, 144);   // Safari: webp -> PNG to hơn
+    if (img.length >= this.IMG_MAX) throw new Error('ảnh tàu quá trần ' + img.length);
+    const d = this._doc(o, img, g, Date.now());
+    SC.Defectors._add(d);
+    try {
+      await SC.Defectors._upload(fb, d);
+    } catch (e) {
+      if (!(e && String(e.code).includes('permission'))) throw e;
+      const { doc, getDoc } = fb.fsM;    // đã có thật (đẩy từ trước / lúc bán) hay bị luật từ chối?
+      const s = await getDoc(doc(fb.db, SC.Defectors.COL, fb.auth.currentUser.uid + '_' + o.id));
+      if (!s.exists()) throw e;
+    }
+    this._mark(o.id, { at: d.at, tier: g.tier, score: g.score });
+  },
+
+  /* EvoRecover.attach gọi sau khi cất ảnh tàu mới. KHÔNG await từ đó: attach nằm trên đường
+     ghép tàu, mạng chậm không được giữ chân popup tiến hóa. */
+  share(o, url) {
+    if (!SC.EvoAI.active() || !o || !url || !Array.isArray(o.ens) || !o.ens.length) return;
+    if (this._pub()[o.id]) return;
+    (async () => {
+      if (!this._canSend() || !Portal.FB.configured()) {
+        SC.Defectors._add(this._doc(o, url, await this._grade(o, url), o.at || Date.now()));
+        return;
+      }
+      await this._send(await SC.Defectors._auth(), o, url);
+    })().catch(e => console.warn('[defectors] chưa đẩy được tàu AI lên kho:', (e && e.code) || e));
+  }
+};
+
+;
+/* ===== js/data-defector-taglines.js ===== */
+/* data-defector-taglines.js — 200 câu đùa cho nhãn trên đầu MÁY BAY AI THÀNH QUÁI
+ *
+ * Nhãn đọc là "<câu> của <domain>" (system-defector-nametag.js ghép chữ "của" + phần
+ * trước @ của email M365), vd "đệ ruột của ducdm", "nóc nhà của tungdt2". Anh Đức đặt
+ * 23/10/2026: "soạn 200 câu, câu trending gen Z", tham khảo giọng gen Z công sở của
+ * 50000b (`src/economy/staff-talk-bank.ts`).
+ *
+ * LUẬT VIẾT (tools/test-defector-taglines.mjs kiểm, sửa danh sách xong chạy lại nó):
+ *   - Câu là DANH TỪ chỉ một vai đứng trước "của": không tự viết "của" trong câu.
+ *   - Ngắn (≤ 20 ký tự): nhãn nằm trên đầu quái giữa trận, câu dài là đè nhau thành mớ chữ.
+ *   - Vui nhưng an toàn nơi công sở: domain là TÊN THẬT của đồng nghiệp nên không chửi,
+ *     không tục, không chê ngoại hình, không vùng miền, không gợi dục (bộ từ cấm mượn từ
+ *     `50000b-devtools/tests/staff-talk-check.ts`). "Tiểu tam", "bồ nhí", "...tin đồn" cố ý
+ *     KHÔNG có — gắn lên tên người thật là thành tin đồn chứ không còn là trò đùa; cùng lý do
+ *     bỏ câu dính HR ("chấm công hộ" = gian lận, "lý do nghỉ việc") theo review 23/10.
+ *   - Không trùng nhau. Đổi THỨ TỰ cũng đổi câu của mọi tàu (chọn câu bằng băm theo chỉ số),
+ *     nên thêm câu thì nối vào cuối.
+ */
+
+SC.DEFECTOR_TAGLINES = [
+  // vai vế, quan hệ — nhóm anh Đức nêu làm mẫu
+  'đệ', 'đệ ruột', 'đệ tử chân truyền', 'đàn em', 'tiểu đệ', 'phản đồ', 'nóc nhà', 'sếp',
+  'sếp tổng', 'trợ lý riêng', 'thư ký', 'crush', 'crush thầm 3 năm', 'người yêu cũ',
+  'tình cũ không rủ', 'bạn thân', 'cạ cứng', 'chiến hữu', 'đồng bọn', 'đồng phạm', 'tri kỷ',
+  'hàng xóm', 'cháu ngoại', 'cháu đích tôn', 'con nuôi', 'thú cưng', 'sư phụ', 'học trò cưng',
+  'quân sư quạt mo', 'vệ sĩ', 'tài xế riêng', 'shipper riêng', 'quản gia', 'fan cứng',
+  'fan ruột', 'anti-fan', 'hater số 1', 'idol', 'trưởng fanclub', 'gián điệp', 'nội gián',
+  'kẻ thù truyền kiếp', 'đối thủ', 'tình địch', 'kỳ phùng địch thủ', 'con nợ', 'chủ nợ',
+  'đồng minh', 'hội anh em', 'hội chị em',
+  // gen Z: tình trường online
+  'red flag', 'green flag', 'chiếc red flag', 'người thương', 'bé iu', 'bé cưng', 'cục vàng',
+  'cục cưng', 'người ấy', 'người cũ', 'tình đầu', 'ny tương lai', 'ny hụt', 'người đu trend',
+  'chuyên gia bắt trend', 'người giữ vibe', 'người bị seen', 'người seen không rep',
+  'người rep chậm', 'người xem trộm story', 'người thả tim dạo', 'acc clone', 'acc phụ',
+  'tài khoản ảo', 'vợ game', 'chồng game',
+  // gen Z: phim, truyện, game
+  'tổng tài', 'nam chính', 'nữ chính', 'phản diện', 'trùm cuối', 'boss phụ', 'NPC',
+  'NPC qua đường', 'nhân vật phụ', 'vai quần chúng', 'nhân vật ẩn', 'side quest',
+  'plot twist', 'cú lừa', 'easter egg', 'bản DLC', 'skin mới', 'skin lỗi', 'pet',
+  'cục tạ', 'người gánh team', 'người được gánh', 'thánh feed', 'trùm feed', 'chiến thần AFK',
+  'noob ruột', 'pro player', 'sát thủ bóng đêm', 'gacha lỗi', 'lootbox',
+  // dân dev / văn phòng — người chơi banga là đồng nghiệp ZingPlay
+  'bug ruột', 'con bug', 'task tồn đọng', 'task mãi mận', 'ticket quá hạn', 'commit lỗi',
+  'merge conflict', 'hotfix', 'bản vá lỗi', 'PR chưa review', 'bản build lỗi', 'bản beta',
+  'bản nháp', 'bản sao lỗi', 'bản dupe', 'bản pro max', 'bản lite', 'bản dùng thử',
+  'hàng fake', 'hàng auth', 'AI phiên bản lỗi',
+  'trợ lý ảo', 'bot', 'chiến thần OT', 'chiến thần deadline', 'chiến thần trà sữa',
+  'chiến thần mì gói', 'chiến thần mõm', 'nạn nhân deadline', 'hồn ma deadline',
+  'bóng ma công sở', 'thánh delay', 'thánh soi', 'thánh hóng', 'thánh lag', 'thánh hứa lèo',
+  'trùm order cơm', 'người họp hộ', 'MVP trận này', 'quỹ trà sữa', 'người xài ké wifi',
+  'người mượn sạc', 'thực tập sinh', 'lính mới', 'tân binh', 'cựu binh',
+  'lính đánh thuê', 'người duyệt phép', 'người ký đơn nghỉ', 'đội trưởng', 'kế hoạch B',
+  'phương án dự phòng', 'đứa con tinh thần',
+  // gen Z: drama, flex, chữa lành
+  'trùm drama', 'ông hoàng drama', 'nữ hoàng drama', 'con báo', 'báo thủ', 'đội trưởng đội báo',
+  'chuyên gia chữa lành', 'hệ chữa lành', 'tâm hồn ăn uống', 'con nhà người ta', 'soái ca',
+  'hot boy', 'hot girl', 'tiểu thư', 'thiếu gia', 'phú bà', 'rich kid', 'đại gia ngầm', 'KOL',
+  'hoa khôi', 'aura', 'màn flex', 'cú flex', 'cái nịt', 'pha toang', 'tín hiệu ét o ét',
+  'lộc 8386', 'vận xui', 'tai nạn đẹp', 'sai lầm tuổi trẻ', 'ký ức tuổi thơ', 'chấp niệm',
+  'vết thương lòng', 'nỗi đau', 'động lực sống', 'lý do mất ngủ',
+  'nỗi ám ảnh', 'thái tử', 'công chúa', 'người săn sale', 'người chốt đơn'
+];
+
+;
+/* ===== js/system-defector-nametag.js ===== */
+/* system-defector-nametag.js — nhãn "<câu đùa> của <domain>" trên đầu máy bay AI thành quái
+ *
+ * Anh Đức 23/10/2026: "trên đầu các máy bay AI thành quái sẽ ghi domain kèm vài dòng chữ
+ * fun fun hài hước, vd: đệ của ducdm / phản đồ của tiennv / nóc nhà của tungdt2". Câu lấy
+ * ở data-defector-taglines.js, domain là `seller` của tàu (phần trước @ email M365 —
+ * KHÔNG bao giờ cả email, luật defectors chặn cả '@').
+ *
+ * VÌ SAO VẼ RIÊNG chứ không nướng chung sprite quái:
+ *   - quái `dive` bị XOAY theo hướng lao — nhãn nướng chung là chữ quay ngược theo;
+ *   - một tàu đổi câu theo map, nướng chung là nhân bản cả bộ khung quái theo từng câu.
+ * Mỗi câu nướng MỘT lần ra canvas nhỏ (fillText mỗi khung cho 30 con là đắt — cùng bài
+ * học của entity-enemy-sprite), dọn ở đầu mỗi màn (main.startLevel).
+ *
+ * MỜ Ở NỬA DƯỚI (Anh chọn): quái càng xuống gần tàu thì nhãn càng nhạt — ở đó người
+ * chơi phải đọc ĐẠN, không đọc chữ. NHÃN ĐÈ NHAU thì nhãn sau bị bỏ (duyệt theo thứ tự
+ * sinh quái nên con nào giữ nhãn là ổn định, không nhấp nháy): đội hình 80% máy bay AI
+ * mà nhãn nào cũng vẽ là thành một mảng chữ che kín nửa trên màn.
+ */
+
+SC.DefectorTag = {
+  FONT: 14,            // px ẢO (bề ngang canvas SC.W = 540) — máy 375px ra ~10px thật
+  FADE_FROM: 0.5,      // phần chiều cao màn bắt đầu mờ
+  FADE_TO: 0.74,       // tới đây thì còn MIN
+  MIN: 0.2,
+  _c: {},
+
+  /* Câu đầy đủ của một tàu trên một map. Gieo theo (tàu, map): cùng map luôn cùng câu
+     (nhận mặt được), sang map khác đổi câu (200 câu không nằm im một chỗ). */
+  of(dz, lvId) {
+    const L = SC.DEFECTOR_TAGLINES;
+    if (!dz || !dz.seller || !L || !L.length) return '';
+    const i = Math.floor(SC.DefectorSpawn._r('tag', SC.Defectors._key(String(dz.id)), lvId) * L.length);
+    return L[Math.min(i, L.length - 1)] + ' của ' + dz.seller;
+  },
+
+  _font(px, w) { return `${w} ${px}px ${SC.CFG.fontStack || 'system-ui, sans-serif'}`; },
+
+  /* Nướng một nhãn: viên thuốc tối mờ, câu đùa chữ trắng, domain vàng đậm. Trả canvas kèm
+     cỡ vẽ theo px ảo (_w/_h). Độ nét = DPR như EnemySprite. */
+  _bake(text, who) {
+    const k = Math.min(2.5, (window.devicePixelRatio || 1) * 1.5);
+    const f = this.FONT, padX = 6, h = f + 7;
+    const head = text.slice(0, text.length - who.length);
+    const m = document.createElement('canvas').getContext('2d');
+    m.font = this._font(f, 600);
+    const wHead = m.measureText(head).width;
+    m.font = this._font(f, 800);
+    const w = Math.ceil(wHead + m.measureText(who).width + padX * 2);
+    const c = document.createElement('canvas');
+    c.width = Math.ceil(w * k); c.height = Math.ceil(h * k);
+    const g = c.getContext('2d');
+    g.scale(k, k);
+    g.fillStyle = 'rgba(8,12,26,.66)';
+    g.beginPath();
+    if (g.roundRect) g.roundRect(0, 0, w, h, h / 2); else g.rect(0, 0, w, h);
+    g.fill();
+    g.textBaseline = 'middle';
+    g.font = this._font(f, 600);
+    g.fillStyle = '#f2f5ff';
+    g.fillText(head, padX, h / 2 + 0.5);
+    g.font = this._font(f, 800);
+    g.fillStyle = '#ffd34d';
+    g.fillText(who, padX + wHead, h / 2 + 0.5);
+    c._w = w; c._h = h;
+    return c;
+  },
+
+  _get(text, who) {
+    return this._c[text] || (this._c[text] = this._bake(text, who));
+  },
+
+  /* Renderer gọi ngay sau vòng vẽ quái. Nhãn KHÔNG xoay, KHÔNG rung theo ToyMotion. */
+  render(ctx, enemies) {
+    const lvId = SC.Game.levelId || 1, H = SC.H, boxes = [];
+    for (const e of enemies) {
+      // trùm tàu AI (vô tận) đã mang đúng câu này trên băng tên — vẽ thêm là lặp hai lần
+      if (!e.dz || e.dead || e.isBoss) continue;
+      const a = SC.clamp(1 - (e.y / H - this.FADE_FROM) / (this.FADE_TO - this.FADE_FROM), this.MIN, 1);
+      if (e._tagLv !== lvId) { e._tag = this.of(e.dz, lvId); e._tagLv = lvId; }
+      if (!e._tag) continue;
+      const c = this._get(e._tag, e.dz.seller);
+      // kẹp trong màn: quái bay sát mép (đội hình 'sides', weave) là nhãn mất nửa chữ
+      // (theo camera: nhãn vẽ trong khối đã dịch SC.Cam.x — nay luôn 0, pha 02B thì không)
+      const cx = SC.Cam.x || 0, w = c._w, h = c._h, y = e.y - e.r * 1.75 - h;
+      const x = SC.clamp(e.x - w / 2, cx + 2, cx + SC.W - w - 2);
+      if (y + h < 0) continue;
+      // nhãn ĐÃ vẽ khung này chiếm chỗ trước — chạm nhau là bỏ nhãn sau
+      if (boxes.some(b => x < b.x + b.w && x + w > b.x && y < b.y + b.h && y + h > b.y)) continue;
+      boxes.push({ x, y, w, h });
+      ctx.globalAlpha = a;
+      ctx.drawImage(c, x, y, w, h);
+    }
+    ctx.globalAlpha = 1;
+  },
+
+  clear() { this._c = {}; }
 };
 
 ;
@@ -20064,7 +20389,7 @@ SC.Game = {
     if (SC.BossSheet) SC.BossSheet.want(this.lv.bossArt);
     this.enemies.length = 0; this.boss = null;
     SC.Bullets.clear(); SC.Items.clear(); SC.FX.clear();
-    SC.ScreenFX.clear(); SC.BossSkills.clear();
+    SC.ScreenFX.clear(); SC.BossSkills.clear(); SC.DefectorTag.clear();
     this.score = 0; this.coin = 0; this.kills = 0; this.spawned = 0;
     this.combo = 1; this.comboT = 0; this.endT = 0;
     this.stats = { escaped: 0, maxCombo: 1, rescued: 0, time: 0 };
