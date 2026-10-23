@@ -2151,23 +2151,44 @@ SC.Input = {
   },
 
   _down(e) {
-    /* Chạm lúc đang bay trong mây = vào trận. KHÔNG đặt đích lái và KHÔNG bắt đầu kéo:
-       cú chạm đó mang nghĩa "bắt đầu"; nếu nó cũng lái thì tàu giật một phát sang chỗ
-       ngón tay ngay lúc vén màn. */
-    if (this.game.state === 'ready') { SC.Ready.arm(); return; }
+    /* Chạm lúc đang bay trong mây = vào trận. KHÔNG đặt đích lái: cú chạm đó mang nghĩa
+       "bắt đầu"; nếu nó cũng lái thì tàu giật một phát sang chỗ ngón tay ngay lúc vén màn.
+       NHƯNG ngón cảm ứng đó vẫn phải được NHẬN làm ngón lái (bug live 24/10/2026, anh Đức:
+       "chạm vào màn xong giữ ngón kéo đủ kiểu mà máy bay không đi, phải nhấc tay chạm
+       lại"). Bản cũ `return` luôn ⇒ `dragging` tắt ⇒ `_move` bỏ qua mọi cú kéo của chính
+       ngón vừa vào trận. Kéo TƯƠNG ĐỐI nên nhận ngón không làm tàu giật — đích chỉ đặt
+       khi ngón đã dịch, và neo được làm mới lúc bắt đầu lái được (xem `_move`). Chuột thì
+       giữ như cũ: nó bám tuyệt đối, `applyLastPointer` lo. */
+    if (this.game.state === 'ready') {
+      SC.Ready.arm();
+      if (e.pointerType === 'touch') this._giu(e);
+      return;
+    }
     SC.AutoPause.cam();                   // chạm lại = chơi tiếp (xem system-auto-pause.js)
     if (this.game.state !== 'play') return;
+    const [x, y] = this._giu(e);
+    if (this.mode === 'absolute') this.game.player.setTarget(x, y);
+    e.preventDefault();
+  },
+
+  /* Nhận một ngón / con trỏ làm cái đang lái, neo ở chỗ nó đặt xuống. */
+  _giu(e) {
     this.mode = e.pointerType === 'touch' ? 'relative' : 'absolute';
     this.active = e.pointerId;
     e.target.setPointerCapture && e.target.setPointerCapture(e.pointerId);
-
     const [x, y] = SC.View.toWorld(e.clientX, e.clientY);
     const p = this.game.player;
     this.ax = x; this.ay = y;
-    this.sx = p.x; this.sy = p.y;
+    if (p) { this.sx = p.x; this.sy = p.y; }
     this.dragging = true;
-    if (this.mode === 'absolute') p.setTarget(x, y);
-    e.preventDefault();
+    this._choNeo = !this._laiDuoc();
+    return [x, y];
+  },
+
+  /* Tàu có đang nghe lái không. Lúc vén mây (`ready`) và suốt 2s nhảy dù (`introT`,
+     main.js ghi đè tx/ty mỗi khung) thì KHÔNG — kéo lúc đó là kéo vào khoảng không. */
+  _laiDuoc() {
+    return this.game.state === 'play' && !(this.game.introT > 0);
   },
 
   _move(e) {
@@ -2177,8 +2198,20 @@ SC.Input = {
     if (e.pointerType !== 'touch') { this._lx = x; this._ly = y; }
     // chuột rê vào lại sân = chơi tiếp; cảm ứng thì `_down` đã lo
     if (e.pointerType !== 'touch') SC.AutoPause.cam();
-    if (this.game.state !== 'play') return;
     const p = this.game.player;
+    if (e.pointerType === 'touch' && this.dragging && e.pointerId === this.active) {
+      /* Ngón giữ từ lúc vào trận (hoặc đặt xuống giữa màn nhảy dù): chưa lái được thì chỉ
+         ĐÁNH DẤU; cú kéo đầu tiên khi lái được thì NEO LẠI ở chỗ tàu đang đứng. Neo cũ là
+         toạ độ tàu lúc bay trong mây (giữa màn) — kéo theo nó thì tàu vừa đáp xuống 0,78H
+         đã bị giật ngược lên. Neo lúc nhận event chứ không neo theo đồng hồ: ngón giữ im
+         thì không có pointermove nào để mà neo. */
+      if (!this._laiDuoc()) { this._choNeo = true; return; }
+      if (this._choNeo) {
+        this._choNeo = false;
+        this.ax = x; this.ay = y; this.sx = p.x; this.sy = p.y;
+      }
+    }
+    if (this.game.state !== 'play') return;
 
     if (e.pointerType === 'touch') {
       if (!this.dragging || e.pointerId !== this.active) return;
@@ -2201,6 +2234,9 @@ SC.Input = {
      sai hẳn ý. Không có vị trí nào nhớ được (người chơi chưa hề rê chuột) thì thôi. */
   applyLastPointer() {
     if (SC.View.touch || this._lx == null) return;
+    // laptop màn cảm ứng (`View.touch` false): ngón đang giữ từ lúc vào trận thì ngón lái,
+    // không trả về chỗ chuột của màn trước
+    if (this.dragging && this.mode === 'relative') return;
     const p = this.game && this.game.player;
     if (p) { this.mode = 'absolute'; p.setTarget(this._lx, this._ly); }
   },
@@ -3985,10 +4021,14 @@ SC.AutoPause = {
 
   /* Gọi mỗi khung bằng thời gian THẬT (chưa nhân hệ số) — nếu dùng dt đã bị chính mình
      làm chậm thì càng chậm càng lâu hồi, không bao giờ về lại 1. */
+  /* Tiến VỀ đích rồi ĐỨNG ở đó. BẪY (bug 24/10/2026): bản cũ `k + (dich > k ? toc : -toc)` —
+     lúc k ĐÃ bằng đích thì `dich > k` sai nên nó TRỪ, khung sau lại cộng về ⇒ k nhảy 1 ↔ 0,86
+     mỗi khung khi đang chơi bình thường (60Hz): cứ hai khung một khung trận chạy 74% tốc độ,
+     cả trận chậm ~13% và khựng đều. Kẹp theo ĐÍCH chứ không kẹp theo [0, 1]. */
   update(dtThat) {
     const dich = this.ngung ? 0 : 1;
     const toc = this.ngung ? dtThat / this.DOWN : dtThat / this.UP;
-    this.k = SC.clamp(this.k + (dich > this.k ? toc : -toc), 0, 1);
+    this.k = dich > this.k ? Math.min(dich, this.k + toc) : Math.max(dich, this.k - toc);
   },
 
   /* Trận đã dừng hẳn chưa — dùng cho lớp chữ nhắc chạm lại. */
