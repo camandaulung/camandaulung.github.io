@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Studio Tycoon — Tuning</title>
+  <script type="module" crossorigin src="./assets/index-C95UR_bW.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-IAcLH4vI.css">
+</head>
+<body>
+<!-- Tuning trực tiếp Studio Tycoon: chỉnh hệ số kinh tế, bấm Chạy, sim THẬT của game chạy trong trình duyệt (Web Worker) với bot
+     tự chơi, so với bản live và mục tiêu. Nguồn: 50000b-devtools/tools/tuning-dash. Không có dữ liệu người chơi. -->
+<main class="page">
+  <header class="top">
+    <div>
+      <h1>Studio Tycoon — tuning trực tiếp</h1>
+      <p class="sub" id="build">Đang tải…</p>
+    </div>
+    <div class="actions">
+      <button id="run" class="primary" type="button">Chạy</button>
+      <button id="stop" type="button" disabled>Dừng</button>
+    </div>
+  </header>
+
+  <section class="card controls" aria-label="Cách chạy">
+    <label>Bot <select id="strategy"></select></label>
+    <label>Số studio <select id="studios"><option>4</option><option selected>8</option><option>16</option><option>24</option></select></label>
+    <label>Chạy đến năm <select id="until"><option>2023</option><option>2027</option><option selected>2036</option><option>2040</option></select></label>
+    <label>Luồng song song <select id="threads"></select></label>
+    <p class="hint" id="eta"></p>
+    <div class="progress" aria-hidden="true"><i id="bar"></i></div>
+    <p class="status" id="status" role="status">Chỉnh hệ số bên dưới rồi bấm Chạy. Mỗi studio chạy trọn sim của game, khoảng 1–2 phút cho 30 năm.</p>
+  </section>
+
+  <section class="kpis" id="kpis" aria-label="Chỉ số chính"></section>
+
+  <section class="card">
+    <div class="card-head"><h2>Đạt / lệch mục tiêu</h2><p class="hint">Chấm trên bot đang chọn. Cột "Bản live" là cùng bot với hệ số đang chạy trên game.</p></div>
+    <div class="table-wrap"><table id="targets"></table></div>
+  </section>
+
+  <div class="layout">
+    <aside class="card knobs" aria-label="Hệ số">
+      <div class="card-head"><h2>Hệ số <small id="changed"></small></h2>
+        <div class="row"><button id="reset" type="button">Về bản live</button><button id="as-base" type="button" disabled>Lấy kết quả này làm mốc</button></div></div>
+      <div id="knobs"></div>
+      <h3>Xuất để đưa vào game</h3>
+      <textarea id="export" readonly rows="5" aria-label="Hệ số đã đổi"></textarea>
+      <button id="copy" type="button">Sao chép</button>
+    </aside>
+
+    <div class="charts">
+      <section class="card"><div class="card-head"><h2>Doanh thu năm</h2><p class="hint">Thang log, trung vị và dải p10–p90. Ô xám = đường doanh thu 2022–2027 chủ game chốt; vạch = mốc thắng.</p></div>
+        <div class="legend" id="lg-rev"></div><div class="chart" id="ch-rev"></div></section>
+      <section class="card"><div class="card-head"><h2>Còn sống và đã thắng</h2><p class="hint">% studio còn chơi (đậm) và % đã thắng (mảnh) ở cuối mỗi năm. Ô xám = năm thắng mục tiêu 2034–2036.</p></div>
+        <div class="legend" id="lg-surv"></div><div class="chart" id="ch-surv"></div></section>
+      <section class="grid2">
+        <div class="card"><h2>Chi lương / người / tháng</h2><p class="hint">Trung vị, triệu đồng: chi "Lương &amp; chỗ ngồi" cả năm / 12 / số người. Ô xám = ~30 triệu năm 2022.</p><div class="chart" id="ch-pay"></div></div>
+        <div class="card"><h2>Năm lỗ</h2><p class="hint">% studio đang chơi mà chi phí năm cao hơn doanh thu.</p><div class="chart" id="ch-loss"></div></div>
+      </section>
+      <section class="grid2">
+        <div class="card"><h2>Nhân sự</h2><p class="hint">Trung vị số người cuối năm.</p><div class="chart" id="ch-staff"></div></div>
+        <div class="card"><h2>Game đang chạy</h2><p class="hint">Trung vị cuối năm.</p><div class="chart" id="ch-live"></div></div>
+      </section>
+      <section class="card"><div class="card-head"><h2>Từng năm (đang chỉnh)</h2><p class="hint">p50 = trung vị các studio còn chơi năm đó.</p></div>
+        <div class="table-wrap"><table id="years"></table></div></section>
+    </div>
+  </div>
+
+  <section class="card defs">
+    <h2>Cách đọc</h2>
+    <ul>
+      <li><b>Nguồn số:</b> mỗi studio là một lần chạy trọn <code>src/sim.ts</code> của game với bot tự chơi (cùng bot của balance-sim), seed 1..N cố định, nên đổi hệ số là thấy đúng tác động của hệ số.</li>
+      <li><b>Bản live:</b> chạy sẵn cùng bot, cùng seed, với hệ số đang chạy trên game, đóng gói kèm trang.</li>
+      <li><b>Xuất:</b> dòng <code>--override=…</code> chạy lại được bằng <code>scripts/qa/balance-sim.ts</code>; phần JSON là giá trị mới cho cột <code>value</code> của <code>game-settings.json</code>. Gửi cho em để đưa vào game.</li>
+      <li><b>Link chia sẻ:</b> hệ số đã đổi nằm trên địa chỉ trang (sau dấu #), gửi link là người khác thấy đúng bộ hệ số.</li>
+    </ul>
+  </section>
+</main>
+<div class="tip" id="tip" role="status" hidden></div>
+</body>
+</html>
