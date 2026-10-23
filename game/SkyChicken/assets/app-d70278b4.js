@@ -10376,12 +10376,16 @@ SC.ShipArt = {
       const s = r * 2.8 * SC.ArtScale.ship;
       // tàu AI cũ chỉ còn bản 256px: phóng có làm nét thay vì kéo giãn trơn (util-image-upscale)
       g.drawImage(hd && SC.ImgSharp ? SC.ImgSharp.fit(img, s * dpr) : img, -s / 2, -s / 2, s, s);
-      g.globalCompositeOperation = 'source-atop';
-      g.globalAlpha = 0.2;
-      g.fillStyle = hue;
-      g.fillRect(-size / 2, -size / 2, size, size);
-      g.globalAlpha = 1;
-      g.globalCompositeOperation = 'source-over';
+      /* Sảnh KHÔNG nhuộm (24/10/2026): 20% màu biến thể phủ cả tàu là thứ biến cánh trắng ngọc
+         trai của tàu AI thành "đồng đục". Ở sảnh hào quang (AuraFX) đã đọc ra biến thể. */
+      if (!hd) {
+        g.globalCompositeOperation = 'source-atop';
+        g.globalAlpha = 0.2;
+        g.fillStyle = hue;
+        g.fillRect(-size / 2, -size / 2, size, size);
+        g.globalAlpha = 1;
+        g.globalCompositeOperation = 'source-over';
+      }
       /* LƯỚI AN TOÀN (18/10/2026) — anh Đức báo live: "lobby không hiện máy bay", và xác
          nhận chỉ xảy ra khi đang bay TÀU AI TIẾN HOÁ.
          Ảnh AI đến từ dataURL trong localStorage rồi qua `EvoAI._outlined` (vẽ viền trên
@@ -12325,7 +12329,7 @@ SC.Renderer = {
         console.warn('[lobby] dang o lobby nhung game.state =', g.state, '- van ve tau');
       }
       SC.LobbyShip.render(ctx);
-    }
+    } else SC.LobbyShipGL.sleep();   // rời sảnh: trả bộ đệm vẽ WebGL (DPR 3 tới vài chục MB GPU)
 
     if (g.state !== 'menu') {
       SC.Rescue.render(ctx);
@@ -16406,7 +16410,7 @@ SC.EvoAI = {
      không có buffer nên khỏi xoá cache gì thêm. */
   _apply(shipUrl, droneUrl) {
     const tok = this._tok = (this._tok || 0) + 1;
-    this._outlined(shipUrl, img => {
+    this._outlined(shipUrl, (img, raw) => {
       if (tok !== this._tok) return;             // đã đổi tàu khác trong lúc chờ viền
       // KHÔNG nhận ảnh rỗng (18/10/2026): gán một Image hỏng vào đây là `get()` trả null
       // và tàu biến mất — thà giữ tàu gốc còn hơn mất nhân vật chính.
@@ -16415,8 +16419,9 @@ SC.EvoAI = {
         return;
       }
       SC.SpriteArt._imgs['ship-player'] = img;
-      // sảnh dùng tạm bản này tới khi bản nét về (EvoHD.wear) — không thì sảnh hiện TÀU GỐC
-      if (this._hdTok !== tok) SC.SpriteArt._imgs['ship-player-hd'] = img;
+      // sảnh dùng tạm bản này tới khi bản nét về (EvoHD.wear) — không thì sảnh hiện TÀU GỐC.
+      // Sảnh lấy ảnh THÔ, không viền (24/10/2026, xem EvoHD.wear)
+      if (this._hdTok !== tok) SC.SpriteArt._imgs['ship-player-hd'] = raw || img;
       if (SC.ShipArt) SC.ShipArt._cache = {};
     });
     if (droneUrl) this._outlined(droneUrl, di => {
@@ -16454,7 +16459,7 @@ SC.EvoAI = {
         }
         g.drawImage(src, 0, 0);
         const out = new Image();
-        out.onload = () => done(out);
+        out.onload = () => done(out, src);       // kèm ảnh thô: sảnh không dùng viền
         out.onerror = () => done(src);
         out.src = c.toDataURL('image/png');
         sil.width = c.width = 0;                  // trả bộ nhớ canvas (iOS có trần tổng)
@@ -16977,20 +16982,23 @@ SC.EvoHD = {
     return this._cap(this._tx('readwrite', s => s.delete(IDBKeyRange.bound(lo, lo + '￿'))).catch(() => {}));
   },
 
-  /* Lên bản nét cho ô của SẢNH (`ship-player-hd`), viền tối như bản 256px. Về sớm hay muộn
-     hơn bản 256px đều đúng: `EvoAI._hdTok` cấm bản 256 đè lại, `EvoAI._tok` (tăng mỗi lần
-     đổi tàu / về tàu gốc) cấm ảnh của tàu cũ đè lên tàu vừa đổi — nên `tok` phải chụp lúc
-     GỬI yêu cầu đọc kho, không phải lúc nhận. */
+  /* Lên bản nét cho ô của SẢNH (`ship-player-hd`). Về sớm hay muộn hơn bản 256px đều đúng:
+     `EvoAI._hdTok` cấm bản 256 đè lại, `EvoAI._tok` (tăng mỗi lần đổi tàu / về tàu gốc) cấm ảnh
+     của tàu cũ đè lên tàu vừa đổi — nên `tok` phải chụp lúc GỬI yêu cầu đọc kho, không phải lúc nhận.
+     KHÔNG VIỀN (24/10/2026): viền tối là để tàu nổi trên ruộng vàng TRONG TRẬN; ở sảnh nó là cái
+     "stroke dày" anh Đức chê — sảnh tách tàu khỏi nền bằng ánh sáng (ui-lobby-ship-gl.js). */
   wear(url, tok) {
     const A = SC.EvoAI;
     if (tok == null) tok = A._tok;
     if (!url) return;
-    A._outlined(url, img => {
-      if (tok !== A._tok || !img || !img.naturalWidth) return;
+    const img = new Image();
+    img.onload = () => {
+      if (tok !== A._tok || !img.naturalWidth) return;
       SC.SpriteArt._imgs['ship-player-hd'] = img;
       A._hdTok = tok;
       if (SC.ShipArt) SC.ShipArt._cache = {};
-    });
+    };
+    img.src = url;
   }
 };
 
@@ -19044,6 +19052,7 @@ SC.LobbyFX = {
     g.globalAlpha = 0.34 - bob * 0.03;
     g.translate(s.x + s.r * 0.55, s.y + s.r * 2.1);
     g.rotate(s.tilt * 0.32);
+    g.scale(Math.cos(s.roll || 0), 1);                  // tàu 2.5D chao thì bóng hẹp lại theo
     g.drawImage(sh, -S / 2, -S / 2, S, S);
     } finally { g.restore(); }
   },
@@ -19089,28 +19098,380 @@ SC.LobbyFX = {
     } finally { g.restore(); }
   },
 
-  /* ÁNH SÁNG CỦA VÙNG HẮT LÊN TÀU (18/10/2026). Sảnh đổi bảng màu theo vùng mà tàu y hệt
-   * từng điểm ảnh ở dung nham lẫn băng giá thì đọc ra "miếng dán lên ảnh". `source-atop`:
-   * vệt màu chỉ ăn vào ĐIỂM ẢNH ĐÃ VẼ (tàu, phi đội, bóng, hạt), nền trong suốt giữ nguyên.
-   * Trên hắt màu TRỜI, dưới dội màu MẶT ĐẤT (`near`). Alpha nhẹ (.2 / .4): quá tay là mất
-   * sắc đỏ-kem của tàu, mà tàu phải nhận ra được là CHÍNH NÓ ở cả mười vùng. */
-  tint(g, W, H, cy, r) {
-    const LS = SC.LobbyScene;
-    const b = LS && LS.biome;
-    if (!b || !r) return;
-    const tren = LS._rgba((b.sky && b.sky[2]) || b.cloud, 0.2);
-    const duoi = LS._rgba(b.near, 0.4);
-    if (!tren || !duoi) return;
-    const gr = g.createLinearGradient(0, cy - r * 1.3, 0, cy + r * 1.5);
-    gr.addColorStop(0, tren);
-    gr.addColorStop(0.5, 'rgba(0,0,0,0)');
-    gr.addColorStop(1, duoi);
-    g.save(); try {
-    g.globalCompositeOperation = 'source-atop';
-    g.fillStyle = gr;
-    g.fillRect(0, cy - r * 3, W, r * 7);              // dải tàu + phi đội + bóng, không cả canvas
-    } finally { g.restore(); }
+  /* Phi đội bay kèm, nằm DƯỚI máy bay chính (dời từ ui-lobby-ship.js 24/10/2026 — file đó chạm
+     trần 200 dòng). Gọi trong phép phóng `k` lúc bay vào của ui-lobby-ship. */
+  drones(g, cx, cy, r, t, still) {
+    const dr = SC.Drones.tier(), n = dr ? dr.n : 0, swarm = SC.Drones.kind() === 'A';
+    for (let i = 0; i < n; i++) {
+      const side = i % 2 === 0 ? -1 : 1, ring = Math.floor(i / 2);
+      SC.DroneArt.draw(g, {
+        x: cx + side * (r * 1.95 + ring * r * 0.6),
+        y: cy + r * 1.05 + ring * r * 0.32 + (still ? 0 : Math.sin(t * 2.2 + i) * r * 0.07),
+        r: (swarm ? 0.3 : 0.4) * r, t: still ? 0 : t + i
+      }, swarm, SC.Tree.evo());
+    }
   },
+
+  /* ĐÃ BỎ (24/10/2026): `tint` — đèn vùng `source-atop` phủ lên cả tàu (trên màu trời .2, dưới màu
+   * đất .4). Ở rạn san hô nó biến cánh trắng ngọc trai của tàu AI thành "đồng đục" — một trong bốn
+   * lớp anh Đức chê "xấu vỡ". Màu vùng giờ chỉ vào RIM + PHẢN CHIẾU trong shader (ui-lobby-ship-gl). */
+};
+
+;
+/* ===== js/util-ship-surface-maps.js ===== */
+/* util-ship-surface-maps.js — đoán "bề mặt 3D" của MỘT ảnh tàu phẳng cho tàu sảnh 2.5D (24/10/2026)
+ *
+ * VÌ SAO CÓ: anh Đức chê tàu sảnh "2D". Tàu AI là tranh vẽ nhìn từ trên xuống, mỗi người chơi một
+ * chiếc, không có model 3D. Muốn đèn lướt được trên giáp khi tàu chao thì phải đoán độ cao từng
+ * điểm ảnh, một lần mỗi lần đổi tàu (~30-60 ms ở 512px), rồi ui-lobby-ship-gl.js chiếu sáng:
+ *   - VÁT MÉP theo khoảng cách tới mép trong suốt (biến đổi khoảng cách chamfer 3-4, hai lượt):
+ *     mép cánh cong xuống, thân dày lên — đọc ra khối chứ không ra tờ giấy;
+ *   - GỜ GIỮA THÂN theo khoảng cách tới trục dọc: chao thì một cánh sáng một cánh tối;
+ *   - CHI TIẾT theo độ sáng (sáng = nhô), trọng số nhỏ: gờ vàng, vảy nổi lên bắt đèn.
+ * Kèm CHẤT LIỆU đoán theo màu (R vàng kim loại, G độ bóng, B tự phát sáng) và vị trí NÒNG = cụm
+ * xanh rực ở 1/3 dưới, nửa giữa bề ngang — lửa ra đúng hai nòng thật, không phải tam giác giữa đuôi.
+ * Kết quả nhớ trên chính ảnh (`img._lbSurf`): đổi qua lại hai tàu không dựng lại.
+ */
+SC.ShipSurface = {
+  N: 512,
+
+  get(img) {
+    if (!img._lbSurf) img._lbSurf = this._build(img);
+    return img._lbSurf;
+  },
+
+  _build(img) {
+    const N = this.N, w = img.naturalWidth || img.width;
+    // ảnh màu: lũy thừa 2 (WebGL1 không dựng mipmap cho 640px); tàu AI cũ 256px thì phóng có làm nét
+    const AW = w > 600 ? 1024 : N;
+    const alb = document.createElement('canvas'); alb.width = alb.height = AW;
+    const ag = alb.getContext('2d'); ag.imageSmoothingQuality = 'high';
+    // phóng có làm nét nhưng KHÔNG qua kho `ImgSharp.fit`: kho đó nhớ một bản theo cỡ trên chính ảnh —
+    // sprite 2D của sảnh cũng dùng nó với cỡ khác, hai bên giành nhau dựng lại, và bản 1024 nằm lì 4MB
+    // Chỉ làm nét khi phóng ≥ 2× (tàu AI cũ 256px): tàu gốc 640→1024 rồi GPU lại thu về ~560px, làm nét
+    // ở đó tốn ~80ms (lọc mờ + đọc điểm 1024²) mà mắt không thấy khác
+    const up = SC.ImgSharp && w * 2 <= AW ? SC.ImgSharp._up(img, AW, AW / w) : img;
+    ag.drawImage(up, 0, 0, AW, AW);
+    if (up !== img) up.width = 0;
+    const c = document.createElement('canvas'); c.width = c.height = N;
+    const g = c.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(alb, 0, 0, N, N);
+    const d = g.getImageData(0, 0, N, N).data, nm = g.createImageData(N, N), mt = g.createImageData(N, N);
+    c.width = 0;                                   // canvas tạm: trả bộ nhớ ngay (trần canvas iOS)
+    // vòng lặp KHÔNG closure, KHÔNG Math.min nhiều đối số: điện thoại chậm hơn máy tính vài lần
+    const A = new Float32Array(N * N), L = new Float32Array(N * N), D = new Float32Array(N * N);
+    for (let i = 0; i < N * N; i++) {
+      A[i] = d[i * 4 + 3] / 255;
+      L[i] = (0.3 * d[i * 4] + 0.59 * d[i * 4 + 1] + 0.11 * d[i * 4 + 2]) / 255;
+      const x = i % N, y = (i / N) | 0;
+      D[i] = A[i] <= 0.5 ? 0 : (x === 0 || y === 0 || x === N - 1 || y === N - 1) ? 3 : 1e9;   // ngoài ảnh = trong suốt
+    }
+    for (let y = 1; y < N; y++) for (let x = 1; x < N - 1; x++) {
+      const i = y * N + x, u = i - N; let v = D[i]; if (!v) continue;
+      if (D[i - 1] + 3 < v) v = D[i - 1] + 3;
+      if (D[u] + 3 < v) v = D[u] + 3;
+      if (D[u - 1] + 4 < v) v = D[u - 1] + 4;
+      if (D[u + 1] + 4 < v) v = D[u + 1] + 4;
+      D[i] = v;
+    }
+    for (let y = N - 2; y >= 0; y--) for (let x = N - 2; x >= 1; x--) {
+      const i = y * N + x, u = i + N; let v = D[i]; if (!v) continue;
+      if (D[i + 1] + 3 < v) v = D[i + 1] + 3;
+      if (D[u] + 3 < v) v = D[u] + 3;
+      if (D[u + 1] + 4 < v) v = D[u + 1] + 4;
+      if (D[u - 1] + 4 < v) v = D[u - 1] + 4;
+      D[i] = v;
+    }
+    // độ cao: vát tròn (cung phần tư) trong dải mép 5% cạnh + gờ giữa + độ sáng làm mịn 3×3
+    const bev = N * 0.05, H = new Float32Array(N * N), RG = new Float32Array(N);
+    for (let x = 0; x < N; x++) RG[x] = Math.pow(1 - Math.min(1, Math.abs(x - N / 2) / (N * 0.5)), 1.6);   // gờ chỉ theo cột
+    for (let y = 1; y < N - 1; y++) for (let x = 1; x < N - 1; x++) {
+      const i = y * N + x; if (A[i] < 0.02) continue;
+      const q = D[i] / 3 / bev, t = q < 1 ? q : 1, round = Math.sqrt(1 - (1 - t) * (1 - t)), ridge = RG[x];
+      let l = 0; for (let k = -1; k <= 1; k++) l += L[i - N + k] + L[i + k] + L[i + N + k];
+      H[i] = A[i] * (round * 0.55 + ridge * 0.5 + (l / 9) * 0.22);
+    }
+    // pháp tuyến bằng Sobel; trục x phải, y XUỐNG (như màn hình), z hướng về người xem
+    const n = nm.data, m = mt.data, S = N / 64, sum = [[0, 0, 0], [0, 0, 0]];
+    // pháp tuyến phẳng cho mọi điểm trước (cả hàng/cột mép): mipmap trộn điểm trong suốt vào mép tàu,
+    // để 0 là ra pháp tuyến (-1,-1,-1) và viền tàu tối xỉn khi thu nhỏ
+    for (let i = 0; i < N * N; i++) { n[i * 4] = n[i * 4 + 1] = 128; n[i * 4 + 2] = n[i * 4 + 3] = 255; }
+    for (let y = 1; y < N - 1; y++) for (let x = 1; x < N - 1; x++) {
+      const i = y * N + x, a = i - N, c2 = i + N;
+      const gx = (H[a + 1] + 2 * H[i + 1] + H[c2 + 1]) - (H[a - 1] + 2 * H[i - 1] + H[c2 - 1]);
+      const gy = (H[c2 - 1] + 2 * H[c2] + H[c2 + 1]) - (H[a - 1] + 2 * H[a] + H[a + 1]);
+      const nx = -gx * S, ny = -gy * S, k = 1 / Math.sqrt(nx * nx + ny * ny + 1);
+      n[i * 4] = (nx * k * 0.5 + 0.5) * 255; n[i * 4 + 1] = (ny * k * 0.5 + 0.5) * 255;
+      n[i * 4 + 2] = (k * 0.5 + 0.5) * 255; n[i * 4 + 3] = 255;
+      const r = d[i * 4] / 255, gg = d[i * 4 + 1] / 255, b = d[i * 4 + 2] / 255;
+      const mx = r > gg ? (r > b ? r : b) : (gg > b ? gg : b), mi = r < gg ? (r < b ? r : b) : (gg < b ? gg : b);
+      const sat = mx ? (mx - mi) / mx : 0;
+      const gold = (r > gg && gg > b && sat > 0.35 && mx > 0.45) ? Math.min(1, (sat - 0.3) * 3) : 0;
+      const pearl = (sat < 0.22 && mx > 0.62) ? 1 : 0;
+      const glow = (b > 0.75 && b > r * 1.4 && sat > 0.45) ? Math.min(1, (b - 0.7) * 4) : 0;
+      m[i * 4] = gold * 255; m[i * 4 + 1] = Math.max(gold, pearl * 0.7, 0.18) * 255;
+      m[i * 4 + 2] = glow * 255; m[i * 4 + 3] = 255;
+      // nòng = phần GIỮA đuôi; tàu gốc có dải đèn xanh ở đầu cánh (x .1-.3) — bản đầu bắt nhầm nó
+      if (glow > 0.45 && y > N * 0.66 && Math.abs(x - N / 2) < N * 0.25) {
+        const s = sum[x < N / 2 ? 0 : 1]; s[0] += x; s[1] += y; s[2]++;
+      }
+    }
+    const noz = sum.filter(s => s[2] > 20).map(s => [s[0] / s[2] / N, s[1] / s[2] / N]);
+    return { alb, nm, mt, noz: noz.length ? noz : [[0.4, 0.86], [0.6, 0.86]] };
+  }
+};
+
+;
+/* ===== js/data-lobby-ship-gl-shaders.js ===== */
+/* data-lobby-ship-gl-shaders.js — shader GLSL ES 1.0 của tàu sảnh 2.5D (ui-lobby-ship-gl.js, 24/10/2026)
+ *
+ * SHIP: một quad xoay 3D (chao/ngóc/lệch) có PHỐI CẢNH — đỉnh chia `w` để nội suy UV đúng phối cảnh,
+ * cánh gần to cánh xa nhỏ. Đèn tính TƯƠNG ĐỐI so với tư thế đứng yên: tranh AI đã vẽ sẵn bóng khối,
+ * Lambert tuyệt đối là tô bóng hai lần; đứng yên ra gần y ảnh gốc, chao tới đâu lệch sáng tới đó.
+ * Màu vùng chỉ vào RIM + PHẢN CHIẾU, không phủ lên màu sơn — lớp phủ cũ biến trắng ngọc thành đồng.
+ * Vệt lấp lánh chạy chéo mỗi 4,2s nhưng chỉ bắt trên chỗ VÀNG (mặt nạ chất liệu kênh R).
+ * BẪY ĐÃ GẶP (prototype): uniform khai ở CẢ hai shader phải cùng độ chính xác — `uR` highp ở đỉnh,
+ * mediump ở mảnh là link hỏng, không vẽ gì mà chỉ có cảnh báo. Nên mảnh dùng tên riêng `uRn`.
+ * BẪY GPU ĐIỆN THOẠI (review 24/10, máy tính D3D không lộ): `pow(x, 2.)` với x ÂM là không định nghĩa
+ * — driver ra NaN là tàu đen 3/4 thời gian → bình phương bằng `x * x`. Không đưa THỜI GIAN thô vào
+ * mediump: Mali/Adreno chạy fp16, `t*9` tràn sau vài giờ treo tab → `sin(inf)` = NaN → tàu đen;
+ * nhịp sáng nòng tính ở JS (`uPulse`).
+ * PLUME: sprite cộng màu cho lửa nòng — `uLong` 0 = quầng tròn, 1 = luồng dài thuôn về đuôi.
+ */
+SC.LobbyShipShaders = {
+  VS: `attribute vec2 aP; uniform vec2 uRes, uC; uniform float uHalf, uF; uniform mat3 uR; varying vec2 vUv;
+    void main() {
+      vUv = aP * .5 + .5;
+      vec3 p = uR * vec3(aP * uHalf, 0.);
+      float w = (uF - p.z) / uF;
+      vec2 n = (uC + p.xy / w) / uRes * 2. - 1.;
+      gl_Position = vec4(n.x * w, -n.y * w, 0., w);
+    }`,
+  FS: `precision mediump float; varying vec2 vUv;
+    uniform sampler2D uA, uN, uM; uniform mat3 uRn; uniform vec3 uL, uRim, uSky, uGnd; uniform float uPulse, uGlint;
+    void main() {
+      vec4 a = texture2D(uA, vUv);
+      if (a.a < .01) discard;
+      vec3 alb = a.rgb / a.a;
+      vec4 m = texture2D(uM, vUv);
+      vec3 n0 = normalize(texture2D(uN, vUv).xyz * 2. - 1.), N = normalize(uRn * n0);
+      float rel = dot(N, uL) - dot(n0, uL) + .3 * (dot(n0, uL) - uL.z);
+      vec3 col = alb * clamp(1. + 1.1 * rel, .5, 1.5);
+      float gold = m.r, gloss = m.g;
+      vec3 H = normalize(uL + vec3(0., 0., 1.));
+      col += pow(max(dot(N, H), 0.), mix(24., 80., gold)) * (gold * 1.3 + gloss * .45) * mix(vec3(1.), alb * 1.7 + .1, gold);
+      vec3 Rv = reflect(vec3(0., 0., -1.), N);
+      col += mix(uSky, uGnd, clamp(Rv.y * .5 + .5, 0., 1.)) * gloss * .22 * (1. - gold * .5);
+      float edge = pow(1. - clamp(N.z, 0., 1.), 2.2);
+      col += uRim * edge * (.35 + .9 * max(dot(normalize(N.xy + 1e-4), vec2(.6, -.8)), 0.));
+      float gd = (vUv.x * .6 + vUv.y - uGlint) * 9.;
+      col += exp(-gd * gd) * (gold * 1.1 + gloss * .35) * vec3(1., .95, .85);
+      col += alb * m.b * uPulse;
+      gl_FragColor = vec4(col * a.a, a.a);
+    }`,
+  VS2: `attribute vec2 aP; uniform vec2 uRes, uC, uS; uniform float uRot; varying vec2 vUv;
+    void main() {
+      vUv = aP * .5 + .5;
+      vec2 q = aP * uS; float c = cos(uRot), s = sin(uRot);
+      vec2 n = (uC + vec2(q.x * c - q.y * s, q.x * s + q.y * c)) / uRes * 2. - 1.;
+      gl_Position = vec4(n.x, -n.y, 0., 1.);
+    }`,
+  FS2: `precision mediump float; varying vec2 vUv; uniform vec3 uCol; uniform float uA, uLong;
+    void main() {
+      vec2 d = vUv * 2. - 1.;
+      float r = mix(length(d), length(vec2(d.x, (d.y + 1.) * .5)), uLong), k = exp(-r * r * 4.) * uA;
+      gl_FragColor = vec4(mix(uCol, vec3(1.), exp(-r * r * 22.)) * k, 0.);
+    }`
+};
+
+;
+/* ===== js/ui-lobby-ship-gl.js ===== */
+/* ui-lobby-ship-gl.js — tàu sảnh "hangar 2.5D" bằng WebGL1 (24/10/2026)
+ *
+ * VÌ SAO CÓ: anh Đức chụp sảnh màn 151 — "art máy bay lởm quá, xấu vỡ, stroke dày, 2D". Ảnh tàu AI
+ * gốc đẹp; sảnh làm bẩn nó (viền tối, nhuộm biến thể, đèn vùng phủ) rồi chỉ xoay phẳng. Chọn hướng B
+ * trong 3 mockup (plans/261024-0008-sky-chicken-lobby-ship-wow/): tàu thành MỘT quad có phối cảnh,
+ * chiếu sáng theo pháp tuyến đoán từ ảnh (util-ship-surface-maps.js) — chạy cho MỌI tàu, kể cả tàu
+ * AI của từng người, không phải gen thêm gì.
+ *
+ * Quyết định 16/10 "trùm không bật WebGL live" là cho TRẬN (20 trùm + quái). Ở sảnh một vật đứng
+ * yên: 2 lượt vẽ tàu + 4 sprite lửa. Canvas này nằm ĐÈ canvas 2D của ui-lobby-ship.js — 2D vẫn lo
+ * vệt gió, hạt vùng, bóng đổ, phi đội, hào quang (tất cả nằm DƯỚI tàu nên thứ tự lớp vẫn đúng).
+ *
+ * LÙI VỀ 2D không một lời: không có WebGL, shader hỏng, ảnh không đọc được điểm (tainted), mất
+ * context → `draw` trả false và ẨN canvas này (khung cũ còn trên đó là ra hai con tàu chồng nhau).
+ */
+SC.LobbyShipGL = {
+  _cv: null, _gl: null, _off: false, _lost: false, _img: null,
+
+  /* Vẽ một khung. `p`: {x, y, half, roll, pitch, yaw, t, boost} — px thiết bị của canvas sảnh.
+     Trả true = tàu đã lên (ui-lobby-ship bỏ đường vẽ tàu 2D), false = để 2D vẽ. */
+  draw(stage, W, H, img, p, biome) {
+    if (this._off || !img || img._lbBad) return this._hide();
+    if (img !== this._img && !img._lbSurf) { this._warm(img); return this._hide(); }
+    try {
+      const gl = this._ctx(stage, W, H);
+      if (!gl) return this._hide();
+      if (img !== this._img) this._upload(gl, img);
+      this._frame(gl, W, H, p, biome);
+      this._cv.style.visibility = '';
+      return true;
+    } catch (err) {
+      if (!this._off) img._lbBad = 1;      // ảnh này không dựng được (tainted...) — tàu khác vẫn thử
+      this._img = null;
+      if (!this._bao) { this._bao = 1; console.warn('[lobby-gl] lui ve 2D:', err && err.message); }
+      return this._hide();
+    }
+  },
+
+  _hide() { if (this._cv) this._cv.style.visibility = 'hidden'; return false; },
+
+  /* Dựng bề mặt SAU cảnh bay vào, lúc rảnh: đo 30-80 ms/tàu ở máy tính (512-640px), điện thoại chậm
+     hơn vài lần — chạy trong khung là khựng đúng lúc tàu bay vào (Safari không có requestIdleCallback).
+     Chưa xong thì 2D vẽ tạm (cùng ảnh không viền, khác mỗi ánh sáng) nên chuyển sang 2.5D không giật.
+     Lúc mở game ô `-hd` đổi tới ba lần (tàu gốc → AI 256 → AI 512): tới giờ dựng mà ảnh đã bị thay thì
+     bỏ — không thì bề mặt ~6MB của ảnh bỏ đi nằm lại cả phiên (tàu gốc còn được `_orig.hd` giữ). */
+  _warm(img) {
+    if (img._lbWarm) return;
+    img._lbWarm = 1;
+    const go = () => {
+      img._lbWarm = 0;
+      if (SC.SpriteArt.get('ship', 'player-hd') !== img) return;
+      try { SC.ShipSurface.get(img); } catch (e) { img._lbBad = 1; }
+    };
+    setTimeout(() => window.requestIdleCallback ? requestIdleCallback(go, { timeout: 800 }) : go(), 1300);
+  },
+
+  /* Rời sảnh (system-renderer): thu canvas về 1×1 — bộ đệm vẽ cỡ ô sân bay × DPR không nằm lì suốt
+     trận. Giữ context + texture (vài MB) để quay lại sảnh khỏi dựng lại; `_ctx` tự nở lại đúng cỡ. */
+  sleep() { const c = this._cv; if (c && c.width > 1) c.width = c.height = 1; },
+
+  _ctx(stage, W, H) {
+    let c = this._cv;
+    if (!c) {
+      c = this._cv = document.createElement('canvas');
+      c.className = 'lobby-ship-cv lobby-ship-gl';
+      c.setAttribute('aria-hidden', 'true');
+      c.addEventListener('webglcontextlost', e => { e.preventDefault(); this._lost = true; }, false);
+      c.addEventListener('webglcontextrestored', () => { this._lost = false; this._gl = null; this._img = null; }, false);
+    }
+    if (c.parentNode !== stage) stage.appendChild(c);
+    if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
+    if (this._lost || (this._gl && this._gl.isContextLost())) return null;
+    if (!this._gl) {
+      // không MSAA / depth / stencil: mép quad vốn trong suốt, mấy bộ đệm đó chỉ ăn ~2× bộ nhớ GPU
+      // ở DPR 3. Máy chỉ có WebGL giả lập phần mềm thì 2D còn rẻ hơn → failIfMajorPerformanceCaveat.
+      const gl = c.getContext('webgl', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false,
+        stencil: false, powerPreference: 'low-power', failIfMajorPerformanceCaveat: true });
+      if (!gl) { this._off = true; c.remove(); return null; }
+      try { this._setup(gl); } catch (e) { this._off = true; c.remove(); throw e; }   // shader hỏng: cả phiên 2D
+      this._gl = gl;
+    }
+    return this._gl;
+  },
+
+  _setup(gl) {
+    const S = SC.LobbyShipShaders;
+    const sh = (type, src) => {
+      const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS) && !gl.isContextLost()) throw new Error(gl.getShaderInfoLog(s));
+      return s;
+    };
+    const prog = (vs, fs) => {
+      const p = gl.createProgram();
+      gl.attachShader(p, sh(gl.VERTEX_SHADER, vs)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fs));
+      gl.linkProgram(p);
+      if (!gl.getProgramParameter(p, gl.LINK_STATUS) && !gl.isContextLost()) throw new Error(gl.getProgramInfoLog(p));
+      const u = {}, n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS) || 0;
+      for (let i = 0; i < n; i++) { const a = gl.getActiveUniform(p, i); u[a.name] = gl.getUniformLocation(p, a.name); }
+      return { p, u, a: gl.getAttribLocation(p, 'aP') };
+    };
+    this._ps = prog(S.VS, S.FS);
+    this._pf = prog(S.VS2, S.FS2);
+    this._buf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._buf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+    this._tex = [gl.createTexture(), gl.createTexture(), gl.createTexture()];
+  },
+
+  /* Ba texture: màu (nhân alpha trước — viền mờ không ra quầng đen), pháp tuyến, chất liệu */
+  _upload(gl, img) {
+    const s = SC.ShipSurface.get(img);
+    this._noz = s.noz;
+    [s.alb, s.nm, s.mt].forEach((src, i) => {
+      gl.activeTexture(gl.TEXTURE0 + i);
+      gl.bindTexture(gl.TEXTURE_2D, this._tex[i]);
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, i === 0);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src);
+      gl.generateMipmap(gl.TEXTURE_2D);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    });
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+    // hết bộ nhớ GPU lúc đẩy texture KHÔNG ném lỗi — quad ra ô vuông đen. Hỏi một lần, coi như ảnh hỏng.
+    if (gl.getError() === gl.OUT_OF_MEMORY) throw new Error('texture OUT_OF_MEMORY');
+    this._img = img;
+    // Lên GPU rồi thì bỏ bản CPU (canvas 1024² = 4MB): iOS tính MỌI canvas vào một trần chung, chạm
+    // trần là getContext trả null và tàu biến mất (bẫy 21/10). Mất context / quay lại tàu cũ = dựng lại.
+    s.alb.width = s.alb.height = 0;
+    delete img._lbSurf; img._lbWarm = 0;
+  },
+
+  /* Ma trận xoay cột-trước (như uniformMatrix3fv cần): lệch Z · chao Y · ngóc X */
+  _rot(roll, pitch, yaw) {
+    const cr = Math.cos(roll), sr = Math.sin(roll), cp = Math.cos(pitch), sp = Math.sin(pitch);
+    const cy = Math.cos(yaw), sy = Math.sin(yaw);
+    const mul = (a, b) => {
+      const o = [];
+      for (let c = 0; c < 3; c++) for (let r = 0; r < 3; r++) o[c * 3 + r] = a[r] * b[c * 3] + a[3 + r] * b[c * 3 + 1] + a[6 + r] * b[c * 3 + 2];
+      return o;
+    };
+    return mul([cy, sy, 0, -sy, cy, 0, 0, 0, 1], mul([cr, 0, -sr, 0, 1, 0, sr, 0, cr], [1, 0, 0, 0, cp, sp, 0, -sp, cp]));
+  },
+
+  _rgb(h, d) {
+    return /^#[0-9a-f]{6}$/i.test(h || '') ? [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255) : d;
+  },
+
+  _frame(gl, W, H, p, b) {
+    const R = this._rot(p.roll, p.pitch, p.yaw), F = p.half * 4.2, ps = this._ps, pf = this._pf, L = [-0.47, -0.65, 0.6];
+    gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);   // trình duyệt có thể cấp bộ đệm nhỏ hơn W×H
+    gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.enable(gl.BLEND); gl.bindBuffer(gl.ARRAY_BUFFER, this._buf);
+    for (let i = 0; i < 3; i++) { gl.activeTexture(gl.TEXTURE0 + i); gl.bindTexture(gl.TEXTURE_2D, this._tex[i]); }
+    gl.useProgram(ps.p);
+    gl.enableVertexAttribArray(ps.a); gl.vertexAttribPointer(ps.a, 2, gl.FLOAT, false, 0, 0);
+    gl.uniform1i(ps.u.uA, 0); gl.uniform1i(ps.u.uN, 1); gl.uniform1i(ps.u.uM, 2);
+    gl.uniform2f(ps.u.uRes, W, H); gl.uniform2f(ps.u.uC, p.x, p.y);
+    gl.uniform1f(ps.u.uHalf, p.half); gl.uniform1f(ps.u.uF, F);
+    gl.uniformMatrix3fv(ps.u.uR, false, R); gl.uniformMatrix3fv(ps.u.uRn, false, R);
+    const k = Math.hypot(...L);
+    gl.uniform3f(ps.u.uL, L[0] / k, L[1] / k, L[2] / k);
+    gl.uniform3fv(ps.u.uRim, this._rgb(b && b.cloud, [0.75, 0.93, 1]).map(v => v * 0.9));
+    gl.uniform3fv(ps.u.uSky, this._rgb(b && b.sky && b.sky[2], [0.6, 0.8, 1]));
+    gl.uniform3fv(ps.u.uGnd, this._rgb(b && b.far, [0.1, 0.2, 0.3]));
+    gl.uniform1f(ps.u.uPulse, 0.55 + 0.2 * Math.sin(p.t * 9));         // KHÔNG đưa t thô vào mediump
+    gl.uniform1f(ps.u.uGlint, p.t ? -0.6 + ((p.t % 4.2) / 0.9) * 2.4 : -9);   // đứng yên = không lướt
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    // lửa ở ĐÚNG các nòng dò được, chiếu theo cùng phép xoay + phối cảnh với thân tàu
+    gl.useProgram(pf.p);
+    gl.enableVertexAttribArray(pf.a); gl.vertexAttribPointer(pf.a, 2, gl.FLOAT, false, 0, 0);
+    gl.uniform2f(pf.u.uRes, W, H); gl.uniform1f(pf.u.uRot, p.yaw); gl.uniform3f(pf.u.uCol, 0.25, 0.7, 1);
+    gl.blendFunc(gl.ONE, gl.ONE);
+    for (const [u, v] of this._noz) {
+      const x = (u * 2 - 1) * p.half, y = (v * 2 - 1) * p.half;
+      const q = [R[0] * x + R[3] * y, R[1] * x + R[4] * y, R[2] * x + R[5] * y], w = (F - q[2]) / F;
+      const cx = p.x + q[0] / w, cy = p.y + q[1] / w, f = (1 + Math.sin(p.t * 31 + u * 9) * 0.12) * (p.boost || 1);
+      gl.uniform1f(pf.u.uLong, 1); gl.uniform1f(pf.u.uA, 0.95);
+      gl.uniform2f(pf.u.uC, cx, cy + p.half * 0.22 * f); gl.uniform2f(pf.u.uS, p.half * 0.07, p.half * 0.26 * f);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      gl.uniform1f(pf.u.uLong, 0); gl.uniform1f(pf.u.uA, 0.55);
+      gl.uniform2f(pf.u.uC, cx, cy); gl.uniform2f(pf.u.uS, p.half * 0.2, p.half * 0.2);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    }
+  }
 };
 
 ;
@@ -19124,7 +19485,8 @@ SC.LobbyFX = {
  * CANVAS RIÊNG TRONG #shipStage (18/10/2026): vẽ lên canvas trận đấu rồi quy đổi hệ đo đẻ ra
  * một chuỗi bug (có ca banga truy năm vòng không ra). Cùng ngăn xếp với nút XUẤT KÍCH thì thấy
  * nút là thấy tàu. NÉT THEO MÀN HÌNH THẬT (21/10/2026, "máy bay vỡ pixel"): `_canvas()` +
- * `ShipArt._build(…, hd)`. Bóng, vệt gió, hạt, tia sáng, đèn vùng: ui-lobby-ship-fx.js.
+ * `ShipArt._build(…, hd)`. Bóng, vệt gió, hạt, phi đội, tia sáng: ui-lobby-ship-fx.js.
+ * Thân tàu 2.5D (24/10/2026, "stroke dày, 2D"): ui-lobby-ship-gl.js — 2D ở đây là đường lùi.
  *
  * Không dựng SC.Player: chỉ mượn SC.ShipArt/DroneArt để vẽ, nên không có va chạm,
  * không bắn, không đụng gì tới trạng thái ván chơi.
@@ -19238,37 +19600,34 @@ SC.LobbyShip = {
     const tilt = still ? 0 : SC.clamp((this._xNow - truoc) * W * 0.012, -0.3, 0.3)
       + Math.sin(t * 0.9) * 0.08 + (1 - a) * Math.sin(t * 9) * 0.12;
 
+    /* HANGAR 2.5D (24/10/2026, ui-lobby-ship-gl.js): tàu lên canvas WebGL đè canvas này, chao 3D
+       thật (tối đa ±24° — quá nữa lộ ra tấm phẳng). Trả false thì đường 2D bên dưới vẽ tàu như cũ. */
+    const roll = still ? 0 : SC.clamp(tilt * 1.15 + Math.sin(t * 0.9) * 0.1, -0.42, 0.42);
+    let gl = false;
+    try {
+      gl = SC.LobbyShipGL.draw(c.parentNode, W, H, SC.SpriteArt.get('ship', 'player-hd'), {
+        x: cx, y: cy, half: r * 1.4 * SC.ArtScale.ship * k, roll, yaw: tilt * 0.32,
+        pitch: still ? 0 : Math.sin(t * 0.7) * 0.06, t, boost: 1 + (1 - a) * 1.2
+      }, SC.LobbyScene && SC.LobbyScene.biome);
+    } catch (err) { this._bao('gl', err); }
+
     let sprite = null;
     try { sprite = SC.ShipArt.sprite(r, SC.Tree.evo(), true); } catch (err) { /* _one tự báo */ }
     // lớp hiệu ứng hỏng thì vẫn phải thấy tàu — nó mới là nhân vật chính. "Giảm chuyển động"
     // thì chỉ giữ bóng đổ: nó là hình tĩnh, mà thiếu nó tàu lại thành miếng dán.
     try {
-      const sh = sprite && { sprite, size: r * SC.ShipArt.PAD * 2, x: cx, y: cy, r, tilt };
+      const sh = sprite && { sprite, size: r * SC.ShipArt.PAD * 2, x: cx, y: cy, r, tilt, roll: gl ? roll : 0 };
       if (!still) SC.LobbyFX.under(g, W, H, sh, t, dt, 1 + (1 - a) * 3);
       else if (sh) SC.LobbyFX._shadow(g, sh, 0);
     } catch (err) { this._bao('fx', err); }
 
     g.save(); try {
     g.translate(cx, cy); g.scale(k, k); g.translate(-cx, -cy);
-    // Phi đội bay kèm, vẽ TRƯỚC để nằm dưới máy bay chính. Bọc riêng: phi đội hỏng thì
-    // vẫn phải thấy tàu.
-    try {
-      const dr = SC.Drones.tier();
-      const n = dr ? dr.n : 0;
-      const swarm = SC.Drones.kind() === 'A';
-      for (let i = 0; i < n; i++) {
-        const side = i % 2 === 0 ? -1 : 1;
-        const ring = Math.floor(i / 2);
-        SC.DroneArt.draw(g, {
-          x: cx + side * (r * 1.95 + ring * r * 0.6),
-          y: cy + r * 1.05 + ring * r * 0.32 + (still ? 0 : Math.sin(t * 2.2 + i) * r * 0.07),
-          r: (swarm ? 0.3 : 0.4) * r, t: still ? 0 : t + i
-        }, swarm, SC.Tree.evo());
-      }
-    } catch (err) { this._bao('drone', err); }
+    // Phi đội vẽ TRƯỚC để nằm dưới máy bay chính; bọc riêng: phi đội hỏng vẫn phải thấy tàu
+    try { SC.LobbyFX.drones(g, cx, cy, r, t, still); } catch (err) { this._bao('drone', err); }
 
     try {
-      this._one(g, cx, cy, r, tilt, sprite, t);
+      this._one(g, cx, cy, r, tilt, sprite, t, gl);
     } catch (err) {
       if (!this._baoTau) {
         this._baoTau = 1;
@@ -19278,7 +19637,6 @@ SC.LobbyShip = {
     }
     } finally { g.restore(); }
 
-    try { SC.LobbyFX.tint(g, W, H, cy, r); } catch (err) { this._bao('tint', err); }
     try {
       const LS = SC.LobbyScene;
       SC.LobbyFX.ring(g, cx, cy, r, land / 0.6, LS && LS.biome && LS.biome.cloud);
@@ -19292,10 +19650,12 @@ SC.LobbyShip = {
   },
 
   /* Máy bay chính, dựng đúng theo tổ hợp nhánh đang chạy — nên mua xong quay ra lobby
-     là thấy hình dáng đã đổi ngay, không phải vào màn mới biết. */
-  _one(g, x, y, r, tilt, sprite, t) {
+     là thấy hình dáng đã đổi ngay, không phải vào màn mới biết. `gl` = tàu đã lên canvas WebGL:
+     ở đây chỉ còn hào quang biến thể (nằm dưới tàu), lửa + thân + tia lướt do shader lo. */
+  _one(g, x, y, r, tilt, sprite, t, gl) {
     g.save(); try {
     g.translate(x, y);
+    if (gl) { SC.AuraFX.draw(g, r, performance.now() / 1000, SC.Tree.evo()); return; }
     const f = 1 + Math.sin(performance.now() / 1000 * 30) * 0.22;
     SC.draw.glow(g, 0, r * 1.5, r * 0.5 * f, '#5ad0ff', 0.55);
     g.fillStyle = 'rgba(140,230,255,.9)';
