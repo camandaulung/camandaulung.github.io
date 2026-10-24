@@ -11561,7 +11561,7 @@ SC.Waves = {
     });
 
     this._mixCounter(lv, inten);
-    SC.DefectorSpawn.mix(this.queue, lv, this.index);   // máy bay AI của mọi người chơi, ~80% wave
+    SC.DefectorSpawn.mix(this.queue, lv, this.index);   // máy bay AI của mọi người chơi, ~70% wave
     this.lastCount = this.queue.length;
     this._chunkIntoPulses();      // chẻ thành lô nhỏ (system-waves-formations.js)
     this.sinceWave = 0;
@@ -17476,7 +17476,7 @@ SC.DefectorGrade = {
 
 SC.Defectors = {
   COL: 'defectors',
-  // 60 -> 90 (23/10/2026): kho nay nhận MỌI tàu AI chứ không chỉ tàu bán, và ~80% quái thường
+  // 60 -> 90 (23/10/2026): kho nay nhận MỌI tàu AI chứ không chỉ tàu bán, và ~70% quái thường
   // là tàu AI — 60 chiếc mới nhất dễ bị vài người ghép nhiều chiếm hết. ~15KB/chiếc, đọc 1 lần/phiên.
   LIMIT: 90,
   MINE: 'sc.defectors.mine',
@@ -17607,8 +17607,9 @@ SC.Defectors = {
  *   - Vòng vô tận (61+): hạng 'mob' làm quái thường, hạng 'boss' làm TRÙM (thay tạo hình
  *     trùm của map). Đường đạn đổi theo CLASS của tàu (cung thủ bắn tên, pháp sư cầu
  *     plasma...) nhưng GIỮ số viên, tốc độ, nhịp bắn — cân bằng vô tận không đổi.
- *   - TỈ LỆ (23/10/2026, Anh chọn "phần lớn ~80%"): máy bay AI là QUÂN CHỦ LỰC — mỗi wave
- *     ~70-90% quái thường (gieo theo wave). Bản 22/09 trần 50% + "khẩu vị" theo map.
+ *   - TỈ LỆ: máy bay AI là QUÂN CHỦ LỰC — mỗi wave ~61-79% quái thường, trung bình 70%
+ *     (gieo theo wave). 24/10/2026 hạ từ 80% (Anh: "đang spam hơi nhiều, mà live chủ yếu
+ *     mới có máy bay của a thôi"). 23/10: 80%. Bản 22/09: trần 50% + "khẩu vị" theo map.
  *     Quái khắc chế (khiên, tổ ong) KHÔNG khoác áo: cơ chế của chúng đọc bằng hình.
  *   - MỖI TÀU TỐI ĐA DUP BẢN SAO một wave: kho mới có 3 chiếc mà 30 con cùng ba mặt là
  *     nhàm và lộ — thiếu tàu thì gà lấp chỗ trống. Gán XOAY VÒNG trên kho đã xáo để một
@@ -17616,7 +17617,7 @@ SC.Defectors = {
  */
 
 SC.DefectorSpawn = {
-  SHARE: 0.8,
+  SHARE: 0.7,
   DUP: 3,
   BOSS_CHANCE: 0.9,    // vòng vô tận: xác suất map trùm được giao tàu phản bội (duyệt 22/09)
 
@@ -17918,7 +17919,7 @@ SC.DEFECTOR_TAGLINES = [
  *
  * MỜ Ở NỬA DƯỚI (Anh chọn): quái càng xuống gần tàu thì nhãn càng nhạt — ở đó người
  * chơi phải đọc ĐẠN, không đọc chữ. NHÃN ĐÈ NHAU thì nhãn sau bị bỏ (duyệt theo thứ tự
- * sinh quái nên con nào giữ nhãn là ổn định, không nhấp nháy): đội hình 80% máy bay AI
+ * sinh quái nên con nào giữ nhãn là ổn định, không nhấp nháy): đội hình ~70% máy bay AI
  * mà nhãn nào cũng vẽ là thành một mảng chữ che kín nửa trên màn.
  */
 
