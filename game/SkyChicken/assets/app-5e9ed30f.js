@@ -17614,11 +17614,17 @@ SC.Defectors = {
  *   - MỖI TÀU TỐI ĐA DUP BẢN SAO một wave: kho mới có 3 chiếc mà 30 con cùng ba mặt là
  *     nhàm và lộ — thiếu tàu thì gà lấp chỗ trống. Gán XOAY VÒNG trên kho đã xáo để một
  *     wave có nhiều mặt nhất có thể.
+ *   - MỖI NGƯỜI TỐI ĐA SELLER_MAX (40%) số chỗ máy bay AI của wave (25/10/2026, Anh chốt).
+ *     Vì sao: trần theo TÀU không chặn được một người nhiều tàu — live 24/10 kho 14 tàu thì 13
+ *     của ducdm, đo ra 88-93% máy bay AI trong trận là của MỘT người dù đã hạ SHARE còn 0.7.
+ *     Vượt trần thì chỗ đó GIỮ LÀ GÀ, không dồn sang người khác: kho ít người thì màn hình
+ *     nhiều gà hơn 70%, đông người thì tỉ lệ tự về gần SHARE.
  */
 
 SC.DefectorSpawn = {
   SHARE: 0.7,
   DUP: 3,
+  SELLER_MAX: 0.4,
   BOSS_CHANCE: 0.9,    // vòng vô tận: xác suất map trùm được giao tàu phản bội (duyệt 22/09)
 
   /* RNG gieo theo chuỗi — cùng map cùng wave thì luôn cùng kết quả */
@@ -17637,14 +17643,27 @@ SC.DefectorSpawn = {
     const share = this.SHARE * (0.875 + 0.25 * this._r('wave', lv.id, wave));
     // quái khắc chế có cơ chế riêng nhìn bằng hình (khiên, tổ ong) — không khoác áo
     const slots = queue.filter(q => !SC.EnemyCounter.is(q.t));
-    const k = Math.min(Math.round(slots.length * share), pool.length * this.DUP);
+    const want = Math.round(slots.length * share);               // số chỗ máy bay AI mục tiêu
+    const cap = Math.max(1, Math.round(want * this.SELLER_MAX)); // trần mỗi người
     const deck = pool.slice();
     for (let i = deck.length - 1; i > 0; i--) {
       const j = (Math.random() * (i + 1)) | 0;
       [deck[i], deck[j]] = [deck[j], deck[i]];
     }
-    for (let i = 0; i < k && slots.length; i++)
-      slots.splice((Math.random() * slots.length) | 0, 1)[0].dz = deck[i % deck.length];
+    // xoay vòng: mỗi vòng mỗi tàu thêm một bản (tối đa DUP vòng), ai đủ trần thì bỏ qua.
+    // Tàu không có seller (bản ghi cũ) tính là một "người" riêng theo khoá tàu.
+    const per = {};
+    let n = 0;
+    for (let round = 0; round < this.DUP && n < want; round++) {
+      for (const d of deck) {
+        if (n >= want || !slots.length) break;
+        const who = d.seller || 'tau:' + SC.Defectors._key(String(d.id));
+        if ((per[who] || 0) >= cap) continue;
+        per[who] = (per[who] || 0) + 1;
+        n++;
+        slots.splice((Math.random() * slots.length) | 0, 1)[0].dz = d;
+      }
+    }
   },
 
   /* Vòng vô tận: thay trùm của map bằng tàu hạng trùm. Giữ máu/chiêu vùng của trùm gốc. */
