@@ -14406,7 +14406,7 @@ SC.Rank = {
     } else if (!me) {
       foot.className = 'rank-me hint-row';
       foot.innerHTML = 'Đăng nhập để ghi tên mình lên bảng';
-    } else if (rows.some(r => r.uid === me.uid
+    } else if (rows.some(r => r.uid === SC.Cloud.scoreId(me.uid)   // hồ sơ 2-3 là `{uid}_p{n}` (26/10/2026)
         // Dòng của mình có thể đã bị khử-trùng-lặp M365 (uid khác máy nhưng cùng
         // người) — email trùng với dòng đang hiện nghĩa là MÌNH ĐANG TRÊN BẢNG,
         // đừng hiện thêm footer "ngoài bảng" với con số tệ hơn.
@@ -21096,6 +21096,7 @@ SC.Game.init();
 SC.M365 = {
   info: null,     // { email, name } — null khi không chạy sau proxy
   status: 'off',  // vết chân từng bước, đọc được qua ?m365debug (soi trên điện thoại)
+  expired: false, // /whoami bị proxy đá sang trang đăng nhập — xem _expired()
 
   /* Chỉ bật trên *.zingplay.dev — nơi chắc chắn có oauth2-proxy đứng trước */
   active() { return /(^|\.)zingplay\.dev$/.test(location.hostname); },
@@ -21114,8 +21115,12 @@ SC.M365 = {
     // 12/10/2026 ĐẢO THỨ TỰ: /whoami (nginx của CHÍNH game, luôn có trên banga) trước. Bản cũ
     // hỏi /oauth2/userinfo trước — platform không mở endpoint đó nên MỖI lần mở game một dòng
     // 404 đỏ trong console (log banga), dù sau đó /whoami vẫn trả đúng danh tính.
-    this.info = (await this._whoami()) || (await this._userinfo());
+    // hết phiên thì /oauth2/userinfo cũng 302 y vậy — hỏi thêm chỉ tốn một request
+    this.info = (await this._whoami()) || (this.expired ? null : await this._userinfo());
     if (!this.info) return;                    // proxy không trả — thôi, như khách lạ
+    const bar = document.getElementById('ssoExpired');
+    if (bar) bar.remove();                     // có mạng lại / đăng nhập lại giữa phiên
+    this.expired = false;
     this._dbg('userinfo OK: ' + this.info.name);
     this._nameProfile();
     // vẽ lại thẻ hồ sơ + menu nếu UI đã dựng xong (syncChip mới là chỗ vẽ tên)
@@ -21158,7 +21163,12 @@ SC.M365 = {
      rỗng, nên gộp fallback hai họ tên header rồi kiểm còn gì thật không. */
   async _whoami() {
     try {
-      const r = await fetch('/whoami', { credentials: 'include', headers: { accept: 'application/json' } });
+      /* redirect:'manual' (26/10/2026): hết phiên thì proxy 302 sang access.zingplay.dev KHÔNG kèm
+         CORS — để fetch tự theo là "Failed to fetch" mù, y hệt rớt mạng. Cùng origin thì đọc được
+         opaqueredirect (đúng cách EvoAI.sessionOk dò trước khi gen ảnh). */
+      const r = await fetch('/whoami', { credentials: 'include', redirect: 'manual', cache: 'no-store',
+        headers: { accept: 'application/json' } });
+      if (r.type === 'opaqueredirect' || r.status === 401 || r.status === 403) { this._expired(); return null; }
       if (!r.ok) { this._dbg('whoami HTTP ' + r.status); return null; }
       const j = await r.json();
       const email = j.email || j.email2 || '';
@@ -21175,6 +21185,27 @@ SC.M365 = {
       this._dbg('whoami lỗi mạng: ' + (e && e.message));
       return null;
     }
+  },
+
+  /* HẾT PHIÊN SSO (bug live 26/10/2026): trước đây im lặng chơi tiếp bằng vé anonymous cũ trong
+     IndexedDB (Portal.Auth.init tự hồi) — không có email thì gương tiến độ ngủ cả phiên: máy kẹt
+     màn 115 trong khi tài khoản đã màn 156, chấm đồng bộ vẫn xanh, BXH hiện "(bạn) — Màn 115".
+     Báo bằng dải KHÔNG tự tắt kèm TẢI LẠI (toast 1,6s không kịp bấm): tải lại thì SW trả 302 cho
+     trình duyệt đi qua trang đăng nhập (sw-template.js) rồi quay về game. */
+  _expired() {
+    this.expired = true;
+    this._dbg('whoami: phiên SSO đã hết');
+    console.warn('[m365] phiên SSO đã hết — tiến độ chưa đồng bộ theo email');
+    const zone = document.getElementById('toastZone');
+    if (!zone || document.getElementById('ssoExpired')) return;
+    const d = document.createElement('div');
+    d.id = 'ssoExpired'; d.className = 'sso-expired'; d.setAttribute('role', 'alert');
+    d.innerHTML = '<span>PHIÊN ĐĂNG NHẬP ĐÃ HẾT — TIẾN ĐỘ CHƯA ĐỒNG BỘ</span>';
+    const b = document.createElement('button');
+    b.className = 'btn primary'; b.textContent = 'TẢI LẠI';
+    b.addEventListener('click', () => location.reload());
+    d.appendChild(b);
+    zone.parentNode.appendChild(d);              // cạnh #toastZone trong #ui: cùng hệ đo UI
   },
 
   /* Chỉ đè tên MẶC ĐỊNH (hoặc tên do chính module này đặt trước đây).
