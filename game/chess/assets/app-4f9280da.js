@@ -2078,8 +2078,13 @@ CC.cfg = {
    * co khoi, nhin ro hinh hon han tren o co nho ~44px cua dien thoai.
    */
   PIECE: {
-    w: { fill: '#f8f3e9', shade: '#dccfb6', light: '#fffefb', stroke: '#2b2118' },
-    b: { fill: '#3d332a', shade: '#271f19', light: '#5c4d3e', stroke: '#100e0b' }
+    // `ink` = net chi tiet (mat, khe, vach): quan den ve net kem, net muc tren than #1b1b1b la mat hut
+    // P05: `inkW` nét viền thân; quân đen dày hơn 2 vì nét kem `rim` (rộng `rimW`) nằm giữa viền, phần mực lộ ra ngoài
+    // vẫn 2,5 như quân trắng. `collar` theo MÀU quân, không theo phe: playerColor đổi được giữa các ván.
+    w: { fill: '#ffffff', shade: '#ffeec2', light: '#ffffff', stroke: '#111111', ink: '#111111', inkW: 5,
+      collar: '#d42a33', bell: '#ffe14d', ear: '#ffd9e0' },
+    b: { fill: '#1b1b1b', shade: '#000000', light: '#555555', stroke: '#111111', ink: '#ffeec2', inkW: 7,
+      rim: '#ffeec2', rimW: 2, collar: '#2f63d6', bell: '#ffe14d', ear: '#ffd9e0' }
   }
 };
 
@@ -2159,8 +2164,12 @@ CC.CatProfiles = (function () {
       fur: '#9aa2a8', furDark: '#7b848b', belly: '#e6ebee', pink: '#e8a2ae', ink: '#2e343a',
       mark: 'glasses'
     },
+    /* Số `elo` của hồ sơ khớp với mức engine cùng tên trong EloProfiles.LEVELS (1350) — ván Báo mang đúng số này.
+     * Đổi số ở ĐÂY thì vô hại: nó chỉ là điểm neo cho byElo, không được ghi xuống localStorage. Số NGUY HIỂM là
+     * mức 1350 bên engine-elo-profiles.js: thành tích, điểm BXH và ván đang lưu đều khoá theo nó, đổi đi là
+     * thành tích Báo của người chơi cũ mồ côi. (Trước đây hồ sơ ghi 1400, lệch với 1350 mà không có lý do.) */
     {
-      elo: 1400, id: 'bao', name: 'Báo',
+      elo: 1350, id: 'bao', name: 'Báo',
       tag: 'Mèo đi săn · nhanh và sắc',
       about: 'Ép sát ngay từ nước đầu. Chậm một nhịp là mất quân.',
       voice: 'master',
@@ -2395,11 +2404,16 @@ CC.Rules = (function () {
      *
      * Van giu nguyen tac "chi file nay biet chess.js": ben ngoai chi thay object
      * co san may ham can dung.
+     *
+     * `keys` (tùy chọn) = CC.Rules.positionKeys() của ván thật (rules-position-keys.js). Bàn nháp dựng
+     * từ một FEN không có lịch sử nên không tự biết thế cờ đã lặp — có keys thì `probe().threefold`
+     * mới đúng. Không truyền keys = hành vi cũ.
      */
-    scratch(fen) {
+    scratch(fen, keys) {
       const s = new Chess(fen);
       const me = s.turn();
       const foe = me === 'w' ? 'b' : 'w';
+      const seen = keys ? api.countKeys(keys) : null;
 
       return {
         turn: me,
@@ -2423,7 +2437,8 @@ CC.Rules = (function () {
             ok: true,
             checkmate: s.isCheckmate(),
             stalemate: s.isStalemate(),
-            threefold: s.isThreefoldRepetition(),
+            // Thế sau nước này đã có >= 2 lần trong ván thật -> đi nước này là lần thứ 3
+            threefold: s.isThreefoldRepetition() || (!!seen && (seen[api.keyOf(s.fen())] || 0) >= 2),
             check: s.inCheck(),
             captured: m.captured || null,
             piece: m.piece,
@@ -2467,6 +2482,45 @@ CC.Rules = (function () {
 })();
 
 ;
+/* ===== js/rules-position-keys.js ===== */
+/* rules-position-keys.js — khoá thế cờ để các chốt chặn "nhìn thấy" lịch sử ván
+ *
+ * VÌ SAO CÓ FILE NÀY: CC.Rules.scratch(fen) dựng bàn nháp từ đúng một FEN nên không có lịch sử,
+ * `probe().threefold` luôn false và chốt chống lặp nước của engine-safety-guards.js vô dụng.
+ * Cách sửa: lấy khoá mọi thế cờ của ván THẬT rồi đưa vào scratch(fen, keys).
+ *
+ * Nạp NGAY SAU rules-adapter.js (dùng CC.Rules.historyVerbose / fen của nó). Chỉ file rules-*.js
+ * mới được biết hình dạng dữ liệu của chess.js — nơi khác chỉ cầm mảng chuỗi khoá.
+ */
+
+(function () {
+  const R = CC.Rules;
+
+  /* Khoá = 4 trường đầu của FEN (bàn, lượt, nhập thành, en passant). Hai trường cuối là bộ đếm
+   * nước, KHÔNG được tính: cùng một thế mà bộ đếm khác thì vẫn là lặp. Khớp đúng cách chess.js
+   * tự đếm lặp nước (hàm trimFen của nó) nên kết quả không lệch với `result()` của ván thật. */
+  R.keyOf = fen => fen.split(' ').slice(0, 4).join(' ');
+
+  /* Khoá của MỌI thế cờ từ đầu ván tới hiện tại (kể cả thế đầu và thế hiện tại).
+   *
+   * Lấy từ `before`/`after` của lịch sử chi tiết, tính lại mỗi lần gọi — không giữ bản sao nào, nên
+   * undo hay khôi phục ván tự khớp. BẪY: ván nạp bằng load(fen) không có lịch sử → chỉ còn đúng
+   * 1 khoá (thế hiện tại), tức là lặp nước trước lúc nạp không đếm được. */
+  R.positionKeys = function () {
+    const hist = R.historyVerbose();
+    if (!hist.length) return [R.keyOf(R.fen())];
+    return [R.keyOf(hist[0].before)].concat(hist.map(m => R.keyOf(m.after)));
+  };
+
+  /* Đếm số lần mỗi khoá xuất hiện: { khoá: số lần } */
+  R.countKeys = function (keys) {
+    const seen = {};
+    keys.forEach(k => { seen[k] = (seen[k] || 0) + 1; });
+    return seen;
+  };
+})();
+
+;
 /* ===== js/storage-local.js ===== */
 /* storage-local.js — luu tru cuc bo
  *
@@ -2501,11 +2555,11 @@ CC.Store = (function () {
   const DEFAULT_PREFS = {
     elo: 700,            // muc da chon lan truoc
     chatOn: true,
-    autoFlip: true,      // che do 2 nguoi: tu lat ban theo luot
     dark: null,          // null = theo he thong
     sound: true,         // tieng dong (dat quan, an quan, chieu)
     bgm: false,          // nhac nen — MAC DINH TAT, xem ghi chu duoi
-    fx: true             // hieu ung hinh anh
+    fx: true,            // hieu ung hinh anh
+    haptics: true        // rung máy khi quân chạm bàn; máy không hỗ trợ (iOS) thì tự im
   };
 
   /* Vi sao nhac nen mac dinh TAT: nguoi choi mo game lan dau ma bi phat nhac ngay
@@ -2830,21 +2884,16 @@ CC.Sfx = (function () {
     init() {
       const B = CC.util.bus;
 
-      B.on('game:move', ({ move }) => {
-        if (move.flags.includes('k') || move.flags.includes('q')) CC.Sfx.play('castle');
-        else if (move.promotion) CC.Sfx.play('promote');
-        else if (move.captured) CC.Sfx.play('capture');
-        else CC.Sfx.play('move');
+      // Tiếng đi quân / chiếu KHÔNG phát ở đây: khoảnh khắc nước đi (moments-move.js) phát lúc quân chạm ô.
 
-        // Chieu keu them mot tieng rieng, cham hon mot nhip cho khong chong len
-        if (CC.Rules.inCheck()) setTimeout(() => CC.Sfx.play('check'), 130);
-      });
-
-      B.on('game:over', ({ outcome, mode }) => {
+      // 400 ms: sau tiếng đáp (~180) và sau mốc tiếng chiếu cũ (~310) để không chồng tiếng.
+      // Chốt gen: ván mới bắt đầu trong lúc chờ thì không phát tiếng thắng / thua của ván cũ.
+      B.on('game:over', ({ outcome }) => {
+        const g = CC.Game.gen();
         setTimeout(() => {
-          if (mode === 'hotseat') CC.Sfx.play('draw');
-          else CC.Sfx.play(outcome === 'win' ? 'win' : outcome === 'loss' ? 'lose' : 'draw');
-        }, 220);
+          if (!CC.Game.isCurrent(g)) return;
+          CC.Sfx.play(outcome === 'win' ? 'win' : outcome === 'loss' ? 'lose' : 'draw');
+        }, 400);
       });
 
       B.on('chat:say', ({ from }) => { if (from === 'cat') CC.Sfx.play('meow'); });
@@ -3028,9 +3077,18 @@ CC.Bgm = (function () {
  * `role` cua moi hinh:
  *   (khong co) -> mau than       shade -> dai toi
  *   light      -> vet bat sang   ink   -> net chi tiet ve bang mau vien
+ *   collar     -> vòng cổ (màu theo phe)   bell -> chuông vàng   ear -> lòng tai hồng   (P05 plan art AAA)
+ *   mark       -> nét kem CHỈ vẽ ở quân có `rim` (quân đen); quân trắng bỏ qua
+ *
+ * Bộ mực truyện tranh (P05): đèn trên-trái như mọi bóng cứng → vệt sáng bên trái, dải `shade` bên PHẢI thân, lùi 2,5
+ * đơn vị khỏi mép để không ăn nửa trong của viền mực. Tai mèo + chuông CHỈ ở Vua và Hậu (đủ "mèo" mà không làm mọi
+ * quân lẫn nhau ở 34 px); vòng cổ ở MỌI quân — thêm một khác biệt giữa hai phe ngoài màu thân.
+ *
+ * CHI DU LIEU. Ham dung nhom SVG o piece-svg-build.js (CC.Pieces) — Godot xuat hinh tu build(), bong do tren ban
+ * (onBoard) khong duoc lot vao hinh xuat.
  */
 
-CC.Pieces = (function () {
+CC.PieceShapes = (function () {
   /* De chung — tao cam giac cung bo. Ba manh: than de, dai toi, vet sang. */
   const BASE = [
     { t: 'path', d: 'M22 95 C22 88 26 84 32 83 L68 83 C74 84 78 88 78 95 Z' },
@@ -3042,18 +3100,23 @@ CC.Pieces = (function () {
     /* --- TOT --- */
     p: [
       { t: 'circle', cx: 50, cy: 30, r: 13 },
+      { t: 'path', d: 'M58.6 24 A10.5 10.5 0 0 1 48.2 40.3 A16 16 0 0 0 58.6 24 Z', role: 'shade', noStroke: true },
+      { t: 'circle', cx: 45, cy: 26, r: 4, role: 'light', noStroke: true },
       { t: 'path', d: 'M40 42 C40 53 34 63 32 83 L68 83 C66 63 60 53 60 42 Z' },
       { t: 'path', d: 'M43 55 C42 65 39 72 38 82 L45 82 C45 71 46 63 47 55 Z', role: 'light', noStroke: true },
-      { t: 'circle', cx: 45, cy: 26, r: 4, role: 'light', noStroke: true },
+      { t: 'path', d: 'M57.5 50 C58 58 61.5 66 63.5 81 L58 81 C57 68 55.5 59 54.5 51 Z', role: 'shade', noStroke: true },
+      { t: 'path', d: 'M38.5 41 Q50 45 61.5 41 L61.5 47.5 Q50 51.5 38.5 47.5 Z', role: 'collar', w: 3 },
       ...BASE
     ],
 
     /* --- XE --- */
     r: [
       { t: 'path', d: 'M28 20 h11 v8 h7 v-8 h8 v8 h7 v-8 h11 v19 h-44 z' },
+      { t: 'path', d: 'M66.5 22.5 h3 v14 h-3 z', role: 'shade', noStroke: true },
       { t: 'path', d: 'M34 39 L36 83 L64 83 L66 39 Z' },
       { t: 'path', d: 'M38 42 L37 82 L44 82 L44 42 Z', role: 'light', noStroke: true },
-      { t: 'path', d: 'M34 45 L66 45', role: 'ink', fill: 'none', w: 2.5 },
+      { t: 'path', d: 'M57 47 L57 80.5 L61.5 80.5 L63.2 47 Z', role: 'shade', noStroke: true },
+      { t: 'path', d: 'M33 39 h34 v6.5 h-34 z', role: 'collar', w: 3 },
       ...BASE
     ],
 
@@ -3086,6 +3149,8 @@ CC.Pieces = (function () {
       { t: 'circle', cx: 57, cy: 34, r: 3.2, role: 'ink' },                 // mat
       { t: 'circle', cx: 75, cy: 51, r: 2.2, role: 'ink' },                 // lo mui
       { t: 'path', d: 'M64 57 L74 55', role: 'ink', fill: 'none', w: 2 },   // mieng
+      { t: 'path', d: 'M52 61 C49 67 48 74 51 80.5 L58.5 80.5 C55.5 78 53 73 52.4 67 Z', role: 'shade', noStroke: true },
+      { t: 'path', d: 'M28 64 C37 67.5 46 68 56 65.5 L57 72 C46 74.5 37 74 28.5 70.5 Z', role: 'collar', w: 3 },
       ...BASE
     ],
 
@@ -3094,67 +3159,137 @@ CC.Pieces = (function () {
       { t: 'circle', cx: 50, cy: 16, r: 5.5 },
       { t: 'path', d: 'M50 23 C39 31 33 43 33 55 C33 65 40 71 50 71 C60 71 67 65 67 55 C67 43 61 31 50 23 Z' },
       { t: 'path', d: 'M45 31 C39 39 37 48 38 58 C40 63 43 66 46 67 C42 60 41 45 45 31 Z', role: 'light', noStroke: true },
-      { t: 'path', d: 'M50 36 L59 47', role: 'ink', fill: 'none', w: 3 },   // khe cheo dac trung
-      { t: 'path', d: 'M34 70 h32 v7 h-32 z', role: 'shade' },
+      { t: 'path', d: 'M57 33 C62 40 64.5 48 64.5 55 C64.5 62 60.5 67 55 68.5 C58.5 64 60 59 60 54 C60 46 59 39 57 33 Z', role: 'shade', noStroke: true },
+      // Khe chéo: nét 5, dài hơn bản cũ — Tượng đen ở 34 px chỉ còn khe này để khỏi đọc thành Tốt đen (cổng đọc 5)
+      { t: 'path', d: 'M48.5 34 L60.5 48.5', role: 'ink', fill: 'none', w: 5 },
       { t: 'path', d: 'M39 77 L37 83 L63 83 L61 77 Z' },
+      { t: 'path', d: 'M34 70 h32 v7 h-32 z', role: 'collar', w: 3 },
       ...BASE
     ],
 
-    /* --- HAU --- */
+    /* --- HAU ---
+     * Vương miện bốn NGỌC VÀNG (màu chuông), KHÔNG tai mèo. Bản có tai: hai người đọc độc lập cùng nhầm Vua ↔ Hậu ở
+     * 46 px (cổng đọc 7) — tai + chóp của hai quân thành cùng một dáng "đầu nhiều mũi". Tai chỉ còn ở Vua.
+     * Ngọc vàng chứ không bi viền mực: nét mực 7 trên bi r 5 của Hậu đen thành một cục đen (cổng đọc 4). */
     q: [
       { t: 'path', d: 'M29 44 L24 18 L38 32 L45 14 L50 29 L55 14 L62 32 L76 18 L71 44 Z' },
-      { t: 'circle', cx: 24, cy: 16, r: 5 },
-      { t: 'circle', cx: 45, cy: 12, r: 5 },
-      { t: 'circle', cx: 55, cy: 12, r: 5 },
-      { t: 'circle', cx: 76, cy: 16, r: 5 },
-      { t: 'path', d: 'M28 44 h44 v8 h-44 z', role: 'shade' },
+      { t: 'circle', cx: 24, cy: 16, r: 5, role: 'bell', w: 2.5 },
+      { t: 'circle', cx: 45, cy: 12, r: 5, role: 'bell', w: 2.5 },
+      { t: 'circle', cx: 55, cy: 12, r: 5, role: 'bell', w: 2.5 },
+      { t: 'circle', cx: 76, cy: 16, r: 5, role: 'bell', w: 2.5 },
       { t: 'path', d: 'M32 52 C32 64 36 74 36 83 L64 83 C64 74 68 64 68 52 Z' },
       { t: 'path', d: 'M37 54 C37 65 40 74 40 82 L47 82 C46 73 43 64 42 54 Z', role: 'light', noStroke: true },
+      { t: 'path', d: 'M59.5 56 C60 64 59 73 58.5 81 L61.5 81 C61.8 73 63.5 64 65.3 56 Z', role: 'shade', noStroke: true },
+      { t: 'path', d: 'M28 44 h44 v8 h-44 z', role: 'collar', w: 3 },
+      { t: 'circle', cx: 50, cy: 56.5, r: 5, role: 'bell', w: 2.5 },
       ...BASE
     ],
 
-    /* --- VUA --- */
+    /* --- VUA ---
+     * Đầu mèo đội thập giá: vòm + hai tai là MỘT đường viền. Bản đầu vẽ tai và vòm thành ba hình chồng nhau → ở ô 46 px
+     * ba lớp nét mực lấp kín vòm, Vua trắng đọc thành Vua đen (cổng đọc P05). */
     k: [
       { t: 'path', d: 'M46 6 h8 v7 h7 v8 h-7 v8 h-8 v-8 h-7 v-8 h7 z' },   // thap gia
-      { t: 'path', d: 'M31 41 C31 34 39 30 50 30 C61 30 69 34 69 41 L66 50 L34 50 Z' },
-      { t: 'path', d: 'M34 50 h32 v6 h-32 z', role: 'shade' },
+      // Vua đen: thập giá đen trên đầu đen lẫn với chóp Hậu đen ở 46 px (cổng đọc P05) → nét kem giữa thập giá
+      { t: 'path', d: 'M50 10 v15 M43.5 17 h13', role: 'mark', fill: 'none', w: 4 },
+      { t: 'path', d: 'M34 50 L31.5 41 C30.5 36 30 30 28 18 L42 29.5 C45 29 55 29 58 29.5 L72 18 C70 30 69.5 36 68.5 41 L66 50 Z' },
+      { t: 'path', d: 'M33 33.5 L31.5 24.5 L38.5 30.5 Z', role: 'ear', noStroke: true },
+      { t: 'path', d: 'M67 33.5 L68.5 24.5 L61.5 30.5 Z', role: 'ear', noStroke: true },
+      { t: 'path', d: 'M64.5 33 C66 36 66.5 39 66 41.5 L63.8 48 L59 48 L61.5 41 C62.5 38 63.5 35.5 64.5 33 Z', role: 'shade', noStroke: true },
       { t: 'path', d: 'M34 56 C34 68 38 76 38 83 L62 83 C62 76 66 68 66 56 Z' },
       { t: 'path', d: 'M39 58 C39 68 42 76 42 82 L49 82 C48 74 45 67 44 58 Z', role: 'light', noStroke: true },
+      { t: 'path', d: 'M58 62 C58.5 69 57.5 76 57 81 L59.6 81 C59.8 76 61.5 69 63.3 62 Z', role: 'shade', noStroke: true },
+      { t: 'path', d: 'M34 50 h32 v6 h-32 z', role: 'collar', w: 3 },
+      { t: 'circle', cx: 50, cy: 60, r: 5, role: 'bell', w: 2.5 },
       ...BASE
     ]
   };
 
+  return SHAPES;
+})();
+
+;
+/* ===== js/piece-svg-build.js ===== */
+/* piece-svg-build.js — dựng nhóm SVG cho quân từ dữ liệu CC.PieceShapes (P03 plan art AAA tách khỏi piece-svg-shapes.js)
+ *
+ * Hai cửa: `build()` = hình quân trần (khay, hộp phong cấp, và là thứ Godot xuất ra); `onBoard()` = hình quân + bóng đổ
+ * trên ô. Bóng KHÔNG nằm trong build(): xuất ảnh quân cho Godot mà dính bóng thì bóng nằm sai chỗ ở mọi khay.
+ * Bóng là hình SVG chứ không `filter: drop-shadow`: 32 bộ lọc vẽ lại mỗi lần quân trượt → giật trên điện thoại.
+ *
+ * Viền mực (P05): hình bóng của quân (không `role`, có tô) mang class `pc-ink` để board.css làm dày nét ở màn hẹp.
+ * Quân đen thêm VIỀN TRONG giấy: chép lại đúng hình đó, chỉ nét kem mảnh nằm giữa viền mực dày hơn — viền mực #111 trên
+ * thân #1b1b1b chìm hẳn, không có nét kem thì quân đen chỉ còn là một khối bóng.
+ */
+
+CC.Pieces = (function () {
+  const GEOM = ['cx', 'cy', 'r', 'd'];
+  const SIL = {};
+
+  /* Hình bóng của quân = mọi hình có viền mực gộp thành MỘT path (vòng tròn → hai cung). Chỗ hai hình chồng nhau có thể
+   * khoét lỗ theo chiều vẽ (nonzero), nhưng chỗ đó nằm trong lòng quân, bị chính quân che — bóng chỉ lộ dải mép dưới-phải. */
+  function silhouette(type) {
+    if (SIL[type]) return SIL[type];
+    return (SIL[type] = (CC.PieceShapes[type] || CC.PieceShapes.p)
+      .filter(s => !s.role && !s.noStroke && s.fill !== 'none')
+      .map(s => s.t === 'circle'
+        ? 'M' + (s.cx - s.r) + ' ' + s.cy + 'a' + s.r + ' ' + s.r + ' 0 1 0 ' + 2 * s.r + ' 0a' + s.r + ' ' + s.r + ' 0 1 0 ' + -2 * s.r + ' 0Z'
+        : s.d)
+      .join(' '));
+  }
+
   return {
+    /* Bóng đổ: hình bóng của quân lệch xuống-phải, CÙNG mô hình bóng cứng của khung, nút, hộp thoại (đèn trên-trái =
+     * cửa sổ khung tranh mèo). fresh-eyes r10: bóng elip dưới đế = đèn rọi từ trên → hai mô hình đèn trên một màn. */
+    onBoard(type, color) {
+      const g = this.build(type, color);
+      g.insertBefore(CC.util.svg('path', { class: 'piece-shadow', d: silhouette(type) }), g.firstChild);
+      // Bóng khối halftone (board-comic-pattern.js) chỉ cho quân TRÊN BÀN: build() còn đi ra khay + Godot xuất, nơi không
+      // có pattern. Màu sau url() là lưới đỡ khi pattern thiếu.
+      const fill = (CC.cfg.PIECE[color] || CC.cfg.PIECE.w).fill;
+      g.querySelectorAll('.pc-ink').forEach(el => el.setAttribute('fill', 'url(#pc-lit-' + (color === 'b' ? 'b' : 'w') + ') ' + fill));
+      return g;
+    },
+
     /* Tao nhom SVG cho mot quan.
      * type: 'p'|'r'|'n'|'b'|'q'|'k'   color: 'w'|'b'
      */
     build(type, color) {
       const c = CC.cfg.PIECE[color] || CC.cfg.PIECE.w;
-      const g = CC.util.svg('g', { class: 'piece-shape' });
+      const g = CC.util.svg('g', { class: 'piece-shape pc-' + (color === 'b' ? 'b' : 'w') });
 
-      (SHAPES[type] || SHAPES.p).forEach(s => {
+      (CC.PieceShapes[type] || CC.PieceShapes.p).forEach(s => {
+        if (s.role === 'mark' && !c.rim) return;
+        const outline = !s.role && !s.noStroke && s.fill !== 'none';
         let fill = c.fill;
         if (s.role === 'shade') fill = c.shade;
         else if (s.role === 'light') fill = c.light;
-        else if (s.role === 'ink') fill = c.stroke;
+        else if (s.role === 'ink') fill = c.ink || c.stroke;
+        else if (s.role === 'collar' || s.role === 'bell' || s.role === 'ear') fill = c[s.role];
         if (s.fill === 'none') fill = 'none';
 
         const attrs = {
           fill,
-          stroke: s.noStroke ? 'none' : c.stroke,
-          'stroke-width': s.w || (s.role === 'ink' ? 2.5 : 4),
+          stroke: s.noStroke ? 'none' : s.role === 'ink' ? c.ink || c.stroke : s.role === 'mark' ? c.rim : c.stroke,
+          'stroke-width': s.w || (s.role === 'ink' ? 2.5 : outline ? c.inkW : 4),
           'stroke-linejoin': 'round',
           'stroke-linecap': 'round'
         };
+        if (outline) attrs.class = 'pc-ink';
         // Vet sang / dai toi chi la lop trang tri, khong duoc chan chuot
         if (s.role === 'light' || s.role === 'shade') attrs['pointer-events'] = 'none';
-        if (s.role === 'light') attrs.opacity = 0.55;
+        if (s.role === 'light') attrs.opacity = 0.9;
 
         if (s.t === 'circle') Object.assign(attrs, { cx: s.cx, cy: s.cy, r: s.r });
         else if (s.t === 'rect') Object.assign(attrs, { x: s.x, y: s.y, width: s.w, height: s.h, rx: s.rx });
         else Object.assign(attrs, { d: s.d });
 
-        g.appendChild(CC.util.svg(s.t === 'path' ? 'path' : s.t, attrs));
+        const tag = s.t === 'path' ? 'path' : s.t;
+        g.appendChild(CC.util.svg(tag, attrs));
+        if (outline && c.rim) {
+          const rim = { class: 'pc-rim', fill: 'none', stroke: c.rim, 'stroke-width': c.rimW, 'stroke-linejoin': 'round', 'pointer-events': 'none' };
+          GEOM.forEach(k => { if (attrs[k] != null) rim[k] = attrs[k]; });
+          g.appendChild(CC.util.svg(tag, rim));
+        }
       });
 
       return g;
@@ -3168,40 +3303,53 @@ CC.Pieces = (function () {
 })();
 
 ;
-/* ===== js/board-wood-texture.js ===== */
-/* board-wood-texture.js — vân gỗ cho ô bàn cờ (art/wood-light.webp, wood-dark.webp)
+/* ===== js/board-comic-pattern.js ===== */
+/* board-comic-pattern.js — chấm halftone cho ô tối của bàn in truyện tranh (thay vân gỗ board-wood-texture.js)
  *
- * Pattern `userSpaceOnUse` trải MỘT tấm vân cho cả bàn 800×800 chứ không lặp mỗi ô:
- * thớ gỗ chạy liền qua các ô cùng màu như bàn gỗ khảm thật. Lặp từng ô thì 32 ô
- * giống hệt nhau, mắt nhận ra ngay là hoa văn dán.
- *
- * Ô tối xoay vân 90° — hai loại gỗ khảm ngược thớ, tách ô sáng/tối rõ hơn khi nhìn
- * lướt trên màn nhỏ.
- *
- * LƯỚI ĐỠ: lớp màu phẳng nằm dưới ảnh trong pattern, VÀ CSS ghi `fill: url(#..) màu`
- * — thiếu ảnh hay thiếu pattern thì ô vẫn đúng màu cũ.
+ * Gỗ AI không hợp giấy in (P02 plan art AAA): ô tối giờ là vàng nghệ in chấm mực, ô sáng là giấy kem phẳng.
+ * Pattern `userSpaceOnUse` lưới 10 đơn vị trên bàn 800: ô 46 px của điện thoại vẫn có ~4,6 px mỗi chấm — nhỏ hơn
+ * thì chấm nhoè thành một mảng xám làm quân đen chìm (rủi ro ghi ở plan: chấm mực 8–14 % là trần).
+ * LƯỚI ĐỠ: CSS ghi `fill: url(#halftone-d) màu` — thiếu pattern thì ô vẫn đúng màu phẳng.
  */
 
-CC.BoardWood = (function () {
+CC.BoardPattern = (function () {
   const s = (t, a, c) => CC.util.svg(t, a, c);
 
-  /* `opacity` cho màu phẳng cũ ăn qua lớp vân: ảnh vân sáng AI ra ngả VÀNG, phủ 85%
-   * thì ô sáng thành vàng chanh, lệch hẳn tông kem của quân trắng (soi 10/10/2026). */
-  function pattern(id, file, baseClass, rotate, opacity) {
-    return s('pattern', {
-      id, patternUnits: 'userSpaceOnUse', width: 800, height: 800,
-      patternTransform: rotate ? 'rotate(90 400 400)' : null
-    }, [
-      s('rect', { class: baseClass, width: 800, height: 800 }),
-      s('image', { href: 'art/' + file, width: 800, height: 800, preserveAspectRatio: 'none', opacity })
-    ]);
-  }
+  /* Bóng khối của quân (P08, Lighting): đèn trên-trái như mọi bóng cứng → quân trắng in chấm mực ở nửa PHẢI, quân đen
+   * có chấm kem (ánh sáng) ở nửa TRÁI. userSpaceOnUse = toạ độ riêng của quân (0…100, nhóm quân đã dịch tới ô) nên một
+   * pattern dùng chung cho 32 quân, 0 node thêm mỗi quân. Pattern lồng pattern để chấm giữ cỡ ở mọi phần của quân.
+   * Pattern chấm KHÔNG có nền riêng (nền trong suốt để lộ nền pattern ngoài): r9 có nền thì DOM desktop 1.105 > trần. */
+  const lit = (id, base, dot, dotOp, x, w) => [
+    s('pattern', { id: id + '-dot', patternUnits: 'userSpaceOnUse', width: 5, height: 5 }, [
+      s('circle', { cx: 2.5, cy: 2.5, r: 1.45, fill: dot, 'fill-opacity': dotOp })
+    ]),
+    s('pattern', { id, patternUnits: 'userSpaceOnUse', width: 100, height: 100 }, [
+      s('rect', { width: 100, height: 100, fill: base }),
+      s('rect', { x, width: w, height: 100, fill: 'url(#' + id + '-dot)' })
+    ])
+  ];
+
+  /* Vân giấy của ô (r11, fresh-eyes r10 Materials: "ô bàn hai mảng tô phẳng, bàn không có vân"): CÙNG ảnh vân của trang,
+   * làm LỚP NỀN của ô như ở body — không phủ lên quân. Ô 240 đơn vị ≈ 110 px ở bàn 368 px điện thoại: hạt vân gần cỡ
+   * 1 : 1 như trên giấy trang. +6 node cả bàn, 0 node mỗi ô. Đường dẫn ảnh tính từ trang (index.html), như ảnh mèo. */
+  const G = 240;
+  const paper = (id, baseClass) => s('pattern', { id, patternUnits: 'userSpaceOnUse', width: G, height: G }, [
+    s('rect', { class: baseClass, width: G, height: G }),
+    s('image', { href: 'art/paper-grain.png', width: G, height: G })
+  ]);
 
   return {
     defs() {
       return s('defs', null, [
-        pattern('wood-l', 'wood-light.webp', 'wood-base-l', false, 0.5),
-        pattern('wood-d', 'wood-dark.webp', 'wood-base-d', true, 0.8)
+        s('pattern', { id: 'halftone-d', patternUnits: 'userSpaceOnUse', width: 10, height: 10 }, [
+          s('rect', { class: 'sq-base-d', width: 10, height: 10 }),
+          s('circle', { class: 'sq-dot', cx: 2.5, cy: 2.5, r: 1.7 }),
+          s('circle', { class: 'sq-dot', cx: 7.5, cy: 7.5, r: 1.7 })
+        ]),
+        paper('paper-l', 'sq-base-l'),
+        paper('paper-d', 'sq-base-dh'),
+        ...lit('pc-lit-w', CC.cfg.PIECE.w.fill, '#111', 0.5, 53, 47),
+        ...lit('pc-lit-b', CC.cfg.PIECE.b.fill, CC.cfg.PIECE.b.rim, 0.5, 0, 46)
       ]);
     }
   };
@@ -3218,6 +3366,7 @@ CC.BoardWood = (function () {
  *   #layer-marks      to sang: o chon, nuoc vua di, vua bi chieu
  *   #layer-pieces     quan co
  *   #layer-dots       cham tron bao nuoc di duoc (tren quan de khong bi che)
+ *   #layer-fx         hiệu ứng (ui-board-fx.js) — tách khỏi dots vì Highlight.redraw() xoá sạch dots
  *   #layer-drag       quan dang duoc keo (tren cung)
  */
 
@@ -3287,15 +3436,15 @@ CC.Board = (function () {
     for (let i = 0; i < 8; i++) {
       const file = FILES[flipped ? 7 - i : i];
       const rank = flipped ? i + 1 : 8 - i;
-      const dark = i % 2 === 0;
+      const dark = i % 2 === 0;   // hàng dưới: a1 ô TỐI; cột trái: a8 ô SÁNG (lật bàn giữ nguyên tính chẵn lẻ)
       g.appendChild(CC.util.svg('text', {
         x: i * SQ + SQ - 8, y: 8 * SQ - 8,
-        class: 'coord ' + (dark ? 'coord-on-light' : 'coord-on-dark'),
+        class: 'coord ' + (dark ? 'coord-on-dark' : 'coord-on-light'),
         'text-anchor': 'end', text: file
       }));
       g.appendChild(CC.util.svg('text', {
         x: 7, y: i * SQ + 22,
-        class: 'coord ' + (dark ? 'coord-on-dark' : 'coord-on-light'),
+        class: 'coord ' + (dark ? 'coord-on-light' : 'coord-on-dark'),
         text: String(rank)
       }));
     }
@@ -3310,7 +3459,7 @@ CC.Board = (function () {
       'data-type': p.type,
       'data-color': p.color
     });
-    g.appendChild(CC.Pieces.build(p.type, p.color));
+    g.appendChild(CC.Pieces.onBoard(p.type, p.color));
     setPos(g, p.square);
     return g;
   }
@@ -3331,8 +3480,8 @@ CC.Board = (function () {
         viewBox: '0 0 ' + (8 * SQ) + ' ' + (8 * SQ),
         xmlns: 'http://www.w3.org/2000/svg'
       });
-      svg.appendChild(CC.BoardWood.defs());
-      ['squares', 'coords', 'marks', 'pieces', 'dots', 'drag'].forEach(name => {
+      svg.appendChild(CC.BoardPattern.defs());
+      ['squares', 'coords', 'marks', 'pieces', 'dots', 'fx', 'drag'].forEach(name => {
         layers[name] = CC.util.svg('g', { class: 'layer layer-' + name });
         svg.appendChild(layers[name]);
       });
@@ -3385,7 +3534,11 @@ CC.Board = (function () {
           el.dataset.square = opts.moved.to;
           pieceEls[opts.moved.to] = el;
           setPos(el, opts.moved.to);
+          // Phong cấp: tốt trượt tới ô trước, đổi hình sau (board-promotion-swap.js)
+          const w = want[opts.moved.to];
+          if (w && w.color === el.dataset.color && w.type !== el.dataset.type) CC.PromotionSwap.run(el, w.type);
         }
+        CC.CastleSlide.rekey(pieceEls, want, opts.moved.rook);   // nhập thành: Xe trượt, không xoá rồi dựng lại
       }
 
       // 2. Go quan khong con dung cho
@@ -3438,6 +3591,79 @@ CC.Board = (function () {
 })();
 
 ;
+/* ===== js/board-promotion-swap.js ===== */
+/* board-promotion-swap.js — tốt phong cấp: trượt tới ô đích rồi mới đổi hình quân
+ *
+ * Trước đây Board.sync() thấy quân ở ô đích khác loại với phần tử cũ (tốt ≠ hậu) nên xoá phần tử
+ * tốt và dựng quân mới NGAY → hậu hiện thẳng ở ô cuối, tốt không bao giờ được trượt. Giờ giữ nguyên
+ * phần tử để nó trượt bằng đúng transition của mọi quân, tới nơi mới thay hình.
+ */
+
+CC.PromotionSwap = (function () {
+  function redraw(el) {
+    el.textContent = '';
+    el.appendChild(CC.Pieces.onBoard(el.dataset.type, el.dataset.color));   // quân trên bàn: giữ bóng đổ
+  }
+
+  return {
+    /* Gọi từ Board.sync() NGAY SAU khi đặt vị trí đích cho phần tử tốt. `type` = quân được chọn
+     * (q/r/b/n — không chỉ hậu).
+     *
+     * `dataset.type` đổi NGAY, chỉ HÌNH VẼ đổi trễ. Lý do: bước 2 của sync() so khớp theo dataset
+     * nên không còn xoá phần tử, và sync() gọi lại giữa lúc đang trượt (thả quân, lật bàn...) vẫn
+     * ra đúng kết quả — vẫn idempotent. Không đụng tới `transform` ở đây vì cùng lý do đó.
+     *
+     * BẪY: không dùng `transitionend` — khi giảm chuyển động CSS đặt `transition: none !important`
+     * nên sự kiện đó không bao giờ bắn, tốt sẽ kẹt hình tốt mãi. Hẹn giờ theo đúng thời gian trượt
+     * đọc từ CSS (≈ 0 khi giảm chuyển động hoặc quân đang kéo → đổi hình ngay).
+     */
+    run(el, type) {
+      el.dataset.type = type;
+      const ms = parseFloat(getComputedStyle(el).transitionDuration) * 1000 || 0;
+      if (ms <= 0) { redraw(el); return; }
+      // isConnected: ván mới / đi lại / xem lại nước có thể đã gỡ phần tử này trong lúc chờ
+      setTimeout(() => { if (el.isConnected) redraw(el); }, ms);
+    }
+  };
+})();
+
+;
+/* ===== js/board-castle-slide.js ===== */
+/* board-castle-slide.js — nhập thành: Xe TRƯỢT sang ô mới như Vua, không bị xoá rồi dựng lại
+ *
+ * Board.sync() chỉ biết MỘT quân đi (`opts.moved`). Xe rời h1 mà không ai báo, nên bước 2 của sync() xoá phần tử
+ * Xe ở h1, bước 3 dựng Xe mới ở f1: Xe dịch chuyển tức thời. applyMove truyền thêm ô Xe (`opts.moved.rook`, lấy
+ * từ `mv.flags` của nước đi). Bước 1 gọi `rekey` để đổi khoá phần tử Xe; bước 4 đặt vị trí mới, transition sẵn có
+ * của `.piece` cho nó trượt.
+ * KHÔNG đoán nhập thành trong sync() từ thế cờ: sync() còn vẽ thế cờ xem lại (`opts.pieces`). Ở đó Vua g1 + Xe f1
+ * không có nghĩa là vừa nhập thành.
+ */
+
+CC.CastleSlide = {
+  /* Ô Xe của nước nhập thành, hoặc null. Cờ chess.js: `k` = cánh Vua (h → f), `q` = cánh Hậu (a → d).
+   * BẪY: phong Hậu KHÔNG mang cờ `q` (cờ phong cấp là `p`, quân chọn nằm ở `mv.promotion`). */
+  rookOf(mv) {
+    const r = mv.color === 'w' ? '1' : '8';
+    if (mv.flags.includes('k')) return { from: 'h' + r, to: 'f' + r, color: mv.color };
+    if (mv.flags.includes('q')) return { from: 'a' + r, to: 'd' + r, color: mv.color };
+    return null;
+  },
+
+  /* Gọi từ bước 1 của Board.sync(). `els` = ô → phần tử đang vẽ, `want` = ô → quân của thế cờ cần vẽ.
+   * Chỉ đổi khoá khi đúng là phần tử Xe cùng màu nằm ở ô cũ, thế cờ đã bỏ ô cũ và cần đúng Xe đó ở ô mới, ô mới
+   * chưa có phần tử. Gọi lần hai (sync() lại cùng opts) thì ô cũ đã hết khoá → không làm gì: sync() vẫn idempotent. */
+  rekey(els, want, rook) {
+    if (!rook) return;
+    const el = els[rook.from], w = want[rook.to];
+    if (!el || want[rook.from] || els[rook.to] || !w) return;
+    if (el.dataset.type !== 'r' || el.dataset.color !== rook.color || w.type !== 'r' || w.color !== rook.color) return;
+    delete els[rook.from];
+    el.dataset.square = rook.to;
+    els[rook.to] = el;
+  }
+};
+
+;
 /* ===== js/board-highlight.js ===== */
 /* board-highlight.js — cac lop to sang tren ban co
  *
@@ -3469,11 +3695,12 @@ CC.Highlight = (function () {
     },
 
     /* Trang thai hien tai, giu lai de ve lai duoc khi lat ban */
-    state: { selected: null, lastMove: null, check: null, moves: [] },
+    state: { selected: null, lastMove: null, check: null, moves: [], hint: null },
 
     setSelected(square) { api.state.selected = square; api.redraw(); },
     setLastMove(mv) { api.state.lastMove = mv ? { from: mv.from, to: mv.to } : null; api.redraw(); },
     setCheck(square) { api.state.check = square; api.redraw(); },
+    setHint(h) { api.state.hint = h; api.redraw(); },   // {from, to} từ CC.BoardSignals
 
     /* moves: mang [{to, captured}] — o co quan an duoc ve khac cho de nhin */
     setMoves(moves) { api.state.moves = moves || []; api.redraw(); },
@@ -3481,7 +3708,7 @@ CC.Highlight = (function () {
     clearMoves() { api.state.moves = []; api.state.selected = null; api.redraw(); },
 
     clearAll() {
-      api.state = { selected: null, lastMove: null, check: null, moves: [] };
+      api.state = { selected: null, lastMove: null, check: null, moves: [], hint: null };
       api.redraw();
     },
 
@@ -3491,11 +3718,22 @@ CC.Highlight = (function () {
       dots.textContent = '';
 
       if (s.lastMove) {
-        marks.appendChild(rectAt(s.lastMove.from, 'mk mk-last'));
+        // Ô đi nhạt + viền đứt, ô tới đậm: đọc ra CHIỀU đi trong một ảnh tĩnh
+        marks.appendChild(rectAt(s.lastMove.from, 'mk mk-from'));
         marks.appendChild(rectAt(s.lastMove.to, 'mk mk-last'));
       }
       if (s.check) marks.appendChild(rectAt(s.check, 'mk mk-check'));
+      if (s.check) marks.appendChild(CC.BoardSignals.burst(s.check));
       if (s.selected) marks.appendChild(rectAt(s.selected, 'mk mk-selected'));
+      // Quân đang chọn NHẤC lên (board.css `.is-picked`): r4 fresh-eyes — "chọn quân chỉ là một khung viền"
+      CC.util.$$('.piece.is-picked').forEach(el => el.classList.remove('is-picked'));
+      if (s.selected) {
+        const el = CC.util.$('.piece[data-square="' + s.selected + '"]');
+        if (el) el.classList.add('is-picked');
+      }
+
+      // Mũi tên gợi ý nằm TRÊN quân (lớp dots) — dưới quân thì quân che mất đầu mũi tên
+      if (s.hint) dots.appendChild(CC.BoardSignals.arrow(s.hint.from, s.hint.to));
 
       s.moves.forEach(m => {
         const { x, y } = CC.Board.xyOf(m.to);
@@ -3504,6 +3742,8 @@ CC.Highlight = (function () {
           dots.appendChild(CC.util.svg('circle', {
             cx: x + SQ / 2, cy: y + SQ / 2, r: 44, class: 'dot dot-capture'
           }));
+          // Vòng kem bên trong vòng mực: một vòng mực đơn chìm vào viền mực của chính quân bị ăn
+          dots.appendChild(CC.util.svg('circle', { cx: x + SQ / 2, cy: y + SQ / 2, r: 38, class: 'dot dot-capture-in' }));
         } else {
           dots.appendChild(CC.util.svg('circle', {
             cx: x + SQ / 2, cy: y + SQ / 2, r: 15, class: 'dot dot-move'
@@ -3514,6 +3754,116 @@ CC.Highlight = (function () {
   };
 
   return api;
+})();
+
+;
+/* ===== js/board-signals.js ===== */
+/* board-signals.js — hình của dấu THÔNG TIN bền trên bàn: sao nổ dưới Vua bị chiếu, mũi tên gợi ý (P04 plan art AAA, A3–A4)
+ *
+ * Dấu thông tin KHÔNG phải bước khoảnh khắc: CC.Highlight vẽ lại chúng mỗi lần đổi trạng thái, và chúng vẫn hiện khi
+ * giảm chuyển động / tắt hiệu ứng (chỉ nhịp đập của sao bị tắt, xem comic-fx.css). Vì vậy không bao giờ mang `fx-`.
+ * File này chỉ dựng hình + giữ vòng đời của gợi ý; vẽ vào lớp nào là việc của board-highlight.js.
+ */
+
+CC.BoardSignals = (function () {
+  const SQ = 100;
+  const HINT_MS = 8000;   // gợi ý tự tắt nếu người chơi ngồi nghĩ lâu — mũi tên cũ dễ bị đọc nhầm là nước của mèo
+  let hintTimer = null;
+
+  const center = sq => { const p = CC.Board.xyOf(sq); return { x: p.x + SQ / 2, y: p.y + SQ / 2 }; };
+
+  /* Sao nổ 10 cánh kiểu truyện tranh, tâm ô */
+  function burst(sq) {
+    const c = center(sq), pts = [];
+    for (let i = 0; i < 20; i++) {
+      const a = Math.PI * i / 10 - Math.PI / 2, r = i % 2 ? 33 : 49;
+      pts.push((c.x + Math.cos(a) * r).toFixed(1) + ',' + (c.y + Math.sin(a) * r).toFixed(1));
+    }
+    return CC.util.svg('polygon', { class: 'mk mk-burst', points: pts.join(' ') });
+  }
+
+  /* Mũi tên to: thân + đầu thành MỘT đa giác (viền mực liền một nét), bóng cứng lệch xuống-phải như mọi bóng */
+  function arrow(from, to) {
+    const a = center(from), b = center(to);
+    const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+    const d = { x: (b.x - a.x) / len, y: (b.y - a.y) / len }, n = { x: -d.y, y: d.x };
+    const W = 11, H = 27, HEAD = 40;
+    const at = (p, k, m) => (p.x + d.x * k + n.x * m).toFixed(1) + ',' + (p.y + d.y * k + n.y * m).toFixed(1);
+    const pts = [at(a, 22, W), at(b, -HEAD, W), at(b, -HEAD, H), at(b, -6, 0),
+      at(b, -HEAD, -H), at(b, -HEAD, -W), at(a, 22, -W)].join(' ');
+    return CC.util.svg('g', { class: 'mk-hint' }, [
+      CC.util.svg('circle', { class: 'mk-hint-ring', cx: a.x, cy: a.y, r: 44 }),
+      CC.util.svg('polygon', { class: 'mk-hint-shadow', points: pts, transform: 'translate(4 4)' }),
+      CC.util.svg('polygon', { class: 'mk-hint-arrow', points: pts })
+    ]);
+  }
+
+  function clearHint() {
+    clearTimeout(hintTimer);
+    hintTimer = null;
+    if (CC.Highlight.state.hint) CC.Highlight.setHint(null);
+  }
+
+  return {
+    burst,
+    arrow,
+
+    init() {
+      const B = CC.util.bus;
+      B.on('hint:shown', ({ from, to }) => {
+        clearTimeout(hintTimer);
+        CC.Highlight.setHint({ from, to });
+        hintTimer = setTimeout(clearHint, HINT_MS);
+      });
+      ['game:move', 'game:start', 'game:undo', 'game:restored'].forEach(e => B.on(e, clearHint));
+      return this;
+    }
+  };
+})();
+
+;
+/* ===== js/board-drop-place.js ===== */
+/* board-drop-place.js — thả quân bằng kéo: quân đứng luôn ở ô thả, không giật về ô cũ rồi mới trượt sang
+ *
+ * Trước đây endDrag gỡ `dragging` rồi gọi Board.sync() TRƯỚC khi đi nước. Lúc đó thế cờ chưa đổi nên sync() đặt
+ * quân về ô CŨ, rồi applyMove cho nó trượt 180 ms sang ô thả. Người chơi thấy quân giật về rồi trượt lại.
+ * Giờ thả hợp lệ thì đặt quân ngay ở ô thả và gắn `is-dropped` (`transition: none`, css/moments.css). Lúc applyMove
+ * chạy, đạo diễn (`land`) và PromotionSwap cùng đọc transitionDuration của quân này = 0: không nhấc, tiếng đáp
+ * ngay lúc thả, phong cấp đổi hình ngay.
+ */
+
+CC.DropPlace = (function () {
+  let dropped = null;   // quân vừa thả, chờ onMove xong; bấm-bấm thì null
+
+  return {
+    /* Thả hợp lệ. Ghi transform lúc `.dragging` CÒN gắn (transition none) để việc ghi không tạo trượt. */
+    place(el, to) {
+      const { x, y } = CC.Board.xyOf(to);
+      el.classList.add('is-dropped');
+      // Cùng cách viết với setPos() (board-svg-render.js): sync() của applyMove ghi lại đúng chuỗi này, không đổi gì
+      el.style.transform = 'translate(' + x + 'px,' + y + 'px)';
+      el.classList.remove('dragging');
+      // Về lớp thường. KHÔNG đổi khoá pieceEls ở đây: bước 1 của sync() trong applyMove làm việc đó
+      CC.Board.layer('pieces').appendChild(el);
+      dropped = el;
+    },
+
+    /* Gọi khi onMove (playerMove) xong HẲN, mọi nhánh: đi xong, bận, xin thua / ván mới lúc hộp phong cấp mở.
+     * Gỡ class sớm hơn (ngay sau onMove) thì nhánh phong cấp chưa kịp tới applyMove: đọc lại 180 ms, nước thả bị trễ. */
+    settle() {
+      const el = dropped;
+      dropped = null;
+      if (!el) return;
+      // Phần tử đã bị gỡ = ván mới / xem lại đã vẽ lại cả bàn. sync() lúc đang xem lại sẽ vẽ ván thật đè thế cờ cũ.
+      if (el.isConnected) {
+        CC.Board.sync();   // nhánh bỏ nước: thế cờ không đổi → quân về ô cũ (vẫn transition none: nhảy, không trượt)
+        // BẪY: transition bắt đầu theo style SAU thay đổi. Gỡ class cùng lượt tính style với lúc đổi transform thì
+        // trình duyệt thấy 180 ms → trượt về. Ép tính style ở đây để lần đổi transform chốt khi class còn gắn.
+        el.getBoundingClientRect();
+      }
+      el.classList.remove('is-dropped');
+    }
+  };
 })();
 
 ;
@@ -3578,7 +3928,8 @@ CC.Interaction = (function () {
     deselect();
     if (from === to) return;
     if (!isLegal(from, to)) return;
-    hooks.onMove(from, to);
+    // Gỡ is-dropped khi onMove xong HẲN, cả nhánh bỏ nước (board-drop-place.js); bấm-bấm thì settle không làm gì
+    Promise.resolve(hooks.onMove(from, to)).finally(CC.DropPlace.settle);
   }
 
   /* --- keo tha --- */
@@ -3615,19 +3966,19 @@ CC.Interaction = (function () {
     const d = drag;
     drag = null;
 
+    // Thả hợp lệ: quân đứng luôn ở ô thả (board-drop-place.js). BẪY: KHÔNG sync() trước tryMove — thế cờ chưa đổi
+    // nên sync() đặt quân về ô cũ, rồi applyMove cho nó trượt lại sang: người chơi thấy quân giật về.
+    const to = CC.Board.squareAtClient(clientX, clientY);
+    // Quân kéo đã bị gỡ (ván mới giữa lúc kéo): thả ở đâu cũng không đi nước nào, không gắn lại — gắn lại là quân mồ côi
+    if (d.moved && d.el.isConnected && to && to !== d.from && isLegal(d.from, to)) { CC.DropPlace.place(d.el, to); tryMove(d.from, to); return d; }
+
     d.el.classList.remove('dragging');
     if (d.moved) {
       // Tra quan ve lop thuong roi de sync() dat lai dung vi tri.
       // KHONG duoc xoa transform o day: transform rong = translate(0,0) = o goc
       // tren-trai ban co. sync() gio tu dat lai vi tri cho moi quan.
-      CC.Board.layer('pieces').appendChild(d.el);
-      CC.Board.sync();
-    }
-
-    const to = CC.Board.squareAtClient(clientX, clientY);
-    if (d.moved) {
-      if (to && to !== d.from && isLegal(d.from, to)) tryMove(d.from, to);
-      else { deselect(); CC.Board.sync(); }
+      if (d.el.isConnected) { CC.Board.layer('pieces').appendChild(d.el); CC.Board.sync(); }
+      deselect();
     }
     // Neu khong keo (chi cham) thi de logic cham o pointerup xu ly
     return d;
@@ -3725,8 +4076,8 @@ CC.Interaction = (function () {
     if (drag) {
       const d = drag; drag = null;
       d.el.classList.remove('dragging');
-      CC.Board.layer('pieces').appendChild(d.el);
-      CC.Board.sync();          // sync() tu dat lai vi tri, xem ghi chu o endDrag
+      // Quân đã bị gỡ (ván mới vẽ lại cả bàn) thì bỏ: gắn lại sẽ thành quân mồ côi. sync() tự đặt lại vị trí, xem endDrag
+      if (d.el.isConnected) { CC.Board.layer('pieces').appendChild(d.el); CC.Board.sync(); }
     }
     deselect();
   }
@@ -3766,9 +4117,8 @@ CC.Interaction = (function () {
  *   an quan   -> vun bay ra tu o do        (thay ngay vua mat quan o dau)
  *   bi chieu  -> o Vua nhap do             (thu quan trong nhat, phai noi bat)
  *   phong cap -> hao quang tai o phong cap (su kien hiem, dang duoc nhan manh)
- *   chieu het -> phao giay tren ban         (an mung ket thuc)
  *
- * Ve vao lop `marks` cua ban co roi TU XOA sau khi chay xong — khong de rac DOM.
+ * Vẽ vào lớp riêng `fx` của bàn cờ rồi TỰ XOÁ sau khi chạy xong — không để rác DOM.
  * Ton trong `prefers-reduced-motion` va tuy chon `fx` cua nguoi choi.
  */
 
@@ -3781,9 +4131,18 @@ CC.BoardFx = (function () {
     return true;
   }
 
-  /* Lop rieng cho hieu ung, nam tren quan co de vun khong bi che */
+  /* Lớp `fx` nằm trên quân cờ (vụn không bị che) và dưới quân đang kéo.
+   * BẪY: đừng vẽ vào `dots` — CC.Highlight.redraw() xoá sạch lớp đó mỗi lần bỏ chọn / đổi lượt,
+   * mà mèo bắt đầu nghĩ là bỏ chọn ngay, nên hiệu ứng vừa vẽ sẽ biến mất trước khi kịp thấy. */
   function layer() {
-    return CC.Board.layer('dots');
+    return CC.Board.layer('fx');
+  }
+
+  /* Hiệu ứng neo theo TỌA ĐỘ lúc vẽ nên không sống nổi qua lúc bàn lật (sẽ nằm sai ô) hay ván mới
+   * (pháo giấy ván cũ còn rơi trên bàn mới). Trước đây `dots` bị Highlight xoá giùm; giờ phải tự dọn. */
+  function clearAll() {
+    const l = layer();
+    if (l) l.textContent = '';
   }
 
   function center(square) {
@@ -3791,25 +4150,31 @@ CC.BoardFx = (function () {
     return { x: p.x + SQ / 2, y: p.y + SQ / 2 };
   }
 
-  /* Xoa mot nhom sau `ms` — moi hieu ung tu don rac cua no */
+  /* Xoa mot nhom sau `ms` — moi hieu ung tu don rac cua no.
+   * Hạn ≤ 460 ms tính từ lúc quân chạm ô (~190 ms): gỡ xong trước mốc 650 của ảnh chấm. r10 hạn 700–1.200 → ảnh t650 còn
+   * 11–12 node FX đã mờ hẳn (fresh-eyes: "mờ chứ chưa gỡ"). CSS board-fx.css chạy xong trước hạn gỡ. */
+  const LIFE = 440;
   function autoRemove(el, ms) {
     setTimeout(() => { if (el.parentNode) el.remove(); }, ms);
   }
 
   const api = {
+    enabled: on,       // MỘT chỗ quyết định có vẽ hiệu ứng không — khoảnh khắc nước đi (moments-director.js) dùng chung
+    clearAll,
+
     /* Vun bay ra khi an quan */
     burst(square, color) {
       if (!on()) return;
       const { x, y } = center(square);
       const g = CC.util.svg('g', { class: 'fx-burst' });
-      const tint = color === 'w' ? '#f8f3e9' : '#5c4d3e';
+      const tint = color === 'w' ? '#fff' : '#1b1b1b';   // màu thân quân bị ăn (CC.cfg.PIECE)
 
       for (let i = 0; i < 10; i++) {
         const a = (Math.PI * 2 * i) / 10 + Math.random() * 0.5;
         const d = 34 + Math.random() * 26;
         const bit = CC.util.svg('circle', {
-          cx: x, cy: y, r: 3.5 + Math.random() * 3,
-          fill: tint, opacity: 0.95
+          cx: x, cy: y, r: 5 + Math.random() * 3.5,
+          fill: i % 3 ? tint : '#ffe14d', opacity: 0.95   // một phần ba là tia vàng: vụn trắng/đen một màu chìm vào ô
         });
         // Bay ra theo huong ngau nhien roi mo dan
         bit.style.setProperty('--dx', Math.cos(a) * d + 'px');
@@ -3818,7 +4183,7 @@ CC.BoardFx = (function () {
         g.appendChild(bit);
       }
       layer().appendChild(g);
-      autoRemove(g, 700);
+      autoRemove(g, LIFE);
     },
 
     /* O Vua nhap do khi bi chieu */
@@ -3829,7 +4194,7 @@ CC.BoardFx = (function () {
         x: p.x, y: p.y, width: SQ, height: SQ, class: 'fx-check-pulse'
       });
       layer().appendChild(r);
-      autoRemove(r, 1000);
+      autoRemove(r, LIFE);
     },
 
     /* Hao quang khi tot phong cap */
@@ -3842,60 +4207,692 @@ CC.BoardFx = (function () {
           cx: x, cy: y, r, fill: 'none',
           stroke: '#ffd166', 'stroke-width': 4
         });
-        c.style.animationDelay = (i * 0.12) + 's';
+        c.style.animationDelay = (i * 0.08) + 's';
         g.appendChild(c);
       });
       layer().appendChild(g);
-      autoRemove(g, 1200);
-    },
-
-    /* Phao giay khi ket thuc van */
-    confetti() {
-      if (!on()) return;
-      const g = CC.util.svg('g', { class: 'fx-confetti' });
-      const colors = ['#f0a860', '#7fc07f', '#ffd166', '#f7a8b8', '#7fd4f5'];
-      for (let i = 0; i < 34; i++) {
-        const x = Math.random() * 8 * SQ;
-        const bit = CC.util.svg('rect', {
-          x, y: -20, width: 7, height: 12,
-          fill: CC.util.pick(colors),
-          transform: 'rotate(' + (Math.random() * 90) + ' ' + x + ' 0)'
-        });
-        bit.style.animationDelay = (Math.random() * 0.7) + 's';
-        bit.style.setProperty('--drift', (Math.random() * 80 - 40) + 'px');
-        g.appendChild(bit);
-      }
-      layer().appendChild(g);
-      autoRemove(g, 3200);
+      autoRemove(g, LIFE + 20);
     },
 
     init() {
       const B = CC.util.bus;
 
-      B.on('game:move', ({ move }) => {
-        // An quan: vun mau cua quan BI AN
-        if (move.captured) {
-          const victim = move.color === 'w' ? 'b' : 'w';
-          api.burst(move.to, victim);
-        }
-        if (move.promotion) api.promoteGlow(move.to);
+      // Vụn / vòng phong cấp / nhịp chiếu KHÔNG vẽ ở `game:move`: khoảnh khắc nước đi (moments-move.js) gọi lúc
+      // quân chạm ô, và huỷ được khi ván mới bắt đầu giữa chừng.
 
-        if (CC.Rules.inCheck()) {
-          const k = CC.Rules.kingSquare(CC.Rules.turn());
-          setTimeout(() => api.checkPulse(k), 120);
-        }
-      });
+      B.on('game:start', clearAll);
+      B.on('board:flipped', clearAll);
+      B.on('game:undo', clearAll);   // đi lại xoá quân trên bàn: vụn ăn quân / vòng phong cấp sẽ nằm lơ lửng trên ô cũ
 
-      B.on('game:over', ({ result }) => {
-        // Chi ban phao khi co ben thang — hoa thi khong
-        if (result.winner) setTimeout(api.confetti, 400);
-      });
+      // Pháo giấy kết ván chuyển sang lớp ăn mừng toàn màn (ui-celebration.js, P04 plan art AAA)
 
       return api;
     }
   };
 
   return api;
+})();
+
+;
+/* ===== js/haptics.js ===== */
+/* haptics.js — rung máy khi quân chạm bàn (`tick`) và khi ăn quân lớn (`thud`)
+ *
+ * Im lặng khi máy không có `navigator.vibrate` (iOS Safari) hoặc người chơi tắt pref `haptics`.
+ * Rung là phần của bước TIẾNG trong khoảnh khắc: huỷ `soft` (lật bàn, xem lại) vẫn để nó chạy.
+ */
+
+CC.Haptics = (function () {
+  function buzz(ms) {
+    if (!CC.Store.prefs().haptics) return;
+    if (typeof navigator === 'undefined' || !navigator.vibrate) return;
+    // Chrome chặn rung khi trang chưa có chạm nào của người dùng; vài trình duyệt ném lỗi thay vì trả false
+    try { navigator.vibrate(ms); } catch (e) { /* không rung được thì thôi */ }
+  }
+
+  return {
+    tick: () => buzz(12),
+    thud: () => buzz(35)
+  };
+})();
+
+;
+/* ===== js/moments-scheduler.js ===== */
+/* moments-scheduler.js — lõi hẹn giờ của khoảnh khắc nước đi (KHÔNG đụng DOM, không đụng bus)
+ *
+ * Mỗi nước đi là MỘT khoảnh khắc: bảng bước {at, kind, fn}, `at` tính bằng ms từ lúc nhận nước.
+ * Bảng bước chứ không phải hàm async: huỷ cần MỘT danh sách hẹn giờ ở một chỗ — hàm async đang `await` thì không
+ * huỷ giữa chừng được. Đạo diễn (moments-director.js) dựng bảng và nối vào bus; file này chỉ lo thời gian, nên
+ * test chạy được trong vm với đồng hồ giả (tools/test-moments-scheduler.mjs).
+ *
+ * `kind`: 'sound' = tiếng + rung máy; mọi giá trị khác (kể cả thiếu) = hình — phía an toàn khi huỷ `soft`.
+ * `fn` trả về một hàm thì đó là bước dọn. BẪY: bước dọn chạy khi khoảnh khắc kết thúc vì BẤT KỲ lý do gì, kể cả
+ * xong bình thường ngay sau bước cuối. Hiệu ứng muốn sống tiếp thì thêm một bước ở mốc sau, đừng tự `setTimeout`
+ * riêng — huỷ không với tới hẹn giờ đó.
+ */
+
+CC.MomentsScheduler = {
+  /* opt: { setTimeout, clearTimeout, now, onDone }. Gọi qua `opt.` lúc chạy, không chép ra biến lúc make:
+   * test và đầu dò thay đồng hồ sau khi nạp. onDone({id, byPlayer, gen, at, reason}) — `at` = opt.now() lúc kết thúc. */
+  make(opt) {
+    const DEADLINE = 700, SETTLE_CAP = 300;
+    const live = new Set();          // chồng nhau được: khoảnh khắc mới KHÔNG huỷ khoảnh khắc cũ
+    let seq = 0, lastPlayer = null, waiters = [];
+
+    const isSound = kind => kind === 'sound';
+
+    function guard(fn, what) {
+      try { return fn(); } catch (e) { console.error('[moments] lỗi ở ' + what + ':', e); }
+    }
+
+    function wake(match) {
+      const hit = waiters.filter(match);
+      waiters = waiters.filter(w => !match(w));
+      hit.forEach(w => w.resolve());
+    }
+
+    function clean(m, match) {
+      const run = m.cleanups.filter(c => match(c.kind));
+      m.cleanups = m.cleanups.filter(c => !match(c.kind));
+      run.forEach(c => guard(c.fn, 'bước dọn'));
+    }
+
+    function finish(m, reason) {
+      if (m.ended) return;
+      m.ended = true;
+      m.entries.forEach(e => opt.clearTimeout(e.timer));
+      opt.clearTimeout(m.deadline);
+      clean(m, () => true);
+      live.delete(m);
+      wake(w => w.m === m);
+      if (opt.onDone) opt.onDone({ id: m.id, byPlayer: m.byPlayer, gen: m.gen, at: opt.now(), reason });
+    }
+
+    function fire(m, e) {
+      if (m.ended || e.off) return;
+      e.off = true;
+      m.left--;
+      const undo = guard(e.step.fn, 'bước ' + (e.step.kind || 'hình'));
+      if (typeof undo === 'function') {
+        // Bước vừa chạy tự gây huỷ (phát sự kiện giữa chừng): khoảnh khắc đã dọn xong, dọn luôn phần của nó
+        if (m.ended) guard(undo, 'bước dọn');
+        else m.cleanups.push({ kind: e.step.kind, fn: undo });
+      }
+      if (!m.left) finish(m, 'done');
+    }
+
+    /* Trả id. Bước ở mốc 0 chạy NGAY trong run(): cùng khung hình với Board.sync vừa bắt đầu trượt quân. */
+    function run({ byPlayer, gen, steps, visualsOff }) {
+      let list = steps || [];
+      // Chặn hình: bỏ hình, tiếng GIỮ mốc — tắt hiệu ứng thì quân vẫn trượt, dồn về 0 là "cạch" khi quân còn giữa
+      // đường. Bàn không nhìn thấy được thì đạo diễn đã đặt mốc đáp = 0 nên tiếng tự ra ngay.
+      if (visualsOff) list = list.filter(s => isSound(s.kind));
+
+      const m = {
+        id: ++seq, byPlayer: !!byPlayer, gen, ended: false, cleanups: [], left: list.length,
+        entries: list.map(step => ({ step, timer: null, off: false }))
+      };
+      // Vào tập TRƯỚC khi chạy bước nào: khoảnh khắc rỗng / chặn hình kết thúc ngay trong lời gọi này
+      live.add(m);
+      if (m.byPlayer) lastPlayer = m;
+      m.deadline = opt.setTimeout(() => finish(m, 'deadline'), DEADLINE);
+      m.entries.forEach(e => { if (e.step.at > 0) e.timer = opt.setTimeout(() => fire(m, e), e.step.at); });
+      m.entries.forEach(e => { if (!(e.step.at > 0)) fire(m, e); });
+      if (!m.left) finish(m, 'done');
+      return m.id;
+    }
+
+    /* 'hard' (gen đổi): huỷ mọi bước, kết thúc mọi khoảnh khắc. Khác 'hard' = 'soft' (gen giữ, bàn đổi hình):
+     * chỉ huỷ + dọn bước hình; khoảnh khắc còn bước tiếng thì sống tiếp tới khi tiếng xong. */
+    function abort(level) {
+      Array.from(live).forEach(m => {
+        if (level === 'hard') { finish(m, 'hard'); return; }
+        m.entries.forEach(e => {
+          if (e.off || isSound(e.step.kind)) return;
+          e.off = true;
+          m.left--;
+          opt.clearTimeout(e.timer);
+        });
+        clean(m, kind => !isSound(kind));
+        if (!m.left) finish(m, 'soft');
+      });
+      // Mọi lần huỷ trả ngay mọi settle(): lật bàn lúc mèo đang chờ mà settle treo thì ván khoá cứng
+      wake(() => true);
+    }
+
+    /* Xong khi khoảnh khắc người chơi MỚI NHẤT xong, hoặc 300 ms kể từ lúc gọi, hoặc có huỷ. */
+    function settle() {
+      return new Promise(resolve => {
+        const m = lastPlayer;
+        if (!m || m.ended) { resolve(); return; }
+        const w = { m, resolve };
+        waiters.push(w);
+        // Hẹn giờ riêng, KHÔNG nằm trong khoảnh khắc nào: không lần huỷ nào xoá được, settle không thể treo
+        opt.setTimeout(() => wake(x => x === w), SETTLE_CAP);
+      });
+    }
+
+    return { run, abort, settle, busy: () => live.size > 0 };
+  }
+};
+
+;
+/* ===== js/moments-director.js ===== */
+/* moments-director.js — đạo diễn khoảnh khắc nước đi: keo giữa bus / DOM và lõi hẹn giờ (moments-scheduler.js)
+ *
+ * Trình diễn KHÔNG chặn: applyMove không gọi vào đây. Đạo diễn là MỘT listener `game:move`, dựng MỘT khoảnh khắc
+ * từ các bước mà module khác cắm vào qua `use(name, build)`, rồi diễn chồng lên DOM đã đúng.
+ * `build(ctx)` trả mảng bước {at, kind: 'sound'|'visual', fn}; `ctx` = {move, byPlayer, gen, visualsOff, land} chụp
+ * lúc nhận `game:move` — mọi bên nghe đọc `CC.Rules` sống, tới lúc bước chạy thì thế cờ có thể đã khác.
+ * `land` = ms tới lúc quân chạm ô đích; 0 khi bàn không nhìn thấy được (tiếng ra ngay).
+ * Không đụng DOM lúc nạp: lớp phủ chỉ tạo khi có bước đầu tiên cần nó.
+ */
+
+CC.Moments = (function () {
+  const builders = new Map();   // giữ thứ tự cắm; cắm lại cùng tên thì thay, không nhân đôi bước
+  let layer = null;
+
+  /* Bọc bằng hàm mũi tên: gọi `setTimeout` tách khỏi `window` thì trình duyệt ném "Illegal invocation".
+   * `at` của moment:done là performance.now() — đầu dò so nó với mốc rAF / game:move của chính nó. */
+  const sched = CC.MomentsScheduler.make({
+    setTimeout: (fn, ms) => setTimeout(fn, ms),
+    clearTimeout: id => clearTimeout(id),
+    now: () => performance.now(),
+    onDone: ({ id, byPlayer, gen, at }) => CC.util.bus.emit('moment:done', { id, byPlayer, gen, at })
+  });
+
+  /* Bàn không nhìn thấy được thì vẽ gì cũng sai chỗ: đang xem lại (bàn vẽ thế cờ cũ) hoặc màn game ẩn (mèo đi lúc
+   * người chơi ở Menu — rect bàn = 0). */
+  function unseen() {
+    if (CC.MoveNav.isReviewing()) return true;
+    const svg = CC.Board.svgEl();
+    return !svg || svg.getBoundingClientRect().width === 0;
+  }
+
+  /* Mốc quân chạm ô đích = thời lượng trượt CSS ĐANG áp cho quân vừa đi: 180 ms thường, 0 khi reduced-motion
+   * (`.piece` có `transition: none !important`). Đọc CSS chứ không chép số để tiếng đáp khớp lúc quân dừng.
+   * Trình duyệt có thể trả danh sách ("0.18s, 0s") — lấy giá trị dài nhất. */
+  function slideMs(el) {
+    if (!el) return 0;
+    return Math.max(0, ...getComputedStyle(el).transitionDuration.split(',')
+      .map(v => (parseFloat(v) || 0) * (v.trim().endsWith('ms') ? 1 : 1000)));
+  }
+
+  function onMove({ move, byPlayer }) {
+    const off = unseen();
+    // Tắt hiệu ứng mà không giảm chuyển động: quân vẫn trượt nên `land` giữ 180, chỉ bỏ bước hình
+    const ctx = { move, byPlayer: !!byPlayer, gen: CC.Game.gen(), visualsOff: off || !CC.BoardFx.enabled(),
+      land: off ? 0 : slideMs(CC.Board.pieceAt(move.to)) };
+    let steps = [];
+    builders.forEach((build, name) => {
+      try { steps = steps.concat(build(ctx) || []); }
+      catch (e) { console.error('[moments] lỗi khi dựng bước "' + name + '":', e); }
+    });
+    sched.run({ byPlayer: ctx.byPlayer, gen: ctx.gen, steps, visualsOff: ctx.visualsOff });
+  }
+
+  const api = {
+    use(name, build) { builders.set(name, build); return api; },
+    settle: sched.settle,
+    abortAll: sched.abort,
+    busy: sched.busy,
+
+    // Sổ quân đang bay chưa tới khay do moments-capture.js giữ (nạp sau file này — đọc lúc gọi); HUD hỏi khi vẽ khay
+    pendingCaptures: () => (CC.MomentCapture ? CC.MomentCapture.pending() : { w: {}, b: {} }),
+
+    /* Con trực tiếp của body: quân bay từ bàn xuống khay đi qua nhiều khối bố cục, không khối nào chứa được
+     * cả hai đầu. Tạo lại nếu ai đó đã gỡ nó khỏi trang. */
+    overlay() {
+      if (!layer || !layer.isConnected) {
+        layer = CC.util.el('div', { class: 'moments-overlay', 'aria-hidden': 'true' });
+        document.body.appendChild(layer);
+      }
+      return layer;
+    },
+
+    init() {
+      const B = CC.util.bus;
+      B.on('game:move', onMove);
+
+      // Gen đổi: mọi bước, kể cả tiếng, là của ván cũ. game:restored rồi game:start = huỷ hai lần, lần hai rỗng.
+      // Reset sổ chờ phải sau huỷ: các bước dọn của huỷ tự giảm sổ — reset trước thì sổ xuống số âm
+      ['game:start', 'game:restored', 'game:undo'].forEach(evt => B.on(evt, () => {
+        sched.abort('hard');
+        if (CC.MomentCapture) CC.MomentCapture.reset();
+      }));
+
+      // Gen giữ nguyên nhưng bàn đổi hình / không còn thấy: bỏ hình (sẽ nằm sai ô), tiếng + rung vẫn chạy.
+      // KHÔNG nghe game:over — cảnh chiếu hết của nước cuối là việc của Phase 5.
+      B.on('board:flipped', () => sched.abort('soft'));
+      B.on('replay:changed', ({ reviewing }) => {
+        if (!reviewing) return;
+        sched.abort('soft');
+        CC.BoardFx.clearAll();   // vụn / nhịp chiếu của nước vừa đi nằm sai ô trên bàn xem lại
+      });
+      B.on('screen:changed', ({ name }) => { if (name !== 'game') sched.abort('soft'); });
+      B.on('prefs:changed', ({ key, val }) => { if (key === 'fx' && val === false) sched.abort('soft'); });
+      return api;
+    }
+  };
+
+  return api;
+})();
+
+;
+/* ===== js/moments-move.js ===== */
+/* moments-move.js — khoảnh khắc nhấc → trượt → đáp của MỌI nước đi (người chơi và mèo)
+ *
+ * Nhịp (ms từ `game:move`, L = ctx.land = thời lượng trượt CSS của quân vừa đi):
+ *   0       nhấc (chỉ khi L > 0 — không trượt thì không có gì để nhấc)
+ *   0 → L   trượt: transition sẵn có của `.piece`, không đổi
+ *   L       nén + tiếng (đi / ăn / nhập thành / phong cấp) + rung tick + vụn / vòng phong cấp / nhịp chiếu + moment:landed
+ *   L+120   hết nén
+ *   L+130   tiếng chiếu — giữ khoảng cách cũ cho hai tiếng không chồng; chiếu hết thì KHÔNG (tiếng kết ván thay)
+ *
+ * BẪY: class chỉ gắn lên `<g class="piece">` NGOÀI. `.piece-shape` bên trong bị PromotionSwap thay mới lúc ~180 ms —
+ * class / style gắn vào nó sẽ mất giữa chừng, và đầu dò phong cấp so `innerHTML` của nó.
+ * Mọi thứ suy ra từ thế cờ chụp trong `build` (lúc nhận `game:move`): tới lúc bước chạy, mèo có thể đã đi tiếp.
+ * Gọi CC.Sfx / CC.Haptics / CC.BoardFx qua object lúc chạy, không giữ tham chiếu lúc nạp: đầu dò bọc chúng sau đó.
+ */
+
+CC.MomentMove = (function () {
+  const SQUASH = 120;      // nguồn của thời lượng nén: đặt inline thành `--land-ms`, số 120ms trong css/moments.css chỉ là mặc định
+  const CHECK_GAP = 130;
+
+  function soundOf(mv) {
+    if (mv.flags.includes('k') || mv.flags.includes('q')) return 'castle';
+    if (mv.promotion) return 'promote';
+    if (mv.captured) return 'capture';
+    return 'move';
+  }
+
+  /* Phần tử có thể đã bị gỡ (ván mới, đi lại, mèo ăn ngay quân này) trước khi bước chạy */
+  function swap(el, off, on) {
+    if (!el || !el.isConnected) return;
+    if (off) el.classList.remove(off);
+    if (on) el.classList.add(on);
+  }
+
+  function build(ctx) {
+    const mv = ctx.move, L = ctx.land;
+    const el = CC.Board.pieceAt(mv.to);
+    const king = CC.Rules.inCheck() ? CC.Rules.kingSquare(CC.Rules.turn()) : null;
+    const mate = (mv.san || '').endsWith('#');
+    // Bắt tốt qua đường: quân bị ăn đứng cạnh ô đích (cột của ô đích, hàng của ô đi), không phải trên ô đích
+    const victim = mv.captured ? (mv.flags.includes('e') ? mv.to[0] + mv.from[1] : mv.to) : null;
+    const victimColor = mv.color === 'w' ? 'b' : 'w';
+
+    const steps = [];
+    if (L > 0) steps.push({ at: 0, kind: 'visual', fn: () => {
+      swap(el, null, 'is-lifted');
+      return () => swap(el, 'is-lifted', null);
+    } });
+    steps.push(
+      { at: L, kind: 'visual', fn: () => {
+        swap(el, 'is-lifted', 'is-landing');
+        // Animation nằm ở `.piece-shape` con: `animationDuration` không kế thừa xuống, custom property thì có
+        if (el && el.isConnected) el.style.setProperty('--land-ms', SQUASH + 'ms');
+        return () => swap(el, 'is-landing', null);
+      } },
+      // Không trả bước dọn: BoardFx tự gỡ nút của nó (vụn 700 ms, nhịp chiếu 1000, vòng phong cấp 1200 — quá hạn 700)
+      { at: L, kind: 'visual', fn: () => {
+        if (victim) CC.BoardFx.burst(victim, victimColor);
+        if (mv.promotion) CC.BoardFx.promoteGlow(mv.to);
+        if (king) CC.BoardFx.checkPulse(king);
+      } },
+      { at: L, kind: 'sound', fn: () => { CC.Sfx.play(soundOf(mv)); CC.Haptics.tick(); } },
+      // Bước `sound`: huỷ soft (lật bàn, xem lại) không được nuốt mốc đáp mà Phase 4 nghe
+      { at: L, kind: 'sound', fn: () => CC.util.bus.emit('moment:landed', { move: mv, byPlayer: ctx.byPlayer, gen: ctx.gen }) },
+      // Bước gỡ nén RIÊNG: bước dọn chạy ngay khi bước cuối xong — thiếu bước này thì nén sống 0 khung hình
+      { at: L + SQUASH, kind: 'visual', fn: () => swap(el, 'is-landing', null) }
+    );
+    if (king && !mate) steps.push({ at: L + CHECK_GAP, kind: 'sound', fn: () => CC.Sfx.play('check') });
+    return steps;
+  }
+
+  CC.Moments.use('move', build);
+  return { build };
+})();
+
+;
+/* ===== js/board-word-spot.js ===== */
+/* board-word-spot.js — chỗ đặt chữ truyện tranh trên bàn ("CHIẾU!", "LÊN HẬU!") để chữ không che chính cảnh nó gọi tên
+ *
+ * fresh-eyes r8: "CHIẾU!" lệch cứng một ô về giữa bàn nên đè quân đang chiếu ở f7; "LÊN HẬU!" đè cả hàng 7. Chữ che
+ * nước đi là lỗi tự trượt của cổng chấm, kể cả khi chữ chỉ sống 500 ms.
+ * Thử mọi tâm ô làm tâm chữ, lấy chỗ rẻ nhất: che một ô phải giữ (Vua bị chiếu, quân vừa đi, ô phong cấp) = 100, che
+ * một quân khác = 1, mỗi ô cách ô gốc = .4 (xa quá thì không còn đọc ra chữ thuộc cảnh nào).
+ * Đơn vị svg bàn: 800 × 800, ô 100. "Che" = phủ > 15 % ô: chữ nghiêng chỉ quệt mép ô thì không tính.
+ */
+
+CC.WordSpot = (function () {
+  const overlap = (x, y, w, h, p) =>
+    Math.max(0, Math.min(x + w / 2, p.x + 100) - Math.max(x - w / 2, p.x)) *
+    Math.max(0, Math.min(y + h / 2, p.y + 100) - Math.max(y - h / 2, p.y));
+
+  return {
+    /* near: ô gốc của cảnh · keep: các ô không được che · w, h: cỡ chữ (đơn vị bàn) → tâm chữ { x, y } */
+    pick(near, keep, w, h) {
+      const xy = CC.Board.xyOf, o = xy(near);
+      const marks = keep.map(sq => ({ p: xy(sq), cost: 100 })).concat(CC.Rules.pieces()
+        .filter(pc => !keep.includes(pc.square)).map(pc => ({ p: xy(pc.square), cost: 1 })));
+      let best = null;
+      for (const f of 'abcdefgh') for (let r = 1; r <= 8; r++) {
+        const c = xy(f + r);
+        const x = Math.min(Math.max(c.x + 50, w / 2), 800 - w / 2), y = Math.min(Math.max(c.y + 50, h / 2), 800 - h / 2);
+        let cost = Math.hypot(x - o.x - 50, y - o.y - 50) / 100 * .4;
+        marks.forEach(m => { if (overlap(x, y, w, h, m.p) > 1500) cost += m.cost; });
+        if (!best || cost < best.cost) best = { x, y, cost };
+      }
+      return best;
+    }
+  };
+})();
+
+;
+/* ===== js/moments-capture.js ===== */
+/* moments-capture.js — quân bị ăn bay vào khay; ăn quân lớn: rung bàn + chữ truyện tranh; chiếu: chữ "CHIẾU!"
+ *
+ * Nhịp (ms từ `game:move`, L = ctx.land):
+ *   0       quân bị ăn dựng lại từ DỮ LIỆU ngay dưới lớp `pieces` (chỉ khi L > 0): quân tấn công trượt đè lên nó
+ *   L       đo mọi rect → quân bị ăn sang lớp phủ, bay vào khay; chữ; rồi MỚI rung `#board-host` (rung dời rect bàn)
+ *   L       Haptics.thud khi ăn quân giá trị ≥ 3 — bước TIẾNG: huỷ soft (lật bàn, xem lại) không nuốt rung máy
+ *   L+220   hết rung · L+400 hết chữ ăn quân · L+420 quân tới khay, ô vừa hiện "nảy" · L+500 hết "CHIẾU!"
+ * Mọi mốc < 700: bước ≥ hạn 700 của khoảnh khắc không bao giờ chạy (R4).
+ *
+ * Sổ chờ: HUD ẩn ô khay của quân chưa tới (`cap-pending`) bằng cách HỎI `CC.Moments.pendingCaptures()` mỗi lần vẽ —
+ * kéo, không đẩy, nên không giữ tham chiếu ô khay nào qua các lần vẽ lại. Tăng sổ trong `build` (chỉ khi bước hình
+ * sẽ chạy), giảm ĐÚNG MỘT LẦN: lúc tới khay, hoặc ở bước dọn (huỷ / hết hạn) nếu chưa tới.
+ * BẪY: mọi lần giảm phải kèm HUD vẽ lại ngay — ô `cap-pending` sót trong DOM là rò (đầu dò fxLeak đếm nó).
+ */
+
+CC.MomentCapture = (function () {
+  const FLY = 420, FLY_SLACK = 60, SHAKE = 220, HIT = 400, CHECK = 500;
+  const WORDS = ['BỐP!', 'CHÁT!', 'OẠCH!'];
+  const pending = { w: {}, b: {} };
+  const air = { w: {}, b: {} };   // quân cùng màu + loại ĐANG BAY: tới khay theo thứ tự cất cánh → con thứ k nhắm ô ẩn thứ k
+  let shaker = null;              // khoảnh khắc đang giữ rung: hai lần ăn lớn chồng nhau thì lần sau giữ tới hết
+
+  const bump = (book, c, t, d) => { book[c][t] = (book[c][t] || 0) + d; if (!book[c][t]) delete book[c][t]; };
+  const drop = el => { if (el && el.isConnected) el.remove(); };
+  const redraw = () => { if (CC.HUD) CC.HUD.refresh(); };   // HUD nạp SAU file này: chỉ đọc lúc chạy
+  const host = () => document.getElementById('board-host');
+
+  function box(c) {
+    return ['cap-top', 'cap-bot'].map(id => document.getElementById(id)).find(b => b && b.dataset.color === c) || null;
+  }
+
+  /* Ô khay của một loại, đang ẩn hay đang hiện. Đọc lại MỖI lần: HUD dựng lại cả khay ở mọi lần vẽ. */
+  function slots(c, t, hidden) {
+    const b = box(c);
+    return b ? Array.from(b.children).filter(el => el.dataset.type === t && el.classList.contains('cap-pending') === hidden) : [];
+  }
+
+  /* Ô cờ theo toạ độ màn hình, tính từ rect CẢ bàn — bbox của `<g>` là hình quân, không phải ô */
+  function squareRect(sq) {
+    const svg = CC.Board.svgEl();
+    const r = svg && svg.isConnected ? svg.getBoundingClientRect() : null;
+    if (!r || !r.width) return null;
+    const k = r.width / 800, p = CC.Board.xyOf(sq);
+    return { x: r.left + p.x * k, y: r.top + p.y * k, w: 100 * k, left: r.left, right: r.left + r.width };
+  }
+
+  /* KHÔNG mang class `piece`: đầu dò boardMismatch và các probe đếm `.piece` trong lớp quân */
+  function victimEl(t, c) {
+    const g = CC.util.svg('g', { class: 'moment-victim', 'data-type': t, 'data-color': c });
+    g.appendChild(CC.Pieces.build(t, c));
+    return g;
+  }
+
+  function track(sq, c, t) {
+    const cap = { sq, c, t, stand: null, fly: null, flying: false, done: false };
+    bump(pending, c, t, 1);
+    cap.release = pop => {
+      if (cap.done) return;
+      cap.done = true;
+      drop(cap.stand);
+      drop(cap.fly);
+      if (cap.flying) bump(air, c, t, -1);
+      bump(pending, c, t, -1);
+      redraw();
+      const shown = pop && slots(c, t, false).pop();
+      if (!shown) return;
+      shown.classList.add('cap-pop');
+      shown.addEventListener('animationend', () => shown.classList.remove('cap-pop'), { once: true });
+    };
+    return cap;
+  }
+
+  function stand(cap) {
+    const layer = CC.Board.layer('pieces');
+    if (!layer || !layer.isConnected) return;
+    const p = CC.Board.xyOf(cap.sq);
+    cap.stand = victimEl(cap.t, cap.c);
+    cap.stand.setAttribute('transform', 'translate(' + p.x + ',' + p.y + ')');
+    layer.parentNode.insertBefore(cap.stand, layer);
+  }
+
+  /* Bay từ ô bàn sang ô khay: CSS chạy đường bay (`moment-fly`), JS chỉ đặt điểm đầu, độ dời và tỉ lệ co */
+  function fly(cap, from, to) {
+    const g = cap.stand && cap.stand.isConnected ? cap.stand : victimEl(cap.t, cap.c);
+    g.removeAttribute('transform');
+    // Hai lớp: ngoài đi thẳng tới khay (một đường cong tốc độ), trong nảy lên rồi rơi. Gộp làm một keyframe giữa
+    // chừng thì CSS áp easing cho TỪNG đoạn → quân khựng lại ở đỉnh (đo được ~50 ms đứng yên).
+    const el = CC.util.el('div', { class: 'moment-flyer' });
+    const art = CC.util.svg('svg', { class: 'moment-flyer-art', viewBox: '0 0 100 100' });
+    art.appendChild(g);
+    el.appendChild(art);
+    // CSS xong sớm hơn bước tới khay: animation chỉ bắt đầu ở khung hình SAU bước hẹn giờ (CPU bóp 4× đo được trễ tới
+    // ~55 ms), còn bước tới khay không chờ nó — thiếu khoảng này quân bị gỡ khi còn cách ô khay tới ~30 px
+    art.style.animationDuration = el.style.animationDuration = (FLY - FLY_SLACK) + 'ms';
+    Object.assign(el.style, { left: from.x + 'px', top: from.y + 'px', width: from.w + 'px', height: from.w + 'px' });
+    el.style.setProperty('--dx', Math.round(to.x + to.w / 2 - from.x - from.w / 2) + 'px');
+    el.style.setProperty('--dy', Math.round(to.y + to.w / 2 - from.y - from.w / 2) + 'px');
+    el.style.setProperty('--s', String(Math.round(to.w / from.w * 100) / 100));
+    CC.Moments.overlay().appendChild(el);
+    Object.assign(cap, { stand: null, fly: el, flying: true });
+    bump(air, cap.c, cap.t, 1);
+  }
+
+  /* Chữ ở tâm ô, kéo vào trong bàn 1,2 ô để chữ ở cột a / h không tràn khỏi màn hình */
+  function word(text, kind, r, ms) {
+    const el = CC.util.el('div', { class: 'moment-word moment-word-' + kind, text });
+    const cx = Math.min(Math.max(r.x + r.w / 2, r.left + r.w * 1.2), r.right - r.w * 1.2);
+    Object.assign(el.style, { left: Math.round(cx) + 'px', top: Math.round(r.y + r.w / 2) + 'px',
+      fontSize: Math.round(r.w * .6) + 'px', animationDuration: ms + 'ms' });
+    CC.Moments.overlay().appendChild(el);
+    return el;
+  }
+
+  function shake(m) {
+    const h = host();
+    if (!h) return;
+    // Gỡ rồi gắn lại trong cùng lượt tính style thì animation không chạy lại — ép tính style ở giữa
+    h.classList.remove('moment-shake');
+    void h.offsetWidth;
+    h.style.animationDuration = SHAKE + 'ms';
+    h.classList.add('moment-shake');
+    shaker = m;
+  }
+
+  function unshake(m) {
+    if (shaker !== m) return;
+    shaker = null;
+    const h = host();
+    if (h) h.classList.remove('moment-shake');
+  }
+
+  /* Mốc L. ĐO HẾT TRƯỚC: rung dời rect của bàn; ô khay đo lại lúc này vì khay có thể vừa xuống dòng làm bàn dịch. */
+  function land(m) {
+    const cap = m.cap;
+    const from = cap && squareRect(cap.sq);
+    const slot = cap && slots(cap.c, cap.t, true)[air[cap.c][cap.t] || 0];
+    const sr = slot && slot.getBoundingClientRect();
+    const kr = m.king && squareRect(m.king);
+    if (cap) {
+      // Không có ô ẩn (bị ăn quân phong cấp: khay tính theo vật chất nên không có ô) → không bay, trả sổ ngay
+      if (from && sr) fly(cap, from, { x: sr.left, y: sr.top, w: sr.width });
+      else cap.release(false);
+    }
+    if (m.text && from) m.hit = word(m.text, 'hit', from, HIT);
+    if (kr) {
+      // Né Vua + quân vừa đi (CC.WordSpot): r1–r9 lệch cứng một ô về giữa bàn nên chữ đè đúng quân đang chiếu.
+      // offsetWidth bỏ qua transform = cỡ cuối của chữ; +10 % / +20 % cho nghiêng và viền bóng chữ
+      const b = CC.Board.svgEl().getBoundingClientRect(), k = b.width / 800, el = m.check = word('CHIẾU!', 'check', kr, CHECK);
+      const at = CC.WordSpot.pick(m.king, [m.king, m.by], el.offsetWidth / k * 1.1, el.offsetHeight / k * 1.2);
+      Object.assign(el.style, { left: Math.round(b.left + at.x * k) + 'px', top: Math.round(b.top + at.y * k) + 'px' });
+    }
+    if (m.text && from) shake(m);
+  }
+
+  function dispose(m) {
+    if (m.cap) m.cap.release(false);
+    drop(m.hit);
+    drop(m.check);
+    unshake(m);
+  }
+
+  function build(ctx) {
+    const mv = ctx.move, L = ctx.land, steps = [];
+    const big = !!mv.captured && CC.Rules.VALUE[mv.captured] >= 3;
+    // Chiếu hết: không "CHIẾU!" — cảnh kết ván thay (Phase 5)
+    const king = CC.Rules.inCheck() && !(mv.san || '').endsWith('#') ? CC.Rules.kingSquare(CC.Rules.turn()) : null;
+    if (big) steps.push({ at: L, kind: 'sound', fn: () => CC.Haptics.thud() });
+    // Chặn hình: không bay nên KHÔNG tăng sổ — tăng mà không bước nào giảm lại thì ô khay ẩn mãi
+    if (ctx.visualsOff || !(mv.captured || king)) return steps;
+
+    // Phong cấp có chữ riêng (moments-comic-fx.js): hai chữ cùng một ô thì chồng lên nhau
+    const m = { cap: null, king, by: mv.to, text: big && !mv.promotion ? CC.util.pick(WORDS) : null, hit: null, check: null };
+    const end = () => dispose(m);
+    if (mv.captured) {
+      // Bắt tốt qua đường: quân bị ăn đứng ở cột ô đích, hàng ô đi
+      const sq = mv.flags.includes('e') ? mv.to[0] + mv.from[1] : mv.to;
+      m.cap = track(sq, mv.color === 'w' ? 'b' : 'w', mv.captured);
+      redraw();   // không trông vào thứ tự nghe game:move: HUD có thể đã vẽ khay trước khi sổ tăng
+      if (L > 0) steps.push({ at: 0, kind: 'visual', fn: () => { stand(m.cap); return end; } });
+      steps.push({ at: L + FLY, kind: 'visual', fn: () => m.cap.release(true) });
+    }
+    steps.push({ at: L, kind: 'visual', fn: () => { land(m); return end; } });
+    if (big) steps.push({ at: L + SHAKE, kind: 'visual', fn: () => unshake(m) }, { at: L + HIT, kind: 'visual', fn: () => drop(m.hit) });
+    if (king) steps.push({ at: L + CHECK, kind: 'visual', fn: () => drop(m.check) });
+    return steps;
+  }
+
+  CC.Moments.use('capture', build);
+
+  return {
+    build,
+    pending: () => ({ w: Object.assign({}, pending.w), b: Object.assign({}, pending.b) }),
+    // Build ném lỗi sau `track` (HUD vẽ lại hỏng) thì không bước nào giảm sổ: đạo diễn gọi hàm này SAU huỷ hard để ván sau không thừa ô ẩn
+    reset() { pending.w = {}; pending.b = {}; air.w = {}; air.b = {}; shaker = null; }
+  };
+})();
+
+;
+/* ===== js/moments-comic-fx.js ===== */
+/* moments-comic-fx.js — ba nét truyện tranh của khoảnh khắc nước đi (P04 plan art AAA, yêu cầu B)
+ *
+ * Nhịp (ms từ `game:move`, L = ctx.land ≈ 180):
+ *   90 → 300   tia tốc độ: 3 vạch mực sau quân đang trượt — nói "quân đi từ đâu" ngay cả trong một ảnh tĩnh
+ *   L → L+440  sao va chạm vàng viền mực dưới quân vừa ăn — MỌI cú ăn, kể cả ăn tốt (r1: ăn tốt chỉ có vài chấm xám).
+ *              Giữ đậm tới 75 % rồi mới mờ: r10 mờ từ 45 % → ảnh t400 điện thoại không còn sao (fresh-eyes r10)
+ *   L → L+260  cụm khói đáp (nước không ăn, không chiếu; điện thoại bỏ — ô 46 px không chứa nổi ba cụm mây)
+ *   L → L+500  phong cấp: sao va chạm + chữ "LÊN HẬU!" ở chỗ không che ô phong cấp (CC.WordSpot; r4 chỉ có vòng sáng mờ).
+ *              Bị chiếu thì bỏ chữ: "CHIẾU!" đã đứng gần đó. Mốc 600 của ảnh chấm vẫn thấy chữ.
+ * Ưu tiên khi trùng: chiếu > ăn > đáp. Mọi mốc < 700 (R4); mỗi bước trả hàm dọn để huỷ / hết hạn không để rác.
+ * Chỉ `transform` + `opacity` (comic-fx.css): không `filter`, không rAF.
+ */
+
+CC.MomentComicFx = (function () {
+  const SQ = 100, SPEED_AT = 90, SPEED_END = 300, STAR_MS = 440, PUFF_MS = 260, WORD_MS = 500;
+  const RANK = { q: 'HẬU', r: 'XE', b: 'TƯỢNG', n: 'MÃ' };
+  const drop = el => { if (el && el.isConnected) el.remove(); };
+  const center = sq => { const p = CC.Board.xyOf(sq); return { x: p.x + SQ / 2, y: p.y + SQ / 2 }; };
+  const narrow = () => window.matchMedia && window.matchMedia('(max-width: 899px)').matches;
+
+  function speedLines(from, to) {
+    const a = center(from), b = center(to);
+    const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+    const d = { x: (b.x - a.x) / len, y: (b.y - a.y) / len }, n = { x: -d.y, y: d.x };
+    const reach = Math.min(len * .5, 150);
+    const g = CC.util.svg('g', { class: 'fx-speed' });
+    [-18, 0, 18].forEach((off, i) => {
+      const s = 10 + i * 8, e = reach - Math.abs(off) * .6;
+      g.appendChild(CC.util.svg('line', {
+        x1: a.x + d.x * s + n.x * off, y1: a.y + d.y * s + n.y * off,
+        x2: a.x + d.x * e + n.x * off, y2: a.y + d.y * e + n.y * off
+      }));
+    });
+    CC.Board.layer('fx').appendChild(g);
+    return g;
+  }
+
+  function puffs(to) {
+    const p = CC.Board.xyOf(to);
+    const g = CC.util.svg('g', { class: 'fx-puff' });
+    [[14, 90, 11], [86, 90, 11], [50, 98, 9]].forEach(([x, y, r]) =>
+      g.appendChild(CC.util.svg('circle', { cx: p.x + x, cy: p.y + y, r })));
+    CC.Board.layer('fx').appendChild(g);
+    return g;
+  }
+
+  /* Sao va chạm DƯỚI lớp quân (lớp riêng chèn ngay trước `pieces`): ở lớp phủ thì sao che mất chính quân vừa ăn
+   * (thử ở r4a). Lớp tạo một lần rồi giữ; Board dựng lại svg thì tạo lại. */
+  function impactLayer() {
+    const pieces = CC.Board.layer('pieces');
+    if (!pieces || !pieces.parentNode) return null;
+    // Tìm theo class, không theo "anh liền trước": quân bị ăn đứng chờ (moments-capture.js) cũng chèn ngay trước `pieces`
+    let g = pieces.parentNode.querySelector(':scope > .layer-impact');
+    if (!g) {
+      g = CC.util.svg('g', { class: 'layer layer-impact' });
+      pieces.parentNode.insertBefore(g, pieces);
+    }
+    return g;
+  }
+
+  function impact(sq) {
+    const layer = impactLayer();
+    if (!layer) return null;
+    const c = center(sq), pts = [];
+    for (let i = 0; i < 16; i++) {
+      const a = Math.PI * i / 8, r = i % 2 ? 46 : 74;
+      pts.push((c.x + Math.cos(a) * r).toFixed(1) + ',' + (c.y + Math.sin(a) * r).toFixed(1));
+    }
+    const el = CC.util.svg('polygon', { class: 'fx-star', points: pts.join(' ') });
+    layer.appendChild(el);
+    return el;
+  }
+
+  /* Chữ là <text> trong svg bàn (đơn vị 800). r8 lệch cứng một ô nên "LÊN HẬU!" đè cả hàng 7 → CC.WordSpot chọn chỗ.
+   * getBBox đo chữ thật và bỏ qua transform của hoạt ảnh (= cỡ cuối); +10 % cho viền mực 11. */
+  function promoWord(mv) {
+    const el = CC.util.svg('text', { class: 'fx-word', x: 400, y: 400, text: 'LÊN ' + RANK[mv.promotion] + '!' });
+    CC.Board.layer('fx').appendChild(el);
+    const bb = el.getBBox(), at = CC.WordSpot.pick(mv.to, [mv.to], bb.width * 1.1, bb.height * 1.1);
+    el.setAttribute('x', at.x);
+    el.setAttribute('y', at.y);
+    return el;
+  }
+
+  /* Một cặp bước: vẽ ở `at`, gỡ ở `end`; hàm dọn trả về cho bộ hẹn giờ gỡ hộ khi bị huỷ */
+  function pair(steps, at, end, make) {
+    let el = null;
+    steps.push({ at, kind: 'visual', fn: () => { el = make(); return () => drop(el); } },
+      { at: end, kind: 'visual', fn: () => drop(el) });
+  }
+
+  function build(ctx) {
+    const mv = ctx.move, L = ctx.land, steps = [];
+    if (ctx.visualsOff || L <= 0) return steps;
+    const castle = mv.flags.includes('k') || mv.flags.includes('q');
+    if (!castle) pair(steps, SPEED_AT, SPEED_END, () => speedLines(mv.from, mv.to));
+    if (mv.captured || mv.promotion) pair(steps, L, L + STAR_MS, () => impact(mv.to));
+    if (mv.promotion && !CC.Rules.inCheck()) pair(steps, L, Math.min(L + WORD_MS, 690), () => promoWord(mv));
+    else if (!CC.Rules.inCheck() && !narrow()) pair(steps, L, L + PUFF_MS, () => puffs(mv.to));
+    return steps;
+  }
+
+  CC.Moments.use('comic', build);
+  return { build };
 })();
 
 ;
@@ -3938,11 +4935,19 @@ CC.Promotion = (function () {
     }, [box]);
   }
 
+  /* Ván mới / khôi phục khi hộp còn mở (Tab tới nút dưới lớp phủ, chat "@newgame"): đóng hộp, không thì hộp của
+   * ván cũ che ván mới. Trả Hậu cho nước cũ là vô hại — playerMove thấy gen đã đổi nên bỏ nước đó. */
+  let pending = null;          // done() của hộp đang mở
+  CC.util.bus.on('game:start', () => { if (pending) pending('q'); });
+  // Xin thua lúc hộp mở: playerMove thấy st.over thì chỉ nhả khoá, không đi nước — nhưng hộp vẫn nằm đè lên bảng kết quả
+  CC.util.bus.on('game:over', () => { if (pending) pending('q'); });
+
   return {
     /* color: 'w'|'b' — mau cua ben dang phong cap */
     ask(color) {
       return new Promise(resolve => {
         const done = type => {
+          pending = null;
           if (overlay) { overlay.remove(); overlay = null; }
           document.removeEventListener('keydown', onKey);
           resolve(type);
@@ -3953,11 +4958,15 @@ CC.Promotion = (function () {
           if (i >= 0) done(ORDER[i]);
         };
 
+        pending = done;
         overlay = build(color, done);
         document.body.appendChild(overlay);
         document.addEventListener('keydown', onKey);
-        // Cho trinh duyet ve xong roi moi bat hieu ung hien vao
-        requestAnimationFrame(() => overlay.classList.add('show'));
+        // Cho trinh duyet ve xong roi moi bat hieu ung hien vao.
+        // Bắt riêng phần tử: done() có thể chạy TRƯỚC khung hình kế (ván mới / xin thua → pending('q')) và đặt
+        // `overlay` về null, đọc lại biến chung lúc đó là TypeError.
+        const mine = overlay;
+        requestAnimationFrame(() => mine.classList.add('show'));
       });
     }
   };
@@ -4576,12 +5585,14 @@ CC.SafetyGuards = (function () {
      * fen     the co truoc khi di
      * chosen  nuoc bo chon nuoc da chon
      * profile muc Elo dang choi
+     * keys    khoá mọi thế cờ của ván thật (CC.Rules.positionKeys()). Thiếu thì chốt lặp nước
+     *         không thấy lịch sử nên không bao giờ cản (hành vi cũ — công cụ đo không truyền keys)
      *
      * Tra ve {move, overridden, reason}
      */
-    apply(fen, chosen, profile) {
+    apply(fen, chosen, profile, keys) {
       stats.total++;
-      const sc = CC.Rules.scratch(fen);
+      const sc = CC.Rules.scratch(fen, keys);
       const legal = sc.movesUci();
       if (!legal.length) return { move: chosen, overridden: false };
       if (legal.length === 1) return { move: legal[0], overridden: false };
@@ -4701,7 +5712,9 @@ CC.Engine = (function () {
     },
 
     /* Chon nuoc di cho meo.
-     * opts: {fen, elo, legal}
+     * opts: {fen, elo, legal, gen, keys} — `keys` = CC.Rules.positionKeys() của ván thật, để chốt
+     * chặn thấy lịch sử mà tránh lặp nước; `gen` chỉ để gắn vào `engine:picked`: bên nghe dùng nó bỏ
+     * qua kết quả của ván cũ (lượt tìm không huỷ được, ván mới có thể đã bắt đầu)
      * Tra ve chuoi UCI, hoac null neu that bai.
      */
     async pickMove(opts) {
@@ -4750,7 +5763,7 @@ CC.Engine = (function () {
           /* Chot chan chay o CA HAI che do — muc 1600 cung khong duoc di vao pat
            * khi dang thang to.
            */
-          const guarded = CC.SafetyGuards.apply(opts.fen, move, profile);
+          const guarded = CC.SafetyGuards.apply(opts.fen, move, profile, opts.keys);
           if (guarded.overridden) {
             wasBlunder = false;   // da bi chan lai thi khong con la nuoc ho
             CC.util.bus.emit('engine:guard', { reason: guarded.reason });
@@ -4762,7 +5775,7 @@ CC.Engine = (function () {
             return legal[0];
           }
 
-          CC.util.bus.emit('engine:picked', { move: guarded.move, wasBlunder, elo: profile.elo });
+          CC.util.bus.emit('engine:picked', { move: guarded.move, wasBlunder, elo: profile.elo, gen: opts.gen });
 
           // Bu cho du do tre gia (tru thoi gian engine da that su ton)
           const wait = thinkDelay(profile, legal.length, sc.inCheck()) - (Date.now() - started);
@@ -4818,8 +5831,6 @@ CC.Engine = (function () {
  *   catPoints      thang muc nao cong diem muc do, hoa duoc mot nua
  *                  -> thuong ca nguoi choi BEN, khong chi nguoi choi GIOI
  *   bestStreak     chuoi thang dai nhat     — vui, de khoe, tao ly do choi tiep
- *
- * VAN 2 NGUOI CHUNG MAY KHONG TINH DIEM. game-flow chi goi vao day o che do 'ai'.
  */
 
 CC.Scoring = (function () {
@@ -4976,17 +5987,8 @@ CC.CloudAdapter = (function () {
       });
 
       /* Ghi lên đám mây khi KẾT THÚC MỘT VÁN, không ghi theo từng nước —
-       * vừa tốn hạn mức vừa vô nghĩa.
-       *
-       * VÁN 2 NGƯỜI CHUNG MÁY KHÔNG BAO GIỜ ĐƯỢC GHI. `scoring-cat-points.js` đã
-       * chặn ở trên (không cộng điểm nên không phát `score:changed`), đây là lớp
-       * thứ hai. Bản cũ có ghi trong chú thích rằng nó là "lớp thứ hai" nhưng mã
-       * thì không kiểm gì cả — chỉ cần một chỗ nào đó lỡ phát `score:changed`
-       * giữa ván hotseat là điểm đánh với người ngồi cạnh lên bảng xếp hạng. */
-      CC.util.bus.on('score:changed', () => {
-        if (CC.Game.state && CC.Game.state.mode === 'hotseat') return;
-        Portal.Cloud.markDirty();
-      });
+       * vừa tốn hạn mức vừa vô nghĩa. */
+      CC.util.bus.on('score:changed', () => Portal.Cloud.markDirty());
 
       /* Hạ ngay một bản tóm tắt cho trang hồ sơ `/game/me/`. Không có dòng này thì
        * người đã chơi từ trước bản cập nhật phải chơi thêm một ván nữa mới thấy hồ sơ. */
@@ -5011,6 +6013,11 @@ CC.CloudAdapter = (function () {
  */
 
 CC.Persistence = (function () {
+  /* Ván lưu từ bản cũ mang chế độ đã bỏ (hai người chung máy) thì không mở được. Thiếu `mode` = ván đấu mèo. */
+  function isLegacy(s) {
+    return (s.mode || 'ai') !== 'ai';
+  }
+
   return {
     /* Chup trang thai hien tai thanh object de ghi xuong localStorage */
     snapshot(st) {
@@ -5031,7 +6038,10 @@ CC.Persistence = (function () {
      */
     apply(st) {
       const s = CC.Store.loadGame();
-      if (!s || !s.moves || !s.moves.length) return false;
+      if (!s) return false;
+      // Kiểm TRƯỚC loadHistory: ván bị từ chối thì luật cờ đang chạy không được đổi
+      if (isLegacy(s)) { CC.Store.clearGame(); return false; }
+      if (!s.moves || !s.moves.length) return false;
 
       // Phat lai tung nuoc. Du lieu hong (doi phien ban, sua tay) thi bo han.
       if (!CC.Rules.loadHistory(s.moves)) return false;
@@ -5046,15 +6056,205 @@ CC.Persistence = (function () {
       return true;
     },
 
-    /* Huong ban co khi khoi phuc — khac nhau giua hai che do choi */
-    flipFor(st) {
-      if (st.mode === 'hotseat') {
-        return CC.Store.prefs().autoFlip && CC.Rules.turn() === 'b';
-      }
-      return st.playerColor === 'b';
+    /* Gọi MỘT lần lúc khởi động: xoá ván lưu mà sảnh sẽ mời "Chơi tiếp" nhưng restore() không mở nổi */
+    purgeLegacy() {
+      const s = CC.Store.loadGame();
+      if (s && isLegacy(s)) CC.Store.clearGame();
     }
   };
 })();
+
+;
+/* ===== js/game-cat-turn.js ===== */
+/* game-cat-turn.js — lượt của mèo + chốt thế hệ ván (`gen`)
+ *
+ * Tách khỏi game-flow.js (file đó vượt 200 dòng). Không phải module tự đứng: game-flow.js gọi
+ * `CC.GameTurn.make(ctx)` MỘT lần lúc nạp rồi nối kết quả vào CC.Game — nên file này phải nạp TRƯỚC
+ * game-flow.js trong index.html. `gen` chỉ sống ở đây; CC.Game.gen/isCurrent đọc qua hàm trả về.
+ *
+ * THẾ HỆ VÁN (`gen`): tăng mỗi lần ván mới / khôi phục / đi lại. Lượt tìm của engine KHÔNG huỷ
+ * được giữa chừng, nên ai `await` engine đều phải chụp gen trước và bỏ kết quả nếu gen đã đổi.
+ * Trước đây chỉ dựa vào `st.over` — mà start() đặt lại over = false, nên nước của ván cũ lọt sang.
+ */
+
+CC.GameTurn = {
+  /* ctx: { st, applyMove, checkOver } — trạng thái ván và hai bước dùng chung với nước của người chơi */
+  make({ st, applyMove, checkOver }) {
+    let gen = 0;
+    const isCurrent = g => g === gen;
+    /* Kết quả về muộn còn được dùng không: cùng ván VÀ ván chưa xong. Phải xét cả `over` vì xin thua
+     * KHÔNG đổi gen — chỉ so gen thì câu chấm nước / gợi ý vẫn chen vào sau câu chào kết ván. */
+    const isLive = g => isCurrent(g) && !st.over;
+
+    /* Sang thế hệ mới. `pending`: có lượt mèo của thế hệ cũ đang chờ engine không.
+     * Lượt đó sẽ tự bỏ kết quả và KHÔNG dọn khoá (khoá giờ thuộc ván mới), nên phải dọn thay ở đây —
+     * thiếu bước này thì HUD kẹt "đang nghĩ…". Đặt lại cờ TRƯỚC khi phát: HUD và mèo đọc thẳng
+     * `st.thinking` chứ không đọc payload. */
+    function nextGen(pending) {
+      const old = gen++;
+      if (!pending) return;
+      st.thinking = false;
+      st.busy = false;
+      CC.util.bus.emit('game:thinking', { on: false, gen: old });
+    }
+
+    /* --- luot cua meo --- */
+
+    async function catTurn() {
+      if (st.over) return;
+      const my = gen;
+
+      st.thinking = true;
+      st.busy = true;
+      CC.Interaction.setEnabled(false);
+      CC.util.bus.emit('game:thinking', { on: true, gen: my });
+
+      try {
+        const uci = await CC.Engine.pickMove({
+          fen: CC.Rules.fen(),
+          elo: st.elo,
+          legal: CC.Rules.allUci(),
+          keys: CC.Rules.positionKeys(),
+          gen: my
+        });
+
+        if (!isCurrent(my)) return;              // ván đã đổi giữa chừng — nước này của ván cũ
+        if (st.over) return;                     // xin thua không đổi gen, nên vẫn phải giữ chốt này
+
+        if (!uci) {
+          // Engine hong that su — bao ro thay vi de treo luot
+          CC.util.bus.emit('game:engine-failed', {});
+          return;
+        }
+
+        // Điểm nối tiếp DUY NHẤT giữa khoảnh khắc người chơi và nước mèo. Đặt SAU nhánh `!uci` để engine hỏng
+        // không phải chờ gì. Trong lúc chờ, đầu hàng đổi `st.over` mà KHÔNG đổi gen — nên kiểm lại bằng isLive.
+        await CC.Moments.settle();
+        if (!isLive(my)) return;
+
+        await applyMove(uci.slice(0, 2), uci.slice(2, 4), uci.slice(4) || undefined, false);
+        if (!isCurrent(my)) return;
+        checkOver();
+      } finally {
+        // Ván cũ: busy/thinking/khoá bàn giờ là của ván mới — nextGen() đã dọn phần của lượt này
+        if (isCurrent(my)) {
+          st.thinking = false;
+          st.busy = false;
+          CC.util.bus.emit('game:thinking', { on: false, gen: my });
+          if (!st.over) CC.Interaction.setEnabled(true);
+        }
+      }
+    }
+
+    return { gen: () => gen, isCurrent, isLive, nextGen, catTurn };
+  }
+};
+
+;
+/* ===== js/game-lifecycle.js ===== */
+/* game-lifecycle.js — vòng đời ván: bắt đầu, khôi phục, đi lại, xin thua
+ *
+ * Tách khỏi game-flow.js (file đó vượt 200 dòng). Như game-cat-turn.js: game-flow.js gọi
+ * `CC.GameLifecycle.make(ctx)` MỘT lần lúc nạp nên file này phải nạp TRƯỚC game-flow.js.
+ * Bốn việc ở đây đều làm cùng một kiểu: đổi thế hệ ván (`turn.nextGen`) rồi vẽ lại từ đầu.
+ */
+
+CC.GameLifecycle = {
+  /* ctx: { st, turn, refresh, checkOver, isPlayerTurn, save } — `turn` là kết quả CC.GameTurn.make() */
+  make({ st, turn, refresh, checkOver, isPlayerTurn, save }) {
+    return {
+      /* Bat dau van moi. opts: {mode, elo, playerColor} */
+      start(opts) {
+        turn.nextGen(st.thinking);
+        opts = opts || {};
+        st.mode = opts.mode || 'ai';
+        st.elo = opts.elo || CC.Store.prefs().elo;
+        st.playerColor = opts.playerColor || 'w';
+        st.over = false;
+        st.thinking = false;
+        st.hintsUsed = 0;
+        st.busy = false;
+
+        CC.Rules.newGame();
+        CC.Board.clearPieces();
+        CC.Highlight.clearAll();
+        CC.Board.setFlipped(st.playerColor === 'b');
+        refresh();
+        CC.Interaction.setEnabled(true);
+        CC.Store.clearGame();
+
+        CC.util.bus.emit('game:start', { mode: st.mode, elo: st.elo, playerColor: st.playerColor });
+
+        // Nguoi choi cam Den thi meo di truoc
+        if (st.playerColor === 'b') turn.catTurn();
+        return CC.Game;   // như trước khi tách: start() trả lại chính CC.Game
+      },
+
+      /* Khoi phuc van da luu. Tra ve false neu khong co gi de khoi phuc.
+       * Phan doc du lieu do CC.Persistence lo; day chi ve lai va tiep tuc vong luot.
+       */
+      restore() {
+        const pending = st.thinking;   // chụp TRƯỚC: apply() đặt lại st.thinking = false
+        if (!CC.Persistence.apply(st)) return false;
+        turn.nextGen(pending);
+
+        CC.Board.clearPieces();
+        CC.Highlight.clearAll();
+        CC.Board.setFlipped(st.playerColor === 'b');
+        refresh();
+
+        const hist = CC.Rules.historyVerbose();
+        if (hist.length) CC.Highlight.setLastMove(hist[hist.length - 1]);
+
+        CC.Interaction.setEnabled(true);
+        CC.util.bus.emit('game:restored', { mode: st.mode, elo: st.elo });
+        CC.util.bus.emit('game:start', { mode: st.mode, elo: st.elo, playerColor: st.playerColor, restored: true });
+
+        if (checkOver()) return true;
+        // Luu giua luc meo dang nghi — cho no di tiep
+        if (!isPlayerTurn()) turn.catTurn();
+        return true;
+      },
+
+      /* Đi lại: lùi hai nước để về đúng lượt người chơi. */
+      undo() {
+        // `busy` mà mèo không nghĩ = playerMove đang chờ hộp phong cấp: lùi bàn lúc đó thì nước đang chờ
+        // sẽ đi lên thế cờ đã lùi
+        if (st.busy || st.thinking || st.over) return false;
+        let done = 0;
+        for (let i = 0; i < 2; i++) { if (CC.Rules.undo()) done++; }
+        if (!done) return false;
+        // Đi lại bị chặn khi mèo đang nghĩ, nên không có lượt nào để huỷ — tăng gen để gợi ý /
+        // lượt chấm nước đang chờ (mô tả thế cờ đã bị lùi) tự bỏ kết quả
+        turn.nextGen(false);
+
+        CC.Board.clearPieces();
+        CC.Highlight.clearAll();
+        refresh();
+        const hist = CC.Rules.historyVerbose();
+        if (hist.length) CC.Highlight.setLastMove(hist[hist.length - 1]);
+        CC.Interaction.setEnabled(true);
+        save();
+        CC.util.bus.emit('game:undo', { count: done });
+        return true;
+      },
+
+      /* Xin thua */
+      resign() {
+        if (st.over) return;
+        st.over = true;
+        CC.Interaction.setEnabled(false);
+        CC.Store.addResult(st.elo, 'loss');
+        if (CC.Scoring) CC.Scoring.recordGame(st.elo, 'loss');
+        CC.Store.clearGame();
+        CC.util.bus.emit('game:over', {
+          result: { over: true, winner: st.playerColor === 'w' ? 'b' : 'w', kind: 'resign', label: 'Xin thua' },
+          outcome: 'loss', mode: st.mode
+        });
+      }
+    };
+  }
+};
 
 ;
 /* ===== js/game-flow.js ===== */
@@ -5070,14 +6270,18 @@ CC.Persistence = (function () {
  *   game:start     {mode, elo, playerColor}
  *   game:move      {move, byPlayer, san, uci}
  *   game:turn      {turn, isPlayerTurn}
- *   game:thinking  {on}
+ *   game:thinking  {on, gen}
  *   game:over      {result, outcome}
  *   game:restored  {}
+ *
+ * CHIA BA FILE (để mỗi file < 200 dòng): file này giữ trạng thái, nước đi của người chơi và ráp API;
+ * game-cat-turn.js lo lượt mèo + thế hệ ván (`gen`, xem chú thích ở đó); game-lifecycle.js lo
+ * start / restore / undo / resign. Hai file kia nạp TRƯỚC file này vì nó gọi `make()` của chúng ngay lúc nạp.
  */
 
 CC.Game = (function () {
   const st = {
-    mode: 'ai',            // 'ai' | 'hotseat'
+    mode: 'ai',            // hiện chỉ có 'ai'; giữ trường để thêm chế độ khác
     elo: 700,
     playerColor: 'w',      // mau nguoi choi cam (che do 'ai')
     over: false,
@@ -5090,7 +6294,6 @@ CC.Game = (function () {
 
   function isPlayerTurn() {
     if (st.over) return false;
-    if (st.mode === 'hotseat') return true;      // ca hai ben deu la nguoi
     return CC.Rules.turn() === st.playerColor;
   }
 
@@ -5118,7 +6321,7 @@ CC.Game = (function () {
     st.over = true;
     CC.Interaction.setEnabled(false);
 
-    // outcome tinh theo goc nhin nguoi choi (che do 'ai')
+    // outcome tính theo góc nhìn người chơi
     let outcome = 'draw';
     if (res.winner) outcome = (res.winner === st.playerColor) ? 'win' : 'loss';
 
@@ -5137,109 +6340,33 @@ CC.Game = (function () {
     const mv = CC.Rules.move({ from, to, promotion });
     if (!mv) return null;
 
-    refresh({ from, to });
+    refresh({ from, to, rook: CC.CastleSlide.rookOf(mv) });   // ô Xe nhập thành: sync() không tự đoán (board-castle-slide.js)
     CC.Highlight.setLastMove(mv);
     CC.util.bus.emit('game:move', { move: mv, byPlayer, san: mv.san, uci: mv.uci });
     save();
     return mv;
   }
 
-  /* --- luot cua meo --- */
-
-  async function catTurn() {
-    if (st.over || st.mode !== 'ai') return;
-
-    st.thinking = true;
-    st.busy = true;
-    CC.Interaction.setEnabled(false);
-    CC.util.bus.emit('game:thinking', { on: true });
-
-    try {
-      const uci = await CC.Engine.pickMove({
-        fen: CC.Rules.fen(),
-        elo: st.elo,
-        legal: CC.Rules.allUci()
-      });
-
-      if (st.over) return;                     // nguoi choi da bat dau van moi giua chung
-
-      if (!uci) {
-        // Engine hong that su — bao ro thay vi de treo luot
-        CC.util.bus.emit('game:engine-failed', {});
-        return;
-      }
-
-      await applyMove(uci.slice(0, 2), uci.slice(2, 4), uci.slice(4) || undefined, false);
-      checkOver();
-    } finally {
-      st.thinking = false;
-      st.busy = false;
-      CC.util.bus.emit('game:thinking', { on: false });
-      if (!st.over) CC.Interaction.setEnabled(true);
-    }
-  }
-
-  /* --- luu / khoi phuc --- */
+  /* --- luu --- */
 
   function save() {
     if (st.over) return;
     CC.Store.saveGame(CC.Persistence.snapshot(st));
   }
 
+  const turn = CC.GameTurn.make({ st, applyMove, checkOver });
+  const life = CC.GameLifecycle.make({ st, turn, refresh, checkOver, isPlayerTurn, save });
+
   const api = {
     state: st,
     isPlayerTurn,
     canMove,
+    gen: turn.gen,
+    isCurrent: turn.isCurrent,
+    isLive: turn.isLive,
 
-    /* Bat dau van moi. opts: {mode, elo, playerColor} */
-    start(opts) {
-      opts = opts || {};
-      st.mode = opts.mode || 'ai';
-      st.elo = opts.elo || CC.Store.prefs().elo;
-      st.playerColor = opts.playerColor || 'w';
-      st.over = false;
-      st.thinking = false;
-      st.hintsUsed = 0;
-      st.busy = false;
-
-      CC.Rules.newGame();
-      CC.Board.clearPieces();
-      CC.Highlight.clearAll();
-      CC.Board.setFlipped(st.mode === 'ai' && st.playerColor === 'b');
-      refresh();
-      CC.Interaction.setEnabled(true);
-      CC.Store.clearGame();
-
-      CC.util.bus.emit('game:start', { mode: st.mode, elo: st.elo, playerColor: st.playerColor });
-
-      // Nguoi choi cam Den thi meo di truoc
-      if (st.mode === 'ai' && st.playerColor === 'b') catTurn();
-      return api;
-    },
-
-    /* Khoi phuc van da luu. Tra ve false neu khong co gi de khoi phuc.
-     * Phan doc du lieu do CC.Persistence lo; day chi ve lai va tiep tuc vong luot.
-     */
-    restore() {
-      if (!CC.Persistence.apply(st)) return false;
-
-      CC.Board.clearPieces();
-      CC.Highlight.clearAll();
-      CC.Board.setFlipped(CC.Persistence.flipFor(st));
-      refresh();
-
-      const hist = CC.Rules.historyVerbose();
-      if (hist.length) CC.Highlight.setLastMove(hist[hist.length - 1]);
-
-      CC.Interaction.setEnabled(true);
-      CC.util.bus.emit('game:restored', { mode: st.mode, elo: st.elo });
-      CC.util.bus.emit('game:start', { mode: st.mode, elo: st.elo, playerColor: st.playerColor, restored: true });
-
-      if (checkOver()) return true;
-      // Luu giua luc meo dang nghi — cho no di tiep
-      if (st.mode === 'ai' && !isPlayerTurn()) catTurn();
-      return true;
-    },
+    start: life.start,
+    restore: life.restore,
 
     /* Nguoi choi di mot nuoc. Lo luon phan hoi hop phong cap.
      *
@@ -5251,6 +6378,7 @@ CC.Game = (function () {
      */
     async playerMove(from, to) {
       if (st.busy || !canMove(from)) return;
+      const my = turn.gen();
       st.busy = true;
       CC.Interaction.setEnabled(false);
 
@@ -5265,6 +6393,11 @@ CC.Game = (function () {
         let promotion;
         if (CC.Rules.isPromotion(from, to)) {
           promotion = await CC.Promotion.ask(CC.Rules.turn());
+          // Hộp chọn quân chờ người bấm bao lâu cũng được, trong lúc đó ván có thể đã đổi. Ván mới tự đặt
+          // lại busy/khoá bàn của nó: release() ở đây là mở khoá giữa lúc mèo ván mới đang nghĩ, còn đi tiếp
+          // là đặt nước cũ lên bàn mới rồi gọi thêm một lượt mèo trong cùng thế hệ. Bỏ nước, không đụng gì.
+          if (!turn.isCurrent(my)) return;
+          if (st.over) { release(); return; }   // xin thua lúc hộp mở: không đi nước lên ván đã xong
         }
         mv = await applyMove(from, to, promotion, true);
       } catch (err) {
@@ -5276,50 +6409,13 @@ CC.Game = (function () {
 
       if (checkOver()) { st.busy = false; return; }
 
-      if (st.mode === 'ai') {
-        // catTurn() tu quan ly khoa: no khoa luc nghi va mo lai khi di xong
-        st.busy = false;
-        catTurn();
-        return;
-      }
-
-      release();   // che do 2 nguoi: den luot nguoi kia, mo khoa ngay
+      // catTurn() tu quan ly khoa: no khoa luc nghi va mo lai khi di xong
+      st.busy = false;
+      turn.catTurn();
     },
 
-    /* Di lai. Che do 'ai' lui hai nuoc de ve dung luot nguoi choi. */
-    undo() {
-      if (st.thinking || st.over) return false;
-      const n = st.mode === 'ai' ? 2 : 1;
-      let done = 0;
-      for (let i = 0; i < n; i++) { if (CC.Rules.undo()) done++; }
-      if (!done) return false;
-
-      CC.Board.clearPieces();
-      CC.Highlight.clearAll();
-      refresh();
-      const hist = CC.Rules.historyVerbose();
-      if (hist.length) CC.Highlight.setLastMove(hist[hist.length - 1]);
-      CC.Interaction.setEnabled(true);
-      save();
-      CC.util.bus.emit('game:undo', { count: done });
-      return true;
-    },
-
-    /* Xin thua — chi co nghia o che do dau voi meo */
-    resign() {
-      if (st.over) return;
-      st.over = true;
-      CC.Interaction.setEnabled(false);
-      if (st.mode === 'ai') {
-        CC.Store.addResult(st.elo, 'loss');
-        if (CC.Scoring) CC.Scoring.recordGame(st.elo, 'loss');
-      }
-      CC.Store.clearGame();
-      CC.util.bus.emit('game:over', {
-        result: { over: true, winner: st.playerColor === 'w' ? 'b' : 'w', kind: 'resign', label: 'Xin thua' },
-        outcome: 'loss', mode: st.mode
-      });
-    },
+    undo: life.undo,
+    resign: life.resign,
 
     flip() {
       CC.Board.setFlipped(!CC.Board.isFlipped());
@@ -5330,53 +6426,6 @@ CC.Game = (function () {
   };
 
   return api;
-})();
-
-;
-/* ===== js/game-mode-hotseat.js ===== */
-/* game-mode-hotseat.js — che do 2 nguoi choi chung mot may
- *
- * Viec duy nhat cua file nay: tu lat ban theo luot, de nguoi dang di luon nhin
- * ban co tu phia minh. Khong dung vao vong luot cua game-flow — chi nghe su kien.
- *
- * Co tat duoc (tuy chon `autoFlip`): mot so nguoi thich giu nguyen huong ban,
- * nhat la khi hai nguoi ngoi canh nhau thay vi doi dien.
- */
-
-CC.Hotseat = (function () {
-  function active() {
-    return CC.Game.state.mode === 'hotseat';
-  }
-
-  function applyFlip() {
-    if (!active()) return;
-    if (!CC.Store.prefs().autoFlip) return;
-    // Cho hieu ung truot quan chay xong roi moi lat, khong thi hai chuyen dong
-    // chong len nhau nhin rat roi
-    setTimeout(() => {
-      if (active()) CC.Board.setFlipped(CC.Rules.turn() === 'b');
-    }, CC.cfg.MOVE_ANIM + 60);
-  }
-
-  return {
-    init() {
-      CC.util.bus.on('game:move', applyFlip);
-      CC.util.bus.on('game:undo', applyFlip);
-
-      // Doi tuy chon giua van thi ap dung ngay, khong bat cho toi nuoc sau
-      CC.util.bus.on('prefs:changed', ({ key, val }) => {
-        if (key !== 'autoFlip' || !active()) return;
-        CC.Board.setFlipped(val ? CC.Rules.turn() === 'b' : false);
-      });
-
-      return this;
-    },
-
-    /* Nhan ten hai ben — dung cho thanh trang thai */
-    labels() {
-      return { w: 'Trắng', b: 'Đen' };
-    }
-  };
 })();
 
 ;
@@ -5986,7 +7035,7 @@ CC.CatMoods = (function () {
     sad: {
       pri: 4, hold: 2600,
       eyes: 'sad', mouth: 'frown',
-      cls: 'mood-sad'
+      cls: 'mood-sad', fx: 'tear'
     },
 
     /* Nguoi choi nghi lau */
@@ -6022,25 +7071,33 @@ CC.CatMoods = (function () {
 /* ===== js/cat-fx-effects.js ===== */
 /* cat-fx-effects.js — hieu ung nho quanh dau Leo
  *
- * Bon hieu ung: Zzz (buon ngu), ngoi sao (mung), dau hoi (ngo), giot mo hoi (hoang).
+ * Năm hiệu ứng: Zzz (buồn ngủ), ngôi sao (mừng), dấu hỏi (ngơ), giọt mồ hôi (hoảng), nước mắt (buồn — P06).
  * Deu la SVG, chuyen dong do CSS lo (xem css/cat-animations.css).
+ *
+ * P06 plan art AAA: ký hiệu truyện tranh — tô vàng / xanh, viền mực, to gấp 1,4 lần bản cũ.
+ * BẪY ĐÃ GẶP: animation CSS đổi `transform` ĐÈ thuộc tính `transform` của chính phần tử → ngôi sao, giọt mồ hôi mất
+ * toạ độ, dồn về góc khung mèo. Nên toạ độ + cỡ nằm ở nhóm <g> bọc ngoài, animation chỉ chạm hình bên trong.
  */
 
 CC.CatFx = (function () {
-  const C = CC.CatBody.COLORS;
+  const INK = '#111111', GOLD = '#ffe14d', WATER = '#7fd4f5';
   const s = (t, a, c) => CC.util.svg(t, a, c);
+  const at = (x, y, k, child) => s('g', { transform: 'translate(' + x + ',' + y + ') scale(' + k + ')' }, [child]);
+  const DROP = 'M0 0 C5 7 8 11 8 15 A8 8 0 0 1 -8 15 C-8 11 -5 7 0 0 Z';
   let layer = null;
+
+  /* Chữ truyện tranh: lõi màu, viền mực vẽ DƯỚI lõi (paint-order) để nét không ăn vào mặt chữ */
+  const word = (text, size, delay) => s('text', {
+    class: 'fx-z', 'font-size': size, fill: GOLD, stroke: INK, 'stroke-width': 2.5,
+    'paint-order': 'stroke', 'stroke-linejoin': 'round', style: 'animation-delay:' + delay + 's', text
+  });
 
   const FX = {
     /* Zzz bay len — buon ngu */
     zzz() {
       const g = s('g', { class: 'fx fx-zzz' });
-      [[150, 42, 20, 0], [168, 24, 15, 0.6], [182, 10, 11, 1.2]].forEach(([x, y, size, delay]) => {
-        g.appendChild(s('text', {
-          x, y, class: 'fx-z', 'font-size': size, fill: C.ink,
-          style: 'animation-delay:' + delay + 's', text: 'z'
-        }));
-      });
+      [[146, 46, 28, 0], [166, 26, 21, 0.6], [182, 10, 15, 1.2]].forEach(([x, y, size, delay]) =>
+        g.appendChild(at(x, y, 1, word('z', size, delay))));
       return g;
     },
 
@@ -6048,38 +7105,41 @@ CC.CatFx = (function () {
     sparkle() {
       const g = s('g', { class: 'fx fx-sparkle' });
       const star = 'M0 -9 L2.6 -2.6 L9 0 L2.6 2.6 L0 9 L-2.6 2.6 L-9 0 L-2.6 -2.6 Z';
-      [[40, 40, 0], [162, 52, 0.25], [52, 96, 0.5], [156, 20, 0.75]].forEach(([x, y, d]) => {
-        g.appendChild(s('path', {
-          d: star, fill: '#ffd166',
-          transform: 'translate(' + x + ',' + y + ')',
+      [[34, 40, 0], [166, 52, 0.25], [44, 100, 0.5], [158, 18, 0.75]].forEach(([x, y, d]) =>
+        g.appendChild(at(x, y, 1.4, s('path', {
+          d: star, fill: GOLD, stroke: INK, 'stroke-width': 1.6, 'stroke-linejoin': 'round',
           style: 'animation-delay:' + d + 's'
-        }));
-      });
+        }))));
       return g;
     },
 
     /* Dau hoi — khong hieu chuyen gi */
     question() {
       const g = s('g', { class: 'fx fx-question' });
-      g.appendChild(s('text', {
-        x: 156, y: 32, 'font-size': 40, 'font-weight': 'bold',
-        fill: C.ink, text: '?'
-      }));
+      g.appendChild(at(150, 40, 1, s('text', {
+        'font-size': 56, fill: GOLD, stroke: INK, 'stroke-width': 3,
+        'paint-order': 'stroke', 'stroke-linejoin': 'round', text: '?'
+      })));
       return g;
     },
 
     /* Giot mo hoi — hoang hot */
     sweat() {
       const g = s('g', { class: 'fx fx-sweat' });
-      [[146, 46], [56, 52]].forEach(([x, y], i) => {
-        const d = s('path', {
-          d: 'M0 0 C5 7 8 11 8 15 A8 8 0 0 1 -8 15 C-8 11 -5 7 0 0 Z',
-          fill: '#7fd4f5', stroke: C.ink, 'stroke-width': 2,
-          transform: 'translate(' + x + ',' + y + ') scale(0.9)',
-          style: 'animation-delay:' + (i * 0.35) + 's'
-        });
-        g.appendChild(d);
-      });
+      [[146, 46], [56, 52]].forEach(([x, y], i) => g.appendChild(at(x, y, 1.26, s('path', {
+        d: DROP, fill: WATER, stroke: INK, 'stroke-width': 2,
+        style: 'animation-delay:' + (i * 0.35) + 's'
+      }))));
+      return g;
+    },
+
+    /* Nước mắt — buồn (anh thắng). Hai giọt rơi dọc má, nhịp chậm hơn mồ hôi */
+    tear() {
+      const g = s('g', { class: 'fx fx-tear' });
+      [[74, 84], [128, 84]].forEach(([x, y], i) => g.appendChild(at(x, y, 1.1, s('path', {
+        d: DROP, fill: WATER, stroke: INK, 'stroke-width': 2,
+        style: 'animation-delay:' + (i * 0.6) + 's'
+      }))));
       return g;
     }
   };
@@ -6100,6 +7160,40 @@ CC.CatFx = (function () {
 
     clear() {
       if (layer) layer.textContent = '';
+    }
+  };
+})();
+
+;
+/* ===== js/cat-nameplate.js ===== */
+/* cat-nameplate.js — hộp tên truyện tranh ở góc khung tranh mèo: tên + sao độ khó (P06 plan art AAA)
+ *
+ * Trước đây tên đối thủ chỉ có trong câu thoại và ô nhập chat — nhìn màn chơi không biết đang đấu con nào, mạnh cỡ
+ * nào. Sao dùng lại đúng hàng sao của thẻ chọn đối thủ (CC.EloPicker.starRow): cùng một con mèo, cùng số sao ở hai nơi.
+ */
+
+CC.CatNameplate = (function () {
+  let box = null;
+
+  function paint({ mode, elo }) {
+    if (!box) return;
+    box.textContent = '';
+    box.hidden = mode !== 'ai';            // hai người cùng máy: không có đối thủ mèo để giới thiệu
+    if (box.hidden) return;
+    const levels = CC.EloProfiles.LEVELS;
+    const rank = Math.max(0, levels.findIndex(l => l.elo === elo));
+    box.append(
+      CC.util.el('span', { class: 'np-name', text: CC.CatProfiles.byElo(elo).name }),
+      CC.EloPicker.starRow(rank, levels.length - 1)
+    );
+  }
+
+  return {
+    mount(zone) {
+      box = CC.util.el('div', { class: 'cat-nameplate', hidden: true });
+      zone.appendChild(box);
+      CC.util.bus.on('game:start', paint);
+      return this;
     }
   };
 })();
@@ -6225,6 +7319,8 @@ CC.Cat = (function () {
     set(name, opts) {
       opts = opts || {};
       if (!svgRoot) return;
+      // Ván xong: nét mặt kết ván đứng tới ván sau (chỉ lệnh force đổi được) — xem 'game:over'
+      if (!opts.force && CC.Game && CC.Game.state.over) return;
       const m = CC.CatMoods.get(name);
       if (name === cur && !opts.force) return;
 
@@ -6273,8 +7369,9 @@ CC.Cat = (function () {
       });
 
       // Meo tu di ho -> ngo ra, day la cho bien loi thanh tinh cach
-      B.on('engine:picked', ({ wasBlunder }) => {
-        if (wasBlunder) api.set('confused');
+      // Lượt tìm của ván cũ / ván đã xin thua vẫn báo về: ngơ ra lúc đó là đè lên mặt ván mới / mặt ăn mừng
+      B.on('engine:picked', ({ wasBlunder, gen }) => {
+        if (wasBlunder && CC.Game.isLive(gen)) api.set('confused');
       });
 
       B.on('game:over', ({ outcome, mode }) => {
@@ -6284,6 +7381,9 @@ CC.Cat = (function () {
         if (outcome === 'loss') api.set('cheer', { force: true });
         else if (outcome === 'win') api.set('sad', { force: true });
         else api.set('idle', { force: true });
+        // Bỏ hạn giữ (sad 2,6 s, cheer 4 s): hộp kết quả mở ở 1,4 s với chân dung buồn mà mèo trong khung đã cười lại
+        // ở mốc 2.600 (fresh-eyes r10: hai nét mặt trái nhau trên một màn)
+        clearTimeout(holdTimer);
       });
 
       // Doi muc = doi nhan vat -> phai ve lai con meo truoc khi dat bieu cam
@@ -7348,7 +8448,7 @@ CC.ChatLines.personal = {
     ]
   },
 
-  /* --- Báo (1400) — đi săn, ép nhịp, nói gọn và sắc --- */
+  /* --- Báo (1350) — đi săn, ép nhịp, nói gọn và sắc --- */
   bao: {
     game_start: [
       'Chào Anh. Em không chờ lâu được đâu ạ.',
@@ -7442,9 +8542,13 @@ CC.ChatPicker = (function () {
   const GATHER_MS = 260;     // gom su kien trong khoang nay roi moi chon
   const MIN_MOVES_GAP = 3;   // cach it nhat bao nhieu nuoc moi noi lai
   const BIG_EVENT_PRI = 70;  // tu muc nay tro len thi bo qua luat gian nhip
+  const HOLD_MAX_MS = 1500;  // chờ kết quả chấm nước tối đa bấy lâu; quá thì nói luôn với những gì đã có
 
   let buffer = [];
   let timer = null;
+  let holdId = null;         // mã lượt chấm nước người chơi đang giữ lô (chat:hold); null = không giữ
+  let waiting = false;       // hết cửa sổ gom mà vẫn đang giữ → chốt ngay khi nhả
+  let holdTimer = null;
   let lastSpokeAtMove = -99;
   const recent = {};         // ten su kien -> mang cau vua dung
 
@@ -7511,6 +8615,33 @@ CC.ChatPicker = (function () {
     });
   }
 
+  /* Hết cửa sổ gom: nếu lượt chấm nước của người chơi còn chạy thì CHỜ nó, đừng chốt lô thiếu.
+   * Lượt chấm xếp sau lượt tìm nước của mèo (chat-move-grader.js) nên kết quả đến muộn hơn GATHER_MS.
+   * Chốt sớm thì câu về chính nước đó (ăn quân / chiếu) nói trước một mình, còn câu chấm nước thành
+   * bong bóng thứ hai — hoặc mất hẳn nếu ưu tiên < BIG_EVENT_PRI, vì luật gián nhịp chặn câu nói liền sau. */
+  function endGather() {
+    timer = null;
+    if (holdId !== null) waiting = true;
+    else flush();
+  }
+
+  function release() {
+    clearTimeout(holdTimer);
+    holdId = null;
+    if (waiting) { waiting = false; flush(); }
+  }
+
+  /* chat:cut — mèo vừa đi: chốt NGAY lô của nước người chơi (kể cả khi cửa sổ gom chưa hết hay lượt chấm
+   * chưa về), để sự kiện của nước mèo phát ngay sau đó vào lô MỚI. Không chốt thì "mèo ăn Hậu" (80) tranh
+   * với "Anh chiếu" (75) trong cùng một bong bóng và câu về nước người chơi mất hẳn. */
+  function cut() {
+    clearTimeout(timer);
+    clearTimeout(holdTimer);
+    holdId = null;
+    waiting = false;
+    flush();
+  }
+
   const api = {
     /* Cho meo noi ngay, bo qua moi luat gian nhip.
      * Dung khi nguoi choi hoi truc tiep — cau hoi phai duoc tra loi.
@@ -7533,12 +8664,26 @@ CC.ChatPicker = (function () {
     init() {
       CC.util.bus.on('chat:event', ev => {
         buffer.push(ev);
-        if (!timer) timer = setTimeout(flush, GATHER_MS);
+        if (!timer && !waiting) timer = setTimeout(endGather, GATHER_MS);
       });
+
+      CC.util.bus.on('chat:hold', ({ on, id }) => {
+        // Nhả chỉ khi đúng mã: lượt chấm của nước TRƯỚC về muộn (sau khi nước này đã bắt đầu giữ) mà nhả
+        // được thì lô của nước này chốt thiếu câu chấm — lại thành hai bong bóng
+        if (!on) { if (id === holdId) release(); return; }
+        holdId = id;
+        clearTimeout(holdTimer);
+        holdTimer = setTimeout(release, HOLD_MAX_MS);   // lượt chấm kẹt thì chat không được kẹt theo
+      });
+
+      CC.util.bus.on('chat:cut', cut);
 
       CC.util.bus.on('game:start', () => {
         lastSpokeAtMove = -99;
         buffer = [];
+        clearTimeout(holdTimer);
+        holdId = null;
+        waiting = false;
         // Giu `recent` qua cac van de khong lap cau giua hai van lien tiep
       });
 
@@ -7547,6 +8692,61 @@ CC.ChatPicker = (function () {
   };
 
   return api;
+})();
+
+;
+/* ===== js/chat-move-grader.js ===== */
+/* chat-move-grader.js — chấm chất lượng nước người chơi vừa đi, chạy SAU lượt tìm nước của mèo
+ *
+ * Tách khỏi chat-event-detector.js (file đó đã chạm giới hạn 200 dòng). File này chỉ TRẢ VỀ sự kiện
+ * nên phát; việc phát (emit) vẫn do detector làm để nó giữ nguyên `lastEventAt` / `movesSinceTalk`.
+ *
+ * VÌ SAO PHẢI CHỜ MÈO: `game:move` phát TRƯỚC catTurn(), nên một lượt chấm gọi ngay sẽ vào hàng đợi
+ * engine trước lượt tìm nước của mèo và mèo phải chờ thêm đúng bằng thời gian chấm.
+ * HỆ QUẢ: kết quả chấm đến muộn hơn cửa sổ gom của chat-line-picker.js — detector bắt picker chờ
+ * bằng sự kiện `chat:hold`, nếu không câu chấm nước sẽ lọt ra ngoài lô với câu ăn quân / chiếu.
+ */
+
+CC.MoveGrader = (function () {
+  const PICK_WAIT_MAX = 20000;   // chờ mèo chọn nước tối đa bấy lâu; quá hạn thì BỎ chấm
+
+  /* Chờ tới lúc mèo chọn xong nước. Trả true nếu được mở bởi một sự kiện, false nếu quá hạn.
+   * Mở khi: mèo chọn xong (engine:picked cùng gen); lượt mèo kết thúc (engine hỏng thì KHÔNG có
+   * engine:picked mà mèo vẫn đi bừa); ván đổi hoặc kết thúc. Luôn gỡ hết listener. */
+  function untilCatPicked(g, stale) {
+    return new Promise(resolve => {
+      const B = CC.util.bus;
+      const offs = [];
+      const done = ok => { clearTimeout(timer); offs.forEach(off => off()); resolve(ok); };
+      const timer = setTimeout(() => done(false), PICK_WAIT_MAX);
+      offs.push(B.on('engine:picked', d => { if (d.gen === g) done(true); }));
+      offs.push(B.on('game:thinking', d => { if (!d.on && d.gen === g) done(true); }));
+      // game:over cần chủ yếu cho xin thua: nó KHÔNG đổi gen nên chỉ có sự kiện này mới đánh thức được.
+      // Nước chiếu hết / hoà của người chơi đã bị chặn từ nơi gọi (!result().over); đây là phòng thủ thêm.
+      ['game:over', 'game:start', 'game:undo'].forEach(e => offs.push(B.on(e, () => { if (stale(g)) done(true); })));
+    });
+  }
+
+  return {
+    /* opts: { g, fen, before, plies, depth, stale } — nơi gọi CHỤP fen / before / plies ngay trong handler:
+     * sau khi chờ mèo, các biến dùng chung đã có thể thuộc về thế cờ khác (mèo đã đi, beforeBest bị ghi đè).
+     * Trả [tênSựKiện, vars] hoặc null (không có gì để nói / ván đã đổi / quá hạn chờ). */
+    async grade({ g, fen, before, plies, depth, stale }) {
+      // Quá hạn thì bỏ hẳn: lúc đó thế cờ đã đi xa vài nước, chấm nữa là bình luận một nước từ lâu rồi
+      if (!await untilCatPicked(g, stale)) return null;
+      if (stale(g)) return null;
+      const after = await CC.Engine.evaluate(fen, depth);
+      if (stale(g) || !after) return null;
+
+      const playerScore = -after.score;   // điểm trả về theo góc nhìn mèo
+      const loss = before - playerScore;
+      const grade = CC.MoveSelector.gradeMove(before, playerScore);
+      if (grade === 'blunder') return ['player_blunder', { loss }];
+      if (grade === 'mistake') return ['player_mistake', { loss }];
+      if (grade === 'best' && plies > 4) return ['player_best', {}];
+      return null;
+    }
+  };
 })();
 
 ;
@@ -7573,6 +8773,7 @@ CC.ChatEvents = (function () {
   let lastEventAt = 0;
   let movesSinceTalk = 0;
   let moveStartedAt = 0;
+  let holdSeq = 0;            // mã của mỗi lượt giữ chat:hold — một nước người chơi, một mã
 
   /* Uu tien: trung luc thi chi noi cai quan trong nhat, bo phan con lai */
   const PRI = {
@@ -7624,6 +8825,12 @@ CC.ChatEvents = (function () {
     return out;
   }
 
+  /* Kết quả engine về muộn: ván đã đổi thì nó nói về thế cờ không còn trên bàn; ván đã xong (xin thua
+   * không đổi gen) thì câu "nước này dở" chen sau câu chào kết ván nghe như mèo lú. isLive xét cả hai. */
+  function stale(g) {
+    return !CC.Game.isLive(g);
+  }
+
   /* Tinh hinh chung: ai dang hon, da vao tan cuoc chua */
   function positional() {
     const catColor = CC.Game.state.playerColor === 'w' ? 'b' : 'w';
@@ -7657,9 +8864,19 @@ CC.ChatEvents = (function () {
         setTimeout(() => emit('game_start', {}), 400);
       });
 
+      // Đi lại lùi bàn về thế cờ cũ mà baseline vẫn là của thế trước đó: để nguyên thì nước kế tiếp bị chấm với
+      // điểm của thế khác (undo sau nước hớ → nước bình thường bị khen "hay nhất"). Bỏ baseline = nước đó không chấm.
+      B.on('game:undo', () => { beforeBest = null; bestMoveForPlayer = null; });
+
       B.on('game:move', async ({ move, byPlayer }) => {
         if (CC.Game.state.mode !== 'ai') return;
+        const g = CC.Game.gen();
         movesSinceTalk++;
+
+        // Nước của mèo đóng lô câu chat của nước người chơi TRƯỚC khi phát sự kiện của chính nó: lô đó có
+        // thể còn đang giữ chờ lượt chấm, không đóng thì "mèo ăn Hậu" lẫn vào bong bóng về nước người chơi.
+        // Phát ở đây (không để picker tự nghe game:move) để thứ tự không phụ thuộc ai đăng ký nghe trước.
+        if (!byPlayer) B.emit('chat:cut', {});
 
         structural(move, byPlayer).forEach(([n, v]) => emit(n, v));
 
@@ -7669,16 +8886,29 @@ CC.ChatEvents = (function () {
           if (took > 45000) emit('player_slow', {});
           else if (took < 1500 && CC.Rules.historyVerbose().length > 6) emit('player_fast', {});
 
-          /* Cham chat luong nuoc vua di */
-          if (beforeBest !== null) {
-            const after = await CC.Engine.evaluate(CC.Rules.fen(), EVAL_DEPTH);
-            if (after) {
-              const playerScore = -after.score;   // diem tra ve theo goc nhin meo
-              const loss = beforeBest - playerScore;
-              const grade = CC.MoveSelector.gradeMove(beforeBest, playerScore);
-              if (grade === 'blunder') emit('player_blunder', { loss });
-              else if (grade === 'mistake') emit('player_mistake', { loss });
-              else if (grade === 'best' && CC.Rules.historyVerbose().length > 4) emit('player_best', {});
+          /* Cham chat luong nuoc vua di (chat-move-grader.js, chờ mèo chọn xong rồi mới chấm).
+           * Ván xong ngay ở nước này (chiếu hết / hoà) thì không có lượt mèo để chờ nên không chấm.
+           * `chat:hold`: kết quả chấm đến sau cửa sổ gom của picker — bắt picker chờ để câu về nước này
+           * (ăn quân / chiếu) và câu chấm nước vẫn tranh nhau TRONG MỘT lô như trước, thiếu thì câu chấm
+           * thành bong bóng thứ hai hoặc bị luật gián nhịp nuốt. Phải nhả (finally) trên mọi đường thoát.
+           * `id`: lượt chấm của nước trước về muộn không được nhả lượt giữ của nước này (picker so mã).
+           * Chấm về SAU khi mèo đã đi (điện thoại chậm với mèo 400/500, hoặc nhánh engine hỏng không có
+           * engine:picked) vẫn NÓI — đó là lời nhắc "nước hớ" người mới cần nhất — nhưng cắt lô trước để thành
+           * bong bóng riêng, không lẫn với câu về nước mèo. Chỉ bỏ khi ván đổi/xong hoặc người chơi đã đi nước
+           * KẾ TIẾP (`gone`): lúc đó câu chấm nói về nước cũ hai nhịp và sẽ tranh lô với nước mới. */
+          if (beforeBest !== null && !CC.Rules.result().over) {
+            const id = ++holdSeq, plies = CC.Rules.historyVerbose().length;
+            const gone = () => stale(g) || CC.Rules.historyVerbose().length > plies + 1;
+            B.emit('chat:hold', { on: true, id });
+            try {
+              const ev = await CC.MoveGrader.grade({ g, fen: CC.Rules.fen(), before: beforeBest,
+                plies, depth: EVAL_DEPTH, stale: gone });
+              if (ev && !gone()) {
+                if (CC.Rules.historyVerbose().length > plies) B.emit('chat:cut', {});   // mèo đã đi
+                emit(ev[0], ev[1]);
+              }
+            } finally {
+              B.emit('chat:hold', { on: false, id });
             }
           }
         } else {
@@ -7687,6 +8917,7 @@ CC.ChatEvents = (function () {
            */
           moveStartedAt = Date.now();
           const ev = await CC.Engine.evaluate(CC.Rules.fen(), EVAL_DEPTH);
+          if (stale(g)) return;     // ghi beforeBest của thế cờ cũ thì nước sau bị chấm sai
           if (ev) { beforeBest = ev.score; bestMoveForPlayer = ev.best; }
 
           // Noi ve tinh hinh chung, nhung dung noi lien mieng
@@ -7697,8 +8928,8 @@ CC.ChatEvents = (function () {
         }
       });
 
-      B.on('engine:picked', ({ wasBlunder }) => {
-        if (wasBlunder) emit('cat_blundered', {});
+      B.on('engine:picked', ({ wasBlunder, gen }) => {
+        if (wasBlunder && !stale(gen)) emit('cat_blundered', {});
       });
 
       B.on('game:over', ({ outcome, mode }) => {
@@ -7788,21 +9019,41 @@ CC.HintExplainer = (function () {
   }
 
   return {
-    /* Xin mot goi y. Tra ve chuoi de hien, hoac null neu het luot goi y. */
+    /* Xin một gợi ý.
+     *
+     * HỢP ĐỒNG TRẢ VỀ: chuỗi = lời từ chối MÀ CHƯA AI NÓI, người gọi phải tự cho mèo nói ra
+     * (chat-player-input.js làm việc đó). null = đã nói xong (hoặc cố ý im lặng).
+     * BẪY: trả cả gợi ý thành công về đây thì người gọi nói thêm lần nữa → gợi ý hiện hai lần.
+     */
     async request() {
       const st = CC.Game.state;
+      // Tên con mèo ĐANG ĐẤU (Vàng, Báo…), không phải một cái tên cứng: gọi nhầm Leo khi đang
+      // đấu Báo làm người chơi tưởng đổi mèo giữa ván
+      const cat = CC.CatProfiles.byElo(st.elo).name;
 
-      if (st.mode !== 'ai') return 'Chế độ 2 người thì Leo không mách được đâu ạ!';
       if (st.over) return 'Ván xong rồi Anh ơi.';
-      if (!CC.Game.isPlayerTurn()) return 'Đợi Leo đi xong đã nha~';
+      if (!CC.Game.isPlayerTurn()) return 'Đợi ' + cat + ' đi xong đã nha~';
       if (st.hintsUsed >= CC.cfg.MAX_HINTS) {
-        return 'Leo hết phần gợi ý rồi ạ (' + CC.cfg.MAX_HINTS + ' lần một ván thôi). Anh tự tính nha!';
+        return cat + ' hết phần gợi ý rồi ạ (' + CC.cfg.MAX_HINTS + ' lần một ván thôi). Anh tự tính nha!';
       }
 
       st.hintsUsed++;
       CC.Game.save();
 
+      const g = CC.Game.gen();
+      const plies = CC.Rules.historyVerbose().length;
       const ev = await CC.Engine.hint(CC.Rules.fen());
+      // Ván đã đổi / đã đi lại / đã xong trong lúc chờ: gợi ý tả thế cờ không còn trên bàn, và
+      // describeMove() sẽ đọc nhầm quân của bàn MỚI. Im lặng, không trừ thêm lượt.
+      if (!CC.Game.isLive(g)) return null;
+      // Người chơi đi nước KHÁC trong lúc chờ thì gen không đổi (isLive vẫn đúng) nhưng bàn đã khác: describeMove()
+      // đọc quân từ bàn mới ("đi g1 sang f3" nói giữa lúc mèo đang nghĩ). Ở đây gen còn nguyên nên hintsUsed vẫn là
+      // bộ đếm của ván này — hoàn lượt được (ván mới / khôi phục đã đặt lại bộ đếm, hoàn ở đó sẽ ra số âm).
+      if (CC.Rules.historyVerbose().length !== plies) {
+        st.hintsUsed--;
+        CC.Game.save();
+        return null;
+      }
       if (!ev || !ev.best) {
         CC.ChatPicker.sayNow('hint_none');
         return null;
@@ -7816,14 +9067,18 @@ CC.HintExplainer = (function () {
       // doc ra "...sang b7 Chieu Vua" nhu mot cum
       let text = describeMove(ev.best) + '.';
       if (reason) text += ' ' + reason;
-      else if (warn) text = warn + ' Leo nghĩ Anh nên ' + describeMove(ev.best) + '.';
+      else if (warn) text = warn + ' ' + cat + ' nghĩ Anh nên ' + describeMove(ev.best) + '.';
 
       const left = CC.cfg.MAX_HINTS - st.hintsUsed;
+      CC.util.bus.emit('hint:shown', { from: ev.best.slice(0, 2), to: ev.best.slice(2, 4) });   // mũi tên trên bàn (board-signals.js)
       CC.ChatPicker.sayNow('hint_given', { hint: text });
       if (left === 0) {
-        setTimeout(() => CC.ChatPicker.sayRaw('Hết gợi ý rồi đó Anh, từ giờ Anh tự lo nha~'), 2500);
+        setTimeout(() => {
+          // isLive chứ không chỉ isCurrent: xin thua trong 2,5 s này thì câu này chen sau câu kết ván
+          if (CC.Game.isLive(g)) CC.ChatPicker.sayRaw('Hết gợi ý rồi đó Anh, từ giờ Anh tự lo nha~');
+        }, 2500);
       }
-      return text;
+      return null;   // đã nói qua hint_given ở trên — xem HỢP ĐỒNG TRẢ VỀ
     },
 
     describeMove,
@@ -7880,7 +9135,13 @@ CC.ChatInput = (function () {
   }
 
   async function handle(act) {
-    if (act === '@hint') { await CC.HintExplainer.request(); return; }
+    if (act === '@hint') {
+      // request() chỉ trả chuỗi cho lời từ chối chưa ai nói (hết lượt, chưa tới lượt, ván xong…);
+      // bỏ qua nó thì bấm nút mà mèo im lặng, người chơi tưởng nút hỏng
+      const reply = await CC.HintExplainer.request();
+      if (reply) CC.ChatPicker.sayRaw(reply);
+      return;
+    }
 
     if (act === '@undo') {
       if (CC.Game.undo()) CC.ChatPicker.sayNow('undo_ok');
@@ -8108,6 +9369,7 @@ CC.Screens = (function () {
       if (!screens[name]) { console.warn('[screens] khong co man:', name); return; }
       Object.keys(screens).forEach(k => { screens[k].hidden = (k !== name); });
       current = name;
+      document.body.dataset.screen = name;   // CSS ẩn nút ‹ ngoài màn chơi, đổi bố cục theo màn
       // Chuyen man thi keo len dau — nguoi choi tren dien thoai hay bi ket o giua trang
       window.scrollTo(0, 0);
       CC.util.bus.emit('screen:changed', { name });
@@ -8118,6 +9380,48 @@ CC.Screens = (function () {
   };
 
   return api;
+})();
+
+;
+/* ===== js/ui-icons.js ===== */
+/* ui-icons.js — bộ icon nét mực (P08 plan art AAA)
+ *
+ * Thay ký tự / emoji ⚙ ← ‹ › ✕ 🔊 🎵: emoji tô theo font hệ điều hành nên mỗi máy một kiểu, lạc giữa các nút viền
+ * mực (fresh-eyes r4). Mỗi icon là vài nét trong ô 24×24: `f` = mảng tô (nền + viền mực), `s` = chỉ nét.
+ * Phần tử tĩnh trong index.html khai `data-icon="tên"` → tự điền lúc nạp; mã JS gọi `CC.Icons.get(tên)`.
+ */
+
+CC.Icons = (function () {
+  const GEAR = 'M19.2 10.2 L22.1 10.3 L22.1 13.7 L19.2 13.8 L18.3 15.8 L20.3 17.9 L17.9 20.3 L15.8 18.3 L13.8 19.2 '
+    + 'L13.7 22.1 L10.3 22.1 L10.2 19.2 L8.2 18.3 L6.1 20.3 L3.7 17.9 L5.7 15.8 L4.8 13.8 L1.9 13.7 L1.9 10.3 L4.8 10.2 '
+    + 'L5.7 8.2 L3.7 6.1 L6.1 3.7 L8.2 5.7 L10.2 4.8 L10.3 1.9 L13.7 1.9 L13.8 4.8 L15.8 5.7 L17.9 3.7 L20.3 6.1 L18.3 8.2 Z';
+  const SPEAKER = ['f', 'M2.5 9 H7 L12.5 4.5 V19.5 L7 15 H2.5 Z'];
+
+  const SET = {
+    back:     [['f', 'M14.5 3 L5 12 L14.5 21 L18 17.6 L12 12 L18 6.4 Z']],
+    next:     [['f', 'M9.5 3 L19 12 L9.5 21 L6 17.6 L12 12 L6 6.4 Z']],
+    home:     [['f', 'M10.5 3.5 L2 12 L10.5 20.5 V15 H21.5 V9 H10.5 Z']],
+    gear:     [['f', GEAR + ' M12 8.6 A3.4 3.4 0 1 0 12.01 8.6 Z']],   // lỗ giữa nhờ fill-rule evenodd
+    close:    [['s', 'M5.5 5.5 L18.5 18.5 M18.5 5.5 L5.5 18.5']],
+    soundOn:  [SPEAKER, ['s', 'M15.5 8.5 Q18.5 12 15.5 15.5 M18.5 5.5 Q23 12 18.5 18.5']],
+    soundOff: [SPEAKER, ['s', 'M15.5 9 L21.5 15 M21.5 9 L15.5 15']],
+    music:    [['s', 'M9 18 V5.5 L19.5 3 V15.5'], ['f', 'M9.5 18 A3 2.6 0 1 1 9.49 17.9 Z M20 15.5 A3 2.6 0 1 1 19.99 15.4 Z']],
+    hint:     [['f', 'M12 2.5 A6.5 6.5 0 0 1 16 14 V16.5 H8 V14 A6.5 6.5 0 0 1 12 2.5 Z'], ['f', 'M8.5 18.5 H15.5 V21 H8.5 Z']],
+    undo:     [['s', 'M8 5 L3.5 9.5 L8 14 M3.5 9.5 H14 A5.5 5.5 0 0 1 14 20.5 H9']],
+    flip:     [['s', 'M7 3.5 V18.5 M3 7.5 L7 3.5 L11 7.5 M17 20.5 V5.5 M13 16.5 L17 20.5 L21 16.5']],
+    // Cờ trắng xin thua có dấu chân mèo (motif có kỷ luật: một trong ≤ 3 chỗ, plan P08)
+    flag:     [['s', 'M5 21.5 V3'], ['f', 'M5 3.5 H19 L16.5 8 L19 12.5 H5 Z'], ['p', 'M11.5 9.6 A1.4 1.2 0 1 0 11.51 9.6 Z M9.6 7 A.8 .8 0 1 0 9.61 7 Z M11.5 6.2 A.8 .8 0 1 0 11.51 6.2 Z M13.4 7 A.8 .8 0 1 0 13.41 7 Z']]
+  };
+
+  function get(name) {
+    const svg = CC.util.svg('svg', { class: 'ic ic-' + name, viewBox: '0 0 24 24', 'aria-hidden': 'true' });
+    (SET[name] || []).forEach(([k, d]) => svg.appendChild(CC.util.svg('path', { class: 'ic-' + k, d })));
+    return svg;
+  }
+
+  CC.util.$$('[data-icon]').forEach(el => el.replaceChildren(get(el.dataset.icon)));
+
+  return { get };
 })();
 
 ;
@@ -8136,8 +9440,8 @@ CC.Screens = (function () {
 
 CC.AudioToggle = (function () {
   const BUTTONS = [
-    { key: 'sound', on: '🔊', off: '🔇', label: 'Tiếng động' },
-    { key: 'bgm',   on: '🎵', off: '🎵', label: 'Nhạc nền' }
+    { key: 'sound', on: 'soundOn', off: 'soundOff', label: 'Tiếng động' },   // tên icon CC.Icons
+    { key: 'bgm',   on: 'music',   off: 'music',    label: 'Nhạc nền' }
   ];
 
   const els = {};
@@ -8148,7 +9452,7 @@ CC.AudioToggle = (function () {
       const el = els[b.key];
       if (!el) return;
       const isOn = !!prefs[b.key];
-      el.textContent = isOn ? b.on : b.off;
+      el.replaceChildren(CC.Icons.get(isOn ? b.on : b.off));
       el.classList.toggle('off', !isOn);
       el.setAttribute('aria-pressed', isOn ? 'true' : 'false');
       el.setAttribute('aria-label', b.label + (isOn ? ' — đang bật' : ' — đang tắt'));
@@ -8193,6 +9497,79 @@ CC.AudioToggle = (function () {
 })();
 
 ;
+/* ===== js/ui-settings.js ===== */
+/* ui-settings.js — bảng tuỳ chọn sau nút bánh răng (tách khỏi main.js ở P08: main.js vượt 200 dòng)
+ *
+ * Mỗi ô một dòng: đọc trạng thái lưu, ghi lại khi đổi. Bảng nổi trên nội dung → đóng được bằng bấm ra ngoài / Esc.
+ */
+
+CC.Settings = (function () {
+  const $ = CC.util.$;
+
+  function init() {
+    /* --- tuy chon --- (moi o mot dong: doc trang thai luu, ghi lai khi doi)
+     *
+     * `sound` va `bgm` con co nut rieng tren thanh tren (ui-audio-toggle.js).
+     * Hai noi dieu khien cung mot thu, nen ca hai deu doc/ghi CC.Store.prefs() va
+     * deu nghe `prefs:changed` de ve lai. Khong ben nao giu trang thai rieng —
+     * neu giu thi bam nut o thanh tren xong mo bang tuy chon se thay o danh dau sai.
+     */
+    const OPTS = [
+      ['#opt-chat', 'chatOn'],
+      ['#opt-sound', 'sound'],
+      ['#opt-bgm', 'bgm'],
+      ['#opt-fx', 'fx'],
+      ['#opt-haptics', 'haptics']
+    ];
+
+    OPTS.forEach(([sel, key]) => {
+      const el = $(sel);
+      if (!el) return;
+      el.checked = !!CC.Store.prefs()[key];
+      el.addEventListener('change', () => {
+        CC.Store.setPref(key, el.checked);
+        // Bat nhac/tieng lan dau can mo khoa AudioContext — phai co tuong tac nguoi dung,
+        // va cai click vao o danh dau nay chinh la tuong tac do
+        if (el.checked && (key === 'sound' || key === 'bgm')) CC.Audio.unlock();
+      });
+    });
+
+    // Doi o cho khac (nut tren thanh tren) thi o danh dau phai theo
+    CC.util.bus.on('prefs:changed', ({ key }) => {
+      const row = OPTS.find(o => o[1] === key);
+      if (!row) return;
+      const el = $(row[0]);
+      if (el) el.checked = !!CC.Store.prefs()[key];
+    });
+
+    /* Bang tuy chon gio NOI len tren noi dung (khong day layout xuong nua — xem
+     * .settings-panel trong app-shell.css). Da noi thi phai dong duoc bang cach bam ra
+     * ngoai: no che mat ban co ma khong co cach thoat nao khac ngoai bam lai banh rang. */
+    $('#btn-settings').addEventListener('click', e => {
+      const p = $('#settings-panel');
+      p.hidden = !p.hidden;
+      e.stopPropagation();          // khong de cham nay roi thang xuong handler duoi
+    });
+
+    document.addEventListener('click', e => {
+      const p = $('#settings-panel');
+      if (p.hidden) return;
+      if (p.contains(e.target)) return;      // bam trong bang thi giu nguyen
+      p.hidden = true;
+    });
+
+    // Esc cung dong — nguoi dung ban phim khong phai di chuot ra ngoai de bam
+    document.addEventListener('keydown', e => {
+      if (e.key !== 'Escape') return;
+      const p = $('#settings-panel');
+      if (!p.hidden) p.hidden = true;
+    });
+  }
+
+  return { init };
+})();
+
+;
 /* ===== js/ui-elo-picker.js ===== */
 /* ui-elo-picker.js — man chon muc suc manh cua Leo
  *
@@ -8213,7 +9590,7 @@ CC.EloPicker = (function () {
    *   - CHEP CUNG hai dau 400/1600. Them mot muc hay doi nhan Elo deu phai nho
    *     sua tay o day, ma khong co gi nhac. Dung kieu bay da dinh o Sky Chicken:
    *     sua tran nang cap ma quen mot cho tieu thu.
-   *   - Elo phan bo KHONG DEU (1250 va 1400 sat nhau) nen lam tron ve so nguyen
+   *   - Elo phan bo KHONG DEU (1250 va 1350 sat nhau) nen lam tron ve so nguyen
    *     cho ra trung nhau — hai muc khac han lai cung 4 sao.
    *
    * Gio chia theo THU HANG trong thang va lam tron toi NUA sao: tam muc ra tam
@@ -8221,15 +9598,11 @@ CC.EloPicker = (function () {
    */
   function starRow(rank, span) {
     const val = Math.round((1 + rank / span * 4) * 2) / 2;   // 1 .. 5, buoc 0.5
-    const row = CC.util.el('div', { class: 'elo-stars', 'aria-label': val + ' tren 5 sao' });
-    for (let i = 1; i <= 5; i++) {
-      /* Moi o la mot sao RONG, phu len tren mot sao DAC bi cat bot be ngang.
-       * Nho vay nua sao khong can ky tu la nao — font nao cung ve dung. */
-      const w = Math.max(0, Math.min(1, val - i + 1)) * 100;
-      row.appendChild(CC.util.el('span', { class: 'st' },
-        w > 0 ? CC.util.el('i', { style: 'width:' + w + '%' }) : null));
-    }
-    return row;
+    /* Năm sao RỖNG, phủ lên một dải năm sao ĐẶC bị cắt bớt bề ngang → nửa sao không cần ký tự nửa sao nào.
+     * Cắt CẢ dải thay vì từng ô: 2 node thay vì tới 11 — 10 hàng sao (sảnh + khung chi tiết + hộp tên) từng ăn ~90
+     * node, đẩy DOM màn chơi qua trần 1.100 (P08). */
+    return CC.util.el('div', { class: 'elo-stars', 'aria-label': val + ' tren 5 sao' },
+      CC.util.el('i', { style: 'width:' + val * 20 + '%' }));
   }
 
   function levelCard(lv, rank) {
@@ -8265,6 +9638,8 @@ CC.EloPicker = (function () {
   }
 
   const api = {
+    starRow,   // hộp tên mèo trong ván (cat-nameplate.js): cùng một con, cùng số sao ở hai nơi
+
     mount(container) {
       host = CC.util.el('div', { class: 'elo-grid' });
       container.appendChild(host);
@@ -8301,14 +9676,33 @@ CC.EloPicker = (function () {
  *   1. "Choi tiep" (neu co van dang do) — thu nguoi choi can nhat khi quay lai
  *   2. Chon doi thu (moi muc la mot con meo rieng, xem data-cat-profiles.js)
  *   3. Dau voi con meo dang chon  (nut chinh)
- *   4. Hai nguoi chung may (nut phu)
- *   5. Thanh tich
+ *   4. Thanh tich
  *
  * Khong bat dang nhap, khong hoi gi truoc khi choi. Vao la danh duoc.
  */
 
 CC.Menu = (function () {
-  let host = null, resumeBox = null;
+  let host = null, resumeBox = null, detail = null, playBtn = null;
+
+  /* Khung chi tiết con ĐANG chọn + nút Đấu ngay dưới lưới 4×2 (P07 art AAA): thẻ lưới chỉ còn mặt + tên + sao */
+  function renderDetail() {
+    const elo = CC.EloPicker.value();
+    const cat = CC.CatProfiles.byElo(elo);
+    const levels = CC.EloProfiles.LEVELS;
+    const rec = CC.Store.record()[String(elo)] || { w: 0, l: 0, d: 0 };
+    const played = rec.w + rec.l + rec.d;
+    playBtn.textContent = 'Đấu với ' + cat.name + '!';
+    detail.replaceChildren(
+      CC.util.el('div', { class: 'pick-face' }, [CC.CatArt.avatar(cat, 96)]),
+      CC.util.el('div', { class: 'pick-info' }, [
+        CC.util.el('div', { class: 'pick-name', text: cat.name }),
+        CC.util.el('div', { class: 'pick-tag', text: cat.tag + ' · khoảng ' + elo + ' Elo' }),
+        CC.EloPicker.starRow(levels.findIndex(l => l.elo === elo), levels.length - 1),
+        CC.util.el('div', { class: 'pick-rec', text: played
+          ? rec.w + ' thắng · ' + rec.l + ' thua' + (rec.d ? ' · ' + rec.d + ' hoà' : '') : 'Chưa đấu con này' })
+      ]),
+      playBtn);
+  }
 
   function summaryLine() {
     const s = CC.Scoring.summary();
@@ -8327,9 +9721,7 @@ CC.Menu = (function () {
 
     resumeBox.hidden = false;
     const cat = CC.CatProfiles.byElo(saved.elo);
-    const desc = saved.mode === 'hotseat'
-      ? 'Hai người · ' + saved.moves.length + ' nước'
-      : cat.name + ' · ' + saved.moves.length + ' nước';
+    const desc = cat.name + ' · ' + saved.moves.length + ' nước';
 
     resumeBox.appendChild(CC.util.el('button', {
       class: 'btn btn-primary btn-resume', type: 'button',
@@ -8356,21 +9748,14 @@ CC.Menu = (function () {
       CC.EloPicker.mount(host);
 
       /* Nut doi chu theo con meo dang chon — nguoi choi biet minh sap dau voi ai */
-      const playBtn = CC.util.el('button', {
-        class: 'btn btn-primary btn-big', type: 'button',
-        text: 'Đấu với ' + CC.CatProfiles.byElo(CC.EloPicker.value()).name,
+      playBtn = CC.util.el('button', {
+        class: 'btn btn-primary btn-big btn-play', type: 'button',
         onclick: () => CC.util.bus.emit('ui:start', { mode: 'ai', elo: CC.EloPicker.value() })
       });
-      host.appendChild(playBtn);
-      CC.util.bus.on('elo:selected', ({ elo }) => {
-        playBtn.textContent = 'Đấu với ' + CC.CatProfiles.byElo(elo).name;
-      });
-
-      host.appendChild(CC.util.el('button', {
-        class: 'btn btn-big', type: 'button',
-        text: 'Hai người chung máy',
-        onclick: () => CC.util.bus.emit('ui:start', { mode: 'hotseat' })
-      }));
+      detail = CC.util.el('div', { class: 'pick-detail' });
+      host.appendChild(detail);
+      renderDetail();
+      CC.util.bus.on('elo:selected', renderDetail);
 
       host.appendChild(CC.util.el('button', {
         class: 'btn btn-big btn-ghost', type: 'button',
@@ -8406,6 +9791,7 @@ CC.Menu = (function () {
     refresh() {
       renderResume();
       CC.EloPicker.render();
+      renderDetail();
       const el = CC.util.$('#menu-summary');
       if (el) el.textContent = summaryLine();
     }
@@ -8430,8 +9816,15 @@ CC.HUD = (function () {
     box.textContent = '';
     // Gom theo loai roi sap tu quan to den quan nho
     const order = ['q', 'r', 'b', 'n', 'p'];
-    types.slice().sort((a, b) => order.indexOf(a) - order.indexOf(b)).forEach(t => {
-      const s = CC.util.svg('svg', { viewBox: '0 0 100 100', class: 'cap-piece' });
+    const sorted = types.slice().sort((a, b) => order.indexOf(a) - order.indexOf(b));
+    // Quân đang bay vào khay (moments-capture.js): ẩn N ô CUỐI của loại đó; visibility giữ chỗ nên hàng không xô
+    const wait = CC.Moments.pendingCaptures()[box.dataset.color] || {};
+    const after = {};   // số ô cùng loại còn đứng sau ô đang vẽ
+    sorted.forEach(t => { after[t] = (after[t] || 0) + 1; });
+    sorted.forEach(t => {
+      after[t]--;
+      const s = CC.util.svg('svg', { viewBox: '0 0 100 100', 'data-type': t,
+        class: 'cap-piece' + (after[t] < (wait[t] || 0) ? ' cap-pending' : '') });
       s.appendChild(CC.Pieces.build(t, box.dataset.color));
       box.appendChild(s);
     });
@@ -8450,10 +9843,27 @@ CC.HUD = (function () {
     // capBot hien quan cua doi thu ma BEN DUOI da an duoc
     capBot.dataset.color = meTop;
     capTop.dataset.color = meBottom;
+    // Nhãn khay (::before ở board.css): cùng cách gọi với ô trạng thái — "Anh" / tên mèo; hai người cùng máy: theo màu
+    const st = CC.Game.state, who = c => st.mode !== 'ai' ? (c === 'w' ? 'Trắng' : 'Đen')
+      : c === st.playerColor ? 'Anh' : CC.cfg.CAT_NAME;
+    capBot.dataset.label = who(meBottom) + ' ăn';
+    capTop.dataset.label = who(meTop) + ' ăn';
 
     const diffBottom = meBottom === 'w' ? diff : -diff;
     renderCaptured(capBot, cap[meTop], diffBottom > 0 ? diffBottom : 0);
     renderCaptured(capTop, cap[meBottom], diffBottom < 0 ? -diffBottom : 0);
+    // Thuoc vat chat: diem chia hai mau lech ve phe hon quan; kep ±10 de hau (9) + xe khong day thanh ra ngoai
+    const bar = CC.util.el('span', { class: 'mat-bar mat-' + meBottom });
+    bar.style.setProperty('--mat', Math.max(-10, Math.min(10, diffBottom)));
+    capBot.appendChild(CC.util.el('span', { class: 'mat-label', text: 'LỰC' }));
+    capBot.appendChild(bar);
+  }
+
+  // Cột thoại điện thoại chỉ ~130 px: chữ không vừa thì co 12 px và gãy hai dòng cân nhau. r7 cắt thành "Lèo đang ng…",
+  // "Lèo thắng! · …" — mất chữ tệ hơn hai dòng gọn. Đo một lần mỗi lần đổi chữ (vài lần một nước).
+  function fit() {
+    statusEl.classList.remove('tight');
+    statusEl.classList.toggle('tight', statusEl.scrollWidth > statusEl.clientWidth);
   }
 
   function updateStatus() {
@@ -8461,26 +9871,27 @@ CC.HUD = (function () {
     if (st.over) return;
 
     let text;
-    if (st.mode === 'hotseat') {
-      text = (CC.Rules.turn() === 'w' ? 'Lượt Trắng' : 'Lượt Đen');
-    } else if (st.thinking) {
+    if (st.thinking) {
       text = CC.cfg.CAT_NAME + ' đang nghĩ…';
     } else if (CC.Game.isPlayerTurn()) {
       text = 'Đến lượt Anh';
     } else {
       text = CC.cfg.CAT_NAME + ' sắp đi…';
     }
-    if (CC.Rules.inCheck()) text += ' · CHIẾU!';
+    // Bị chiếu: một câu ngắn thay cho "… · CHIẾU!" — ô trạng thái giữ một dòng trên điện thoại (sao chiếu đã ở trên bàn)
+    if (CC.Rules.inCheck()) text = (CC.Game.isPlayerTurn() ? 'Anh' : CC.cfg.CAT_NAME) + ' bị CHIẾU!';
 
     statusEl.textContent = text;
     statusEl.classList.toggle('check', CC.Rules.inCheck());
+    statusEl.dataset.turn = CC.Rules.turn();
+    fit();
   }
 
   /* Trang thai nap engine — bao ro thay vi de nguoi choi ngoi doan */
   function updateEngine(state, err) {
     if (!engineEl) return;
     engineEl.textContent = '';
-    engineEl.hidden = (state === 'ready' || CC.Game.state.mode === 'hotseat');
+    engineEl.hidden = (state === 'ready');
 
     if (state === 'loading') {
       engineEl.appendChild(CC.util.el('span', { text: CC.cfg.CAT_NAME + ' đang ngủ dậy…' }));
@@ -8513,20 +9924,20 @@ CC.HUD = (function () {
 
       B.on('game:thinking', updateStatus);
       B.on('game:turn', updateStatus);
+      // Ván khôi phục lúc màn chơi còn ẩn: fit() đo ra 0 → đo lại khi màn hiện
+      B.on('screen:changed', ({ name }) => { if (name === 'game' && statusEl.textContent) fit(); });
 
       B.on('engine:loading', () => updateEngine('loading'));
       B.on('engine:ready', () => updateEngine('ready'));
       B.on('engine:failed', ({ error }) => updateEngine('failed', error));
 
-      B.on('game:over', ({ result, outcome, mode }) => {
-        let t;
-        if (mode === 'hotseat') {
-          t = result.winner ? ((result.winner === 'w' ? 'Trắng' : 'Đen') + ' thắng!') : 'Hoà!';
-        } else {
-          t = outcome === 'win' ? 'Anh thắng!' : outcome === 'loss' ? CC.cfg.CAT_NAME + ' thắng!' : 'Hoà!';
-        }
-        statusEl.textContent = t + ' · ' + result.label;
+      B.on('game:over', ({ result, outcome }) => {
+        const t = outcome === 'win' ? 'Anh thắng!' : outcome === 'loss' ? CC.cfg.CAT_NAME + ' thắng!' : 'Hoà!';
+        // Khoảng trắng không ngắt trước "·": ô gãy hai dòng (.tight) thì dấu ở cuối dòng một, không mở đầu dòng hai
+        statusEl.textContent = t + '\u00a0· ' + result.label;
         statusEl.classList.remove('check');
+        delete statusEl.dataset.turn;
+        fit();
       });
 
       updateEngine(CC.Engine.bootState(), CC.Engine.bootError());
@@ -8662,13 +10073,16 @@ CC.MoveNav = (function () {
     viewPly = n;
     const snap = CC.Rules.snapshotAt(moves, n);
 
+    /* Khoá TRƯỚC khi gỡ quân: khoá sẽ huỷ cú kéo đang dở, mà huỷ kéo gắn quân kéo về lớp thường. Gỡ quân trước
+     * thì Board đã quên quân đó → nó thành quân mồ côi, không clearPieces() nào gỡ được nữa. */
+    CC.Interaction.setEnabled(false);
+
     CC.Board.clearPieces();
     CC.Board.sync({ pieces: snap.pieces });
     CC.Highlight.setLastMove(snap.last);
     CC.Highlight.setCheck(snap.checkSquare);
     CC.Highlight.clearMoves();
 
-    CC.Interaction.setEnabled(false);
     paint();
     CC.util.bus.emit('replay:changed', { ply: n, total: moves.length, reviewing: true });
   }
@@ -8685,9 +10099,10 @@ CC.MoveNav = (function () {
     btnFwd.disabled = !isReviewing();
     btnLive.hidden = !isReviewing();
 
+    // Lúc chơi cũng có nhãn: hai nút ‹ › đứng trơ trọi không chữ đọc như ô trống (fresh-eyes r4)
     label.textContent = isReviewing()
       ? 'Đang xem nước ' + viewPly + '/' + n
-      : '';
+      : 'Xem lại nước';
   }
 
   const api = {
@@ -8730,11 +10145,11 @@ CC.MoveNav = (function () {
 
     mount(container) {
       btnBack = CC.util.el('button', {
-        class: 'nav-btn', type: 'button', 'aria-label': 'Nước trước', text: '‹',
+        class: 'nav-btn', type: 'button', 'aria-label': 'Nước trước',
         onclick: () => api.back()
       });
       btnFwd = CC.util.el('button', {
-        class: 'nav-btn', type: 'button', 'aria-label': 'Nước sau', text: '›',
+        class: 'nav-btn', type: 'button', 'aria-label': 'Nước sau',
         onclick: () => api.forward()
       });
       btnLive = CC.util.el('button', {
@@ -8742,6 +10157,8 @@ CC.MoveNav = (function () {
         hidden: true,
         onclick: () => api.live()
       });
+      btnBack.appendChild(CC.Icons.get('back'));
+      btnFwd.appendChild(CC.Icons.get('next'));
       label = CC.util.el('span', { class: 'nav-label' });
 
       bar = CC.util.el('div', { class: 'move-nav' }, [btnBack, label, btnFwd, btnLive]);
@@ -8775,6 +10192,230 @@ CC.MoveNav = (function () {
   };
 
   return api;
+})();
+
+;
+/* ===== js/ui-game-actions.js ===== */
+/* ui-game-actions.js — nút Gợi ý + tấm chat trượt của màn chơi (P03 plan art AAA = wow T7a/T7b, D6)
+ *
+ * Gợi ý trước đây chỉ là một chip trong khung chat. Điện thoại giờ giấu chat vào tấm trượt (Q4) → gợi ý phải có nút
+ * riêng trên hàng nút, nếu không thì hai chạm mới xin được gợi ý. Nút đi ĐÚNG đường của chip (`pressChip`) để lời
+ * người chơi vẫn vào lịch sử chat và mọi lời từ chối (hết lượt gợi ý…) vẫn do mèo nói.
+ * Tấm chat chỉ có nghĩa dưới 900 px: desktop gắn chat cố định ở cột phải và CSS ẩn nút 💬.
+ */
+
+CC.GameActions = (function () {
+  const HINT_CHIP = { label: 'Gợi ý đi mà~', act: '@hint' };
+  let hintBtn = null, chatBtn = null, sheet = null;
+
+  function refreshHint() {
+    const st = CC.Game.state;
+    hintBtn.disabled = !(st.mode === 'ai' && !st.over && CC.Game.isPlayerTurn());
+  }
+
+  function setSheet(open) {
+    document.body.classList.toggle('chat-open', open);
+    chatBtn.setAttribute('aria-expanded', String(open));
+    if (open) {
+      const input = sheet.querySelector('.chat-input');
+      if (input) input.focus();
+    } else if (sheet.contains(document.activeElement)) {
+      chatBtn.focus();   // trả focus về nút mở, không thì bàn phím rơi về đầu trang
+    }
+  }
+
+  return {
+    mount() {
+      hintBtn = document.getElementById('btn-hint');
+      chatBtn = document.getElementById('btn-chat');
+      sheet = document.getElementById('chat-host');
+      sheet.prepend(CC.util.el('button', {
+        class: 'icon-btn sheet-close', type: 'button', 'aria-label': 'Đóng trò chuyện',
+        onclick: () => setSheet(false)
+      }, [CC.Icons.get('close')]));
+      return this;
+    },
+
+    init() {
+      hintBtn.addEventListener('click', () => CC.ChatInput.pressChip(HINT_CHIP));
+      chatBtn.addEventListener('click', () => setSheet(!document.body.classList.contains('chat-open')));
+      document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && document.body.classList.contains('chat-open')) setSheet(false);
+      });
+      // Chạm ra ngoài tấm thì đóng — trừ chính nút 💬 (nó tự đảo trạng thái)
+      document.addEventListener('pointerdown', e => {
+        if (!document.body.classList.contains('chat-open')) return;
+        if (!sheet.contains(e.target) && !chatBtn.contains(e.target)) setSheet(false);
+      });
+      ['game:move', 'game:start', 'game:over', 'game:thinking', 'game:undo', 'game:restored']
+        .forEach(e => CC.util.bus.on(e, refreshHint));
+      CC.util.bus.on('screen:changed', () => setSheet(false));
+      refreshHint();
+      return this;
+    }
+  };
+})();
+
+;
+/* ===== js/ui-confirm-dialog.js ===== */
+/* ui-confirm-dialog.js — hộp hỏi lại trong game, thay `window.confirm()` (P04 plan art AAA, lấy từ wow Phase 5)
+ *
+ * `confirm()` của trình duyệt là hộp xám không theo theme, chặn cả luồng JS (đồng hồ khoảnh khắc đứng hình) và chặn
+ * luôn trình chụp tự động. Hộp này là một khung tranh: mèo `smug` nhìn ra, nút MẶC ĐỊNH là nút an toàn ("Chơi tiếp") —
+ * bấm vội Enter thì không mất ván. Esc / bấm ra ngoài = huỷ; focus quay về nút đã gọi.
+ */
+
+CC.Confirm = (function () {
+  let open = null;   // { overlay, done } của hộp đang mở — chỉ một hộp một lúc
+
+  function finish(val) {
+    if (!open) return;
+    const { overlay, done, back } = open;
+    open = null;
+    overlay.remove();
+    document.removeEventListener('keydown', onKey, true);
+    if (back && back.isConnected) back.focus();
+    done(val);
+  }
+
+  function onKey(e) {
+    if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+  }
+
+  return {
+    /* ask({ title, text, ok, cancel, mood }) → Promise<boolean> */
+    ask(o) {
+      finish(false);
+      const cat = CC.CatProfiles.byElo(CC.Game.state.elo);
+      return new Promise(done => {
+        const cancelBtn = CC.util.el('button', { class: 'btn btn-primary confirm-cancel', type: 'button',
+          text: o.cancel || 'Chơi tiếp', onclick: () => finish(false) });
+        const okBtn = CC.util.el('button', { class: 'btn btn-ghost confirm-ok', type: 'button',
+          text: o.ok || 'Đồng ý', onclick: () => finish(true) });
+        const box = CC.util.el('div', { class: 'confirm-box', role: 'alertdialog', 'aria-modal': 'true',
+          'aria-labelledby': 'confirm-title' }, [
+          CC.util.el('img', { class: 'confirm-cat', src: CC.CatArt.url(cat.id, o.mood || 'smug'), alt: '',
+            width: 112, height: 112, decoding: 'async' }),
+          CC.util.el('h2', { class: 'confirm-title', id: 'confirm-title', text: o.title }),
+          CC.util.el('p', { class: 'confirm-text', text: o.text }),
+          CC.util.el('div', { class: 'confirm-actions' }, [cancelBtn, okBtn])
+        ]);
+        const overlay = CC.util.el('div', { class: 'confirm-overlay' }, [box]);
+        overlay.addEventListener('pointerdown', e => { if (e.target === overlay) finish(false); });
+        open = { overlay, done, back: document.activeElement };
+        document.body.appendChild(overlay);
+        document.addEventListener('keydown', onKey, true);
+        cancelBtn.focus();
+      });
+    },
+
+    close: () => finish(false)
+  };
+})();
+
+;
+/* ===== js/ui-celebration.js ===== */
+/* ui-celebration.js — ăn mừng khi kết ván (P04 plan art AAA, yêu cầu C)
+ *
+ * Thắng: pháo giấy truyện tranh (sao, cá, chân mèo viền mực) NỔ TOẢ trong khung tranh mèo, sau lưng mèo và ô thoại.
+ *   r4–r10 rơi khắp màn → ảnh tĩnh nào cũng có mảnh đè quân, mặt mèo, nút "Xin thua" (fresh-eyes r10 VFX). Rơi liên tục
+ *   thì không chọn chỗ đáp được; khung tranh là chỗ duy nhất không có quân, nút hay chữ phải đọc.
+ * Thua: chùm sao lấp lánh quanh khung tranh mèo — mèo khoe thắng.
+ * RIÊNG ngoài hệ khoảnh khắc: pháo sống ~2,8 s, quá hạn 700 ms của khoảnh khắc (R4) — để trong `.moments-overlay` thì
+ * đầu dò tính là rác (fxLeak). Không bao giờ nhận chạm.
+ */
+
+CC.Celebration = (function () {
+  const LIFE = 3000, CF = 38;   // CF: cạnh mảnh lớn nhất (comic-fx.css)
+  const SHAPES = ['star', 'fish', 'paw', 'star', 'dot'];
+  const COLORS = ['var(--yellow)', 'var(--red)', 'var(--blue)', 'var(--pink)', '#fff'];
+  let layer = null, burst = null, timer = null;
+
+  function ensure() {
+    if (!layer || !layer.isConnected) {
+      layer = CC.util.el('div', { id: 'celebration-layer', class: 'celebration-layer', 'aria-hidden': 'true' });
+      document.body.appendChild(layer);
+    }
+    return layer;
+  }
+
+  function clear() {
+    clearTimeout(timer);
+    timer = null;
+    if (layer) layer.textContent = '';
+    if (burst) { burst.remove(); burst = null; }
+  }
+
+  const bit = (shape, color) => CC.util.svg('svg', { class: 'cf', viewBox: '0 0 40 40', style: 'color:' + color },
+    [CC.util.svg('use', { href: '#cf-' + shape })]);
+
+  /* Quãng bay xa nhất theo hướng (c, s) từ (ox, oy) mà mảnh vẫn nằm trọn trong khung W × H: mảnh lòi khỏi khung bị cắt,
+   * nhưng census vẫn tính rect của nó là lấn mép màn (r4, r8 đã dính ở bản rơi khắp màn) */
+  const reach = (c, s, ox, oy, W, H) => Math.min(
+    c > 0 ? (W - ox - CF / 2) / c : c < 0 ? (ox - CF / 2) / -c : Infinity,
+    s > 0 ? (H - oy - CF / 2) / s : s < 0 ? (oy - CF / 2) / -s : Infinity);
+
+  function win() {
+    clear();
+    // Lớp cảnh của khung (sau đồ đạc, TRƯỚC mèo z 1 và ô thoại z 2, overflow: hidden): mảnh bay sau lưng mèo
+    const scene = document.querySelector('#scr-game .panel-scene'), cat = document.getElementById('cat-host');
+    if (!scene || !cat) return;
+    const zr = scene.getBoundingClientRect(), cr = cat.getBoundingClientRect();
+    const ox = Math.min(Math.max(cr.left + cr.width / 2 - zr.left, CF), zr.width - CF);
+    const oy = Math.min(Math.max(cr.top + cr.height * .4 - zr.top, CF), zr.height - CF);
+    burst = CC.util.el('div', { class: 'celebrate-confetti' });
+    // Mỗi mảnh 2 node (svg + use). Desktop 42 mảnh → DOM win-t400 1.113 > trần 1.100 (r7); 32 mảnh + bóng khối quân
+    // → 1.105 (r9); 26 mảnh + thẻ script dev mới → 1.092 (r10a). 24 mảnh mọi màn: dư trần ≥ 6 node (r11, vân ô +6).
+    const n = 24;
+    for (let i = 0; i < n; i++) {
+      const b = bit(SHAPES[i % SHAPES.length], COLORS[i % COLORS.length]);
+      const a = Math.PI * 2 * i / n + Math.random() * .4, c = Math.cos(a), s = Math.sin(a);
+      const d = Math.max(0, reach(c, s, ox, oy, zr.width, zr.height)) * (.5 + Math.random() * .5);
+      b.style.left = Math.round(ox - CF / 2) + 'px';
+      b.style.top = Math.round(oy - CF / 2) + 'px';
+      b.style.animationDelay = (Math.random() * .2).toFixed(2) + 's';
+      b.style.setProperty('--dx', Math.round(c * d) + 'px');
+      b.style.setProperty('--dy', Math.round(s * d) + 'px');
+      b.style.setProperty('--spin', Math.round(Math.random() * 720 - 360) + 'deg');
+      burst.appendChild(b);
+    }
+    scene.appendChild(burst);
+    timer = setTimeout(clear, LIFE);
+  }
+
+  function loss() {
+    clear();
+    const zone = document.querySelector('#scr-game .cat-zone');
+    if (!zone) return;
+    const r = zone.getBoundingClientRect();
+    const box = CC.util.el('div', { class: 'celebrate-sparkle' });
+    for (let i = 0; i < 8; i++) {
+      const b = bit('star', COLORS[i % 2]);
+      b.style.left = Math.round(r.left + Math.random() * r.width - 14) + 'px';
+      b.style.top = Math.round(r.top + Math.random() * r.height * .7 - 14) + 'px';
+      b.style.animationDelay = (i * .08).toFixed(2) + 's';
+      box.appendChild(b);
+    }
+    ensure().appendChild(box);
+    timer = setTimeout(clear, 1400);
+  }
+
+  return {
+    init() {
+      const B = CC.util.bus;
+      B.on('game:over', ({ outcome }) => {
+        if (!CC.BoardFx.enabled()) return;   // giảm chuyển động / tắt hiệu ứng: không pháo, hộp kết quả vẫn đủ ý
+        const g = CC.Game.gen();
+        // 250 ms: để khoảnh khắc nước cuối (sao va chạm, CHIẾU!) diễn xong một nhịp rồi mới bắn
+        if (outcome === 'win') setTimeout(() => { if (CC.Game.isCurrent(g)) win(); }, 250);
+        else if (outcome === 'loss') setTimeout(() => { if (CC.Game.isCurrent(g)) loss(); }, 250);
+      });
+      ['game:start', 'game:undo', 'game:restored'].forEach(e => B.on(e, clear));
+      B.on('screen:changed', ({ name }) => { if (name !== 'game') clear(); });
+      return this;
+    },
+    clear
+  };
 })();
 
 ;
@@ -8879,11 +10520,6 @@ CC.RankPanel = (function () {
       ]));
     });
     box.appendChild(grid);
-
-    box.appendChild(CC.util.el('p', {
-      class: 'rank-note',
-      text: 'Ván 2 người chung máy không tính vào thành tích.'
-    }));
   }
 
   return {
@@ -8976,6 +10612,7 @@ CC.RankPanel = (function () {
 CC.ResultDialog = (function () {
   const DELAY = 1400;   // cho meo noi xong da
   let box = null;
+  let timer = null;     // hẹn giờ hiện bảng của game:over gần nhất
 
   function close() {
     if (!box) return;
@@ -8983,40 +10620,69 @@ CC.ResultDialog = (function () {
     box = null;
   }
 
+  /* Vỏ hộp kiểu khung tranh (P04 plan art AAA): chân dung mèo tràn mép trên, dải tiêu đề đỏ nghiêng, điểm mèo vừa
+   * cộng, ba chấm "thắng 3 ván → thử mèo kế". Nét mặt theo góc nhìn CỦA MÈO: Anh thắng thì mèo buồn. */
+  const MOOD = { win: 'sad', loss: 'smug', draw: 'confused' };
+  const WIN_STREAK = 3;   // khớp gợi ý "thắng mức này nhiều rồi" bên dưới
+
+  function points(outcome, elo) {
+    if (outcome === 'win') return elo;
+    return outcome === 'draw' ? Math.round(elo / 2) : 0;   // cùng công thức scoring-cat-points.js
+  }
+
+  function burst() {
+    const pts = [];
+    for (let i = 0; i < 20; i++) {
+      const a = Math.PI * i / 10, r = i % 2 ? 72 : 104;
+      pts.push(Math.round(Math.cos(a) * r) + ',' + Math.round(Math.sin(a) * r));
+    }
+    return CC.util.svg('svg', { class: 'result-burst', viewBox: '-110 -110 220 220', 'aria-hidden': 'true' },
+      [CC.util.svg('polygon', { points: pts.join(' ') })]);
+  }
+
   function build(data) {
     const { result, outcome, mode } = data;
     const st = CC.Game.state;
 
-    let title, sub;
-    if (mode === 'hotseat') {
-      title = result.winner ? ((result.winner === 'w' ? 'Trắng' : 'Đen') + ' thắng!') : 'Hoà!';
-      sub = result.label;
-    } else {
-      const cat = CC.CatProfiles.byElo(st.elo);
-      title = outcome === 'win' ? 'Anh thắng rồi!'
-            : outcome === 'loss' ? cat.name + ' thắng!' : 'Hoà!';
-      sub = result.label + ' · ' + cat.name + ' · ' + cat.tag + ' (khoảng ' + st.elo + ' Elo)';
-    }
+    const cat = CC.CatProfiles.byElo(st.elo);
+    const title = outcome === 'win' ? 'Anh thắng rồi!'
+                : outcome === 'loss' ? cat.name + ' thắng!' : 'Hoà!';
+    // Dấu cách cứng trong "(khoảng 500 Elo)": r8 gãy dòng để lại "500 Elo)" mồ côi
+    const sub = result.label + ' · ' + cat.name + ' · ' + cat.tag + ' (khoảng\u00a0' + st.elo + '\u00a0Elo)';
 
-    const inner = CC.util.el('div', { class: 'result-box result-' + outcome }, [
-      CC.util.el('h2', { class: 'result-title', text: title }),
+    const inner = CC.util.el('div', { class: 'result-box result-' + outcome + (result.kind === 'resign' ? ' result-resign' : ''),
+      role: 'dialog', 'aria-modal': 'true',
+      'aria-labelledby': 'result-title' }, [
+      CC.util.el('img', { class: 'result-cat', src: CC.CatArt.url(cat.id, MOOD[outcome] || 'idle'), alt: '',
+        width: 140, height: 140, decoding: 'async' }),
+      CC.util.el('h2', { class: 'result-title', id: 'result-title' }, [CC.util.el('span', { text: title })]),
       CC.util.el('p', { class: 'result-sub', text: sub })
     ]);
 
+    /* Dấu BỀN trên hộp (P08): sao lấp lánh quanh mèo tắt ~1,6 s, hộp mở lúc 1,4 s → người chơi nhìn hộp thì thua /
+     * xin thua không còn gì. Mèo thắng: chùm nổ vàng sau chân dung. Xin thua: con dấu cờ trắng dấu chân. */
+    if (outcome === 'loss') inner.prepend(burst());
+    if (result.kind === 'resign') inner.appendChild(CC.util.el('div', { class: 'result-flag', 'aria-hidden': 'true' },
+      [CC.Icons.get('flag'), CC.util.el('span', { text: 'XIN THUA' })]));
+
     /* Thanh tich o muc vua choi — cho nguoi choi thay tien do */
     if (mode === 'ai') {
+      const pts = points(outcome, st.elo);
+      if (pts) inner.appendChild(CC.util.el('p', { class: 'result-points', 'aria-live': 'polite', text: '+' + pts + ' điểm mèo' }));
+
       const rec = CC.Store.record()[String(st.elo)];
       if (rec) {
-        inner.appendChild(CC.util.el('p', {
-          class: 'result-rec',
-          text: 'Ở mức này: ' + rec.w + ' thắng · ' + rec.l + ' thua'
-            + (rec.d ? ' · ' + rec.d + ' hoà' : '')
-        }));
+        const dots = CC.util.el('span', { class: 'result-dots', 'aria-hidden': 'true' });
+        for (let i = 0; i < WIN_STREAK; i++) dots.appendChild(CC.util.el('i', { class: i < rec.w ? 'on' : '' }));
+        inner.appendChild(CC.util.el('p', { class: 'result-rec' }, [
+          dots,
+          CC.util.el('span', { text: 'Ở mức này: ' + rec.w + ' thắng · ' + rec.l + ' thua' + (rec.d ? ' · ' + rec.d + ' hoà' : '') })
+        ]));
       }
 
       // Thang 3 van roi thi rue len muc cao hon
       const next = CC.EloProfiles.LEVELS.find(l => l.elo > st.elo);
-      if (outcome === 'win' && rec && rec.w >= 3 && next) {
+      if (outcome === 'win' && rec && rec.w >= WIN_STREAK && next) {
         inner.appendChild(CC.util.el('p', {
           class: 'result-tip',
           text: 'Anh thắng mức này nhiều rồi — thử đấu với '
@@ -9027,7 +10693,7 @@ CC.ResultDialog = (function () {
 
     const row = CC.util.el('div', { class: 'result-actions' });
     row.appendChild(CC.util.el('button', {
-      class: 'btn btn-primary', type: 'button', text: 'Chơi lại',
+      class: 'btn btn-primary btn-wide', type: 'button', text: 'Chơi lại',
       onclick: () => { close(); CC.util.bus.emit('ui:new-game', {}); }
     }));
     if (mode === 'ai') {
@@ -9048,15 +10714,23 @@ CC.ResultDialog = (function () {
   return {
     init() {
       CC.util.bus.on('game:over', data => {
-        setTimeout(() => {
+        // Hẹn giờ 1,4 s: ván mới bắt đầu trong khoảng chờ thì bảng này nói về ván CŨ nhưng build() đọc elo / thành
+        // tích của ván MỚI (sai tên mèo), còn nút "Chơi lại" thì xoá ván vừa mở. Chụp gen để bỏ nếu ván đã đổi.
+        const g = CC.Game.gen();
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+          timer = null;
+          if (!CC.Game.isCurrent(g)) return;
           close();
           box = build(data);
           document.body.appendChild(box);
-          requestAnimationFrame(() => box.classList.add('show'));
+          // rAF chạy sau: close() (ván mới / nút bấm) có thể đã gỡ bảng này, box lúc đó là null
+          const el = box;
+          requestAnimationFrame(() => { if (el) el.classList.add('show'); });
         }, DELAY);
       });
 
-      CC.util.bus.on('game:start', close);
+      CC.util.bus.on('game:start', () => { clearTimeout(timer); timer = null; close(); });
       return this;
     },
     close
@@ -9212,6 +10886,7 @@ CC.UpdateNotice = (function () {
     CC.Rules.newGame();
     CC.Board.mount($('#board-host'));
     CC.Highlight.init();
+    CC.BoardSignals.init();
     CC.Interaction.init({
       canMove: sq => CC.Game.canMove(sq),
       onMove: (from, to) => CC.Game.playerMove(from, to)
@@ -9222,10 +10897,13 @@ CC.UpdateNotice = (function () {
     CC.Sfx.init();
     CC.Bgm.init();
     CC.BoardFx.init();
+    CC.Celebration.init();
+    CC.Moments.init();
 
     /* --- meo --- */
     CC.Cat.mount($('#cat-host')).init();
-    CC.MoveList.mount($('#cat-host').parentNode).init();
+    CC.CatNameplate.mount($('#scr-game .cat-zone'));
+    CC.MoveList.mount($('#side-col')).init();
 
     /* --- chat --- */
     CC.ChatUI.mount($('#bubble-host'), $('#chat-host')).init();
@@ -9241,8 +10919,8 @@ CC.UpdateNotice = (function () {
     }).init();
 
     CC.MoveNav.mount($('#nav-host')).init();
+    CC.GameActions.mount().init();
     CC.ResultDialog.init();
-    CC.Hotseat.init();
 
     CC.Screens
       .register('menu', $('#scr-menu'))
@@ -9271,6 +10949,7 @@ CC.UpdateNotice = (function () {
     /* Engine tai o NEN — trang dung duoc ngay, khong cho */
     CC.Engine.warmUp();
 
+    CC.Persistence.purgeLegacy();   // TRƯỚC Menu.refresh: sảnh chỉ mời "Chơi tiếp" khi ván lưu còn mở được
     CC.Menu.refresh();
     CC.Screens.show('menu');
   }
@@ -9287,66 +10966,10 @@ CC.UpdateNotice = (function () {
 
     $('#btn-resign').addEventListener('click', () => {
       if (CC.Game.state.over) return;
-      if (confirm('Anh chắc muốn xin thua ván này ạ?')) CC.Game.resign();
+      CC.Confirm.ask({ title: 'Xin thua thật hả?', text: 'Ván này còn gỡ được mà Anh!', ok: 'Xin thua' }).then(ok => { if (ok && !CC.Game.state.over) CC.Game.resign(); });
     });
 
-    /* --- tuy chon --- (moi o mot dong: doc trang thai luu, ghi lai khi doi)
-     *
-     * `sound` va `bgm` con co nut rieng tren thanh tren (ui-audio-toggle.js).
-     * Hai noi dieu khien cung mot thu, nen ca hai deu doc/ghi CC.Store.prefs() va
-     * deu nghe `prefs:changed` de ve lai. Khong ben nao giu trang thai rieng —
-     * neu giu thi bam nut o thanh tren xong mo bang tuy chon se thay o danh dau sai.
-     */
-    const OPTS = [
-      ['#opt-chat', 'chatOn'],
-      ['#opt-sound', 'sound'],
-      ['#opt-bgm', 'bgm'],
-      ['#opt-fx', 'fx'],
-      ['#opt-autoflip', 'autoFlip']
-    ];
-
-    OPTS.forEach(([sel, key]) => {
-      const el = $(sel);
-      if (!el) return;
-      el.checked = !!CC.Store.prefs()[key];
-      el.addEventListener('change', () => {
-        CC.Store.setPref(key, el.checked);
-        // Bat nhac/tieng lan dau can mo khoa AudioContext — phai co tuong tac nguoi dung,
-        // va cai click vao o danh dau nay chinh la tuong tac do
-        if (el.checked && (key === 'sound' || key === 'bgm')) CC.Audio.unlock();
-      });
-    });
-
-    // Doi o cho khac (nut tren thanh tren) thi o danh dau phai theo
-    CC.util.bus.on('prefs:changed', ({ key }) => {
-      const row = OPTS.find(o => o[1] === key);
-      if (!row) return;
-      const el = $(row[0]);
-      if (el) el.checked = !!CC.Store.prefs()[key];
-    });
-
-    /* Bang tuy chon gio NOI len tren noi dung (khong day layout xuong nua — xem
-     * .settings-panel trong style.css). Da noi thi phai dong duoc bang cach bam ra
-     * ngoai: no che mat ban co ma khong co cach thoat nao khac ngoai bam lai banh rang. */
-    $('#btn-settings').addEventListener('click', e => {
-      const p = $('#settings-panel');
-      p.hidden = !p.hidden;
-      e.stopPropagation();          // khong de cham nay roi thang xuong handler duoi
-    });
-
-    document.addEventListener('click', e => {
-      const p = $('#settings-panel');
-      if (p.hidden) return;
-      if (p.contains(e.target)) return;      // bam trong bang thi giu nguyen
-      p.hidden = true;
-    });
-
-    // Esc cung dong — nguoi dung ban phim khong phai di chuot ra ngoai de bam
-    document.addEventListener('keydown', e => {
-      if (e.key !== 'Escape') return;
-      const p = $('#settings-panel');
-      if (!p.hidden) p.hidden = true;
-    });
+    CC.Settings.init();
 
     $('#btn-rank-back').addEventListener('click', () => {
       CC.Menu.refresh();
@@ -9373,10 +10996,8 @@ CC.UpdateNotice = (function () {
       CC.Game.start({
         mode,
         elo: elo || CC.Store.prefs().elo,
-        playerColor: mode === 'ai' ? (CC.Store.prefs().playerColor || 'w') : 'w'
+        playerColor: CC.Store.prefs().playerColor || 'w'
       });
-      // Che do 2 nguoi khong can engine
-      document.body.classList.toggle('mode-hotseat', mode === 'hotseat');
     });
 
     B.on('ui:resume', () => {
@@ -9386,9 +11007,7 @@ CC.UpdateNotice = (function () {
         CC.Store.clearGame();
         CC.Menu.refresh();
         CC.Screens.show('menu');
-        return;
       }
-      document.body.classList.toggle('mode-hotseat', CC.Game.state.mode === 'hotseat');
     });
 
     B.on('ui:new-game', () => {

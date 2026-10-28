@@ -9,19 +9,17 @@
  * trang van trong binh thuong. build.mjs co buoc kiem tra chan dung loi nay.
  */
 
-const VERSION = '49cee7a5';
+const VERSION = '73f55cf3';
 const CACHE = 'cat-chess-' + VERSION;
 const SHELL = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
-  "./assets/style-0d641599.css",
-  "./assets/app-ba9820c0.js",
+  "./assets/style-104cf881.css",
+  "./assets/app-4f9280da.js",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./icons/icon-maskable-512.png",
-  "./art/bg-landscape.webp",
-  "./art/bg-portrait.webp",
   "./art/cat-bao-cheer.webp",
   "./art/cat-bao-confused.webp",
   "./art/cat-bao-idle.webp",
@@ -87,8 +85,7 @@ const SHELL = [
   "./art/cat-vang-smug.webp",
   "./art/cat-vang-think.webp",
   "./art/emblem.webp",
-  "./art/wood-dark.webp",
-  "./art/wood-light.webp",
+  "./art/paper-grain.png",
   "./vendor/stockfish/stockfish-nnue-16-single.js",
   "./vendor/stockfish/stockfish-nnue-16-single.wasm",
   "../../shared/portal-config.js",

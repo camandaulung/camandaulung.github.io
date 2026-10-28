@@ -1,0 +1,1601 @@
+/* ===== css/comic-base.css ===== */
+/* comic-base.css — nền in truyện tranh s5: token, reset, giấy, nút, panel (P02 plan art AAA = wow Phase 3 Task 4)
+ *
+ * NẠP ĐẦU TIÊN: mọi file CSS sau chỉ dùng token ở đây, không màu lẻ.
+ * MỘT bảng màu giấy cho mọi chế độ hệ điều hành (Q1 bản 3, = wow D2): không còn `prefers-color-scheme` nào. Lệch spec
+ * Godot "v1 chỉ tối" — xem docs/decisions/2026-10-28-cat-chess-mot-theme-giay-truyen-tranh.md.
+ * Ngôn ngữ sáng 2D: đèn trên-trái → MỌI bóng cứng lệch xuống-phải, ba cấp 5 px (khung, panel) / 3 px (nút) / 2 px (quân).
+ * Màu D1 đã chỉnh cho AA: đỏ #d42a33 dưới chữ trắng 5,03:1; xanh #2f63d6 5,42:1.
+ */
+
+:root {
+  color-scheme: light;
+  --paper: #fffaf0; --ink: #111; --yellow: #ffe14d; --red: #d42a33; --blue: #2f63d6;
+  --cream: #ffeec2; --pink: #ffd9e0; --sq-light: #fff6d6; --sq-dark: #f2b632;
+  --shadow-1: 5px 5px 0 var(--ink); --shadow-2: 3px 3px 0 var(--ink); --shadow-3: 2px 2px 0 var(--ink);
+  --ink-1: 4px; --ink-2: 3px; --ink-3: 2px;
+  --halftone: radial-gradient(rgba(17, 17, 17, .16) 1.4px, transparent 1.6px);
+  /* Vân giấy in: ẢNH BITMAP lấm tấm mực 3,7 KB (tools/make-paper-grain.mjs), không SVG feTurbulence: ảnh nền SVG có bộ lọc
+   * bị raster lại cùng vùng nền mỗi lần vùng đó vẽ lại (pháo giấy vẽ lại khắp màn); bitmap đã giải mã thì vẽ lát lại rẻ */
+  --grain: url("../art/paper-grain.png");
+  /* Font tự host chưa có (chờ anh cho phép tải @fontsource): chữ tiêu đề rơi về font đậm nhất máy có */
+  --font-title: "Paytone One", "Arial Black", "Segoe UI Black", Impact, system-ui, sans-serif;
+  --font-body: "Be Vietnam Pro", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --tap: 44px;
+  --radius: 0;
+
+  /* Tên cũ của style.css trỏ về vai màu mới: khối nào chưa viết lại vẫn ra giấy + mực, không ra nâu tối */
+  --bg: var(--paper); --bg2: var(--cream); --panel: #fff; --line: var(--ink);
+  --text: var(--ink); --text-dim: #4a4036;
+  --accent: var(--yellow); --accent-dark: var(--ink);
+  --danger: var(--red); --ok: #1a9a5b;
+  --accent-text: #a8231c; --danger-text: #b3261e; --ok-text: #17724a;
+  --mk-last: rgba(255, 225, 77, .6); --mk-sel: var(--ink); --mk-check: rgba(212, 42, 51, .62);
+}
+
+/* BẪY đã gặp hai lần (r1 census): `.engine-state { display:flex }` và `.resume-box { display:flex }` đè thuộc tính
+ * `hidden` → thanh rỗng hiện ra. Chặn MỘT lần ở gốc thay vì vá từng class. */
+[hidden] { display: none !important; }
+
+* { box-sizing: border-box; }
+
+html, body { margin: 0; padding: 0; color: var(--ink); font-family: var(--font-body); }
+html { background-color: var(--paper); }
+/* Giấy in: chấm halftone 16 %, lưới 9 px như mockup s5 */
+/* Vân giấy (P08, Materials) là một LỚP NỀN dưới nội dung, không phải lớp phủ cố định toàn màn (r9 `body::after`, z 100):
+ * lớp phủ phải trộn lại cả màn mỗi khung có gì chuyển động. Ba lần A/B ở máy dev không tách được giá của nó khỏi nhiễu
+ * (perf-narrative) → chọn cách không có giá theo khung. Độ đậm (.55 cũ) nằm sẵn trong kênh alpha của ảnh. */
+body { background: var(--grain) 0 0 / 128px 128px, var(--halftone) 0 0 / 9px 9px, var(--paper); }
+
+/* ---------- thanh tiêu đề: dải đỏ, viền mực, chữ có bóng cứng ---------- */
+.topbar {
+  position: relative; z-index: 2;   /* trên lớp sao kết ván (z 1, comic-fx.css) */
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 10px;
+  background: var(--red); color: #fff;
+  border-bottom: var(--ink-1) solid var(--ink);
+}
+.topbar .title {
+  flex: 1; min-width: 0; margin: 0;
+  font: 400 22px/1.1 var(--font-title); letter-spacing: .3px;
+  text-align: center; color: #fff; text-shadow: 3px 3px 0 var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* Nút về portal ẩn đi vẫn GIỮ CHỖ: biến mất khỏi luồng thì tiêu đề nhảy sang trái 52 px giữa hai lần mở.
+ * Phải `!important` để thắng luật `[hidden]` ở trên. */
+#btn-portal[hidden] { display: block !important; visibility: hidden; }
+.icon-btn {
+  min-width: var(--tap); min-height: var(--tap);
+  border: 0; border-radius: 0; padding: 0;
+  background: transparent; color: #fff;
+  font-size: 20px; cursor: pointer;
+  text-shadow: 2px 2px 0 var(--ink);
+}
+.icon-btn:active { background: rgba(17, 17, 17, .18); }
+.icon-btn-sm { min-width: 38px; font-size: 18px; }
+
+/* ---------- nút: viền mực 3 px + bóng cứng 3 px; nhấn = trượt vào bóng ---------- */
+.btn {
+  min-height: var(--tap);
+  padding: 9px 14px;
+  border: var(--ink-2) solid var(--ink); border-radius: 0;
+  background: var(--cream); color: var(--ink);
+  font: 800 15px/1.15 var(--font-body);
+  box-shadow: var(--shadow-2);
+  cursor: pointer;
+}
+.btn:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink); }
+.btn-primary { background: var(--red); color: #fff; }
+.btn-danger { background: #fff; color: var(--danger-text); }
+.btn-ghost { background: #fff; }
+/* Nút in trên cùng giấy có vân (r11, fresh-eyes r10 Materials "nút, hộp thoại không có vân"). Khai SAU các biến thể:
+ * `background:` gộp của .btn-primary / .btn-danger đặt lại ảnh nền về none. Nút đứng yên → không có việc theo khung. */
+.btn { background-image: var(--grain); background-size: 128px 128px; }
+.btn-sm { min-height: var(--tap); padding: 7px 11px; font-size: 14px; }
+.btn-big { width: 100%; font-size: 18px; padding: 13px; margin-top: 12px; }
+
+/* Vòng focus: nét đứt đỏ như đường cắt trên trang truyện. Bản xanh liền r4 đọc thành "khung focus mặc định của trình
+ * duyệt" (fresh-eyes). Đỏ đậm vẫn ≥ 3:1 trên giấy và kem; nút đỏ có offset nên vòng nằm trên giấy chứ không trên nút. */
+.btn:focus-visible, .icon-btn:focus-visible, .chip:focus-visible,
+.nav-btn:focus-visible, .rank-tab:focus-visible, .elo-card:focus-visible,
+.promo-btn:focus-visible, .chat-input:focus-visible, .chat-send:focus-visible,
+.opt input:focus-visible, button.ml-san:focus-visible {
+  outline: 3px dashed var(--red);
+  outline-offset: 3px;
+}
+
+/* ---------- icon nét mực (js/ui-icons.js): f = mảng tô viền mực, s = nét, p = chấm mực ---------- */
+.ic { display: block; width: 22px; height: 22px; stroke: var(--ink); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.ic .ic-f { fill: #fff; fill-rule: evenodd; }
+.ic .ic-s { fill: none; stroke-width: 2.6; }
+.ic .ic-p { fill: var(--ink); stroke: none; }
+/* Thanh tiêu đề đỏ: nét cũng trắng, bóng cứng mực 2 px như chữ tiêu đề (filter tĩnh, không động) */
+.icon-btn .ic { width: 26px; height: 26px; margin: auto; filter: drop-shadow(2px 2px 0 var(--ink)); }
+.icon-btn .ic .ic-s { stroke: #fff; }
+.nav-btn .ic { margin: auto; }
+.btn-ic .ic { width: 18px; height: 18px; }
+
+/* ---------- khối dựng trang (dùng ở P03+) ---------- */
+.panel { position: relative; background: #fff; border: var(--ink-1) solid var(--ink); box-shadow: var(--shadow-1); }
+.dots { background-image: var(--halftone); background-size: 9px 9px; }
+.cap-label {
+  display: inline-block; padding: 2px 8px;
+  background: var(--yellow); border: var(--ink-2) solid var(--ink);
+  font: 900 13px/1.2 var(--font-body); color: var(--ink);
+}
+.cta {
+  background: var(--red); color: #fff;
+  border: var(--ink-1) solid var(--ink); box-shadow: var(--shadow-1);
+  font: 400 22px/1.1 var(--font-title); text-shadow: 2px 2px 0 var(--ink);
+}
+.boom {
+  background: var(--yellow); color: var(--ink);
+  font: 400 15px/1 var(--font-title);
+  clip-path: polygon(50% 0, 62% 30%, 100% 20%, 72% 50%, 100% 80%, 62% 70%, 50% 100%, 38% 70%, 0 80%, 28% 50%, 0 20%, 38% 30%);
+}
+
+/* ===== css/app-shell.css ===== */
+/* app-shell.css — khung trang: #app, vùng an toàn tai thỏ, bảng tuỳ chọn, bề rộng theo khổ máy
+ *
+ * Tách từ style.css (P07 plan art AAA). Nạp ĐÚNG chỗ cũ của style.css, ngay sau comic-base.css: xoá style.css là chuyển
+ * chỗ, không đổi hình — thứ tự giữa các khối cũ giữ nguyên trong app-shell → lobby → rank → dialogs.
+ */
+
+html, body { -webkit-text-size-adjust: 100%; overscroll-behavior: none; }
+
+#app {
+  max-width: 560px;
+  margin: 0 auto;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  /* Vung an toan tai tho — tren lan duoi */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+/* Tat = mo di va gach cheo. Chi mo thoi thi kho nhan ra, nhat la ngoai nang. */
+.audio-btn.off { opacity: 0.38; position: relative; }
+.audio-btn.off::after {
+  content: ''; position: absolute;
+  left: 20%; right: 20%; top: 50%;
+  height: 3px; background: var(--ink);
+  transform: rotate(-20deg);
+  border-radius: 2px;
+}
+
+/* Bang tuy chon NOI len tren noi dung thay vi day noi dung xuong.
+ * Ly do: no nam trong luong nen mo ra la day toan bo xuong ~240px, trong khi ban co
+ * van tinh chieu cao theo 100dvh tru mot hang so co dinh — tong vuot qua man hinh,
+ * sinh cuon doc o khung may tinh von khong nen co cuon. */
+.settings-panel {
+  position: absolute; left: 0; right: 0; z-index: 40;
+  background: var(--panel);
+  border-bottom: var(--ink-1) solid var(--ink);
+  box-shadow: 0 5px 0 rgba(17, 17, 17, .25);
+  padding: 10px 14px;
+}
+#app { position: relative; }
+.opt {
+  display: flex; align-items: center; gap: 10px;
+  min-height: var(--tap);
+  font-size: 15px; cursor: pointer;
+}
+.opt input { width: 20px; height: 20px; accent-color: var(--accent); }
+
+main { flex: 1; display: flex; flex-direction: column; }
+.screen { flex: 1; display: flex; flex-direction: column; }
+.screen[hidden] { display: none; }
+
+
+
+/* ================= KHUNG VUA (tablet doc, cua so trung binh) =================
+ * Truoc day #app chan cung 560px, ma layout 3 cot lai doi toi 900px moi bat. Khoang
+ * giua bi bo roi: tablet doc 768x1024 chi dung 560px, thua 208px moi ben. Chua den
+ * muc chia cot — chia cot o tablet doc thi ban co bi bop nho, mat dung thu dang nhin. */
+@media (min-width: 620px) {
+  #app { max-width: 720px; }
+}
+
+/* ================= KHUNG NGANG / MAY TINH =================
+ *
+ * LOI DA SUA: truoc day thieu `align-content: start`. Luoi CSS mac dinh KEO GIAN
+ * cac hang de lap day chieu cao container, ma `.screen` lai `flex: 1` cua mot khung
+ * cao bang ca man hinh. Hau qua: cua so cang cao thi cac hang cang bi day xa nhau,
+ * dong trang thai va hang nut troi han xuong day man hinh.
+ *
+ * Loi nay KHONG lo ra o man hinh thap (720px vua khit), chi lo tren man cao —
+ * dung kieu loi de bo sot khi chi thu tren mot co man hinh.
+ *
+ * DIEU KIEN DA DOI: truoc dung `orientation: landscape`, nhung mot cua so may tinh
+ * cao hon rong VAN LA may tinh — no bi day ve layout dien thoai mot cach vo ly.
+ * Do `min-height` giu dung y ban dau (khong bat 3 cot tren may nam ngang bet) ma
+ * khong loai oan cua so dang doc.
+ */
+@media (min-width: 900px) and (min-height: 560px) {
+  /* Không chặn bề rộng #app: thanh trên phải chạm hai mép (trần 1400 px để hở 20 px mỗi bên ở 1440). Mỗi màn tự chặn
+   * nội dung của nó (sảnh 760, xếp hạng 960, màn chơi chia ba khung). */
+  #app { max-width: none; }
+}
+
+/* ===== css/lobby.css ===== */
+/* lobby.css — sảnh chọn mèo (tách từ style.css, P07 plan art AAA) */
+
+/* ---------- sảnh: lưới 4×2 + khung chi tiết có nút Đấu (P07 plan art AAA) ----------
+ * Nút chính PHẢI nằm trên mép màn 375×667: r4 danh sách dọc 8 thẻ đẩy nút "Đấu" xuống 618 px dưới mép 390×844.
+ * Thẻ chỉ còn mặt + tên + sao; mô tả, Elo, thành tích của con ĐANG CHỌN dồn vào khung chi tiết (ui-menu.js). */
+.screen-menu { padding: 10px 14px 8px; gap: 10px; }
+.menu-hero { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.menu-body { display: flex; flex-direction: column; gap: 8px; }
+.menu-tag {
+  margin: 0; padding: 4px 10px; max-width: 34ch;
+  background: var(--yellow); border: var(--ink-2) solid var(--ink); box-shadow: var(--shadow-3);
+  font: 700 13px/1.35 var(--font-body); color: var(--ink); text-align: center;
+}
+.sec-title {
+  align-self: flex-start; margin: 2px 0 0; padding: 2px 10px;
+  background: var(--ink); color: #fff; font: 400 15px/1.35 var(--font-title);
+}
+
+.resume-box { display: flex; flex-direction: column; gap: 6px; }
+.resume-box[hidden] { display: none; }
+.btn-resume { display: flex; flex-direction: column; gap: 2px; align-items: flex-start; text-align: left; }
+.resume-title { font-size: 16px; font-weight: 700; }
+.resume-desc { font-size: 13px; opacity: 0.8; font-weight: 500; }
+
+.elo-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.elo-card {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  min-width: 0; padding: 6px 2px 5px;
+  background: #fff; color: var(--ink);
+  border: var(--ink-2) solid var(--ink); border-radius: 0; box-shadow: var(--shadow-2);
+  text-align: center; cursor: pointer; font-family: inherit;
+  transition: transform .12s, box-shadow .12s;
+}
+/* Chọn = nhấc lên khỏi trang (bóng dài ra) + nền vàng, cùng ngôn ngữ nút bấm */
+.elo-card.sel { background: var(--yellow); transform: translate(-2px, -2px); box-shadow: var(--shadow-1); }
+.elo-card:active { transform: translate(2px, 2px); box-shadow: none; }
+
+.elo-avatar {
+  flex: 0 0 auto; width: 54px; height: 54px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%; border: var(--ink-3) solid var(--ink); overflow: hidden;
+}
+.elo-card.sel .elo-avatar { background: #fff; }
+.elo-avatar svg { display: block; }
+
+.elo-info { display: flex; flex-direction: column; align-items: center; gap: 1px; width: 100%; min-width: 0; }
+.elo-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 400 14px/1.25 var(--font-title); }
+.elo-tag, .elo-num, .elo-stats { display: none; }
+
+/* Khung chi tiết: mặt to + tên + mô tả + thành tích riêng con này, nút Đấu ngay dưới */
+.pick-detail {
+  display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 4px 12px;
+  padding: 10px 12px 12px;
+  background: #fff; border: var(--ink-1) solid var(--ink); box-shadow: var(--shadow-1);
+}
+.pick-face {
+  width: 76px; height: 76px; display: flex; align-items: center; justify-content: center;
+  border-radius: 50%; background: var(--pink); border: var(--ink-2) solid var(--ink); overflow: hidden;
+}
+.pick-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pick-name { font: 400 22px/1.15 var(--font-title); }
+.pick-tag { font-size: 13px; color: var(--text-dim); }
+.pick-rec { font-size: 12px; font-weight: 800; color: var(--text-dim); }
+.pick-detail .btn-play { grid-column: 1 / -1; margin-top: 8px; padding: 11px; font: 400 21px/1.1 var(--font-title);
+  border-width: var(--ink-1); box-shadow: var(--shadow-1); text-shadow: 2px 2px 0 var(--ink); }
+
+/* Dải sao chấp nhận NỬA sao: năm sao rỗng, đè lên bằng dải năm sao đặc bị cắt bớt bề ngang (ui-elo-picker.js).
+   Không dùng ký tự nửa sao — nhiều font không có, font có thì bề ngang lệch so với sao thường. */
+.elo-stars {
+  /* max-content: trong cột flex (khung chi tiết) dải bị kéo giãn hết bề ngang → % của lớp sao đặc tính sai */
+  display: inline-block; position: relative; vertical-align: middle; width: max-content;
+  font-size: 11px; line-height: 1; letter-spacing: 1px; white-space: nowrap; color: var(--text-dim);
+}
+.elo-stars::before { content: "☆☆☆☆☆"; }
+.elo-stars > i {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  overflow: hidden; white-space: nowrap;
+  font-style: normal; color: var(--accent-text);
+}
+.elo-stars > i::before { content: "★★★★★"; }
+
+.menu-summary {
+  padding: 8px 10px; background: var(--cream); border: var(--ink-3) solid var(--ink);
+  font-size: 13px; font-weight: 600; color: var(--ink); text-align: center;
+}
+.color-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.color-label { font-size: 13px; color: var(--text-dim); }
+.color-btn.sel { background: var(--yellow); }
+.screen-menu .btn-big { margin-top: 0; }
+
+/* Máy thấp (375×667 …): huy hiệu co lại để nút Đấu vẫn trên mép màn */
+@media (max-height: 720px) { .menu-hero .menu-cat img { width: 72px; } }
+
+/* Desktop: chặn bề ngang 760 px giữa trang giấy, mặt mèo to hơn, cả khối căn giữa dọc — r4 sảnh desktop để trống
+ * ~35 % đáy trang */
+@media (min-width: 900px) and (min-height: 560px) {
+  .screen-menu { width: 100%; max-width: 760px; margin: 0 auto; justify-content: center; gap: 8px; padding-top: 6px; }
+  .menu-body { gap: 8px; }
+  .elo-grid { gap: 12px; }
+  .elo-card { padding: 8px 4px 6px; }
+  .elo-avatar { width: 66px; height: 66px; }
+  .elo-name { font-size: 17px; }
+  .pick-face { width: 84px; height: 84px; }
+  .pick-name { font-size: 28px; }
+  /* Hai bên cột sảnh / xếp hạng là ~340 px giấy trống: tia nắng truyện tranh toả từ linh vật, như bìa truyện. Chỉ là
+   * nền body (0 node, không động); thẻ trắng của cột che tia nên chữ không bị đè. */
+  body[data-screen="menu"], body[data-screen="rank"] {
+    background: repeating-conic-gradient(from -3deg at 50% 120px, rgba(255, 225, 77, .34) 0 6deg, transparent 6deg 12deg),
+      var(--grain) 0 0 / 128px 128px, var(--halftone) 0 0 / 9px 9px, var(--paper);
+  }
+}
+
+/* ===== css/rank.css ===== */
+/* rank.css — thành tích + bảng xếp hạng (tách từ style.css, P07 plan art AAA) */
+
+/* Khối desktop đứng TRƯỚC luật thường như ở style.css cũ: `.rank-note { margin: 0 }` sau nó thắng phần căn giữa */
+@media (min-width: 900px) and (min-height: 560px) {
+  .screen-rank { width: 100%; max-width: 960px; margin: 0 auto; }
+  .rank-note, .rank-empty { max-width: 62ch; margin-left: auto; margin-right: auto; }
+}
+
+/* ---------- thành tích / xếp hạng: ô tranh truyện (P07 plan art AAA) ----------
+ * r4 fresh-eyes: "năm ô số phẳng" (auto-fail #5 thẻ phẳng) + nút "Quay lại" bị cắt ở đáy 390×844. */
+.screen-rank { padding: 12px 14px 12px; gap: 10px; }
+.rank-body { display: flex; flex-direction: column; gap: 10px; }
+
+.stat-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.stat-cell {
+  display: flex; flex-direction: column; gap: 0;
+  padding: 6px 10px 5px; background: #fff;
+  border: var(--ink-2) solid var(--ink); box-shadow: var(--shadow-2);
+}
+/* Ô lẻ cuối cùng trải hai cột: lưới 2×3 không để một ô mồ côi bên trái */
+.stat-cell:last-child:nth-child(odd) { grid-column: 1 / -1; }
+.stat-k { font-size: 12px; font-weight: 700; color: var(--text-dim); }
+.stat-v { font: 400 22px/1.2 var(--font-title); color: var(--ink); }
+
+.auth-box { display: flex; flex-direction: column; gap: 8px; align-items: stretch; }
+.auth-name { font-size: 14px; font-weight: 600; }
+
+.rank-tabs { display: flex; gap: 8px; }
+.rank-tab {
+  flex: 1; min-height: 42px;
+  border: var(--ink-2) solid var(--ink); border-radius: 0; box-shadow: var(--shadow-3);
+  background: #fff; color: var(--ink);
+  font: 800 13px/1.15 var(--font-body); cursor: pointer;
+}
+.rank-tab.sel { background: var(--yellow); }
+
+.rank-list { display: flex; flex-direction: column; gap: 4px; }
+.rank-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 5px 10px; background: #fff; border: var(--ink-3) solid var(--ink);
+  font-size: 14px; font-weight: 600;
+}
+.rank-row.me { background: var(--yellow); }
+/* `flex: 0 0 40px` chu khong phai `width: 40px` don thuan: la o trong flex nen no van
+   co lai duoc, va chu dai hon o thi tran ra de len ten ben canh. Da gap that — bang
+   hien "#undefined" thi de chong len ten nguoi choi, doc ra thanh mot mo chu dinh nhau. */
+.rank-no { flex: 0 0 40px; overflow: hidden; font: 400 16px/1.3 var(--font-title); color: var(--ink); }
+.rank-row:nth-child(1) .rank-no { color: var(--red); }
+.rank-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rank-val { font-weight: 800; color: var(--accent-text); }
+
+/* Dính đáy màn: bảng dài hơn màn thì nút vẫn thấy, không bị cắt như r4 */
+#btn-rank-back { position: sticky; bottom: 10px; z-index: 2; margin-top: 4px; }
+
+.rank-empty { color: var(--text-dim); font-size: 14px; text-align: center; padding: 16px; }
+.rank-empty.err { color: var(--danger-text); }
+.rank-note { font-size: 12px; color: var(--text-dim); margin: 0; }
+
+/* Đường sang trang hồ sơ cả cổng game. Vùng chạm cao 40px: đây là liên kết chứ
+   không phải nút, nhưng ngón tay thì không phân biệt hai thứ đó. */
+.rank-hoso {
+  display: block; min-height: 40px; line-height: 40px;
+  font-size: 13px; color: var(--accent-text, var(--accent));
+  text-decoration: none;
+}
+.rank-hoso:hover { text-decoration: underline; }
+
+
+/* ===== css/dialogs.css ===== */
+/* dialogs.css — hộp phong cấp, dải báo bản mới, thông báo ngắn, giảm chuyển động (tách từ style.css, P07 art AAA)
+ * Hộp kết quả + hộp xác nhận KHÔNG ở đây: result-card.css + ui-confirm-dialog.js (P04). */
+
+/* ---------- hop phong cap ---------- */
+.promo-overlay {
+  position: fixed; inset: 0; z-index: 50;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,.6);
+  opacity: 0; transition: opacity .15s;
+  padding: 16px;
+}
+.promo-overlay.show { opacity: 1; }
+.promo-box {
+  background: var(--panel); border: 2px solid var(--line);
+  border-radius: 18px; padding: 16px; max-width: 380px; width: 100%;
+}
+.promo-title { text-align: center; font-weight: 700; margin-bottom: 12px; }
+.promo-row { display: flex; gap: 8px; }
+.promo-btn {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  min-height: 78px; padding: 8px;
+  border: 2px solid var(--line); border-radius: 12px;
+  background: var(--sq-light); cursor: pointer;
+  font-family: inherit;
+}
+.promo-btn:active { border-color: var(--accent); }
+.promo-piece { width: 44px; height: 44px; }
+.promo-name { font-size: 12px; color: #2b2118; font-weight: 600; }
+
+/* ---------- dai bao co ban moi ----------
+ * Nam duoi cung man hinh, tren moi thu khac. Khong tu bien mat: nguoi choi phai
+ * tu chon "Tai lai" hoac "De sau" — bao roi tu tat thi coi nhu khong bao.
+ */
+.update-bar {
+  position: fixed; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom));
+  transform: translate(-50%, 16px);
+  z-index: 90;
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: 14px;
+  background: var(--panel); border: 1px solid var(--accent);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .4);
+  opacity: 0; transition: opacity .25s, transform .25s;
+  max-width: calc(100vw - 24px);
+}
+.update-bar.show { opacity: 1; transform: translate(-50%, 0); }
+.update-text { font-size: 14px; font-weight: 600; }
+
+/* ---------- thong bao ngan ---------- */
+.toast {
+  position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom));
+  transform: translate(-50%, 12px);
+  z-index: 80;
+  padding: 11px 18px; border-radius: 22px;
+  background: var(--panel); border: 1px solid var(--line);
+  font-size: 14px; box-shadow: 0 6px 18px rgba(0,0,0,.35);
+  opacity: 0; transition: opacity .22s, transform .22s;
+  max-width: 90vw; text-align: center;
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+/* ================= GIAM CHUYEN DONG =================
+ * cat-animations.css da co khoi rieng nhung PHAM VI chi la `.cat *, .cat` — tuc chi
+ * con meo. Bo sot toan bo chuyen dong khai trong tep nay, trong do co
+ * `.piece { transition: transform .18s }` la CHUYEN DONG LON NHAT cua mot game co:
+ * quan truot tren ban moi nuoc di.
+ *
+ * KHONG dung `*` chung chung: `.piece.dragging` da co `transition: none` kem ghi chu
+ * "keo phai bam ngon tay". Tat o day khong dung toi thao tac keo cua nguoi choi —
+ * chi bo phan truot muot khi MAY di quan.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .piece, .bubble, .toast,
+  .promo-overlay, .result-overlay,
+  .chat-log, .btn, .icon-btn, .nav-btn, .chip {
+    transition: none !important;
+    animation: none !important;
+  }
+  /* Bu lai: khong con truot thi o sang danh dau nuoc vua di la manh moi duy nhat
+     cho biet may vua di dau — to no dam hon cho de bat. */
+  .mk-last { fill: var(--pink); opacity: 1; }
+}
+
+/* ===== css/board.css ===== */
+/* board.css — bàn cờ in truyện tranh: khung mực, ô giấy/nghệ, dấu nước, quân (P02 plan art AAA; tên file wow T7a dùng)
+ *
+ * `.board` CHÍNH LÀ thẻ <svg> (board-svg-render.js) → box-shadow ngoài vẽ được: vòng mực = spread, bóng cứng = bóng lệch
+ * cùng spread. 4 px viền + 5 px bóng = 9 px ra ngoài svg, vừa lề mobile 10 px — thu svg lại là phá luật chạm 44 px.
+ */
+
+.board {
+  width: 100%; height: auto; display: block;
+  border-radius: 0; overflow: hidden;
+  box-shadow: 0 0 0 var(--ink-1) var(--ink), 5px 5px 0 var(--ink-1) var(--ink);
+  /* BẮT BUỘC: không có dòng này thì kéo quân sẽ cuộn trang trên điện thoại */
+  touch-action: none;
+  -webkit-user-select: none; user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Màu sau url() là lưới đỡ khi pattern không có — ô vẫn đúng màu phẳng. Ô = nền màu (+ chấm halftone) + vân giấy
+ * (`paper-l` / `paper-d`, board-comic-pattern.js) */
+.sq-light { fill: url(#paper-l) var(--sq-light); }
+.sq-dark { fill: url(#paper-d) var(--sq-dark); }
+.sq-base-l { fill: var(--sq-light); }
+.sq-base-dh { fill: url(#halftone-d) var(--sq-dark); }
+.sq-base-d { fill: var(--sq-dark); }
+/* Chấm mực 8 %: đậm hơn thì ô nghệ ngả xám và quân đen chìm (rủi ro plan P02) */
+.sq-dot { fill: var(--ink); opacity: .08; }
+
+/* Mực trên CẢ HAI màu ô: chữ giấy trên nghệ #f2b632 chỉ ~1,9:1 (lệch plan "giấy trên ô tối", đo trước khi đổi) */
+.coord { font: 800 15px var(--font-body); pointer-events: none; }
+/* Điện thoại: 15/800 đơn vị ở bàn ~370 px chỉ còn ~7 px chữ (fresh-eyes r4) → 21 ≈ 10 px */
+@media (max-width: 480px) { .coord { font-size: 21px; } }
+.coord-on-light { fill: rgba(17, 17, 17, .62); }
+.coord-on-dark { fill: rgba(17, 17, 17, .78); }
+
+.mk { pointer-events: none; }
+/* Nước vừa đi tô HỒNG chứ không vàng như plan: vàng 50 % trên ô nghệ gần như không thấy; xanh (thử r2a) trộn với
+ * nghệ ra xám đục. Hồng phủ gần kín ô vẫn khác hẳn đỏ của ô bị chiếu. */
+.mk-last { fill: var(--pink); opacity: .9; }
+.mk-check { fill: var(--mk-check); stroke: var(--ink); stroke-width: 4; }
+.mk-selected { fill: var(--yellow); fill-opacity: .7; stroke: var(--ink); stroke-width: 10; }   /* r8: viền 6 mảnh như lưới ô */
+
+.dot { pointer-events: none; }
+/* Chấm vàng viền mực dày: chấm kem r4 chìm trên ô kem, chấm mực .72 r8 đọc thành "đĩa ô liu trơn" (fresh-eyes) */
+.dot-move { fill: var(--yellow); stroke: var(--ink); stroke-width: 6; }
+.dot-capture { fill: none; stroke: var(--ink); stroke-width: 6; }
+.dot-capture-in { fill: none; stroke: var(--cream); stroke-width: 4; }
+
+.piece {
+  cursor: grab;
+  transition: transform .18s ease;
+}
+.piece.dragging {
+  cursor: grabbing;
+  transition: none;                 /* kéo phải bám ngón tay, không được trễ */
+  filter: drop-shadow(4px 4px 0 var(--ink));
+}
+
+/* ---------- khay quân bị ăn (wow T7a chuyển sang game-hud.css ở P03) ----------
+ * 22 → 28 px: r0 chấm khay 10–12 px khó đếm. Quân khay mang đúng viền mực của quân trên bàn. */
+.cap-row {
+  display: flex; align-items: center; gap: 2px;
+  min-height: 32px; flex-wrap: nowrap;
+  padding-right: 6px;
+  background: var(--panel); border: var(--ink-3) solid var(--ink);
+}
+/* Khay là ô chú thích truyện (r8: "hàng quân 20 px không khung", điện thoại thì đọc như dải giấy trống trên / dưới bàn).
+ * Nhãn ai-ăn là ::before đọc `data-label` (ui-game-hud.js): 0 node thêm vì DOM màn chơi sát trần 1.100. */
+.cap-row::before {
+  content: attr(data-label); align-self: stretch; display: flex; align-items: center;
+  margin-right: 6px; padding: 0 7px;
+  background: var(--yellow); border-right: var(--ink-3) solid var(--ink);
+  font: 900 11px/1 var(--font-body); color: var(--ink); white-space: nowrap;
+}
+/* KHÔNG xuống hàng: khay hai hàng ở 375×812 đẩy hàng nút ra khỏi màn (fresh-eyes r4, lỗi tự trượt #7) — chiều cao màn
+ * chơi tính sẵn MỘT hàng khay trong --game-chrome. Cùng loại thì xếp chồng như xấp bài; ăn hết 15 quân mà vẫn chật thì
+ * min-width 0 cho quân co nhỏ lại thay vì tràn. */
+.cap-piece { width: 28px; height: 28px; min-width: 0; }
+.cap-piece[data-type="p"] + [data-type="p"], .cap-piece[data-type="n"] + [data-type="n"],
+.cap-piece[data-type="b"] + [data-type="b"], .cap-piece[data-type="r"] + [data-type="r"] { margin-left: -17px; }
+.cap-diff {
+  margin-left: 6px; padding: 0 6px;
+  background: var(--yellow); border: var(--ink-3) solid var(--ink); box-shadow: var(--shadow-3);
+  font: 900 14px/1.4 var(--font-body); color: var(--ink);
+}
+/* Điểm chia = 50 % ± 5 % mỗi điểm quân (kẹp ±10 → 0–100 %); phe dưới luôn nằm bên trái */
+.mat-bar {
+  --cut: calc(50% + var(--mat, 0) * 5%);
+  flex: 0 0 auto;
+  margin-left: 6px; width: 72px; height: 12px;
+  border: var(--ink-3) solid var(--ink); box-shadow: var(--shadow-3);
+  /* Vạch đỏ giữa = điểm cân bằng: thanh đọc ra "bên nào hơn", không chỉ là một khối hai màu (r8 "không rõ nghĩa") */
+  --tick: linear-gradient(var(--red), var(--red)) center / 2px 100% no-repeat;
+  background: var(--tick), linear-gradient(90deg, #fff var(--cut), #1b1b1b var(--cut));
+}
+.mat-bar.mat-b { background: var(--tick), linear-gradient(90deg, #1b1b1b var(--cut), #fff var(--cut)); }
+/* Nhãn nằm TRONG hàng (không ::before tuyệt đối): khay đầy thì nhãn bị đẩy chứ không đè lên quân.
+ * r4 fresh-eyes đọc thanh này là "một thanh không tên dưới bàn". */
+.mat-label { margin-left: auto; padding-left: 6px; font: 900 11px/1 var(--font-body); color: var(--ink); letter-spacing: .04em; }
+
+/* Bóng đổ của quân (CC.Pieces.onBoard): hình bóng quân lệch xuống-phải như bóng cứng của khung và nút. Mực .3 r4 đọc
+ * thành "bóng mờ nhoè"; mực đặc thì quân đen (thân #1b1b1b) phình sang phải, mất dáng → .6, nét bằng viền mực của quân. */
+.piece-shadow { fill: var(--ink); stroke: var(--ink); stroke-width: 5; opacity: .6; pointer-events: none; transform: translate(5px, 4px); }
+/* Quân đang chọn nhấc 7 đơn vị; bóng ở lại mặt bàn (dịch ngược 7) và lệch xa hơn: quân càng cao bóng càng xa */
+.piece.is-picked > .piece-shape { transform: translateY(-7px); }
+.piece.is-picked .piece-shadow { transform: translate(8px, 13px); }
+
+/* Ô ~46 px (P05, cổng đọc 3 lượt): nét 5/100 chỉ còn ~2,3 px nên dày lên một chút — nhưng 6,5 thì mực nuốt thân trắng
+ * (Xe trắng trên ô cam bị đọc thành đen), và viền kem của quân đen hoà vào ô kem (Vua đen đọc thành trắng). Màn hẹp: một
+ * nét 5,5 cho cả hai phe, bỏ viền kem; quân đen vẫn khác quân trắng ở vòng cổ xanh + vệt sáng xám.
+ * CSS thắng thuộc tính `stroke-width` của build(); hình xuất cho Godot không mang CSS nên không bị ảnh hưởng. */
+@media (max-width: 480px) {
+  .pc-ink { stroke-width: 5.5; }
+  .pc-rim { display: none; }
+}
+
+/* ===== css/game-page.css ===== */
+/* game-page.css — bố cục màn chơi kiểu trang truyện (P03 plan art AAA = wow T7a + T7b)
+ *
+ * Điện thoại (dọc): khung tranh mèo → khay trên → bàn → khay dưới → xem lại → hàng 5 nút; chat nằm trong tấm trượt.
+ * Desktop ≥ 900×560: ba khung tranh cạnh nhau — mèo | bàn | hành động + sổ nước + chat.
+ * Bàn là phần co giãn DUY NHẤT: `--board-size` lấy cạnh hẹp hơn giữa bề ngang và chiều cao còn lại. `--game-chrome` =
+ * tổng mọi hàng KHÁC bàn (đo bằng census harness, không đoán) — thêm một hàng mà quên cộng vào đây là trang tràn mép.
+ */
+
+/* ---------- thanh tiêu đề: nút ‹ chỉ có nghĩa trong ván; ẩn mà vẫn giữ chỗ để tiêu đề không nhảy ---------- */
+.btn-back { font-size: 32px; line-height: 1; }
+body:not([data-screen="game"]) .btn-back { visibility: hidden; }
+
+/* ---------- điện thoại ---------- */
+.screen-game {
+  --gutter: 10px;
+  --game-chrome: 404px;
+  --board-size: min(calc(100vw - 2 * var(--gutter)), calc(100dvh - var(--game-chrome)));
+  /* Máy dọc cao (390×844): bàn chạm bề ngang trước, phần dư dồn xuống đáy thành một khoảng trống ~90 px (r4) →
+   * khung tranh mèo nhận phần dư đó (cat-panel-scene.css). Máy thấp: âm → 0, không đổi gì. */
+  --slack: clamp(0px, calc(100dvh - var(--game-chrome) - 100vw + 2 * var(--gutter)), 96px);
+  padding: 10px var(--gutter) 12px;
+  gap: 8px;
+}
+
+.talk-col {
+  position: relative; z-index: 2;
+  flex: 1; min-width: 0; align-self: stretch;
+  display: flex; flex-direction: column; justify-content: center; align-items: flex-start; gap: 6px;
+  padding: 2px 0 10px;
+}
+.bubble-host { position: relative; width: 100%; }
+
+/* Ô thoại truyện tranh: viền mực, bóng cứng cấp 2, đuôi chỉ về mèo (bên trái) */
+.bubble {
+  position: relative;
+  background: #fff; color: var(--ink);
+  border: var(--ink-2) solid var(--ink); border-radius: 18px;
+  box-shadow: var(--shadow-2);
+  padding: 8px 12px;
+  font: 600 14px/1.35 var(--font-body);
+  opacity: 0; transform: translateY(6px) scale(.97);
+  transition: opacity .18s, transform .18s;
+  pointer-events: none;
+}
+.bubble.show { opacity: 1; transform: none; }
+.bubble::before, .bubble::after {
+  content: ''; position: absolute; top: 50%; border: solid transparent; border-left: 0;
+}
+.bubble::before { left: -14px; margin-top: -9px; border-width: 9px 14px 9px 0; border-right-color: var(--ink); }
+.bubble::after { left: -9px; margin-top: -6px; border-width: 6px 10px 6px 0; border-right-color: #fff; }
+.bubble-text { min-height: 1.35em; }
+
+/* Lượt đi = ô chú thích vàng của truyện tranh; chiếu = ô đỏ */
+.status {
+  padding: 3px 10px;
+  background: var(--yellow); color: var(--ink);
+  border: var(--ink-2) solid var(--ink); box-shadow: var(--shadow-3);
+  font: 900 14px/1.3 var(--font-body);
+}
+.status:empty { visibility: hidden; }
+/* MỘT dòng: r4 "Vàng đang nghĩ… · CHIẾU!" gãy hai dòng trên điện thoại (fresh-eyes) → chữ chiếu ngắn lại (ui-game-hud.js) */
+.status { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.status.check { background: var(--red); color: #fff; }
+/* Dải lượt = màu vòng cổ của quân bên đang đi (P08). Theo MÀU quân như vòng cổ, không theo phe: anh cầm Đen thì
+ * lượt anh là dải xanh — khớp với quân trên bàn hơn là "anh luôn đỏ".
+ * Dải là bóng TRONG nằm gọn trong lề trái: bản chấm tròn ::before ăn 16 px bề ngang → "Đến lượt Anh" bị cắt ở 390 px. */
+.status[data-turn] { padding-left: 15px; }
+.status[data-turn="w"] { box-shadow: inset 6px 0 0 var(--red), inset 9px 0 0 var(--ink), var(--shadow-3); }
+.status[data-turn="b"] { box-shadow: inset 6px 0 0 var(--blue), inset 9px 0 0 var(--ink), var(--shadow-3); }
+.status.check { box-shadow: var(--shadow-3); padding-left: 10px; }
+.status.tight { font-size: 12px; letter-spacing: -.2px; white-space: normal; text-wrap: balance; }   /* ui-game-hud.js fit() */
+
+.engine-state {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  padding: 3px 10px;
+  background: var(--yellow); border: var(--ink-2) solid var(--ink); box-shadow: var(--shadow-3);
+  font: 800 13px/1.3 var(--font-body); color: var(--ink);
+}
+.engine-state .err { color: var(--danger-text); }
+
+.board-col { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.board-host { display: flex; justify-content: center; width: 100%; }
+.board { width: var(--board-size); }
+/* Khay rộng bằng VÒNG MỰC của bàn (svg + 4 px mỗi bên): mép khay thẳng mép khung, khay đọc như ô chú thích của bàn */
+#cap-top, #cap-bot { width: calc(var(--board-size) + 2 * var(--ink-1)); }
+
+.side-col { display: flex; flex-direction: column; gap: 6px; }
+.game-actions { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) 52px; gap: 6px; }
+.game-actions .btn { display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 6px 2px; font-size: 14px; }
+/* Điện thoại: ô nút ~73 px không đủ icon + "Xin thua" trên một dòng → chỉ chữ; desktop có icon */
+.btn-ic { display: none; }
+/* Icon vẽ mực thay emoji 💬: emoji tô theo font hệ điều hành, lạc giữa các nút viền mực (fresh-eyes r4) */
+.btn-chat { display: flex; align-items: center; justify-content: center; padding: 0; }
+.ic-chat { width: 26px; height: 26px; fill: #fff; stroke: var(--ink); stroke-width: 2.2; stroke-linejoin: round; }
+.ic-chat .ic-dots { stroke-width: 3; stroke-linecap: round; }
+/* Tắt = vẫn là ô mực, chỉ mờ chữ + bỏ bóng. Mờ cả khối (.3–.45) thì viền mực thành viền xám, đọc như ô trống (r1 #2) */
+.btn:disabled, .nav-btn:disabled { opacity: 1; cursor: default; box-shadow: none; background: var(--paper); color: rgba(17, 17, 17, .28); }
+
+/* ---------- thanh xem lại nước đi ---------- */
+.nav-host { display: flex; justify-content: center; }
+.move-nav { display: flex; align-items: center; gap: 8px; }
+.nav-btn {
+  min-width: 52px; min-height: var(--tap);
+  border: var(--ink-2) solid var(--ink); border-radius: 0;
+  background: #fff; color: var(--ink); box-shadow: var(--shadow-3);
+  font: 900 22px/1 var(--font-body); cursor: pointer;
+}
+.nav-btn:active:not(:disabled) { transform: translate(2px, 2px); box-shadow: none; }
+.nav-label { min-width: 118px; text-align: center; font: 800 12px/1.3 var(--font-body); color: var(--accent-text); }
+.move-nav:not(.reviewing) .nav-label { color: var(--text-dim); }
+.nav-live { padding: 6px 10px; font-size: 12px; }
+/* Đang xem lại: viền xanh trong bàn, để không nhầm với ván đang chơi */
+body.reviewing .board { outline: 4px solid var(--blue); outline-offset: -4px; }
+
+/* ---------- sổ nước đi (chỉ desktop) ---------- */
+.move-list { display: none; }
+/* Ô trong sổ nước bấm được. Khai TRƯỚC khối desktop: `font: inherit` đặt sau sẽ xoá nét đậm của nước */
+.ml-san { border: 0; background: none; color: inherit; font: inherit; text-align: left; padding: 0; }
+button.ml-san { cursor: pointer; }
+button.ml-san:hover { background: var(--yellow); }
+
+/* Màn thấp (iPhone SE …): mèo co trước, bàn giữ ≥ 280 px (ưu tiên của wow T7a) */
+@media (max-height: 720px) {
+  .screen-game { --game-chrome: 352px; gap: 6px; padding-top: 8px; }
+  .bubble { font-size: 13px; padding: 6px 10px; }
+}
+
+/* ---------- desktop: ba khung tranh ----------
+ * Điều kiện PHẢI trùng mọi khối desktop khác (style.css): lệch nhau là có một khoảng màn hình nửa nọ nửa kia. */
+@media (min-width: 900px) and (min-height: 560px) {
+  .screen-game {
+    --side-w: clamp(220px, 21vw, 320px);
+    --game-chrome: 186px;
+    /* 84 = hai khe trang 22 px + lề trang 2 × 20 px */
+    --board-size: min(calc(100vw - 2 * var(--side-w) - 84px), calc(100dvh - var(--game-chrome)));
+    display: grid;
+    grid-template-columns: var(--side-w) var(--board-size) var(--side-w);
+    grid-template-areas: "cat board side";
+    justify-content: center;
+    align-content: start;      /* không kéo giãn hàng: cửa sổ càng cao các khối càng bị đẩy xa (lỗi cũ) */
+    align-items: stretch;
+    column-gap: 22px;
+    padding: 16px 20px 18px;
+  }
+  .cat-zone { grid-area: cat; }
+  .board-col { grid-area: board; }
+  /* contain: size = cột phải KHÔNG góp chiều cao cho hàng lưới (hàng cao theo bàn), chỉ kéo giãn bằng hàng; sổ nước đi
+   * (flex 1) co lại nhường chat. r10: hai câu chat dài đẩy cả trang dài thêm 13 px ở khung thắng desktop. */
+  .side-col { grid-area: side; gap: 14px; min-height: 0; contain: size; }
+
+  .talk-col { flex: 0 0 auto; align-items: stretch; justify-content: flex-start; padding: 0; gap: 10px; }
+  /* Đuôi ô thoại chĩa XUỐNG về mèo đứng dưới */
+  .bubble::before { left: 34px; top: auto; bottom: -15px; margin: 0;
+    border-width: 15px 9px 0 9px; border-color: var(--ink) transparent transparent; }
+  .bubble::after { left: 37px; top: auto; bottom: -9px; margin: 0;
+    border-width: 10px 6px 0 6px; border-color: #fff transparent transparent; }
+  .status { align-self: flex-start; font-size: 15px; }
+
+  .game-actions { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .game-actions .btn { padding: 9px 6px; font-size: 15px; }
+  .btn-ic { display: block; }
+  /* Phải có `.game-actions`: `.game-actions .btn { display:inline-flex }` ở trên mạnh hơn `.btn-chat` (lỗi r6: nút chat
+   * lẻ một mình ở hàng ba desktop, trong khi khung chat đã hiện sẵn) */
+  .game-actions .btn-chat { display: none; }
+
+  .move-list {
+    order: 2; flex: 1; min-height: 0;
+    display: flex; flex-direction: column;
+    background: #fff; border: var(--ink-1) solid var(--ink); box-shadow: var(--shadow-1);
+  }
+  .ml-title {
+    padding: 4px 10px; background: var(--yellow); border-bottom: var(--ink-2) solid var(--ink);
+    font: 900 13px/1.3 var(--font-body); color: var(--ink);
+  }
+  /* Sổ kẻ dòng + lề đỏ: lúc đầu ván sổ còn trống thì vẫn đọc ra "trang sổ", không phải một hộp trắng rỗng */
+  .ml-body { flex: 1; overflow-y: auto; padding: 0 6px 0 4px; min-height: 60px;
+    font: 600 13px/22px var(--font-body); font-variant-numeric: tabular-nums;
+    background:
+      linear-gradient(90deg, transparent 34px, rgba(212, 42, 51, .55) 34px 36px, transparent 36px),
+      repeating-linear-gradient(#fff 0 21px, #bcd0ee 21px 22px);
+    background-attachment: local; }
+  .ml-row { display: flex; gap: 6px; padding: 0 4px; }
+  .ml-no { width: 26px; color: var(--text-dim); text-align: right; }
+  .ml-san { flex: 1; font-weight: 800; }
+  /* Nước vừa đi tô lên — để bắt kịp đối thủ vừa làm gì */
+  .ml-san.now { color: var(--accent-text); }
+  .ml-empty { padding: 10px; font-size: 12px; color: var(--text-dim); text-align: center; }
+  .chat-host { order: 3; }
+}
+
+/* ===== css/cat-panel-scene.css ===== */
+/* cat-panel-scene.css — khung tranh của mèo: căn phòng vẽ mực 0 byte ảnh (P03 plan art AAA, yêu cầu C + D)
+ *
+ * NGÔN NGỮ SÁNG CỦA CẢ TRANG bắt đầu ở đây: cửa sổ đêm góc trên-trái là nguồn sáng, tia sáng chéo xuống-phải, halftone
+ * dày dần về góc dưới-phải = vùng bóng. Mọi bóng cứng trên trang (panel 5 px, nút 3 px, quân 2 px) lệch xuống-phải cho
+ * khớp với cửa sổ này — thêm khối mới có bóng lệch hướng khác là phá cả bảng sáng.
+ * Sau lưng mèo để YÊN (chỉ nền hồng + nệm): chi tiết dồn ra hai mép khung, không tranh với mặt mèo.
+ */
+
+.cat-zone {
+  position: relative;
+  display: flex; align-items: flex-end; gap: 10px;
+  height: calc(132px + var(--slack, 0px)); padding: 8px 10px 0 8px;
+  background: var(--grain) 0 0 / 128px 128px, var(--pink);
+  border: var(--ink-1) solid var(--ink); box-shadow: var(--shadow-1);
+}
+/* Halftone bóng: mặt nạ chéo làm chấm dày dần về góc xa cửa sổ */
+.cat-zone::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background-image: radial-gradient(rgba(17, 17, 17, .22) 1.6px, transparent 1.9px);
+  background-size: 8px 8px;
+  -webkit-mask-image: linear-gradient(135deg, transparent 40%, #000 100%);
+  mask-image: linear-gradient(135deg, transparent 40%, #000 100%);
+}
+
+.panel-scene { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.panel-scene i { position: absolute; display: block; }
+
+/* Cửa sổ đêm: khung mực 3 px, chấn song chữ thập, trăng kem */
+.ps-window {
+  left: 8px; top: 8px; width: 46px; height: 40px;
+  border: var(--ink-2) solid var(--ink);
+  background:
+    linear-gradient(var(--ink), var(--ink)) center / 3px 100% no-repeat,
+    linear-gradient(var(--ink), var(--ink)) center / 100% 3px no-repeat,
+    radial-gradient(circle at 72% 30%, var(--cream) 5px, transparent 5.5px),
+    var(--blue);
+}
+/* Bậu cửa + chân tường (r8 World mobile 1,5: "cửa sổ và dải sàn là đồ dán rời trên nền hồng"): hai gờ kem viền mực
+ * làm cửa sổ nằm TRONG tường và tường gặp sàn. Đều là pseudo / box-shadow, 0 node. */
+.ps-window::after {
+  content: ''; position: absolute; left: -8px; right: -8px; bottom: -10px; height: 7px;
+  background: var(--cream); border: var(--ink-3) solid var(--ink); box-shadow: var(--shadow-3);
+}
+/* Rèm (r11, fresh-eyes r10 World: "phòng điện thoại chỉ có cửa sổ và đồng hồ"): hai vạt đỏ viền mực + thanh treo phủ
+ * lên mép khung cửa — một lớp đè lên lớp, không phải thêm đồ dán rời. Gradient trên pseudo, 0 node. */
+.ps-window { --drape: 11px; }
+.ps-window::before {
+  content: ''; position: absolute; z-index: 1; left: -10px; right: -10px; top: -8px; bottom: -3px;
+  background:
+    linear-gradient(var(--ink), var(--ink)) 0 0 / 100% 3px no-repeat,
+    linear-gradient(90deg, var(--ink) 0 2px, var(--red) 2px var(--drape), var(--ink) var(--drape) calc(var(--drape) + 2px),
+      transparent calc(var(--drape) + 2px) calc(100% - var(--drape) - 2px), var(--ink) calc(100% - var(--drape) - 2px)
+      calc(100% - var(--drape)), var(--red) calc(100% - var(--drape)) calc(100% - 2px), var(--ink) calc(100% - 2px));
+}
+/* Tia sáng: dải kem trong suốt đi từ cửa sổ xuống-phải */
+.ps-rays {
+  left: 8px; top: 8px; width: 78%; height: 100%;
+  background: repeating-linear-gradient(115deg, rgba(255, 250, 240, .55) 0 10px, transparent 10px 22px);
+  clip-path: polygon(0 0, 42px 0, 100% 100%, 46% 100%);
+  opacity: .8;
+}
+/* Sàn: nét mực ngang + ván gỗ vẽ nét + vệt nắng chỗ tia cửa sổ chạm sàn (r11: đèn của căn phòng có chỗ rơi xuống,
+ * không chỉ là dải sọc trên tường — builder r10 Lighting "phòng không có ánh sáng riêng") */
+.ps-floor {
+  left: 0; right: 0; bottom: 0; height: 26px;
+  border-top: var(--ink-2) solid var(--ink);
+  background:
+    linear-gradient(100deg, transparent 37%, rgba(255, 250, 240, .7) 37% 77%, transparent 77%),
+    repeating-linear-gradient(90deg, transparent 0 46px, rgba(17, 17, 17, .35) 46px 48px),
+    #f5bccb;
+  box-shadow: 0 -8px 0 var(--cream), 0 -11px 0 var(--ink);   /* chân tường: gờ kem 8 px + nét mực trên */
+}
+/* Cuộn len trên sàn, góc phải (vùng bóng): đồ vật TIỀN CẢNH có cỡ thật để so với mèo — tường có cửa sổ / đồng hồ ở hậu cảnh */
+.ps-floor::after {
+  content: ''; position: absolute; right: 22px; bottom: 5px; width: 20px; height: 20px; border-radius: 50%;
+  background: repeating-linear-gradient(40deg, var(--red) 0 4px, var(--ink) 4px 5.5px);
+  border: var(--ink-3) solid var(--ink); box-shadow: var(--shadow-3);
+}
+
+/* Tranh cá treo tường — chỉ desktop có chỗ; điện thoại khung tranh thấp 132 px */
+.ps-frame { display: none; position: absolute; right: 20px; top: 30px; width: 70px; height: 57px;
+  filter: drop-shadow(3px 3px 0 var(--ink)); }
+.ps-frame rect { fill: var(--cream); stroke: var(--ink); stroke-width: 4; }
+.ps-frame path { fill: var(--red); stroke: var(--ink); stroke-width: 3; stroke-linejoin: round; }
+.ps-frame circle { fill: var(--ink); }
+
+/* Kệ tường: sách + cuộn len + chậu cây — chỉ desktop, lấp vách giữa cửa sổ và mèo (fresh-eyes r4 World 1,5: "nửa trên
+ * khung mèo là một mảng hồng trống"). Vẽ tĩnh nên bóng cứng bằng filter không tốn khung hình. */
+.ps-shelf { display: none; position: absolute; filter: drop-shadow(3px 3px 0 var(--ink)); }
+.ps-shelf * { stroke: var(--ink); stroke-width: 3; stroke-linejoin: round; }
+.ps-shelf .sh-b1 { fill: var(--blue); } .ps-shelf .sh-b2 { fill: var(--yellow); } .ps-shelf .sh-b3 { fill: var(--red); }
+.ps-shelf .sh-yarn { fill: var(--red); } .ps-shelf .sh-line { fill: none; stroke-width: 2.5; }
+.ps-shelf .sh-leaf { fill: var(--ok); } .ps-shelf .sh-pot { fill: var(--cream); } .ps-shelf .sh-plank { fill: var(--cream); }
+/* Đồng hồ tai mèo: lấp vách phải, lệch dưới kệ trái → đường chéo cửa sổ → kệ → đồng hồ → mèo */
+.ps-clock { display: none; position: absolute; filter: drop-shadow(3px 3px 0 var(--ink)); }
+.ps-clock * { stroke: var(--ink); stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
+.ps-clock .ck-ear { fill: var(--red); } .ps-clock .ck-face { fill: var(--cream); }
+.ps-clock .ck-line { fill: none; } .ps-clock .ck-dot { fill: var(--ink); stroke: none; }
+
+.cat-host { --w: calc(116px + var(--slack, 0px) * .9); position: relative; z-index: 1; width: var(--w); flex: 0 0 var(--w); margin: 0 0 -14px 22px; }
+.cat-host .cat { display: block; width: 100%; height: auto; }
+/* Nệm tròn kem viền mực dưới mèo — mèo "ngồi" trong phòng thay vì dán lên nền */
+.cat-host::before {
+  content: ''; position: absolute; z-index: -1;
+  left: 4%; right: 4%; bottom: 2px; height: 22%;
+  background: var(--cream); border: var(--ink-2) solid var(--ink); border-radius: 50%;
+  box-shadow: var(--shadow-2);
+}
+
+/* Điện thoại: đồng hồ nhỏ dưới bậu cửa — dải trái giữa cửa sổ và mèo là chỗ trống duy nhất không đụng bong bóng / hộp
+ * tên. 34 px + top 60: khung mèo thấp nhất ở khối này (132 px, không slack) vẫn hở chân tường ~6 px. */
+@media (max-width: 899px) and (min-height: 721px) { .ps-clock { display: block; left: 13px; top: 60px; width: 34px; height: auto; } }
+@media (min-width: 900px) and (min-height: 780px) { .ps-shelf { display: block; } }
+@media (min-width: 900px) and (min-height: 860px) { .ps-clock { display: block; } }
+
+/* Máy thấp: khai Ở ĐÂY chứ không ở game-page.css — file này nạp sau, luật gốc cùng độ ưu tiên sẽ đè mất (lỗi P03) */
+@media (max-height: 720px) {
+  .cat-zone { height: 84px; }
+  .cat-host { --w: 76px; }
+  .ps-window { width: 34px; height: 30px; --drape: 8px; }
+  .ps-floor { height: 18px; }
+  .ps-floor::after { width: 14px; height: 14px; bottom: 2px; }
+}
+
+/* ---------- desktop: khung tranh dọc cao bằng bàn ---------- */
+@media (min-width: 900px) and (min-height: 560px) {
+  /* Giấy dán tường in dấu chân mèo, chữ đỏ rất nhạt: vách có chất liệu mà không tranh với mặt mèo */
+  .cat-zone {
+    height: auto; flex-direction: column; align-items: stretch;
+    padding: 124px 16px 0;
+    background:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='56'%3E%3Cg fill='%23d42a33' fill-opacity='.09'%3E%3Cellipse cx='14' cy='18' rx='5' ry='4'/%3E%3Ccircle cx='8.5' cy='11' r='2'/%3E%3Ccircle cx='12.5' cy='8.5' r='2'/%3E%3Ccircle cx='16.5' cy='8.5' r='2'/%3E%3Ccircle cx='20' cy='11' r='2'/%3E%3Cellipse cx='42' cy='46' rx='5' ry='4'/%3E%3Ccircle cx='36.5' cy='39' r='2'/%3E%3Ccircle cx='40.5' cy='36.5' r='2'/%3E%3Ccircle cx='44.5' cy='36.5' r='2'/%3E%3Ccircle cx='48' cy='39' r='2'/%3E%3C/g%3E%3C/svg%3E") 0 0 / 56px 56px,
+      var(--grain) 0 0 / 128px 128px, var(--pink);
+  }
+  /* Cửa sổ lùi xuống 30 px: hộp tên đè mép trên-trái khung (cat-presence.css) không che khung cửa */
+  .ps-window { left: 18px; top: 30px; width: 96px; height: 84px; border-width: var(--ink-1);
+    background:
+      linear-gradient(var(--ink), var(--ink)) center / 4px 100% no-repeat,
+      linear-gradient(var(--ink), var(--ink)) center / 100% 4px no-repeat,
+      radial-gradient(circle at 74% 28%, var(--cream) 10px, transparent 10.5px),
+      var(--blue); --drape: 17px; }
+  .ps-rays { left: 18px; top: 30px; width: 100%;
+    clip-path: polygon(0 0, 96px 0, 100% 78%, 100% 100%, 30% 100%); }
+  .ps-floor { height: 18%; }
+  .ps-floor::after { width: 34px; height: 34px; right: 18px; bottom: 14px; }
+  .ps-frame { display: block; }
+  /* Kệ + đồng hồ chỉ khi khung đủ cao: ở 1280×720 bong bóng mọc lên tới ~y 210 sẽ đè kệ */
+  .ps-shelf { left: 16px; top: 140px; width: 46%; height: auto; }
+  .ps-clock { right: 24px; top: 205px; width: 76px; height: auto; }
+  /* Ô thoại sát đầu mèo (dưới cửa sổ + tranh): nửa trên khung là căn phòng, không phải một mảng chờ chữ */
+  .talk-col { margin-top: auto; }
+  /* Mèo PHÁ KHUNG: rộng hơn khung 28 px, mép trong suốt của ảnh tràn ra hai bên — mèo cao ~300 px thay vì ~230 */
+  .cat-host {
+    order: 1; align-self: center;
+    width: calc(100% + 28px); flex: 0 0 auto;
+    margin: 6px -14px 2%;
+  }
+  .cat-host::before { left: 10%; right: 10%; }
+}
+
+/* ===== css/chat.css ===== */
+/* chat.css — trò chuyện với mèo: tấm trượt trên điện thoại, khung cố định ở cột phải desktop (P03 = wow T7b, D6)
+ *
+ * Điện thoại: chat chiếm ~200 px dưới hàng nút → trang cuộn và các chip bị cắt mép (fresh-eyes r1, auto-fail #7). Lời
+ * mèo đã hiện ở ô thoại cạnh mèo, nên lịch sử + ô nhập lùi vào tấm trượt mở bằng 💬 (ui-game-actions.js).
+ */
+
+.chat-panel { display: flex; flex-direction: column; gap: 8px; }
+.chat-panel.off { display: none; }
+
+.chat-log {
+  max-height: 160px; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 6px; background: var(--cream); border: var(--ink-3) solid var(--ink);
+  font: 500 13px/1.35 var(--font-body);
+}
+.chat-log:empty { display: none; }
+/* Hai bên phân biệt bằng NỀN chứ không chỉ màu tên — đọc lướt thấy ngay ai nói gì */
+.chat-line { display: flex; gap: 6px; padding: 3px 6px; }
+.chat-who { font-weight: 900; flex: 0 0 auto; }
+.chat-text { flex: 1; }
+.chat-cat .chat-who { color: var(--accent-text); }
+.chat-player { background: #fff; border-left: var(--ink-2) solid var(--ink); }
+.chat-player .chat-who { color: var(--text-dim); }
+
+.chip-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip {
+  min-height: var(--tap); padding: 6px 12px;
+  border: var(--ink-3) solid var(--ink); border-radius: 22px;
+  background: #fff; color: var(--ink); box-shadow: var(--shadow-3);
+  font: 700 13px/1.2 var(--font-body); cursor: pointer;
+}
+.chip:active { transform: translate(2px, 2px); box-shadow: none; }
+
+.chat-input-row { display: flex; gap: 6px; }
+.chat-input {
+  flex: 1; min-width: 0; min-height: var(--tap);
+  padding: 10px 12px;
+  border: var(--ink-2) solid var(--ink); border-radius: 0;
+  background: #fff; color: var(--ink);
+  font: 500 16px var(--font-body);   /* 16 px trở lên: iOS không tự phóng to khi gõ */
+}
+.chat-send {
+  min-height: var(--tap); padding: 0 16px;
+  border: var(--ink-2) solid var(--ink); border-radius: 0;
+  background: var(--yellow); color: var(--ink); box-shadow: var(--shadow-3);
+  font: 900 15px var(--font-body); cursor: pointer;
+}
+
+/* ---------- điện thoại: tấm trượt ---------- */
+.sheet-close { position: absolute; right: 6px; top: 4px; color: var(--ink); text-shadow: none; font-size: 18px; }
+/* Tấm chat nền trắng: nét icon về mực, bỏ bóng của thanh tiêu đề đỏ */
+.sheet-close .ic { width: 22px; height: 22px; filter: none; }
+.sheet-close .ic .ic-s { stroke: var(--ink); }
+.chat-host {
+  position: fixed; left: 8px; right: 8px; bottom: calc(8px + env(safe-area-inset-bottom)); z-index: 60;
+  max-height: 60dvh; overflow-y: auto;
+  padding: 40px 12px 12px;
+  background: var(--paper); border: var(--ink-1) solid var(--ink); box-shadow: var(--shadow-1);
+  transform: translateY(calc(100% + 24px)); visibility: hidden;
+  transition: transform .22s ease, visibility 0s .22s;
+}
+.chat-host::before {
+  content: 'Trò chuyện'; position: absolute; left: 12px; top: 8px;
+  font: 400 18px/1.2 var(--font-title); color: var(--ink);
+}
+body.chat-open .chat-host { transform: none; visibility: visible; transition: transform .22s ease; }
+
+/* ---------- desktop: khung cố định cuối cột phải ---------- */
+@media (min-width: 900px) and (min-height: 560px) {
+  .sheet-close, .chat-host::before { display: none; }
+  .chat-host {
+    position: relative; left: auto; right: auto; bottom: auto; z-index: auto;
+    max-height: none; overflow: visible;
+    padding: 10px;
+    background: #fff;
+    transform: none; visibility: visible; transition: none;
+  }
+  .chat-log { max-height: 140px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-host, body.chat-open .chat-host { transition: none; }
+}
+
+/* ===== css/result-card.css ===== */
+/* result-card.css — hộp kết quả + hộp hỏi lại: khung tranh viền mực 4 + bóng 5, chân dung mèo tràn mép trên
+ * (P04 plan art AAA, yêu cầu D). Lớp phủ là giấy chấm tối chứ không đen 65 %: nền đen nuốt mất nét mực của trang.
+ * Lớp phủ = màn chấm (screen-tone) trên một lớp tối LẠNH mỏng: mực phẳng .55 trên giấy vàng / ô nghệ ra màu ô liu xám
+ * (r8 đo độ sáng ~100); chỉ chấm đậm thì thành lưới dày nhức mắt (thử r10a). Xanh đêm mỏng + chấm nhỏ: trang lùi lại
+ * mà màu không bẩn.
+ */
+
+.result-overlay, .confirm-overlay {
+  position: fixed; inset: 0; z-index: 70;
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px;
+  background: radial-gradient(rgba(17, 17, 17, .42) 1.3px, transparent 1.6px) 0 0 / 5px 5px, rgba(24, 34, 78, .38);
+}
+.result-overlay { opacity: 0; transition: opacity .2s; }
+.result-overlay.show { opacity: 1; }
+
+.result-box, .confirm-box {
+  position: relative;
+  width: 100%; max-width: 380px;
+  padding: 92px 20px 20px; margin-top: 60px;
+  background: var(--grain) 0 0 / 128px 128px, var(--paper); color: var(--ink);   /* cùng giấy có vân với trang (r11) */
+  border: var(--ink-1) solid var(--ink); box-shadow: var(--shadow-1);
+  text-align: center;
+}
+.result-box { transform: translateY(14px) rotate(-1deg); transition: transform .25s cubic-bezier(.2, 1.4, .4, 1); }
+.result-overlay.show .result-box { transform: rotate(-1deg); }
+
+/* Chân dung phá khung: nửa trên nằm ngoài hộp, có vòng giấy + viền mực như ô tròn trong truyện */
+.result-cat, .confirm-cat {
+  position: absolute; left: 50%; top: -70px; transform: translateX(-50%);
+  width: 140px; height: 140px; object-fit: cover; object-position: 50% 8%;
+  background: var(--pink); border: var(--ink-1) solid var(--ink); border-radius: 50%;
+  box-shadow: var(--shadow-2);
+}
+.confirm-cat { width: 112px; height: 112px; top: -56px; }
+
+/* Mèo thắng: chùm nổ vàng sau chân dung (nằm trước ảnh trong DOM → vẽ dưới ảnh) */
+.result-burst { position: absolute; left: 50%; top: -110px; width: 220px; height: 220px; transform: translateX(-50%) rotate(-8deg); }
+.result-burst polygon { fill: var(--yellow); stroke: var(--ink); stroke-width: 5; stroke-linejoin: round; }
+/* Xin thua: con dấu cờ trắng góc trên-trái, nghiêng như đóng vội */
+.result-flag {
+  position: absolute; left: -12px; top: 10px; transform: rotate(-12deg);
+  display: flex; align-items: center; gap: 4px; padding: 3px 9px 3px 5px;
+  background: #fff; border: var(--ink-2) solid var(--ink); box-shadow: var(--shadow-2);
+  font: 400 15px/1.2 var(--font-title); color: var(--ink);
+}
+.result-flag .ic { width: 28px; height: 28px; }
+.confirm-box { padding-top: 70px; margin-top: 50px; }
+
+/* Dải tiêu đề đỏ nghiêng (ngôn ngữ thanh tiêu đề trang) */
+.result-title, .confirm-title { margin: 0 0 8px; }
+.result-title span, .confirm-title {
+  display: inline-block; padding: 4px 16px;
+  background: var(--red); color: #fff; border: var(--ink-2) solid var(--ink); box-shadow: var(--shadow-2);
+  font: 400 26px/1.15 var(--font-title); text-shadow: 2px 2px 0 var(--ink);
+  transform: skewX(-6deg);
+}
+.result-win .result-title span { background: var(--blue); }
+.result-draw .result-title span { background: var(--yellow); color: var(--ink); text-shadow: none; }
+.confirm-title { font-size: 22px; }
+
+.result-sub, .confirm-text { margin: 0 0 10px; font: 600 14px/1.4 var(--font-body); color: var(--text-dim); text-wrap: balance; }
+.confirm-text { color: var(--ink); font-size: 15px; }
+
+/* "+N điểm mèo": ô nổ vàng — phần thưởng là thứ to thứ hai trong hộp, sau tiêu đề */
+.result-points {
+  display: inline-block; margin: 2px 0 10px; padding: 6px 18px;
+  background: var(--yellow); border: var(--ink-2) solid var(--ink); box-shadow: var(--shadow-2);
+  font: 400 22px/1.2 var(--font-title); color: var(--ink);
+  transform: rotate(2deg);
+}
+.result-rec { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 0 0 6px; font: 700 14px var(--font-body); }
+.result-dots { display: inline-flex; gap: 4px; }
+.result-dots i { width: 14px; height: 14px; border: var(--ink-3) solid var(--ink); border-radius: 50%; background: #fff; }
+.result-dots i.on { background: var(--red); }
+.result-tip { margin: 0 0 10px; font: 700 13px/1.4 var(--font-body); color: var(--accent-text); }
+
+.result-actions, .confirm-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+.result-actions .btn-wide { grid-column: 1 / -1; font-size: 18px; padding: 12px; }
+.result-actions .btn:only-child, .result-actions .btn-ghost:nth-child(2) { grid-column: 1 / -1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .result-overlay, .result-box { transition: none; }
+}
+
+/* ===== css/cat-animations.css ===== */
+/* cat-animations.css — chuyen dong cua Leo
+ *
+ * JS chi doi mot lop tren the <svg>; CSS lo toan bo phan con lai. Nho vay chuyen
+ * dong chay tren GPU va khong ton mot dong JS nao moi khung hinh.
+ *
+ * TON TRONG prefers-reduced-motion: nguoi bat thiet lap nay thi bo het chuyen
+ * dong LAP LAI, nhung VAN doi duoc bieu cam — ho khong mat noi dung nao.
+ */
+
+.cat { overflow: visible; }
+.cat * { transform-box: fill-box; }
+
+/* ---------- tho, chay lien tuc o moi trang thai ---------- */
+.cat-body { transform-origin: 50% 100%; animation: breathe 3.2s ease-in-out infinite; }
+@keyframes breathe {
+  0%, 100% { transform: scaleY(1) scaleX(1); }
+  50%      { transform: scaleY(1.025) scaleX(0.99); }
+}
+
+/* ---------- duoi ---------- */
+.cat-tail { transform-origin: 10% 90%; animation: tail-idle 3.6s ease-in-out infinite; }
+@keyframes tail-idle {
+  0%, 100% { transform: rotate(0deg); }
+  50%      { transform: rotate(-5deg); }
+}
+
+/* ---------- dau nghieng nhe ---------- */
+.cat-head { transform-origin: 50% 90%; transition: transform .25s ease; }
+
+/* ---------- tai ---------- */
+.cat-ears { transition: transform .25s ease; }
+.cat-ear-l, .cat-ear-r { transform-origin: 50% 100%; transition: transform .25s ease; }
+
+/* ================= tung trang thai ================= */
+
+/* Dang nghi: duoi ve vay nhanh hon, dau nghieng */
+.mood-think .cat-tail { animation: tail-think 1.1s ease-in-out infinite; }
+.mood-think .cat-head { transform: rotate(-4deg); }
+@keyframes tail-think {
+  0%, 100% { transform: rotate(0deg); }
+  50%      { transform: rotate(-16deg); }
+}
+
+/* Dac y: nguoi hoi ngua len, tai dung */
+.mood-smug .cat-head { transform: rotate(3deg) translateY(-3px); }
+.mood-smug .cat-tail { animation: tail-proud 1.4s ease-in-out infinite; }
+@keyframes tail-proud {
+  0%, 100% { transform: rotate(-18deg); }
+  50%      { transform: rotate(-26deg); }
+}
+
+/* Hoang: rung nhe, tai cup */
+.mood-panic { animation: shake .32s ease-in-out 3; }
+.mood-panic .cat-ear-l { transform: rotate(-32deg) translateY(4px); }
+.mood-panic .cat-ear-r { transform: rotate(32deg) translateY(4px); }
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25%      { transform: translateX(-3px); }
+  75%      { transform: translateX(3px); }
+}
+
+/* Xi mat: cui dau, tai cup, duoi ru */
+.mood-sad .cat-head { transform: rotate(0deg) translateY(4px); }
+.mood-sad .cat-ear-l { transform: rotate(-40deg) translateY(6px); }
+.mood-sad .cat-ear-r { transform: rotate(40deg) translateY(6px); }
+.mood-sad .cat-tail { animation: none; transform: rotate(14deg); }
+
+/* Buon ngu: tho cham hon, dau gat gu */
+.mood-sleepy .cat-body { animation: breathe 5s ease-in-out infinite; }
+.mood-sleepy .cat-head { animation: nod 3.4s ease-in-out infinite; }
+.mood-sleepy .cat-tail { animation: none; }
+@keyframes nod {
+  0%, 100% { transform: rotate(0deg) translateY(0); }
+  50%      { transform: rotate(6deg) translateY(5px); }
+}
+
+/* An mung: nhay len xuong */
+.mood-cheer { animation: hop .5s ease-in-out 4; }
+.mood-cheer .cat-ear-l { transform: rotate(-6deg) translateY(-3px); }
+.mood-cheer .cat-ear-r { transform: rotate(6deg) translateY(-3px); }
+@keyframes hop {
+  0%, 100% { transform: translateY(0); }
+  40%      { transform: translateY(-11px); }
+  60%      { transform: translateY(-6px); }
+}
+
+/* Ngo: dau nghieng han sang mot ben */
+.mood-confused .cat-head { transform: rotate(-13deg); }
+
+/* ================= hieu ung ================= */
+.fx-z { animation: zfloat 2.4s ease-out infinite; opacity: 0; font-weight: 700; }
+@keyframes zfloat {
+  0%   { opacity: 0; transform: translateY(6px) scale(0.7); }
+  30%  { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-16px) scale(1.1); }
+}
+
+.fx-sparkle path { animation: twinkle 1.3s ease-in-out infinite; transform-origin: center; }
+@keyframes twinkle {
+  0%, 100% { opacity: 0; transform: scale(0.4) rotate(0deg); }
+  50%      { opacity: 1; transform: scale(1) rotate(45deg); }
+}
+
+.fx-question text { animation: qpop .6s ease-out; transform-origin: center; }
+@keyframes qpop {
+  0%   { opacity: 0; transform: scale(0.3) translateY(8px); }
+  60%  { opacity: 1; transform: scale(1.15); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.fx-sweat path { animation: drip 1.5s ease-in infinite; }
+.fx-tear path { animation: drip 2.2s ease-in infinite; }
+@keyframes drip {
+  0%   { opacity: 0; }
+  25%  { opacity: 1; }
+  100% { opacity: 0; transform: translateY(14px); }
+}
+
+/* ---------- tab an: dung het chuyen dong, tiet kiem pin ---------- */
+.cat.paused *, .cat.paused { animation-play-state: paused !important; }
+
+/* ---------- nguoi dung tat hieu ung chuyen dong ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .cat *, .cat {
+    animation: none !important;
+    transition: none !important;
+  }
+  /* Van giu tu the tinh cua tung trang thai — khong mat thong tin nao */
+  .mood-sad .cat-ear-l { transform: rotate(-40deg) translateY(6px); }
+  .mood-sad .cat-ear-r { transform: rotate(40deg) translateY(6px); }
+  .mood-confused .cat-head { transform: rotate(-13deg); }
+}
+
+/* ===== css/board-fx.css ===== */
+/* board-fx.css — hieu ung hinh anh tren ban co
+ *
+ * Deu chay bang CSS animation nen khong ton mot dong JS nao moi khung hinh.
+ * Phan tu SVG tu bi xoa sau khi chay xong (xem ui-board-fx.js).
+ */
+
+/* Lớp chứa mọi hiệu ứng (#layer-fx): nằm trên quân cờ nhưng không được nuốt chạm / kéo thả.
+ *
+ * BẪY: phần tử SVG mặc định xoay / co theo gốc (0,0) của CẢ bàn cờ, không phải tâm của chính nó.
+ * Thiếu `transform-box: fill-box` thì vụn "co lại" sẽ trôi về góc trên-trái bàn, pháo giấy "xoay"
+ * thành vòng cung quanh góc đó. Trước đây không ai thấy vì hiệu ứng bị xoá ngay khi vừa vẽ. */
+.layer-fx { pointer-events: none; }
+.fx-burst circle {
+  transform-origin: center;
+  transform-box: fill-box;
+}
+
+/* --- vun bay ra khi an quan --- */
+.fx-burst circle {
+  animation: fx-fly .38s ease-out forwards;
+  pointer-events: none;
+  stroke: var(--ink); stroke-width: 2.5;   /* mảnh vụn có viền mực như mọi hình trên trang */
+}
+@keyframes fx-fly {
+  0%   { transform: translate(0, 0) scale(1); opacity: .95; }
+  100% { transform: translate(var(--dx), var(--dy)) scale(.25); opacity: 0; }
+}
+
+/* --- o Vua nhap do khi bi chieu ---
+ * Nhap hai lan chu khong mo dan deu: mot lan nhap de bat mat, lan hai de xac nhan. Hai nhịp gói trong .42 s (r11: hạn gỡ
+ * 440 ms, xem ui-board-fx.js) — sao chiếu + ô đỏ là dấu bền, nhịp này chỉ là cú nháy đầu.
+ */
+.fx-check-pulse {
+  /* Vòng viền chứ không tô kín: lớp fx nằm TRÊN quân, tô kín thì nhuộm đỏ chính Vua (sao chiếu đã nói đủ) */
+  fill: none; stroke: var(--red); stroke-width: 12; pointer-events: none;
+  animation: fx-pulse .42s ease-out forwards;
+}
+@keyframes fx-pulse {
+  0%   { opacity: .70; }
+  40%  { opacity: .28; }
+  70%  { opacity: .55; }
+  100% { opacity: 0; }
+}
+
+/* --- hao quang khi tot phong cap --- */
+.fx-promote circle {
+  animation: fx-ring .3s ease-out forwards;
+  pointer-events: none;
+  transform-origin: center;
+  transform-box: fill-box;
+}
+@keyframes fx-ring {
+  0%   { opacity: .95; transform: scale(.25); }
+  100% { opacity: 0;   transform: scale(1.5); }
+}
+
+/* Nguoi dung tat hieu ung chuyen dong -> khong ve gi ca.
+ * ui-board-fx.js cung tu kiem tra, day la lop chan thu hai. */
+@media (prefers-reduced-motion: reduce) {
+  .fx-burst, .fx-check-pulse, .fx-promote { display: none; }
+}
+
+/* ===== css/moments.css ===== */
+/* moments.css — khoảnh khắc nước đi (js/moments-director.js)
+ *
+ * Lớp phủ cho quân bay vào khay và chữ hiệu ứng (không nuốt chạm / kéo thả), và nhấc / nén của quân vừa đi.
+ * z-index 30: trên bàn cờ và khung chat (20), dưới bảng tuỳ chọn (40) và hộp thoại (.promo-overlay 50).
+ */
+.moments-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 30;
+  overflow: hidden;
+}
+
+/* --- nhấc → đáp (js/moments-move.js) ---
+ * Class nằm trên `<g class="piece">` NGOÀI; chỉ hình bên trong co giãn. Lý do: `transform` của nhóm ngoài là vị trí
+ * trượt (board-svg-render.js) — scale lên đó là quân nhảy ô.
+ * BẪY: thiếu `transform-box: fill-box` thì SVG scale quanh gốc (0,0) của CẢ bàn cờ — quân trôi về góc trên-trái. */
+.piece > .piece-shape {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+/* Quân vừa thả bằng kéo (js/board-drop-place.js): đã đứng ở ô thả nên không trượt. Đạo diễn đọc transition này → land = 0:
+ * không nhấc, nén + tiếng ngay lúc thả. Class gỡ khi playerMove xong hẳn. */
+.piece.is-dropped {
+  transition: none;
+}
+/* Transition chỉ có lúc đang nhấc: bỏ `is-lifted` thì về ngay, animation nén bắt đầu cùng lúc che chỗ đó */
+.piece.is-lifted > .piece-shape {
+  transform: translateY(-8px) scale(1.08);
+  filter: drop-shadow(0 8px 6px rgba(0, 0, 0, .35));
+  transition: transform 90ms ease-out;
+}
+/* Kết thúc ở hình gốc (không `forwards`): gỡ class lúc 120 ms không làm quân giật */
+.piece.is-landing > .piece-shape {
+  animation: piece-land var(--land-ms, 120ms) ease-out;   /* JS đặt --land-ms từ SQUASH; 120ms chỉ là mặc định */
+}
+@keyframes piece-land {
+  0%   { transform: scale(1.12, .86); }
+  100% { transform: none; }
+}
+
+/* --- quân bị ăn bay vào khay, rung bàn, chữ truyện tranh (js/moments-capture.js) ---
+ * Thời lượng do JS đặt inline từ CÙNG hằng số với mốc gỡ trong bảng bước; số ở đây chỉ là mặc định. */
+.moment-victim { pointer-events: none; }
+/* Lớp ngoài: đi THẲNG từ ô bàn tới ô khay, một đường cong tốc độ (đi nhanh, chậm dần khi vào khay).
+ * JS đặt --dx / --dy (độ dời tâm, px) và --s (cỡ ô khay / cỡ ô bàn). */
+.moment-flyer {
+  position: absolute;
+  transform-origin: center;
+  animation: moment-fly 360ms cubic-bezier(.25, .1, .25, 1) forwards;
+  filter: drop-shadow(6px 8px 0 rgba(17, 17, 17, .4));   /* bóng cứng lệch xa = quân đang ở trên không (đèn trên-trái) */
+}
+@keyframes moment-fly {
+  to { transform: translate(var(--dx), var(--dy)) scale(var(--s)); opacity: .85; }
+}
+/* Lớp trong: nảy lên (chậm dần) rồi rơi êm xuống ô khay + xoay. Easing đặt THEO TỪNG đoạn; cộng lớp ngoài thành vòng cung. */
+.moment-flyer-art {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  transform-origin: center;
+  animation: moment-hop 360ms linear forwards;
+}
+@keyframes moment-hop {
+  0%   { transform: none; animation-timing-function: ease-out; }
+  45%  { transform: translateY(-55%) rotate(-18deg) scale(1.15); animation-timing-function: ease-in-out; }
+  100% { transform: none; }
+}
+
+/* Ô khay của quân còn đang bay: giữ chỗ để hàng không xô, chưa hiện (ui-game-hud.js) */
+.cap-piece.cap-pending { visibility: hidden; }
+.cap-piece.cap-pop {
+  transform-origin: center;
+  animation: cap-pop 240ms ease-out;
+}
+@keyframes cap-pop {
+  0%   { transform: scale(.5); }
+  55%  { transform: scale(1.35); }
+  100% { transform: none; }
+}
+
+/* Rung CHỈ khung bàn. Tên class không bắt đầu bằng `fx-`: công cụ đo đếm `[class^="fx-"]`. */
+#board-host.moment-shake { animation: board-shake 220ms linear; }
+@keyframes board-shake {
+  0%, 100% { transform: none; }
+  15% { transform: translate(-6px, 3px) rotate(-.8deg); }
+  35% { transform: translate(5px, -4px) rotate(.6deg); }
+  55% { transform: translate(-4px, 2px) rotate(-.4deg); }
+  75% { transform: translate(3px, -1px); }
+}
+
+/* Chữ truyện tranh: viền đen dày bằng text-shadow 8 hướng (-webkit-text-stroke ăn vào nét chữ), nghiêng, nảy.
+ * JS đặt left / top = tâm ô, cỡ chữ theo cỡ ô. */
+.moment-word {
+  --tilt: -12deg;
+  position: absolute;
+  font: 400 1em/1 var(--font-title);
+  white-space: nowrap;
+  color: var(--yellow);
+  text-shadow: .08em 0 #1a1a1a, -.08em 0 #1a1a1a, 0 .08em #1a1a1a, 0 -.08em #1a1a1a,
+    .06em .06em #1a1a1a, -.06em .06em #1a1a1a, .06em -.06em #1a1a1a, -.06em -.06em #1a1a1a, .12em .16em 0 #1a1a1a;
+  transform: translate(-50%, -50%) rotate(var(--tilt));
+  animation: moment-word 400ms cubic-bezier(.2, .9, .3, 1.2) both;
+}
+.moment-word-check { --tilt: 8deg; color: var(--red); }
+@keyframes moment-word {
+  0%   { transform: translate(-50%, -50%) rotate(var(--tilt)) scale(.2); opacity: 0; }
+  30%  { transform: translate(-50%, -50%) rotate(var(--tilt)) scale(1.3); opacity: 1; }
+  50%  { transform: translate(-50%, -50%) rotate(var(--tilt)) scale(.92); }
+  75%  { transform: translate(-50%, -50%) rotate(var(--tilt)) scale(1.04); opacity: 1; }
+  100% { transform: translate(-50%, -50%) rotate(var(--tilt)) scale(1); opacity: 0; }
+}
+
+/* ===== css/comic-fx.css ===== */
+/* comic-fx.css — dấu thông tin + hiệu ứng truyện tranh của P04 plan art AAA
+ *
+ * Hai loại, hai luật:
+ *   dấu THÔNG TIN (`mk-*`: ô đi, sao chiếu, mũi tên gợi ý) — luôn hiện, kể cả giảm chuyển động / tắt hiệu ứng;
+ *     chỉ NHỊP ĐẬP của sao chiếu bị tắt.
+ *   hiệu ứng thoáng qua (`fx-speed`, `fx-puff`, `fx-star`, lớp ăn mừng) — JS không vẽ khi tắt; khối cuối file
+ *     là lớp chặn thứ hai.
+ * BẪY (board-fx.css): phần tử SVG xoay / co quanh gốc CẢ bàn nếu thiếu `transform-box: fill-box`.
+ */
+
+/* ---------- nước vừa đi: ô đi nhạt + viền mực đứt, ô tới hồng đậm (board.css) ---------- */
+.mk-from { fill: var(--pink); fill-opacity: .55; stroke: var(--ink); stroke-width: 4; stroke-dasharray: 12 9;
+  transform: scale(.92); transform-origin: center; transform-box: fill-box; }
+
+/* ---------- vua bị chiếu: sao nổ vàng viền mực dưới Vua, đập chậm ---------- */
+.mk-burst {
+  fill: var(--yellow); stroke: var(--ink); stroke-width: 3; stroke-linejoin: round;
+  transform-origin: center; transform-box: fill-box;
+  animation: mk-burst-beat 1.6s ease-in-out infinite;
+}
+@keyframes mk-burst-beat { 0%, 100% { transform: scale(.9) rotate(0); } 50% { transform: scale(1.04) rotate(8deg); } }
+
+/* ---------- gợi ý: mũi tên vàng viền mực + bóng cứng, vòng ở ô xuất phát (khác kẻ chiếu cả màu lẫn nét) ---------- */
+.mk-hint { pointer-events: none; }
+.mk-hint-ring { fill: none; stroke: var(--yellow); stroke-width: 8; }
+.mk-hint-shadow { fill: var(--ink); opacity: .85; }
+.mk-hint-arrow { fill: var(--yellow); stroke: var(--ink); stroke-width: 4; stroke-linejoin: round; }
+
+/* ---------- tia tốc độ + khói đáp (svg bàn, lớp fx) ---------- */
+.fx-speed line {
+  stroke: var(--ink); stroke-width: 5; stroke-linecap: round;
+  animation: fx-speed-fade .21s ease-in forwards;
+}
+@keyframes fx-speed-fade { from { opacity: .9; } to { opacity: 0; } }
+.fx-puff circle {
+  fill: var(--cream); stroke: var(--ink); stroke-width: 3;
+  transform-origin: center; transform-box: fill-box;
+  animation: fx-puff-pop .26s ease-out forwards;
+}
+@keyframes fx-puff-pop { 0% { transform: scale(.3); opacity: 1; } 70% { opacity: 1; } 100% { transform: scale(1.25); opacity: 0; } }
+
+/* ---------- sao va chạm (svg bàn, lớp `layer-impact` ngay dưới quân) ---------- */
+.layer-impact { pointer-events: none; }
+.fx-star {
+  fill: var(--yellow); stroke: var(--ink); stroke-width: 4; stroke-linejoin: round;
+  transform-origin: center; transform-box: fill-box;
+  animation: fx-star-pop .44s cubic-bezier(.2, 1.6, .4, 1) forwards;
+}
+@keyframes fx-star-pop {
+  0% { transform: scale(.2) rotate(-20deg); opacity: 1; }
+  40% { transform: scale(1.06) rotate(6deg); opacity: 1; }
+  75% { transform: scale(1) rotate(9deg); opacity: 1; }
+  100% { transform: scale(1) rotate(10deg); opacity: 0; }
+}
+
+/* ---------- chữ phong cấp (svg bàn, lớp fx): viền mực vẽ DƯỚI lõi vàng (paint-order) như chữ FX của mèo ---------- */
+.fx-word {
+  font: 400 64px/1 var(--font-title); text-anchor: middle; dominant-baseline: central;
+  fill: var(--yellow); stroke: var(--ink); stroke-width: 11; stroke-linejoin: round; paint-order: stroke;
+  transform-origin: center; transform-box: fill-box;
+  animation: fx-word-pop .5s cubic-bezier(.2, .9, .3, 1.2) forwards;
+}
+@keyframes fx-word-pop {
+  0% { transform: rotate(-8deg) scale(.2); opacity: 0; }
+  25% { transform: rotate(-8deg) scale(1.25); opacity: 1; }
+  45% { transform: rotate(-8deg) scale(.95); }
+  94% { transform: rotate(-8deg) scale(1); opacity: 1; }   /* mờ dần ở 6 % cuối: chữ đọc đủ ~450 ms (ảnh chấm 600) */
+  100% { transform: rotate(-8deg) scale(1); opacity: 0; }
+}
+
+/* ---------- lớp ăn mừng kết ván (ui-celebration.js) ---------- */
+.cf-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
+/* Lớp sao khi thua: z 1, SAU ô thoại + ô trạng thái (.talk-col z 2), hộp tên (3), thanh tiêu đề (2). Hộp thoại ≥ 50. */
+.celebration-layer { position: fixed; inset: 0; z-index: 1; pointer-events: none; overflow: hidden; }
+.cf { position: absolute; width: 38px; height: 38px; overflow: visible; }
+@media (max-width: 899px) { .cf { width: 30px; height: 30px; } }
+.cf use { fill: currentColor; stroke: var(--ink); stroke-width: 3; stroke-linejoin: round; }
+/* Pháo thắng nằm trong `.panel-scene` (overflow: hidden) — nổ toả từ sau lưng mèo ra tới mép khung rồi lắng xuống */
+.celebrate-confetti { position: absolute; inset: 0; }
+.celebrate-confetti .cf { opacity: 0; animation: cf-burst 2.4s cubic-bezier(.15, .7, .3, 1) forwards; }
+@keyframes cf-burst {
+  0% { opacity: 0; transform: translate(0, 0) scale(.3) rotate(0); }
+  6% { opacity: 1; }
+  60% { transform: translate(var(--dx), var(--dy)) scale(1) rotate(var(--spin)); }
+  85% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--dx), calc(var(--dy) + 14px)) scale(1) rotate(var(--spin)); }
+}
+.celebrate-sparkle .cf { width: 28px; height: 28px; animation: cf-twinkle 1.2s ease-in-out forwards; }
+@keyframes cf-twinkle { 0%, 100% { opacity: 0; transform: scale(.2); } 30%, 70% { opacity: 1; transform: scale(1) rotate(20deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .mk-burst { animation: none; }
+  .fx-speed, .fx-puff, .fx-star, .fx-word, .celebration-layer, .celebrate-confetti { display: none; }
+}
+
+/* ===== css/art-skin.css ===== */
+/* art-skin.css — lớp áo ảnh AI (art/*.webp, sinh bằng tools/gen-assets.mjs)
+ *
+ * Tách riêng khỏi style.css: gỡ cả lớp áo chỉ là bỏ một thẻ <link>, mọi thứ quay về
+ * giao diện vẽ tay cũ. Đường dẫn `../art/` đúng ở CẢ HAI chỗ: css/ khi chạy dev và
+ * assets/ sau khi build.mjs nối CSS — hai thư mục cùng nằm một tầng dưới gốc game.
+ */
+
+/* ---------- biểu tượng màn menu (thay emoji 🐱) ---------- */
+/* 132 → 104 px + viền mực như mèo trong ván (cat-presence.css): nhường chỗ cho nút Đấu trên mép màn 375×667 */
+.menu-cat img {
+  display: block; margin: 0 auto;
+  width: 104px; height: auto;
+  filter: drop-shadow(2px 0 0 var(--ink)) drop-shadow(-2px 0 0 var(--ink)) drop-shadow(0 2px 0 var(--ink))
+    drop-shadow(0 -2px 0 var(--ink)) drop-shadow(4px 4px 0 var(--ink));
+}
+
+/* ---------- ảnh đại diện ở thẻ chọn đối thủ ----------
+ * Ảnh là cả con mèo ngồi (dọc ~3:4). Phủ kín ô tròn, neo mép trên, phóng 1.4 lần
+ * từ đỉnh đầu → ô 54px chỉ còn khuôn mặt, đúng như mặt SVG cũ. */
+/* Nền kem: Mực/Đại Ka lông đen cần nền sáng mới ra dáng mặt (cũ: đèn rọi nâu trên trang tối) */
+.elo-avatar { background: var(--cream); }
+.elo-avatar .cat-avatar-img, .pick-face .cat-avatar-img {
+  display: block; width: 100%; height: 100%;
+  object-fit: cover; object-position: 50% 0;
+  transform: scale(1.4); transform-origin: 50% 6%;
+}
+
+/* Mèo ảnh trong ván (viền mực, bóng cứng, nhịp thở): css/cat-presence.css (P06 plan art AAA) */
+
+/* ===== css/cat-presence.css ===== */
+/* cat-presence.css — mèo trong khung tranh truyện: viền mực + bóng cứng, hộp tên, chữ FX (P06 plan art AAA)
+ *
+ * 64 ảnh mèo vẽ cho nền gỗ tối và Godot đọc nguyên byte → viền mực vẽ bằng CSS, không nướng vào ảnh.
+ */
+
+/* Viền mực = bốn bóng 0-blur lệch 2 px bốn hướng; thêm bóng cứng lệch 5 px xuống-phải (đèn trên-trái như mọi bóng).
+ * Bộ lọc và nhịp thở cùng nằm trên thẻ <svg> GỐC, có will-change: transform → trình duyệt raster bộ lọc một lần rồi chỉ
+ * ghép lớp khi thở. Bản P02 để bộ lọc ở thẻ gốc mà ảnh CON thở → bộ lọc vẽ lại mỗi khung suốt ván.
+ * Rung (hoảng) và nhảy (mừng) của cat-animations.css cũng gắn ở thẻ gốc → nhịp thở nhường hai lớp đó. */
+.cat-art {
+  will-change: transform;
+  transform-origin: 50% 100%;
+  filter: drop-shadow(2px 0 0 var(--ink)) drop-shadow(-2px 0 0 var(--ink)) drop-shadow(0 2px 0 var(--ink))
+    drop-shadow(0 -2px 0 var(--ink)) drop-shadow(5px 5px 0 rgba(17, 17, 17, .85));
+}
+.cat-art:not(.mood-panic):not(.mood-cheer) { animation: breathe 3.2s ease-in-out infinite; }
+.cat-art.mood-sleepy:not(.mood-panic):not(.mood-cheer) { animation-duration: 5s; }
+.cat-art.mood-sad:not(.mood-panic) { animation: none; transform: translateY(3px) scaleY(.98); }
+
+/* Chữ của FX (zzz, ?) cùng phông tiêu đề với chữ truyện tranh CHIẾU!/BỐP! */
+.cat-fx text { font-family: var(--font-title); }
+
+/* ---------- hộp tên: ô chú thích vàng đè mép trên khung tranh ----------
+ * Điện thoại: góc trên-PHẢI — góc trái là cửa sổ, giữa là đầu mèo. Desktop: góc trên-trái như ô chú thích truyện. */
+.cat-nameplate {
+  position: absolute; z-index: 3; top: -10px; right: 14px;
+  display: flex; align-items: center; gap: 6px;
+  padding: 2px 8px;
+  background: var(--yellow); color: var(--ink);
+  border: var(--ink-2) solid var(--ink); box-shadow: var(--shadow-3);
+  font: 400 15px/1.25 var(--font-title);
+  pointer-events: none;
+}
+.cat-nameplate .elo-stars { font-size: 11px; color: var(--ink); }
+
+@media (min-width: 900px) and (min-height: 560px) {
+  .cat-nameplate { top: -16px; left: 16px; right: auto; padding: 3px 12px; font-size: 20px; }
+  .cat-nameplate .elo-stars { font-size: 13px; }
+}

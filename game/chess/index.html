@@ -5,7 +5,8 @@
 <!-- user-scalable=no: chan phong to khi cham hai lan tren ban co.
      viewport-fit=cover: cho phep dung env(safe-area-inset-*) o may co tai tho -->
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<meta name="theme-color" content="#2b2118">
+<meta name="theme-color" content="#d42a33">
+<meta name="color-scheme" content="light">
 <meta name="description" content="Cờ vua với 8 con mèo, mỗi con một tính cách — từ 400 đến 1600 Elo, chơi được offline">
 <title>Cờ vua với mèo</title>
 <link rel="manifest" href="manifest.webmanifest">
@@ -13,16 +14,17 @@
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="stylesheet" href="assets/style-0d641599.css">
+<link rel="stylesheet" href="assets/style-104cf881.css">
 </head>
 <body>
 
 <div id="app">
 
   <header class="topbar">
-    <button id="btn-portal" class="icon-btn" type="button" aria-label="Về trang chủ" hidden>←</button>
-    <h1 class="title">Cờ vua với mèo</h1>
-    <button id="btn-settings" class="icon-btn" type="button" aria-label="Tuỳ chọn">⚙</button>
+    <button id="btn-portal" class="icon-btn" type="button" aria-label="Về trang chủ" hidden><span data-icon="home"></span></button>
+    <button id="btn-menu" class="icon-btn btn-back" type="button" aria-label="Về sảnh"><span data-icon="back"></span></button>
+    <h1 class="title">Cờ Mèo!</h1>
+    <button id="btn-settings" class="icon-btn" type="button" aria-label="Tuỳ chọn"><span data-icon="gear"></span></button>
   </header>
 
   <div id="settings-panel" class="settings-panel" hidden>
@@ -30,7 +32,7 @@
     <label class="opt"><input type="checkbox" id="opt-sound"> <span>Tiếng động</span></label>
     <label class="opt"><input type="checkbox" id="opt-bgm"> <span>Nhạc nền</span></label>
     <label class="opt"><input type="checkbox" id="opt-fx"> <span>Hiệu ứng hình ảnh</span></label>
-    <label class="opt"><input type="checkbox" id="opt-autoflip"> <span>Tự lật bàn (2 người)</span></label>
+    <label class="opt"><input type="checkbox" id="opt-haptics"> <span>Rung máy</span></label>
   </div>
 
   <main>
@@ -54,30 +56,37 @@
     <section id="scr-game" class="screen screen-game">
 
       <div class="cat-zone">
+        <div class="panel-scene" aria-hidden="true">
+          <i class="ps-rays"></i><i class="ps-window"></i><i class="ps-floor"></i>
+          <svg class="ps-frame" viewBox="0 0 64 52"><rect x="2" y="2" width="60" height="48"/><path d="M13 26 C21 15 36 15 44 26 C36 37 21 37 13 26 Z M44 26 L55 17 L55 35 Z"/><circle cx="21" cy="24" r="2.6"/></svg>
+          <svg class="ps-shelf" viewBox="0 0 120 70"><rect class="sh-b1" x="8" y="15" width="10" height="38"/><rect class="sh-b2" x="18" y="21" width="9" height="32"/><rect class="sh-b3" x="27" y="11" width="11" height="42"/><circle class="sh-yarn" cx="62" cy="39" r="13"/><path class="sh-line" d="M50 34 C58 29 68 31 74 37 M50 42 C58 38 69 41 75 45 M57 27 C54 36 56 46 62 52 M74 45 C83 52 79 60 88 66"/><path class="sh-leaf" d="M102 37 C96 26 91 21 88 14 C96 16 101 25 102 37 C104 25 108 17 116 14 C113 22 108 29 102 37 Z"/><path class="sh-pot" d="M92 37 h20 l-3 16 h-14 z"/><path class="sh-plank" d="M2 53 h116 v7 h-116 z M12 60 h8 l-8 8 z M100 60 h8 v8 z"/></svg>
+          <svg class="ps-clock" viewBox="0 0 70 72"><path class="ck-ear" d="M13 26 L16 5 L31 17 Z M57 26 L54 5 L39 17 Z"/><circle class="ck-face" cx="35" cy="40" r="27"/><path class="ck-line" d="M35 17 v6 M35 57 v6 M12 40 h6 M52 40 h6 M35 40 V26 M35 40 L45 46"/><circle class="ck-dot" cx="35" cy="40" r="3"/></svg>
+        </div>
         <div id="cat-host" class="cat-host"></div>
-        <div id="bubble-host" class="bubble-host"></div>
+        <div class="talk-col">
+          <div id="bubble-host" class="bubble-host"></div>
+          <div id="status" class="status" role="status" aria-live="polite"></div>
+        </div>
       </div>
 
-      <div id="engine-state" class="engine-state" hidden></div>
-
-      <div id="cap-top" class="cap-row" data-color="b"></div>
-
-      <div id="board-host" class="board-host"></div>
-
-      <div id="cap-bot" class="cap-row" data-color="w"></div>
-
-      <div id="nav-host" class="nav-host"></div>
-
-      <div id="status" class="status" role="status" aria-live="polite"></div>
-
-      <div class="game-actions">
-        <button id="btn-menu" class="btn btn-sm" type="button">Menu</button>
-        <button id="btn-undo" class="btn btn-sm" type="button">Đi lại</button>
-        <button id="btn-flip" class="btn btn-sm" type="button">Lật bàn</button>
-        <button id="btn-resign" class="btn btn-sm btn-danger" type="button">Xin thua</button>
+      <div class="board-col">
+        <div id="engine-state" class="engine-state" hidden></div>
+        <div id="cap-top" class="cap-row" data-color="b"></div>
+        <div id="board-host" class="board-host"></div>
+        <div id="cap-bot" class="cap-row" data-color="w"></div>
       </div>
 
-      <div id="chat-host" class="chat-host"></div>
+      <div id="side-col" class="side-col">
+        <div id="nav-host" class="nav-host"></div>
+        <div class="game-actions" data-fold>
+          <button id="btn-hint" class="btn btn-sm" type="button"><span class="btn-ic" data-icon="hint"></span>Gợi ý</button>
+          <button id="btn-undo" class="btn btn-sm" type="button"><span class="btn-ic" data-icon="undo"></span>Đi lại</button>
+          <button id="btn-flip" class="btn btn-sm" type="button"><span class="btn-ic" data-icon="flip"></span>Lật bàn</button>
+          <button id="btn-resign" class="btn btn-sm btn-danger" type="button"><span class="btn-ic" data-icon="flag"></span>Xin thua</button>
+          <button id="btn-chat" class="btn btn-sm btn-chat" type="button" aria-label="Trò chuyện" aria-expanded="false" aria-controls="chat-host"><svg class="ic-chat" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 4.5h17v11h-9l-5 4.5v-4.5h-3z"/><path class="ic-dots" d="M8 10h.01M12 10h.01M16 10h.01"/></svg></button>
+        </div>
+        <div id="chat-host" class="chat-host"></div>
+      </div>
 
     </section>
 
@@ -86,6 +95,13 @@
 
 <!-- Thu tu nap QUAN TRONG: vendor truoc, roi core, roi cac he thong, main cuoi cung.
      build.mjs doc dung danh sach nay de noi file, nen dung xoa thu tu. -->
+<!-- Hình pháo giấy kết ván (js/ui-celebration.js) — khai MỘT lần, mỗi mảnh chỉ là một <use> -->
+<svg class="cf-defs" width="0" height="0" aria-hidden="true" focusable="false">
+  <symbol id="cf-star" viewBox="0 0 40 40"><polygon points="20,2 25,14 38,15 28,24 31,37 20,30 9,37 12,24 2,15 15,14"/></symbol>
+  <symbol id="cf-fish" viewBox="0 0 40 40"><path d="M4 20 C10 10 23 10 29 20 C23 30 10 30 4 20 Z M29 20 L37 12 L37 28 Z"/></symbol>
+  <symbol id="cf-paw" viewBox="0 0 40 40"><circle cx="20" cy="26" r="9"/><circle cx="10" cy="14" r="4.5"/><circle cx="20" cy="9" r="4.5"/><circle cx="30" cy="14" r="4.5"/></symbol>
+  <symbol id="cf-dot" viewBox="0 0 40 40"><circle cx="20" cy="20" r="9"/></symbol>
+</svg>
 <!-- Ma dung chung ca cong game. Duong dan TUONG DOI de chay duoc o sub-path.
      Xem shared/README.md truoc khi sua. -->
 
@@ -97,7 +113,7 @@
 <script src="../../shared/portal-cloud.js"></script>
 <script src="../../shared/portal-rank.js"></script>
 <script src="../../shared/portal-player.js"></script>
-<script src="assets/app-ba9820c0.js" onerror="window.__shellHong=1"></script>
+<script src="assets/app-4f9280da.js" onerror="window.__shellHong=1"></script>
 <script>
 /* LOP TU CUU KHI VO UNG DUNG HONG — dung xoa.
  *
