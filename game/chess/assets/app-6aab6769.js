@@ -6000,6 +6000,162 @@ CC.CloudAdapter = (function () {
 })();
 
 ;
+/* ===== js/cloud-telemetry.js ===== */
+/* cloud-telemetry.js — LOG VÁN để chỉnh độ khó từng mèo bằng số thật (28/10/2026)
+ *
+ * Mỗi ván với mèo kết thúc (thắng / thua / hoà) hoặc bị bỏ (mở ván mới khi ván cũ còn dở) ghi MỘT bản ghi vào Firestore
+ * `chessRuns`; dashboard portal/game/chess-dash/ đọc về. Cùng khuôn với Sky Chicken (system-telemetry.js + sky-dash).
+ * Đóng tab KHÔNG tính là bỏ: ván được lưu và mở lại được (CC.Persistence).
+ * KHÔNG tên, email, uid thật: `pk` = băm uid, chỉ để đếm số người riêng.
+ *
+ * Ai được log:
+ *   portal: CHỈ người đã đăng nhập — khách chưa đăng nhập không nạp Firebase (~200 KB SDK, luật của portal-auth.js).
+ *   *.zingplay.dev (bản thử nội bộ sau SSO): vé ẨN DANH trên app Firebase RIÊNG 'cc-tele'. Đăng nhập ẩn danh trên app
+ *     mặc định thì Portal.Auth nhận vé đó là một "Người chơi" và đẩy tiến độ lên chessUsers/<uid ẩn danh>.
+ *   máy dev: chỉ khi URL có `?tele`, kênh 'dev' (dashboard lọc bỏ mặc định). Trang harness `?state=` không bao giờ log.
+ * Lỗi mạng / luật thì bỏ qua: hụt vài ván không sao, chặn game vì log là không được.
+ */
+
+CC.Telemetry = (function () {
+  const COL = 'chessRuns', V = 1;
+  // Đo khung hình 1,2 s sau MỖI nước (quân trượt 180 ms + FX gỡ trước 650 ms + chữ / pháo) — lúc đứng yên bàn cờ không
+  // vẽ gì, rAF chạy suốt ván chỉ tốn pin điện thoại mà không đo được gì thêm.
+  const FRAME_WIN = 1200, MAX_FRAMES = 6000;
+  let g = null, frames = [], until = 0, last = 0, anon = null;
+
+  function channel() {
+    if (/[?&]state=/.test(location.search)) return null;
+    if (/(^|\.)zingplay\.dev$/.test(location.hostname)) return 'zingplay';
+    if (/\.github\.io$/.test(location.hostname)) return 'portal';
+    return /[?&]tele\b/.test(location.search) ? 'dev' : null;
+  }
+
+  // FNV-1a như SC.EVO_KW._hash: đếm được người riêng, không lần ngược ra uid
+  function hash(s) {
+    let h = 2166136261;
+    for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return (h >>> 0).toString(36);
+  }
+
+  // "nhân/DPR/RAM/m|d" ≤ 24 ký tự (trần ở luật): đủ tách điện thoại yếu khỏi máy bàn khi đọc ft95
+  function device() {
+    const n = navigator, coarse = window.matchMedia && matchMedia('(pointer: coarse)').matches;
+    return [n.hardwareConcurrency || 0, Math.round((window.devicePixelRatio || 1) * 10) / 10, n.deviceMemory || 0,
+      coarse ? 'm' : 'd'].join('/');
+  }
+
+  function tick(now) {
+    if (last && !document.hidden) {
+      const d = now - last;
+      if (d < 1000 && frames.length < MAX_FRAMES) frames.push(d);   // > 1 s = tab vừa ẩn rồi hiện, không phải giật
+    }
+    last = now;
+    if (now < until) requestAnimationFrame(tick);
+    else { until = 0; last = 0; }
+  }
+
+  function watchFrames() {
+    if (!g || (g.ch === 'portal' && !Portal.Auth.user)) return;
+    const running = until > 0;
+    until = performance.now() + FRAME_WIN;
+    if (!running) requestAnimationFrame(tick);
+  }
+
+  function frameStats() {
+    if (frames.length < 10) return {};
+    const s = frames.slice().sort((a, b) => a - b), q = p => s[Math.min(s.length - 1, Math.floor(p * s.length))];
+    return { ft50: Math.round(q(0.5) * 10) / 10, ft95: Math.round(q(0.95) * 10) / 10, jank: s.filter(d => d > 50).length };
+  }
+
+  function begin(e, ch) {
+    g = { ch, start: Date.now(), elo: e.elo | 0, col: e.playerColor === 'b' ? 'b' : 'w', rs: !!e.restored,
+      hint: 0, undo: 0, blun: 0, ef: false, done: false, ply: 0, mat: 0 };
+    frames = [];
+    snap();
+  }
+
+  /* Số nước + chênh quân chụp sau MỖI nước / lần đi lại: lúc biết ván bị bỏ (game:start của ván mới) thì start() đã gọi
+     CC.Rules.newGame() — bàn đã trống, đọc lúc đó ra 0 nước. */
+  function snap() {
+    if (!g) return;
+    const d = CC.Rules.materialDiff();
+    g.ply = CC.Rules.historyVerbose().length;
+    g.mat = g.col === 'w' ? d : -d;
+  }
+
+  function finish(res, kind) {
+    if (!g || g.done) return;
+    if (res !== 'quit') snap();
+    g.done = true;
+    const cat = CC.CatProfiles.byElo(g.elo);
+    const row = Object.assign({
+      v: V, ch: g.ch, cat: String((cat && cat.id) || ''), elo: g.elo, col: g.col, res, kind: String(kind || ''),
+      ply: g.ply, t: Math.min(86399, Math.round((Date.now() - g.start) / 1000)),
+      hint: g.hint, undo: g.undo, blun: g.blun, mat: g.mat, rs: g.rs,
+      fx: !!(CC.BoardFx && CC.BoardFx.enabled()), ef: g.ef, dev: device(), at: Date.now()
+    }, frameStats());
+    send(row);
+  }
+
+  /* Vé ẩn danh trên app riêng. `authStateReady` đợi phiên cũ hồi từ IndexedDB: hỏi currentUser ngay sau getAuth luôn
+     ra null → mỗi lần mở trang một uid ẩn danh mới, dashboard đếm một người thành nhiều người. */
+  function anonTicket() {
+    return anon || (anon = (async () => {
+      const fb = await Portal.FB.load();
+      const appM = await import(`${Portal.FB.SDK}/firebase-app.js`);   // cùng URL → cùng module với authM / fsM
+      const app = appM.getApps().find(a => a.name === 'cc-tele') || appM.initializeApp(Portal.CONFIG, 'cc-tele');
+      const auth = fb.authM.getAuth(app);
+      await auth.authStateReady();
+      if (!auth.currentUser) await fb.authM.signInAnonymously(auth);
+      return { fsM: fb.fsM, db: fb.fsM.getFirestore(app), uid: auth.currentUser.uid };
+    })().catch(e => { anon = null; throw e; }));
+  }
+
+  async function ticket(ch) {
+    if (ch !== 'portal') return anonTicket();
+    if (!Portal.Auth.user) return null;
+    const fb = await Portal.FB.load();
+    return fb.auth.currentUser ? { fsM: fb.fsM, db: fb.db, uid: fb.auth.currentUser.uid } : null;
+  }
+
+  async function send(row) {
+    try {
+      if (!Portal.FB.configured()) return;
+      const tk = await ticket(row.ch);
+      if (!tk) return;
+      row.pk = hash(tk.uid);
+      await Portal.FB.limit(tk.fsM.addDoc(tk.fsM.collection(tk.db, COL), row), 'log ván');
+    } catch (e) {
+      console.warn('[telemetry] bỏ qua log ván:', (e && e.code) || e);
+    }
+  }
+
+  return {
+    init() {
+      const ch = channel();
+      if (!ch) return this;   // máy dev / harness: không gắn gì, không tốn một khung rAF nào
+      const B = CC.util.bus;
+      B.on('game:start', e => {
+        // Về sảnh rồi "Chơi tiếp" = khôi phục CHÍNH ván đang theo dõi: giữ nguyên đếm gợi ý / đi lại / giờ bắt đầu
+        if (e.restored && g && !g.done) return;
+        // Ván cũ còn dở mà mở ván mới = bỏ ván. Chưa đi nước nào thì không tính (bấm nhầm, đổi mèo ngay)
+        if (g && !g.done && g.ply > 0) finish('quit', 'quit');
+        g = null;
+        if (e.mode === 'ai') begin(e, ch);
+      });
+      B.on('game:over', ({ result, outcome }) => finish(outcome, result && result.kind));
+      B.on('game:move', () => { snap(); watchFrames(); });
+      B.on('hint:shown', () => { if (g) g.hint++; });
+      B.on('game:undo', ({ count }) => { if (g) { g.undo += count | 0; snap(); } });
+      B.on('engine:picked', ({ wasBlunder }) => { if (g && wasBlunder) g.blun++; });
+      B.on('game:engine-failed', () => { if (g) g.ef = true; });
+      return this;
+    },
+    _test: { channel, hash, device, frameStats: () => frameStats(), state: () => g, finish }
+  };
+})();
+
+;
 /* ===== js/game-persistence.js ===== */
 /* game-persistence.js — luu va khoi phuc van dang choi
  *
@@ -10941,6 +11097,7 @@ CC.UpdateNotice = (function () {
      * Portal.Cloud.onUser() ngay khi biet phien, luc do adapter phai co san. */
     CC.CloudAdapter.init();
     Portal.Auth.init();
+    CC.Telemetry.init();   // log ván chessRuns — sau Auth: kênh portal hỏi Portal.Auth.user lúc gửi
     CC.RankPanel.mount($('#rank-body'));
 
     wireButtons();

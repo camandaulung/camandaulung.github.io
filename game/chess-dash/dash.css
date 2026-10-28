@@ -1,0 +1,103 @@
+/* dash.css — dashboard Cờ vua với mèo. Màu series = bảng mặc định của skill dataviz, ĐÃ CHẠY validate_palette.js
+ * (4 slot đầu, nền sáng #fcfcfb + nền tối #1a1a19: đạt mọi cổng). Nền sáng có 2 slot dưới 3:1 (xanh ngọc, vàng) → bù
+ * bằng nhãn % in trên thanh + bảng số bên dưới (luật "relief" của skill). Tối KHÔNG lật tự động: mỗi slot một bước riêng.
+ */
+:root {
+  color-scheme: light;
+  --page: #f9f9f7; --surface: #fcfcfb; --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
+  --grid: #e1e0d9; --axis: #c3c2b7; --ring: rgba(11, 11, 11, .10); --accent: #d62f2f;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --bad: #d03b3b;
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --ring: rgba(255, 255, 255, .10); --accent: #e66767;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+  --grid: #2c2c2a; --axis: #383835; --ring: rgba(255, 255, 255, .10); --accent: #e66767;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
+}
+* { box-sizing: border-box; }
+body { margin: 0 auto; max-width: 1280px; padding: 16px; background: var(--page); color: var(--ink);
+  font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+h1 { font-size: 20px; margin: 0 0 10px; letter-spacing: .02em; }
+h1 em { font-style: normal; color: var(--accent); }
+h2 { font-size: 15px; margin: 0 0 10px; }
+h2 small, .dim { font-weight: 400; color: var(--ink-2); }
+.filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.filters label { display: flex; gap: 6px; align-items: center; color: var(--ink-2); }
+select, button { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--axis); border-radius: 8px; padding: 6px 10px; }
+button { cursor: pointer; font-weight: 600; }
+.status { color: var(--ink-2); font-size: 12px; margin: 8px 0 14px; }
+.status button { margin-left: 10px; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.kpi { background: var(--surface); border: 1px solid var(--ring); border-radius: 12px; padding: 12px 14px; }
+.kpi b { display: block; font-size: 26px; line-height: 1.15; }
+.kpi span { display: block; font-weight: 600; font-size: 13px; }
+.kpi small { color: var(--ink-2); font-size: 12px; }
+.kpi.bad b { color: var(--bad); }
+.card { background: var(--surface); border: 1px solid var(--ring); border-radius: 14px; padding: 14px; margin-bottom: 14px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 10px; font-size: 12px; color: var(--ink-2); }
+.legend span { display: flex; align-items: center; gap: 6px; }
+.sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.s1 { background: var(--s1); } .s2 { background: var(--s2); } .s3 { background: var(--s3); } .s4 { background: var(--s4); }
+
+/* thanh 100 % theo mèo: khe 2 px giữa khúc, đầu thanh bo 4 px */
+.srow { display: grid; grid-template-columns: 150px 1fr; gap: 10px; align-items: center; margin: 6px 0; }
+.slab { font-weight: 600; font-size: 13px; line-height: 1.2; }
+.slab small { display: block; font-weight: 400; color: var(--ink-2); font-size: 11px; }
+.sbar { display: flex; gap: 2px; height: 26px; }
+.seg { display: flex; align-items: center; justify-content: center; min-width: 2px; }
+.seg:first-child { border-radius: 4px 0 0 4px; } .seg:last-child { border-radius: 0 4px 4px 0; } .seg:only-child { border-radius: 4px; }
+.seg b { font-size: 11px; color: #0b0b0b; background: rgba(255, 255, 255, .82); padding: 0 4px; border-radius: 3px; }
+.empty { color: var(--muted); font-size: 12px; align-self: center; }
+
+/* cột theo ngày */
+.cols { position: relative; display: flex; gap: 2px; align-items: stretch; height: 200px; padding: 0 0 18px 32px;
+  border-bottom: 1px solid var(--axis); }
+.cols .grid { position: absolute; inset: 0 0 18px 0; display: flex; flex-direction: column; pointer-events: none;
+  font-size: 11px; color: var(--muted); }
+.cols .grid span { flex: 1; border-top: 1px solid var(--grid); }
+.col { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; position: relative; min-width: 0; }
+.cstack { display: flex; flex-direction: column-reverse; gap: 2px; height: 100%; justify-content: flex-start; }
+.cseg { display: block; width: 100%; max-width: 28px; margin: 0 auto; }
+.cstack .cseg:last-child { border-radius: 4px 4px 0 0; }
+.col:hover .cseg { filter: brightness(1.1); }
+.cx { position: absolute; bottom: -18px; left: 50%; transform: translateX(-50%); font-size: 10px; color: var(--muted); white-space: nowrap; }
+
+/* thanh ngang một series */
+.hrow { display: grid; grid-template-columns: 170px 1fr 84px; gap: 8px; align-items: center; margin: 5px 0; font-size: 13px; }
+.htrack { height: 14px; }
+.hbar { display: block; height: 100%; border-radius: 0 4px 4px 0; min-width: 2px; }
+.hval { text-align: right; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+
+.tip { position: fixed; z-index: 10; pointer-events: none; background: var(--surface); color: var(--ink); border: 1px solid var(--ring);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .18); border-radius: 8px; padding: 6px 9px; font-size: 12px; max-width: 260px; }
+
+.tbl-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+th, td { padding: 6px 8px; border-bottom: 1px solid var(--grid); text-align: right; }
+th:first-child, td:first-child { text-align: left; }
+th { color: var(--ink-2); font-weight: 600; position: sticky; top: 0; background: var(--surface); }
+tr.grp td { font-weight: 700; }
+td.flags, #tblCats th:last-child { text-align: left; }
+/* bảng ván gần nhất: 5 cột đầu là chữ (lúc, kênh, mèo, cầm, kết quả) */
+.txt5 th:nth-child(-n+5), .txt5 td:nth-child(-n+5) { text-align: left; }
+.flag { display: inline-block; margin-right: 4px; padding: 0 6px; border-radius: 6px; font-size: 12px; font-weight: 600;
+  color: var(--bad); border: 1px solid currentColor; }
+.flag.soft { color: var(--muted); font-weight: 400; }
+td.res-win { color: var(--s1); font-weight: 600; } td.res-loss { color: var(--ink-2); }
+
+body.locked .kpis, body.locked .card, body.locked .grid2, body.locked .filters { display: none; }
+body.locked .status { font-size: 15px; color: var(--ink); }
+@media (max-width: 760px) {
+  .grid2 { grid-template-columns: 1fr; }
+  .srow { grid-template-columns: 96px 1fr; }
+  .hrow { grid-template-columns: 110px 1fr 70px; }
+}

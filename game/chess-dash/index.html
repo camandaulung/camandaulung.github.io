@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Cờ Mèo — Theo dõi ván</title>
+<link rel="stylesheet" href="dash.css">
+</head>
+<body>
+<!-- Dashboard theo dõi + chỉnh độ khó Cờ vua với mèo (28/10/2026): đọc Firestore `chessRuns` (log ván do
+     games/cat-chess/js/cloud-telemetry.js ghi). Chỉ 2 tài khoản quản trị đọc được (luật Firestore). `?demo` = số giả. -->
+<header>
+  <h1>CỜ MÈO · <em>THEO DÕI VÁN &amp; ĐỘ KHÓ</em></h1>
+  <div class="filters">
+    <label>Kênh <select id="fCh"><option value="">portal + zingplay</option><option value="zingplay">zingplay.dev</option><option value="portal">portal</option><option value="dev">máy dev</option></select></label>
+    <label>Thời gian <select id="fDays"><option value="1">24 giờ</option><option value="7" selected>7 ngày</option><option value="30">30 ngày</option><option value="90">90 ngày</option></select></label>
+    <label><input type="checkbox" id="fQuit"> Tính cả ván bỏ vào win rate</label>
+    <button id="btnReload">Tải lại</button>
+    <button id="btnExport">Xuất log (JSON)</button>
+  </div>
+  <p class="status" id="status">Đang tải…</p>
+</header>
+
+<section class="kpis" id="kpis"></section>
+
+<section class="card">
+  <h2>Kết quả theo mèo <small>(xếp theo Elo — người thắng nên GIẢM dần từ trên xuống)</small></h2>
+  <div id="cCats"></div>
+</section>
+
+<section class="card">
+  <h2>Chi tiết từng mèo <small>(nước + phút: trung vị ván đã xong · gợi ý, đi lại, mèo hớ: trung bình mỗi ván · chênh quân lúc hết, phe người chơi)</small></h2>
+  <div class="tbl-wrap"><table id="tblCats">
+    <thead><tr><th>Mèo</th><th>Elo</th><th>Ván</th><th>Người</th><th>Người thắng (ván xong)</th><th>Hoà</th><th>Mèo thắng</th><th>Bỏ</th>
+      <th>Nước</th><th>Phút</th><th>Gợi ý</th><th>Đi lại</th><th>Mèo hớ</th><th>Chênh quân</th><th>Cờ</th></tr></thead>
+    <tbody></tbody>
+  </table></div>
+</section>
+
+<section class="grid2">
+  <div class="card">
+    <h2>Ván theo ngày</h2>
+    <div id="cDays"></div>
+  </div>
+  <div class="card">
+    <h2>Ván kết thúc thế nào</h2>
+    <div id="cKinds"></div>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Khung hình máy thật <small>(đo 1,2 s sau mỗi nước · ms · lỡ nhịp = p95 &gt; 33 ms)</small></h2>
+  <div class="tbl-wrap"><table id="tblDev">
+    <thead><tr><th>Máy (nhân / DPR / RAM GB / loại)</th><th>Ván</th><th>p50</th><th>p95 (trung vị)</th><th>p95 (p90 các ván)</th><th>Ván lỡ nhịp</th><th>Khung &gt; 50 ms / ván</th></tr></thead>
+    <tbody></tbody>
+  </table></div>
+</section>
+
+<section class="card">
+  <h2>Ván gần nhất <small>(40 ván mới nhất — xem team test live)</small></h2>
+  <div class="tbl-wrap"><table id="tblRecent" class="txt5">
+    <thead><tr><th>Lúc</th><th>Kênh</th><th>Mèo</th><th>Cầm</th><th>Kết quả</th><th>Kiểu</th><th>Nước</th><th>Phút</th><th>Gợi ý</th><th>Đi lại</th><th>p95</th><th>Máy</th></tr></thead>
+    <tbody></tbody>
+  </table></div>
+</section>
+
+<script src="../../shared/portal-config.js"></script>
+<script src="../../shared/portal-firebase.js"></script>
+<script src="dash-data.js"></script>
+<script src="dash-charts.js"></script>
+<script src="dash-demo.js"></script>
+<script src="dash.js"></script>
+</body>
+</html>
