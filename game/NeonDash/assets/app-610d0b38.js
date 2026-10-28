@@ -1845,7 +1845,10 @@ ND.View.Scene = (function () {
   /* Số đo hiệu năng — gọi tay từ console hoặc bằng `?debug`. */
   function stats() {
     const i = renderer.info;
-    return { calls: i.render.calls, triangles: i.render.triangles, geometries: i.memory.geometries };
+    return {
+      calls: i.render.calls, triangles: i.render.triangles, geometries: i.memory.geometries,
+      dpr: renderer.getPixelRatio(), w: renderer.domElement.width, h: renderer.domElement.height
+    };
   }
 
   return {
@@ -1894,81 +1897,78 @@ ND.View.Track = (function () {
 
   const ROAD_W = CFG.LANES * CFG.LANE_W;
 
-  let segments = [];                   // { group, z }
-  let edgeMats = [];                   // để đổi màu theo bậc tốc độ (phase 05)
-  let headZ = 0;                       // z của mép xa nhất đã dựng
+  let segments = [];                   // { z } — chỉ còn số; hình nằm trong 4 InstancedMesh
+  let road, edges, lines, rungs;
+  let m4, mau;                         // dùng lại mỗi lần dời đoạn — 0 cấp phát mỗi khung
+  let doi = false;                     // có đoạn vừa dời → đẩy ma trận lên GPU một lần
+  const LINES = CFG.LANES - 1, RUNGS = 4;
 
+  /* ============ VÌ SAO INSTANCEDMESH (P01 plan art AAA) ============
+   * Bản trước: 6 đoạn × 9 Mesh = 54 Mesh → ~36–54 lệnh vẽ cho MỘT mặt phẳng, nguồn lệnh vẽ số một của cả cảnh
+   * (GD phát hiện 1). GDD §13 ghi "gộp InstancedMesh cho khối đường" từ đầu mà mã chưa làm. Bốn phần (mặt, lề,
+   * vạch làn, vạch ngang) thành 4 InstancedMesh = 4 lệnh vẽ, bất kể bao nhiêu đoạn. Đoạn vẫn dời bằng phép chia
+   * dư y như cũ; chỉ khác là dời = ghi lại ma trận instance thay vì đổi `group.position`.
+   * `frustumCulled = false`: hình cầu bao của InstancedMesh tính một lần từ vị trí instance lúc đầu, dời đoạn
+   * xong nó không tự tính lại → cả con đường bị loại khỏi khung nhìn. Đằng nào cả 6 đoạn cũng quanh camera. */
   function build(scene) {
-    /* Hình học dùng chung — dựng một lần, mọi đoạn tham chiếu tới. */
+    m4 = new THREE.Matrix4();
+    mau = new THREE.Color();
     const roadGeo = new THREE.BoxGeometry(ROAD_W, 0.4, SEG_LEN);
     const edgeGeo = new THREE.BoxGeometry(0.18, 0.5, SEG_LEN);
     const lineGeo = new THREE.BoxGeometry(0.06, 0.02, SEG_LEN);
-
     const roadMat = new THREE.MeshStandardMaterial({
       color: CFG.COLOR.ROAD, roughness: 0.85, metalness: 0.1
     });
-    /* Lề và vạch làn dùng MeshBasicMaterial: chúng PHÁT sáng chứ không NHẬN sáng.
-     * Dùng vật liệu nhận sáng ở đây thì lề sẽ tối dần theo khoảng cách tới đèn và
-     * trông như bẩn chứ không như neon. */
+    /* Lề và vạch làn dùng MeshBasicMaterial: chúng PHÁT sáng chứ không NHẬN sáng — vật liệu nhận sáng làm lề tối
+     * dần theo khoảng cách tới đèn và trông như bẩn chứ không như neon. Màu lề nằm ở instanceColor (vật liệu
+     * trắng × màu instance) để đổi theo bậc tốc độ mà không cần mỗi đoạn một vật liệu. */
+    const edgeMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
     const lineMat = new THREE.MeshBasicMaterial({ color: CFG.COLOR.LANE_LINE });
-
-    /* Vạch ngang: rộng gần hết mặt đường, mỏng, và mờ hơn vạch làn — nó là nhịp nền chứ
-     * không phải thông tin cần đọc, nên không được cạnh tranh với chướng ngại. */
+    /* Vạch ngang: mỏng và mờ hơn vạch làn — nhịp nền, không được cạnh tranh với chướng ngại. Chúng là thứ làm mắt
+     * ĐỌC ĐƯỢC TỐC ĐỘ: không có thì mặt đường là một dải màu đồng đều, lao 20 m/s mà nền như đứng yên. Bốn vạch
+     * mỗi đoạn, cách 6 m: đọc được ở tốc độ trần (~4 vạch/giây) mà không thành sọc rằn ở tốc độ đầu. */
     const rungGeo = new THREE.BoxGeometry(ROAD_W * 0.92, 0.02, 0.22);
     const rungMat = new THREE.MeshBasicMaterial({
       color: CFG.COLOR.RUNG, transparent: true, opacity: 0.5, depthWrite: false
     });
 
-    for (let i = 0; i < SEG_COUNT; i++) {
-      const g = new THREE.Group();
-
-      const road = new THREE.Mesh(roadGeo, roadMat);
-      road.position.y = -0.2;          // mặt trên của hộp nằm đúng y = 0
-      g.add(road);
-
-      /* Mỗi đoạn một vật liệu lề RIÊNG. Tốn thêm chút, nhưng nhờ vậy phase 05 chuyển
-       * màu dần từ đoạn này sang đoạn kia được, thay vì cả con đường đổi màu chớp một
-       * cái — chuyển dần đọc được là "đang tăng tốc", chớp một cái đọc được là lỗi. */
-      const edgeMat = new THREE.MeshBasicMaterial({ color: CFG.COLOR.EDGE_STEPS[0] });
-      edgeMats.push(edgeMat);
-
-      const eL = new THREE.Mesh(edgeGeo, edgeMat);
-      eL.position.set(-ROAD_W / 2 - 0.09, 0.05, 0);
-      g.add(eL);
-
-      const eR = new THREE.Mesh(edgeGeo, edgeMat);
-      eR.position.set(ROAD_W / 2 + 0.09, 0.05, 0);
-      g.add(eR);
-
-      /* Hai vạch chia ba làn, đặt ở ranh giới giữa các làn. */
-      for (let k = 0; k < CFG.LANES - 1; k++) {
-        const line = new THREE.Mesh(lineGeo, lineMat);
-        line.position.set(-ROAD_W / 2 + CFG.LANE_W * (k + 1), 0.01, 0);
-        g.add(line);
-      }
-
-      /* VẠCH NGANG — thứ làm mắt ĐỌC ĐƯỢC TỐC ĐỘ.
-       *
-       * Không có chúng, mặt đường là một dải màu đồng đều: nhân vật lao 20 m/s mà nền
-       * dưới chân trông như đứng yên, và người chơi báo "tối thui". Vạch ngang trôi qua
-       * đều đặn là tín hiệu duy nhất cho biết mình đang đi nhanh cỡ nào — chính là thứ
-       * mọi game đua xe dùng, và lý do đường cao tốc có vạch đứt.
-       *
-       * Bốn vạch mỗi đoạn, cách nhau 6 m. Đủ dày để đọc ở tốc độ trần (26 m/s cho ~4
-       * vạch mỗi giây) mà không thành sọc rằn ở tốc độ đầu. */
-      for (let k = 0; k < 4; k++) {
-        const rung = new THREE.Mesh(rungGeo, rungMat);
-        rung.position.set(0, 0.012, SEG_LEN / 2 - 3 - k * 6);
-        g.add(rung);
-      }
-
-      const z = -i * SEG_LEN;
-      g.position.z = z;
-      scene.add(g);
-      segments.push({ group: g, z });
+    road = new THREE.InstancedMesh(roadGeo, roadMat, SEG_COUNT);
+    edges = new THREE.InstancedMesh(edgeGeo, edgeMat, SEG_COUNT * 2);
+    lines = new THREE.InstancedMesh(lineGeo, lineMat, SEG_COUNT * LINES);
+    rungs = new THREE.InstancedMesh(rungGeo, rungMat, SEG_COUNT * RUNGS);
+    for (const im of [road, edges, lines, rungs]) {
+      im.frustumCulled = false;
+      im.userData.nhom = 'duong';
+      scene.add(im);
     }
+    for (let i = 0; i < SEG_COUNT; i++) {
+      segments.push({ z: -i * SEG_LEN });
+      place(i);
+    }
+    setEdgeColor(CFG.COLOR.EDGE_STEPS[0]);
+    flush();
+  }
 
-    headZ = -(SEG_COUNT - 1) * SEG_LEN;
+  /* Ghi ma trận cho mọi phần của đoạn i theo `segments[i].z` */
+  function place(i) {
+    const z = segments[i].z;
+    road.setMatrixAt(i, m4.makeTranslation(0, -0.2, z));           // mặt trên của hộp nằm đúng y = 0
+    edges.setMatrixAt(i * 2, m4.makeTranslation(-ROAD_W / 2 - 0.09, 0.05, z));
+    edges.setMatrixAt(i * 2 + 1, m4.makeTranslation(ROAD_W / 2 + 0.09, 0.05, z));
+    for (let k = 0; k < LINES; k++) {                                // vạch chia làn, ở ranh giới giữa hai làn
+      lines.setMatrixAt(i * LINES + k, m4.makeTranslation(-ROAD_W / 2 + CFG.LANE_W * (k + 1), 0.01, z));
+    }
+    for (let k = 0; k < RUNGS; k++) {
+      rungs.setMatrixAt(i * RUNGS + k, m4.makeTranslation(0, 0.012, z + SEG_LEN / 2 - 3 - k * 6));
+    }
+    doi = true;
+  }
+
+  function flush() {
+    if (!doi) return;
+    doi = false;
+    road.instanceMatrix.needsUpdate = edges.instanceMatrix.needsUpdate = true;
+    lines.instanceMatrix.needsUpdate = rungs.instanceMatrix.needsUpdate = true;
   }
 
   /* Gọi mỗi khung hình. Ép mọi đoạn đường về đúng dải quanh camera.
@@ -2010,14 +2010,17 @@ ND.View.Track = (function () {
       const k = Math.ceil((s.z - camZ - SEG_LEN) / chuKy);
       if (k !== 0) {
         s.z -= k * chuKy;
-        s.group.position.z = s.z;
+        place(i);
       }
     }
+    flush();
   }
 
-  /* Đổi màu lề — `main.js` gọi khi lên bậc tốc độ. */
+  /* Đổi màu lề — `view-fx-bind.js` gọi khi lên bậc tốc độ. */
   function setEdgeColor(hex) {
-    for (let i = 0; i < edgeMats.length; i++) edgeMats[i].color.setHex(hex);
+    mau.setHex(hex);
+    for (let i = 0; i < SEG_COUNT * 2; i++) edges.setColorAt(i, mau);
+    edges.instanceColor.needsUpdate = true;
   }
 
   /* Đặt lại về đầu ván: xếp đoạn đường quanh `camZ` và trả màu lề về bậc 0.
@@ -2030,8 +2033,9 @@ ND.View.Track = (function () {
     for (let i = 0; i < segments.length; i++) {
       const s = segments[i];
       s.z = camZ + SEG_LEN - i * SEG_LEN;
-      s.group.position.z = s.z;
+      place(i);
     }
+    flush();
     setEdgeColor(CFG.COLOR.EDGE_STEPS[0]);
   }
 
@@ -2039,6 +2043,98 @@ ND.View.Track = (function () {
   const zList = () => segments.map(s => s.z);
 
   return { build, update, reset, setEdgeColor, zList, SEG_LEN, SEG_COUNT };
+})();
+
+;
+/* ===== js/view-geo.js ===== */
+/* view-geo.js — gộp nhiều hộp thành MỘT BufferGeometry (một lệnh vẽ)
+ *
+ * Không vendor BufferGeometryUtils của Three chỉ để gộp hộp: addon nhập `'three'` trần → cần import map, kéo theo cả
+ * quyết định nạp addon (để dành cho P02). Hộp đủ đơn giản để tự nối mảng.
+ */
+ND.View = ND.View || {};
+
+ND.View.Geo = (function () {
+  /* specs: [[rộng, cao, sâu, tâmX, tâmY, tâmZ], …] */
+  function mergeBoxes(specs) {
+    const pos = [], nor = [], uv = [], idx = [];
+    for (const [w, h, d, x, y, z] of specs) {
+      const g = new THREE.BoxGeometry(w, h, d);
+      g.translate(x, y, z);
+      const base = pos.length / 3;
+      pos.push(...g.attributes.position.array);
+      nor.push(...g.attributes.normal.array);
+      uv.push(...g.attributes.uv.array);
+      for (const i of g.index.array) idx.push(base + i);
+      g.dispose();
+    }
+    const out = new THREE.BufferGeometry();
+    out.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    out.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+    out.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    out.setIndex(idx);
+    return out;
+  }
+
+  /* Khung 12 thanh quanh hộp w×h×d, thanh dày t, nằm NGOÀI mặt hộp nửa bề dày — cùng mặt phẳng với khối đặc thì GPU
+   * chọn ngẫu nhiên mặt nào ở trên, ra vệt lốm đốm khi camera đổi góc. Thay cho `wireframe: true`: khung dây của
+   * BoxGeometry vẽ cả đường chéo tam giác, đọc ra là "bản debug" (r0, mọi người chấm đều nêu). */
+  function boxFrame(w, h, d, t) {
+    const X = w / 2, Y = h / 2, Z = d / 2, W = w + t * 2, H = h + t * 2, D = d + t * 2;
+    const s = [];
+    for (const a of [-1, 1]) {
+      for (const b of [-1, 1]) {
+        s.push([W, t, t, 0, a * (Y + t / 2), b * (Z + t / 2)]);   // dọc x
+        s.push([t, H, t, a * (X + t / 2), 0, b * (Z + t / 2)]);   // dọc y
+        s.push([t, t, D, a * (X + t / 2), b * (Y + t / 2), 0]);   // dọc z
+      }
+    }
+    return mergeBoxes(s);
+  }
+
+  return { mergeBoxes, boxFrame };
+})();
+
+;
+/* ===== js/view-fade-passed.js ===== */
+/* view-fade-passed.js — làm tan phần chướng ngại đã ở SAU nhân vật, tính theo từng điểm ảnh trên trục z thế giới
+ *
+ * Lỗi 1 (r0 d-09-late, r0b d-10-tube): ống dài 15 m, cửa sổ giữ vật phía sau (ACTIVE_BACK 10 m) dài hơn khoảng camera
+ * lùi (8,5 m) → nóc ống phía sau che kín hero suốt lúc trong ống và cả lúc vừa ra.
+ * Tính theo VẬT (ẩn cả instance) thì ống mất luôn khúc phía trước còn đang phải cúi. Tính theo ĐIỂM ẢNH: phần có
+ * z > runnerZ + 0,3 tan dần, hết hẳn ở + 1,5. Mốc 0,3 từ tính tia nhìn: tia từ camera (lùi 8,5, cao ~4,2) tới đầu hero
+ * cắt đáy nóc ống (y 1,15) ở ~+0,3 m — phần nóc trước mốc không che đầu.
+ * Dither (bỏ điểm ảnh theo nhiễu) thay vì trong suốt: giữ ghi độ sâu, khỏi sắp xếp vật trong suốt. Hộp va chạm không đổi.
+ */
+ND.View = ND.View || {};
+
+ND.View.FadePassed = (function () {
+  const uniform = { value: 0 };
+  const BAT_DAU = 0.3, DAI = 1.2;
+
+  function patch(mat) {
+    mat.onBeforeCompile = sh => {
+      sh.uniforms.uNdRunnerZ = uniform;
+      sh.vertexShader = 'varying float vNdWz;\n' + sh.vertexShader.replace('#include <project_vertex>', [
+        '#include <project_vertex>',
+        'vec4 ndW = vec4(transformed, 1.0);',
+        '#ifdef USE_INSTANCING',
+        '  ndW = instanceMatrix * ndW;',
+        '#endif',
+        'vNdWz = (modelMatrix * ndW).z;'
+      ].join('\n'));
+      /* Nhiễu gradient đan xen (IGN): rẻ, không cần bảng Bayer, hạt mịn hơn khi tan dần */
+      sh.fragmentShader = 'uniform float uNdRunnerZ;\nvarying float vNdWz;\n' + sh.fragmentShader.replace('void main() {', [
+        'void main() {',
+        '  float ndF = clamp((vNdWz - uNdRunnerZ - ' + BAT_DAU.toFixed(2) + ') / ' + DAI.toFixed(2) + ', 0.0, 1.0);',
+        '  if (ndF > fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))))) discard;'
+      ].join('\n'));
+    };
+    mat.customProgramCacheKey = () => 'nd-fade-passed';
+    return mat;
+  }
+
+  return { uniform, patch };
 })();
 
 ;
@@ -2059,79 +2155,68 @@ ND.View.Track = (function () {
  * Ống dài dùng cùng màu lam với dầm treo vì cùng đòi cúi; phân biệt hai cái bằng ĐỘ DÀI,
  * thứ đọc được ngay cả khi màu trùng.
  *
- * Pool sẵn theo từng loại, không bao giờ `new` trong ván. Hình học dùng chung một khối
- * đơn vị rồi co giãn — nhờ vậy cả game chỉ có một BoxGeometry cho mọi chướng ngại.
+ * P01 plan art AAA: mỗi loại 2 InstancedMesh (khối đặc + khung) = 8 lệnh vẽ cho mọi chướng ngại, thay vì
+ * 4 loại × 10 pool × 2 Mesh = tới 80 lệnh vẽ và 80 vật liệu (GD phát hiện 2). Hình học dựng theo ĐÚNG kích thước
+ * từng loại (không co giãn một khối đơn vị): co giãn thì thanh khung của ống dài 15 m dày theo trục z gấp 15 lần.
  */
-
 ND.View = ND.View || {};
 
 ND.View.Obstacle = (function () {
-  const C = ND.CFG;
-
   const MAU = {
     wall:   { than: 0x2a0d2e, vien: 0xff3d9a },   // hồng — né sang bên
     hurdle: { than: 0x33270a, vien: 0xffc93d },   // vàng — nhảy
     beam:   { than: 0x0c2a33, vien: 0x3ddcff },   // lam — cúi
     tube:   { than: 0x0c2a33, vien: 0x3ddcff }    // lam — cúi, và giữ
   };
-
   const MOI_LOAI = 10;          // đủ cho cửa sổ 90 m; chunk dày nhất có 3 vật cùng ô
-  const pools = {};             // type -> [{ than, vien }]
+  const KHUNG = 0.07;           // m, bề dày thanh khung
+  const loai = {};              // type -> { than, vien } (InstancedMesh)
+  let m4;
 
   function build(scene) {
-    const geo = new THREE.BoxGeometry(1, 1, 1);
-    const geoVien = new THREE.BoxGeometry(1, 1, 1);
-
+    m4 = new THREE.Matrix4();
+    const Fade = ND.View.FadePassed;
     for (const type of Object.keys(ND.Data.Obstacles.TYPES)) {
+      const T = ND.Data.Obstacles.TYPES[type];
       const m = MAU[type] || MAU.wall;
-      pools[type] = [];
-      for (let i = 0; i < MOI_LOAI; i++) {
-        /* Hai lớp: khối đặc tối bên trong, khung dây sáng bọc ngoài. Chỉ khung dây thì
-         * nhìn xuyên qua được và mất cảm giác đặc; chỉ khối đặc thì chìm nghỉm vào nền
-         * tối. Hai lớp cho ra đúng thứ neon: viền rực, ruột sâu. */
-        const than = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: m.than }));
-        const vien = new THREE.Mesh(geoVien, new THREE.MeshBasicMaterial({ color: m.vien, wireframe: true }));
-        than.visible = vien.visible = false;
-        scene.add(than, vien);
-        pools[type].push({ than, vien });
+      /* Hai lớp: khối đặc tối bên trong, khung sáng bọc ngoài. Chỉ khung thì nhìn xuyên qua được và mất cảm giác
+       * đặc; chỉ khối đặc thì chìm vào nền tối. Hai lớp cho ra đúng thứ neon: viền rực, ruột sâu. */
+      const than = new THREE.InstancedMesh(new THREE.BoxGeometry(T.w, T.h, T.d),
+        Fade.patch(new THREE.MeshBasicMaterial({ color: m.than })), MOI_LOAI);
+      const vien = new THREE.InstancedMesh(ND.View.Geo.boxFrame(T.w, T.h, T.d, KHUNG),
+        Fade.patch(new THREE.MeshBasicMaterial({ color: m.vien })), MOI_LOAI);
+      for (const im of [than, vien]) {
+        /* Hình cầu bao của InstancedMesh không tự tính lại khi instance dời → bị loại khỏi khung nhìn sai */
+        im.frustumCulled = false;
+        im.userData.nhom = 'chuong-ngai';
+        im.count = 0;
+        im.visible = false;
+        scene.add(im);
       }
+      loai[type] = { than, vien };
     }
   }
 
-  /* Gán danh sách vật đang hoạt động vào pool. Vượt pool thì bỏ qua — vật ở xa nhất
-   * không hiện, mà xa nhất thì đằng nào cũng chìm trong sương mù. */
-  function update(list) {
-    const dung = {};
-    for (const type in pools) dung[type] = 0;
-
+  /* Gán danh sách vật đang hoạt động vào instance. Vượt pool thì bỏ qua — vật ở xa nhất không hiện, mà xa nhất thì
+   * đằng nào cũng chìm trong sương mù. `runnerZ` cho lớp làm tan phần đã qua (view-fade-passed.js). */
+  function update(list, runnerZ) {
+    ND.View.FadePassed.uniform.value = runnerZ;
+    for (const type in loai) loai[type].than.count = 0;
     for (let i = 0; i < list.length; i++) {
       const ob = list[i];
-      const pool = pools[ob.type];
-      if (!pool) continue;
-      const n = dung[ob.type];
-      if (n >= pool.length) continue;
-      dung[ob.type] = n + 1;
-
+      const L = loai[ob.type];
+      if (!L || L.than.count >= MOI_LOAI) continue;
       const T = ND.Data.Obstacles.TYPES[ob.type];
-      const x = ND.Rules.Lane.centerOf(ND.Data.Obstacles.laneOf(ob));
-      const y = T.yBase + T.h / 2;
-
-      const p = pool[n];
-      p.than.visible = p.vien.visible = true;
-      p.than.scale.set(T.w, T.h, T.d);
-      p.than.position.set(x, y, ob.z);
-      /* Khung dây phình ra một chút để nó nằm NGOÀI khối đặc. Cùng kích thước thì hai
-       * mặt trùng nhau và GPU chọn ngẫu nhiên mặt nào ở trên — ra vệt lốm đốm chạy loạn
-       * khi camera đổi góc. */
-      p.vien.scale.set(T.w * 1.01, T.h * 1.01, T.d * 1.005);
-      p.vien.position.set(x, y, ob.z);
+      m4.makeTranslation(ND.Rules.Lane.centerOf(ND.Data.Obstacles.laneOf(ob)), T.yBase + T.h / 2, ob.z);
+      L.than.setMatrixAt(L.than.count, m4);
+      L.vien.setMatrixAt(L.than.count, m4);
+      L.than.count++;
     }
-
-    for (const type in pools) {
-      const pool = pools[type];
-      for (let i = dung[type]; i < pool.length; i++) {
-        pool[i].than.visible = pool[i].vien.visible = false;
-      }
+    for (const type in loai) {
+      const L = loai[type];
+      L.vien.count = L.than.count;
+      L.than.visible = L.vien.visible = L.than.count > 0;
+      L.than.instanceMatrix.needsUpdate = L.vien.instanceMatrix.needsUpdate = true;
     }
   }
 
@@ -2276,7 +2361,7 @@ ND.View.Runner = (function () {
   const skinHienTai = () =>
     (ND.Store && ND.Store.skinDangMac && ND.Store.skinDangMac()) || ND.Data.Skins.MAC_DINH;
 
-  let root, hip, legL, legR, armL, armR, shadow;
+  let root, hip, legL, legR, armL, armR, shadow, ring;
   let mats = [];
 
   function hop(w, h, d, mau, y, x) {
@@ -2325,6 +2410,16 @@ ND.View.Runner = (function () {
     shadow.rotation.x = -Math.PI / 2;
     scene.add(shadow);
 
+    /* Vòng đánh dấu làn dưới chân khi bay (P01, lỗi 2 — r0 d-05-jet): ở 6 m đĩa bóng còn opacity 0,09, người chơi mất
+     * dấu mình đang ở làn nào để canh chỗ hạ cánh. Màu trắng lạnh của đèn, không lấy màu hành động hồng/vàng/lam. */
+    ring = new THREE.Mesh(
+      new THREE.RingGeometry(0.46, 0.6, 32),
+      new THREE.MeshBasicMaterial({ color: 0xe8ecff, transparent: true, opacity: 0, depthWrite: false })
+    );
+    ring.rotation.x = -Math.PI / 2;
+    ring.visible = false;
+    scene.add(ring);
+
     return root;
   }
 
@@ -2365,7 +2460,14 @@ ND.View.Runner = (function () {
     const cao = Math.min(y / C.BOOSTER.JET_Y, 1);
     shadow.position.set(x, 0.02, z);
     shadow.scale.setScalar(1 - cao * 0.65);
-    shadow.material.opacity = 0.45 * (1 - cao * 0.8);
+    /* Sàn 0,3: bóng là tín hiệu độ cao DUY NHẤT gắn với mặt đường — tắt gần hết thì không còn biết mình cao bao nhiêu */
+    shadow.material.opacity = Math.max(0.3, 0.45 * (1 - cao * 0.8));
+    /* Chỉ khi cao hơn đỉnh nhảy thường (2,2 m): vòng là tín hiệu hạ cánh của phản lực, không phải của mỗi cú nhảy */
+    ring.visible = y > C.RUNNER.JUMP_H + 0.3;
+    if (ring.visible) {
+      ring.position.set(x, 0.025, z);
+      ring.material.opacity = 0.75 * cao;
+    }
   }
 
   /* Đổi skin lúc đang chạy — phase 06 gọi từ màn chọn skin. */
@@ -2389,6 +2491,10 @@ ND.View.Runner = (function () {
  * VỆT TỐC ĐỘ chỉ bật khi TĂNG TỐC. Nó là nửa còn lại của cảm giác nhanh — nửa kia là
  * FOV ở `view-scene.js`. Riêng tốc độ thật (×1.6) thì mắt gần như không nhận ra, vì
  * không có gì đứng yên gần camera để so sánh.
+ *
+ * P01 plan art AAA: vệt và mảnh mỗi thứ MỘT InstancedMesh (2 lệnh vẽ) thay cho 26 + 40 Mesh, 41 vật liệu — lúc phá
+ * khối, riêng hiệu ứng đã đẩy cảnh lên 116–119 lệnh vẽ, sát trần 120 (r0b d-07). Màu mảnh nằm ở instanceColor.
+ * Phần tử đang tắt ghi ma trận co về 0 thay vì đổi `visible` từng cái.
  */
 
 ND.View = ND.View || {};
@@ -2398,6 +2504,7 @@ ND.View.Fx = (function () {
   const SO_MANH = 40;
 
   let vets = [], manhs = [], dungManh = 0;
+  let vetIM, manhIM, m4, m0, q, e, v3, s3, col;
   let shakeT = 0, shakeBien = 0;
   let rng = 1;
 
@@ -2410,38 +2517,44 @@ ND.View.Fx = (function () {
   }
 
   function build(scene) {
-    const geoVet = new THREE.BoxGeometry(0.05, 0.05, 1);
-    const matVet = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.55 });
-    for (let i = 0; i < SO_VET; i++) {
-      const m = new THREE.Mesh(geoVet, matVet);
-      m.visible = false;
-      scene.add(m);
-      vets.push({ mesh: m, x: 0, y: 0, z: 0 });
-    }
+    m4 = new THREE.Matrix4(); m0 = new THREE.Matrix4().makeScale(0, 0, 0);
+    q = new THREE.Quaternion(); e = new THREE.Euler(); v3 = new THREE.Vector3(); s3 = new THREE.Vector3();
+    col = new THREE.Color(0xffffff);
 
-    const geoManh = new THREE.BoxGeometry(0.3, 0.3, 0.3);
+    vetIM = new THREE.InstancedMesh(new THREE.BoxGeometry(0.05, 0.05, 1),
+      new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.55, depthWrite: false }), SO_VET);
+    manhIM = new THREE.InstancedMesh(new THREE.BoxGeometry(0.3, 0.3, 0.3),
+      new THREE.MeshBasicMaterial({ color: 0xffffff }), SO_MANH);
+    for (let i = 0; i < SO_VET; i++) { vetIM.setMatrixAt(i, m0); vets.push({ on: false, x: 0, y: 0, z: 0 }); }
+    /* setColorAt TRƯỚC lần vẽ đầu: instanceColor phải có sẵn lúc biên dịch shader, gán sau là shader không đọc */
     for (let i = 0; i < SO_MANH; i++) {
-      const m = new THREE.Mesh(geoManh, new THREE.MeshBasicMaterial({ color: 0xffffff }));
-      m.visible = false;
-      scene.add(m);
-      manhs.push({ mesh: m, vx: 0, vy: 0, vz: 0, life: 0 });
+      manhIM.setMatrixAt(i, m0);
+      manhIM.setColorAt(i, col);
+      manhs.push({ x: 0, y: 0, z: 0, rx: 0, ry: 0, s: 1, vx: 0, vy: 0, vz: 0, life: 0 });
+    }
+    for (const im of [vetIM, manhIM]) {
+      im.frustumCulled = false;
+      im.userData.nhom = 'fx';
+      im.visible = false;
+      scene.add(im);
     }
   }
 
-  /* Nổ tại chỗ vừa phá khối. */
   function burst(x, y, z, mau) {
+    col.setHex(mau);
     for (let k = 0; k < 10; k++) {
-      const p = manhs[dungManh];
+      const i = dungManh;
+      const p = manhs[i];
       dungManh = (dungManh + 1) % SO_MANH;      // vòng tròn: quá tay thì đè lên mảnh cũ nhất
-      p.mesh.visible = true;
-      p.mesh.material.color.setHex(mau);
-      p.mesh.position.set(x, y, z);
-      p.mesh.scale.setScalar(0.6 + nn() * 0.8);
+      manhIM.setColorAt(i, col);
+      p.x = x; p.y = y; p.z = z; p.rx = p.ry = 0;
+      p.s = 0.6 + nn() * 0.8;
       p.vx = (nn() - 0.5) * 9;
       p.vy = 1.5 + nn() * 7;
       p.vz = (nn() - 0.5) * 9;
       p.life = 0.55;
     }
+    manhIM.instanceColor.needsUpdate = true;
     shake(0.08, 0.13);
   }
 
@@ -2456,11 +2569,12 @@ ND.View.Fx = (function () {
   function update(s, dt, camX, camY, camZ) {
     /* ---- vệt tốc độ ---- */
     const bat = s.booster === 'surge';
+    q.identity();
     for (let i = 0; i < vets.length; i++) {
       const v = vets[i];
-      if (!bat) { v.mesh.visible = false; continue; }
-      if (!v.mesh.visible) {
-        v.mesh.visible = true;
+      if (!bat) { if (v.on) { v.on = false; vetIM.setMatrixAt(i, m0); } continue; }
+      if (!v.on) {
+        v.on = true;
         v.x = (nn() - 0.5) * 16;
         v.y = 0.2 + nn() * 6;
         v.z = camZ - 20 - nn() * 45;
@@ -2468,25 +2582,29 @@ ND.View.Fx = (function () {
       /* Vệt trôi VỀ PHÍA camera nhanh hơn cả tốc độ chạy — chính chênh lệch đó tạo cảm
        * giác vượt lên chứ không phải bản thân tốc độ. */
       v.z += (s.speed * 1.9) * dt;
-      if (v.z > camZ + 4) v.mesh.visible = false;      // qua vai rồi thì thả về pool
-      v.mesh.position.set(v.x, v.y, v.z);
-      v.mesh.scale.z = 2.5 + s.speed * 0.12;
+      if (v.z > camZ + 4) { v.on = false; vetIM.setMatrixAt(i, m0); continue; }   // qua vai rồi thì thả về pool
+      vetIM.setMatrixAt(i, m4.compose(v3.set(v.x, v.y, v.z), q, s3.set(1, 1, 2.5 + s.speed * 0.12)));
     }
+    vetIM.visible = bat;
+    vetIM.instanceMatrix.needsUpdate = true;
 
     /* ---- mảnh nổ ---- */
+    let conManh = false;
     for (let i = 0; i < manhs.length; i++) {
       const p = manhs[i];
-      if (p.life <= 0) { if (p.mesh.visible) p.mesh.visible = false; continue; }
+      if (p.life <= 0) continue;
       p.life -= dt;
       p.vy -= 26 * dt;                                  // rơi xuống
-      p.mesh.position.x += p.vx * dt;
-      p.mesh.position.y += p.vy * dt;
-      p.mesh.position.z += p.vz * dt;
-      p.mesh.rotation.x += dt * 7;
-      p.mesh.rotation.y += dt * 5;
-      p.mesh.scale.multiplyScalar(1 - dt * 1.4);        // teo dần thay cho mờ dần
-      if (p.life <= 0) p.mesh.visible = false;
+      p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
+      p.rx += dt * 7; p.ry += dt * 5;
+      p.s *= 1 - dt * 1.4;                              // teo dần thay cho mờ dần
+      if (p.life <= 0) { manhIM.setMatrixAt(i, m0); continue; }
+      conManh = true;
+      q.setFromEuler(e.set(p.rx, p.ry, 0));
+      manhIM.setMatrixAt(i, m4.compose(v3.set(p.x, p.y, p.z), q, s3.set(p.s, p.s, p.s)));
     }
+    manhIM.visible = conManh;
+    manhIM.instanceMatrix.needsUpdate = true;
 
     /* ---- rung màn ---- */
     let dx = 0, dy = 0;
@@ -2502,8 +2620,9 @@ ND.View.Fx = (function () {
 
   function reset() {
     shakeT = shakeBien = 0;
-    manhs.forEach(p => { p.life = 0; p.mesh.visible = false; });
-    vets.forEach(v => { v.mesh.visible = false; });
+    manhs.forEach((p, i) => { p.life = 0; manhIM.setMatrixAt(i, m0); });
+    vets.forEach((v, i) => { v.on = false; vetIM.setMatrixAt(i, m0); });
+    vetIM.visible = manhIM.visible = false;
   }
 
   return { build, update, burst, shake, reset };
@@ -3194,6 +3313,73 @@ ND.UI.AuthBox = (function () {
 })();
 
 ;
+/* ===== js/ui-skin-row.js ===== */
+/* ui-skin-row.js — hàng chọn skin ở màn chờ (tách khỏi ui-screens.js, P01 plan art AAA, vì file đó vượt 200 dòng)
+ *
+ * Skin chưa mở hiện GIÁ chứ không hiện tên: người chơi cần biết còn thiếu bao nhiêu ngọc, tên thì đọc được ở ô đã mở.
+ */
+ND.UI = ND.UI || {};
+
+ND.UI.SkinRow = (function () {
+  let el = null, onDoi = null;
+  const soDep = n => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+
+  /* `doi` gọi sau khi đổi skin thành công — màn chờ vẽ lại dòng phụ (số ngọc vừa bị trừ) */
+  function build(parent, doi) {
+    el = document.createElement('div');
+    el.className = 'skin-hang';
+    parent.appendChild(el);
+    onDoi = doi;
+    return el;
+  }
+
+  function ve() {
+    el.textContent = '';
+    const dangMac = ND.Store.prefs().skin;
+
+    for (const sk of ND.Data.Skins.LIST) {
+      const daMo = ND.Store.daMo(sk.id);
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'skin-o' + (sk.id === dangMac ? ' chon' : '') + (daMo ? '' : ' khoa');
+
+      const cham = document.createElement('span');
+      cham.className = 'skin-cham';
+      cham.style.background = '#' + sk.than.toString(16).padStart(6, '0');
+
+      const nhan = document.createElement('span');
+      nhan.className = 'skin-nhan';
+      nhan.textContent = daMo ? sk.ten : '◈ ' + soDep(sk.gia);
+
+      b.append(cham, nhan);
+      /* `click` chứ không `pointerdown`: bấm skin có thể TRỪ NGỌC THẬT (mua), mà
+       * `pointerdown` thì vuốt cuộn bắt đầu trên ô skin cũng kích hoạt. Nhạy 100ms
+       * chỉ đáng đổi ở nút CHẠY — không đáng đổi bằng ngọc của người chơi. */
+      b.addEventListener('click', () => bam(sk));
+      el.appendChild(b);
+    }
+  }
+
+  function bam(sk) {
+    if (!ND.Store.daMo(sk.id)) {
+      if (!ND.Store.muaSkin(sk.id)) {
+        const thieu = sk.gia - ND.Store.wallet().shards;
+        ND.UI.Screens.toast('Còn thiếu ◈ ' + soDep(thieu));
+        return;
+      }
+      ND.UI.Screens.toast('Đã mở ' + sk.ten);
+    }
+    ND.Store.chonSkin(sk.id);
+    ND.View.Runner.applySkin(ND.Store.skinDangMac());
+    ND.CloudAdapter.luu();
+    ve();
+    if (onDoi) onDoi();
+  }
+
+  return { build, ve };
+})();
+
+;
 /* ===== js/ui-screens.js ===== */
 /* ui-screens.js — màn chờ và màn chết
  *
@@ -3247,13 +3433,12 @@ ND.UI.Screens = (function () {
     elNut.addEventListener('pointerdown', e => { e.preventDefault(); batDau(); });
     elNut.addEventListener('click', e => e.preventDefault());
 
-    elSkin = document.createElement('div');
-    elSkin.className = 'skin-hang';
-
     elSlotXepHang = document.createElement('div');
     elSlotXepHang.id = 'slot-xephang';
 
-    hop.append(elTieuDe, elSo, elKyLuc, elPhu, elNut, elSkin, elSlotXepHang);
+    hop.append(elTieuDe, elSo, elKyLuc, elPhu, elNut);
+    elSkin = ND.UI.SkinRow.build(hop, moChoi);
+    hop.appendChild(elSlotXepHang);
     root.appendChild(hop);
     parent.appendChild(root);
 
@@ -3292,10 +3477,12 @@ ND.UI.Screens = (function () {
      * Trước đây hai thứ nhét chung một dòng nhỏ nên chơi cả tuần vẫn "không thấy
      * kỷ lục đâu". */
     elKyLuc.textContent = kyLuc > 0 ? 'KỶ LỤC  ' + soDep(kyLuc) + ' m' : '';
-    elPhu.textContent = '← → đổi làn · ↑ nhảy · ↓ cúi (giữ để trượt dài)'
+    /* Màn cảm ứng không có phím mũi tên — r0 người chấm mobile đọc dòng gợi ý phím là "UI desktop bê nguyên sang" */
+    const cham = globalThis.matchMedia && globalThis.matchMedia('(pointer: coarse)').matches;
+    elPhu.textContent = (cham ? 'vuốt ← → đổi làn · ↑ nhảy · ↓ cúi' : '← → đổi làn · ↑ nhảy · ↓ cúi (giữ để trượt dài)')
       + (ND.Store.wallet().shards > 0 ? '  ·  ◈ ' + soDep(ND.Store.wallet().shards) : '');
     elNut.textContent = 'CHẠY';
-    veSkin();
+    ND.UI.SkinRow.ve();
     elSkin.style.display = '';
     elSlotXepHang.style.display = '';
     ND.UI.RankPanel.tai();
@@ -3338,52 +3525,6 @@ ND.UI.Screens = (function () {
     root.style.display = '';
   }
 
-  /* ---------- chọn skin ---------- */
-  function veSkin() {
-    elSkin.textContent = '';
-    const dangMac = ND.Store.prefs().skin;
-
-    for (const sk of ND.Data.Skins.LIST) {
-      const daMo = ND.Store.daMo(sk.id);
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'skin-o' + (sk.id === dangMac ? ' chon' : '') + (daMo ? '' : ' khoa');
-
-      const cham = document.createElement('span');
-      cham.className = 'skin-cham';
-      cham.style.background = '#' + sk.than.toString(16).padStart(6, '0');
-
-      const nhan = document.createElement('span');
-      nhan.className = 'skin-nhan';
-      /* Skin chưa mở thì hiện GIÁ chứ không hiện tên: người chơi cần biết còn thiếu bao
-       * nhiêu ngọc, chứ tên thì đằng nào cũng đọc được ở ô đã mở. */
-      nhan.textContent = daMo ? sk.ten : '◈ ' + soDep(sk.gia);
-
-      b.append(cham, nhan);
-      /* `click` chứ không `pointerdown`: bấm skin có thể TRỪ NGỌC THẬT (mua), mà
-       * `pointerdown` thì vuốt cuộn bắt đầu trên ô skin cũng kích hoạt. Nhạy 100ms
-       * chỉ đáng đổi ở nút CHẠY — không đáng đổi bằng ngọc của người chơi. */
-      b.addEventListener('click', () => bamSkin(sk));
-      elSkin.appendChild(b);
-    }
-  }
-
-  function bamSkin(sk) {
-    if (!ND.Store.daMo(sk.id)) {
-      if (!ND.Store.muaSkin(sk.id)) {
-        const thieu = sk.gia - ND.Store.wallet().shards;
-        toast('Còn thiếu ◈ ' + soDep(thieu));
-        return;
-      }
-      toast('Đã mở ' + sk.ten);
-    }
-    ND.Store.chonSkin(sk.id);
-    ND.View.Runner.applySkin(ND.Store.skinDangMac());
-    ND.CloudAdapter.luu();
-    veSkin();
-    moChoi();
-  }
-
   /* ---------- toast ---------- */
   function toast(text) {
     if (!elToast) return;
@@ -3396,7 +3537,51 @@ ND.UI.Screens = (function () {
   /* PHASE-06 gọi để nạp kỷ lục đã lưu. */
   function setKyLuc(v) { kyLuc = v || 0; }
 
-  return { build, moChoi, moChet, setKyLuc, toast, veSkin };
+  return { build, moChoi, moChet, setKyLuc, toast };
+})();
+
+;
+/* ===== js/ui-debug-overlay.js ===== */
+/* ui-debug-overlay.js — số đo hiệu năng hiện NGAY TRÊN MÀN khi mở `?debug` (P01 plan art AAA)
+ *
+ * Điện thoại không xem được console (GD phát hiện 24): chụp màn hình máy thật là có hàng "máy thật" cho bảng ngân sách
+ * của plan. Chỉ đọc — không đổi luật, không đổi điểm. Không có `?debug` thì không tạo gì, không chạy gì.
+ * Vòng rAF RIÊNG, không móc vào frame() của main.js: đo đúng nhịp trình duyệt trao khung, kể cả khi ván đứng ở menu.
+ */
+ND.UI = ND.UI || {};
+
+ND.UI.DebugOverlay = (function () {
+  const CUA_SO_MS = 5000;
+  const N = 1024;                          // đủ cho 5 s ở 144 Hz; vòng tròn, không cấp phát mỗi khung
+  const dt = new Float32Array(N), luc = new Float64Array(N);
+  let el = null, i = 0, last = 0, veLuc = 0;
+
+  function build(parent) {
+    if (!/[?&]debug\b/.test(globalThis.location.search)) return;
+    el = document.createElement('div');
+    el.className = 'debug-hud';
+    parent.appendChild(el);
+    requestAnimationFrame(tick);
+  }
+
+  function tick(now) {
+    requestAnimationFrame(tick);
+    if (last) { dt[i] = now - last; luc[i] = now; i = (i + 1) % N; }
+    last = now;
+    if (now - veLuc < 500) return;         // vẽ chữ 2 lần/giây — DOM mỗi khung tự nó làm tụt khung
+    veLuc = now;
+
+    const a = [];
+    for (let k = 0; k < N; k++) if (luc[k] && now - luc[k] <= CUA_SO_MS) a.push(dt[k]);
+    a.sort((x, y) => x - y);
+    const p = q => (a.length ? a[Math.min(a.length - 1, Math.floor(a.length * q))] : 0).toFixed(1);
+    const s = ND.View.Scene.stats();
+    el.textContent = s.calls + ' lệnh vẽ · ' + s.triangles + ' tam giác\n'
+      + 'p50 ' + p(0.5) + ' · p95 ' + p(0.95) + ' ms (5 s, ' + a.length + ' khung)\n'
+      + 'DPR ' + s.dpr + ' · ' + s.w + '×' + s.h;
+  }
+
+  return { build };
 })();
 
 ;
@@ -3678,6 +3863,7 @@ ND.main = (function () {
     ND.UI.Hud.build(ui);
     ND.UI.Screens.build(ui, vanMoi);
     ND.UI.InputBind.bind(canvas);
+    ND.UI.DebugOverlay.build(ui);
 
     /* Ván nền cho màn chờ: có cảnh trôi phía sau menu, nhưng không ai điều khiển. */
     state = ND.State.Run.create({ seed: 'menu', spawn: true });
@@ -3723,7 +3909,7 @@ ND.main = (function () {
         : state.booster === 'surge' ? 'SURGE' : 'NORMAL');
 
       ND.View.Runner.update(state, x, y, z);
-      ND.View.Obstacle.update(state.obstacles);
+      ND.View.Obstacle.update(state.obstacles, z);
       ND.View.Pickup.update(state.pickups, tView);
 
       ND.View.Scene.follow(x, y, z, dtThuc || ND.CFG.LOOP.STEP);

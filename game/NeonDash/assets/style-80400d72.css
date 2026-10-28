@@ -397,3 +397,26 @@ html, body {
   z-index: 10;
 }
 .toast.hien { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ===== css/hud-extra.css ===== */
+/* hud-extra.css — phần HUD thêm từ đợt nâng art AAA (style.css đã gần 400 dòng)
+ *
+ * P01: số ngọc to hơn trên màn rộng — r0 người chấm desktop nêu "số ngọc góc phải 15px lọt thỏm trên 1440 px".
+ * Điện thoại giữ 15px: ở 390 px nó đã đủ đọc và còn phải chừa chỗ cho tai thỏ. */
+@media (min-width: 900px) {
+  .hud-ngoc { font-size: 22px; }
+}
+
+/* Lớp số đo `?debug` (ui-debug-overlay.js). Góc trái dưới, né vùng an toàn; không nhận chạm để không nuốt cú vuốt. */
+.debug-hud {
+  position: fixed;
+  left: calc(env(safe-area-inset-left, 0px) + 8px);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 8px);
+  z-index: 50;
+  padding: 4px 6px;
+  font: 11px/1.35 ui-monospace, Menlo, Consolas, monospace;
+  color: #d8f6ff;
+  background: rgba(0, 0, 0, 0.6);
+  white-space: pre;
+  pointer-events: none;
+}
