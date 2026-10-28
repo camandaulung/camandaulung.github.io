@@ -2628,24 +2628,17 @@ CC.Store = (function () {
 /* ===== js/audio-engine.js ===== */
 /* audio-engine.js — nen tang am thanh
  *
- * VI SAO TONG HOP BANG WebAudio THAY VI DUNG FILE AM THANH:
- *
- * Da kiem chung Kenney (kenney.nl) — asset cua ho la CC0, dung thoai mai, va co
- * san goi "Interface Sounds" 100 tieng. Van khong dung, vi ba ly do cu the:
- *
- *   1. Game BAT BUOC chay offline, nghia la moi file phai nam trong precache cua
- *      service worker. Goi hien tai 883 KB, trong do Stockfish da chiem 561 KB.
- *      Them nhac nen dang file la +1..4 MB — gap may lan ca game.
- *   2. Am thanh co vua toan la tieng go ngan (dat quan, an quan, chieu). Day dung
- *      la thu WebAudio tong hop tot nhat, ton 0 KB.
- *   3. Khong phai sua build.mjs, khong phai lo danh sach precache, khong rang buoc
- *      giay phep nao.
- *
- * Neu sau nay muon tieng THU AM THAT: giu nguyen giao dien CC.Sfx.play(ten), chi
- * doi phan ben trong sang nap file. Phan con lai cua game khong phai sua gi.
+ * Tu 28/10/2026 game phat FILE THAT (audio-samples.js, gen bang ZPS) — synth cu cam tren loa dien thoai. Ly do cu
+ * "tong hop 0 KB" va cach nen file: docs/cat-chess-deploy-guide.md muc am thanh.
  *
  * TU DONG PHAT BI CHAN: trinh duyet khong cho tao tieng truoc khi nguoi dung cham
  * vao trang. Nen AudioContext chi duoc tao o lan tuong tac dau tien.
+ *
+ * LOI DA SUA (28/10/2026, anh mo tren phone khong nghe gi): ban cu mo khoa o `pointerdown` roi GO HET listener va
+ * dat `unlocked = true` ngay — ke ca khi `resume()` that bai. iOS Safari khong coi pointerdown / touchstart la cu chi
+ * cho phep phat tieng (chi touchend / click / keydown), nen context ket o `suspended` vinh vien ma game tuong da mo.
+ * Gio: thu lai o MOI cu chi cho toi khi context THAT SU `running`, va giu listener de cuu ca luc iOS ngat tieng
+ * (cuoc goi den, doi app → state `interrupted`).
  */
 
 CC.Audio = (function () {
@@ -2673,17 +2666,37 @@ CC.Audio = (function () {
     bgmGain.gain.value = 0.0;
     bgmGain.connect(master);
 
+    ctx.onstatechange = markReady;
     return true;
   }
 
+  /* `audio:ready` chi phat MOT lan, khi context chay that — CC.Samples tai file, CC.Bgm bat nhac o day */
+  function markReady() {
+    if (unlocked || !ctx || ctx.state !== 'running') return;
+    unlocked = true;
+    CC.util.bus.emit('audio:ready', {});
+  }
+
+  /* iOS cu (< 15) doi phat mot buffer trong CHINH cu chi thi moi mo duong ra loa — resume() thoi chua du */
+  function primeSilence() {
+    try {
+      const b = ctx.createBuffer(1, 1, 22050), s = ctx.createBufferSource();
+      s.buffer = b;
+      s.connect(ctx.destination);
+      s.start(0);
+    } catch (e) { /* khong sao */ }
+  }
+
   const api = {
-    /* Goi o lan cham dau tien. An toan khi goi nhieu lan. */
+    /* Goi trong mot cu chi nguoi dung. An toan khi goi nhieu lan. */
     unlock() {
-      if (unlocked) return true;
       if (!ctx && !build()) return false;
-      if (ctx.state === 'suspended') ctx.resume();
-      unlocked = true;
-      CC.util.bus.emit('audio:ready', {});
+      if (ctx.state !== 'running') {
+        primeSilence();
+        const p = ctx.resume();
+        if (p && p.then) p.then(markReady, () => { /* chua phai cu chi hop le — thu lai o cu chi sau */ });
+      }
+      markReady();
       return true;
     },
 
@@ -2706,12 +2719,16 @@ CC.Audio = (function () {
     },
 
     init() {
-      // Bat khoa o tuong tac dau tien, bat ke la cham hay bam phim
+      /* touchend + click: hai cu chi iOS chap nhan. pointerdown van nghe de Android / may tinh co tieng ngay cu cham
+       * dau. Listener KHONG go: context dang chay thi kick() tra ve ngay, ton khong dang ke. */
       const kick = () => {
+        if (ctx && ctx.state === 'running') return;
+        const p = CC.Store.prefs();
+        if (ctx && !p.sound && !p.bgm) return;     // tat ca tieng: dung danh thuc context (tab an da cho ngu)
         api.unlock();
-        ['pointerdown', 'keydown'].forEach(e => document.removeEventListener(e, kick));
       };
-      ['pointerdown', 'keydown'].forEach(e => document.addEventListener(e, kick, { once: false }));
+      ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown'].forEach(e =>
+        document.addEventListener(e, kick, { passive: true, capture: true }));
 
       // Tab an thi dung han tieng — khong ai muon game keu khi dang lam viec khac
       document.addEventListener('visibilitychange', () => {
@@ -2729,7 +2746,10 @@ CC.Audio = (function () {
 
 ;
 /* ===== js/audio-sfx.js ===== */
-/* audio-sfx.js — tieng dong, tong hop bang WebAudio (0 KB file)
+/* audio-sfx.js — tieng dong: phat FILE THAT truoc (audio-samples.js), synth duoi day chi la luoi do
+ *
+ * Synth nghe on o loa may tinh nhung CAM tren loa dien thoai (tieng go 60-190 Hz, 28/10/2026). Giu lai cho luc file
+ * chua tai xong hoac mat mang lan dau.
  *
  * Nguyen ly chung cua moi tieng o day: mot dao dong (hoac nhieu) + mot duong bao
  * am luong tat nhanh. Tieng go go = dao dong hinh sin tan so thap tat trong ~80ms.
@@ -2740,6 +2760,8 @@ CC.Audio = (function () {
  */
 
 CC.Sfx = (function () {
+  let jingleEnd = 0;
+
   /* Mot not don: song + duong bao. Day la vien gach cua moi tieng ben duoi. */
   function tone(o) {
     const ctx = CC.Audio.ctx();
@@ -2870,13 +2892,19 @@ CC.Sfx = (function () {
   };
 
   return {
-    /* Phat mot tieng theo ten. Tat tieng hoac chua mo khoa thi im lang. */
+    /* Phat mot tieng theo ten, tra so giay se keu. Tat tieng hoac chua mo khoa thi im lang (0). */
     play(name) {
-      if (!CC.Store.prefs().sound) return;
-      if (!CC.Audio.ready()) return;
+      if (!CC.Store.prefs().sound) return 0;
+      if (!CC.Audio.ready()) return 0;
+      const def = CC.Samples.sfxDef(name), sec = def ? CC.Samples.play('sfx/' + name, def) : 0;
+      if (sec) return sec;
       const fn = SOUNDS[name];
       if (fn) { try { fn(); } catch (e) { /* am thanh hong khong duoc lam vo game */ } }
+      return 0;
     },
+
+    /* Luc tieng thang / thua / hoa keu xong — CC.Voice cho toi day moi cho meo noi cau ket van */
+    jingleEnd: () => jingleEnd,
 
     names: () => Object.keys(SOUNDS),
 
@@ -2892,11 +2920,13 @@ CC.Sfx = (function () {
         const g = CC.Game.gen();
         setTimeout(() => {
           if (!CC.Game.isCurrent(g)) return;
-          CC.Sfx.play(outcome === 'win' ? 'win' : outcome === 'loss' ? 'lose' : 'draw');
+          const sec = CC.Sfx.play(outcome === 'win' ? 'win' : outcome === 'loss' ? 'lose' : 'draw');
+          jingleEnd = performance.now() + (sec || 1.2) * 1000;
         }, 400);
+        jingleEnd = performance.now() + 400 + 3000;   // chua biet do dai file: giu cho cau ket van khong chen vao giua
       });
 
-      B.on('chat:say', ({ from }) => { if (from === 'cat') CC.Sfx.play('meow'); });
+      // Tieng meo khi meo noi: chuyen sang audio-voice.js (noi tieng Viet, khong co file thi moi meo)
 
       return this;
     }
@@ -2905,12 +2935,12 @@ CC.Sfx = (function () {
 
 ;
 /* ===== js/audio-bgm.js ===== */
-/* audio-bgm.js — nhac nen sinh tai cho, khong dung file nhac
+/* audio-bgm.js — nhac nen: FILE THAT (CC.Samples.startMusic, 28/10/2026) truoc, nhac sinh tai cho ben duoi la luoi do
  *
- * VI SAO SINH TAI CHO: mot file nhac loop chat luong nghe duoc la 1-4 MB. Game
- * hien tai ca goi moi 883 KB va phai precache het de choi offline. Khong dang.
+ * File (ZPS Music, jazz cafe 60 s, nen 410 KB) KHONG nam trong precache: nhac mac dinh tat, khong bat ai cung tai luc
+ * cai. Bat lan dau ma mat mang thi chay ban sinh tai cho duoi day.
  *
- * CACH LAM: mot vong hop am 4 nhip, moi nhip rai vai not theo THANG NGU AM (pentatonic).
+ * BAN SINH TAI CHO: mot vong hop am 4 nhip, moi nhip rai vai not theo THANG NGU AM (pentatonic).
  * Thang ngu am co tinh chat de chiu: bat ky hai not nao trong thang cung khong nghich
  * tai nhau. Nen dù chon not ngau nhien van luon ra giai dieu nghe duoc — dung thu can
  * cho nhac nen khong duoc gay chu y.
@@ -3018,7 +3048,7 @@ CC.Bgm = (function () {
       playing = true;
       beat = 0;
       CC.Audio.fadeBgm(0.5, 2.5);   // vao rat tu tu
-      step();
+      CC.Samples.startMusic().then(ok => { if (!ok && playing) step(); });
     },
 
     stop() {
@@ -3026,6 +3056,7 @@ CC.Bgm = (function () {
       clearTimeout(timer);
       timer = null;
       CC.Audio.fadeBgm(0, 1.0);
+      CC.Samples.stopMusic(1.0);    // dung nguon that sau khi tat dan — chi ha gain thi vong lap chay ngam mai
     },
 
     /* Ha nho khi can — dung luc ket thuc van de tieng thang/thua noi len */
@@ -3058,6 +3089,220 @@ CC.Bgm = (function () {
         else if (!val) CC.Bgm.stop();
       });
 
+      return this;
+    }
+  };
+})();
+
+;
+/* ===== js/audio-samples.js ===== */
+/* audio-samples.js — phát file âm thanh THẬT (ZPS, 28/10/2026), synth cũ chỉ còn là lưới đỡ
+ *
+ * Vì sao bỏ "synth 0 KB": tiếng gõ synth nằm ở 60–190 Hz, loa điện thoại gần như không phát dải đó — anh mở game
+ * trên phone là im re. File gen bằng ZPS, cân độ to + cắt trầm sẵn lúc nén (tools/encode-audio.mjs), xuất xứ từng
+ * file ở tools/audio-provenance.json.
+ *
+ * Tải ở `audio:ready` (sau cử chỉ đầu): AudioContext chưa chạy thì decode cũng vô ích. File thiếu / mất mạng thì
+ * bỏ qua im lặng — CC.Sfx tự rơi về synth, CC.Voice rơi về tiếng meo.
+ * Nhạc nền KHÔNG tải ở đây: mặc định tắt, 410 KB chỉ tải khi bật (build.mjs không precache, service worker cất lúc phát).
+ */
+
+CC.Samples = (function () {
+  const BASE = 'audio/';
+  /* n = số biến thể (<tên>-1..n.mp3) · g = độ lớn · p = lệch cao độ ngẫu nhiên ±p (cùng một tiếng gõ 40 lần/ván nghe như máy) */
+  const SFX = {
+    move: { n: 2, g: 0.9, p: 0.05 }, capture: { n: 2, g: 1, p: 0.04 }, castle: { n: 1, g: 0.9, p: 0.03 },
+    check: { n: 2, g: 0.75 }, promote: { n: 1, g: 0.8 }, select: { n: 2, g: 0.55, p: 0.06 }, deny: { n: 1, g: 0.7 },
+    win: { n: 2, g: 0.8 }, lose: { n: 2, g: 0.8 }, draw: { n: 1, g: 0.8 }, meow: { n: 3, g: 0.7, p: 0.06 }
+  };
+  const MUSIC = 'music/bgm.mp3';
+  const XF = 3;            // giây nối chéo giữa hai vòng nhạc: bài AI không lặp liền mạch, nối thẳng là nghe giật
+
+  const buf = {};          // khoá ('sfx/move', 'voice/kitten-hello') -> [AudioBuffer]
+  const lastPick = {};
+  let started = false, music = null, musicLoading = null;
+
+  /* BẪY iOS < 14.5: decodeAudioData chỉ có dạng callback, không trả Promise — bọc tay chạy được cả hai */
+  function decode(ab) {
+    return new Promise((ok, bad) => CC.Audio.ctx().decodeAudioData(ab, ok, bad));
+  }
+
+  async function fetchBuffer(path) {
+    try {
+      const r = await fetch(BASE + path);
+      if (!r.ok) return null;
+      return await decode(await r.arrayBuffer());
+    } catch (e) { return null; }
+  }
+
+  function load(key, path) {
+    fetchBuffer(path).then(b => { if (b) (buf[key] || (buf[key] = [])).push(b); });
+  }
+
+  function loadAll() {
+    if (started || !CC.Audio.ctx()) return;
+    started = true;
+    Object.keys(SFX).forEach(id => { for (let i = 1; i <= SFX[id].n; i++) load('sfx/' + id, 'sfx/' + id + '-' + i + '.mp3'); });
+    CC.Voice.files().forEach(([key, path]) => load(key, path));
+  }
+
+  /* Trả số giây sẽ kêu (0 = chưa có file, để người gọi rơi về synth). Không lặp lại biến thể vừa phát. */
+  function play(key, o) {
+    const list = buf[key], ctx = CC.Audio.ctx();
+    if (!list || !list.length || !ctx) return 0;
+    let i = (Math.random() * list.length) | 0;
+    if (list.length > 1 && i === lastPick[key]) i = (i + 1) % list.length;
+    lastPick[key] = i;
+    const src = ctx.createBufferSource(), g = ctx.createGain();
+    src.buffer = list[i];
+    src.playbackRate.value = (o.rate || 1) * (1 + (Math.random() * 2 - 1) * (o.p || 0));
+    g.gain.value = o.g == null ? 1 : o.g;
+    src.connect(g);
+    g.connect(CC.Audio.sfxOut());
+    src.start();
+    return src.buffer.duration / src.playbackRate.value;
+  }
+
+  /* --- vòng nhạc nền: mỗi vòng một nguồn, vòng sau vào trước khi vòng trước hết XF giây --- */
+  let looping = false, wanted = false, timer = null, live = [];
+
+  function voiceAt(at) {
+    const ctx = CC.Audio.ctx(), s = ctx.createBufferSource(), g = ctx.createGain(), end = at + music.duration;
+    s.buffer = music;
+    g.gain.setValueAtTime(0, at);
+    g.gain.linearRampToValueAtTime(1, at + XF);
+    g.gain.setValueAtTime(1, end - XF);
+    g.gain.linearRampToValueAtTime(0, end);
+    s.connect(g);
+    g.connect(CC.Audio.bgmOut());
+    s.start(at);
+    s.stop(end + 0.05);
+    live.push(s);
+    s.onended = () => { live = live.filter(x => x !== s); };
+    return end;
+  }
+
+  function chain(at) {
+    if (!looping) return;
+    const next = voiceAt(at) - XF;
+    // Hẹn theo đồng hồ AudioContext, không theo setTimeout: tab ẩn thì context dừng mà timer vẫn chạy
+    timer = setTimeout(() => chain(next), Math.max(0, (next - CC.Audio.now() - 1.5) * 1000));
+  }
+
+  const api = {
+    play,
+    has: key => !!(buf[key] && buf[key].length),
+    sfxDef: name => SFX[name],
+
+    /* true = đã có file và đã bắt đầu vòng; false = chưa tải được (mất mạng lần đầu) → CC.Bgm dùng synth */
+    async startMusic() {
+      wanted = true;
+      if (!music) {
+        musicLoading = musicLoading || fetchBuffer(MUSIC);
+        music = await musicLoading;
+        musicLoading = null;
+        if (!music) return false;
+      }
+      // Tắt nhạc / rời màn chơi trong lúc đang tải thì thôi, đừng tự bật lại sau khi tải xong
+      if (looping || !wanted) return true;
+      looping = true;
+      chain(CC.Audio.now() + 0.05);
+      return true;
+    },
+
+    /* Tắt nhạc = DỪNG nguồn thật, không chỉ hạ gain về 0 — bài học Toy Tower: vòng lặp hạ gain vẫn chạy ngầm mãi */
+    stopMusic(fade) {
+      looping = wanted = false;
+      clearTimeout(timer);
+      const ctx = CC.Audio.ctx(), old = live;
+      live = [];
+      if (ctx) old.forEach(s => { try { s.stop(ctx.currentTime + (fade || 0)); } catch (e) { /* đã dừng */ } });
+    },
+
+    init() {
+      CC.util.bus.on('audio:ready', loadAll);
+      return api;
+    }
+  };
+
+  return api;
+})();
+
+;
+/* ===== js/audio-voice.js ===== */
+/* audio-voice.js — mèo NÓI tiếng Việt khi hiện bong bóng thoại (ZPS Voice, 28/10/2026)
+ *
+ * Câu nói là câu CẢM THÁN ngắn theo nhóm sự kiện, không đọc nguyên văn bong bóng: bong bóng có ~400 câu kèm biến
+ * ({cat}, nước đi…) sinh lúc chơi, đọc hết cần TTS lúc chạy — tức là cần mạng + key trên trình duyệt (cấm).
+ * 3 bank khớp 3 giọng nền của chat (data-cat-profiles.js `voice`), mỗi bank một giọng ZPS:
+ * kitten = ngoc_huyen (nhanh hơn chút cho ra giọng mèo con), adult = truc_ly, master = thien_tam_duc.
+ *
+ * Bật / tắt: theo "Tiếng động" + "Cho mèo nói chuyện" — không thêm công tắc thứ ba vì DOM màn chơi đã 1.094/1.100.
+ * Không có file (chưa tải, mất mạng lần đầu) → tiếng meo như cũ.
+ */
+
+CC.Voice = (function () {
+  const LINES = {
+    hello: 2, check: 2, gotcha: 2, tease: 2, ouch: 2, worry: 1, wow: 1, think: 2,
+    nudge: 1, reply: 1, thanks: 1, pout: 1, win: 1, lose: 1, draw: 1
+  };
+  const RATE = { kitten: 1.08, adult: 1, master: 0.97 };
+  const END = { win: 1, lose: 1, draw: 1 };     // câu kết ván: chờ jingle thắng / thua kêu xong mới nói
+
+  /* Sự kiện chat → nhóm câu. Sự kiện không có ở đây (sayRaw gợi ý…) thì chỉ meo. game_win = MÈO thắng.
+   * Bản 1 gom 9 nhóm nên "em ăn nha" vang lên cả khi mèo không ăn quân, câu bị chửi cũng đáp "để em nghĩ đã"
+   * (audit giọng 28/10) — mỗi nhóm giờ phải đúng nghĩa với bong bóng đang hiện. */
+  const GROUP = {
+    game_start: 'hello', greet: 'hello',
+    cat_check: 'check',
+    cat_captured_big: 'gotcha', cat_captured_small: 'gotcha',
+    player_blunder: 'tease', player_mistake: 'tease', cat_winning: 'tease',
+    cat_lost_queen: 'ouch', cat_lost_big: 'ouch', cat_lost_small: 'ouch', cat_blundered: 'ouch',
+    player_check: 'worry', cat_losing: 'worry',
+    castling: 'wow', en_passant: 'wow', promotion: 'wow', player_best: 'wow', player_fast: 'wow',
+    endgame: 'think', hint_given: 'think', hint_none: 'think',
+    player_slow: 'nudge', ask_name: 'reply', unknown: 'reply', praise: 'thanks', insult: 'pout',
+    game_win: 'win', game_loss: 'lose', game_draw: 'draw'
+  };
+
+  let busyUntil = 0;       // performance.now() lúc câu đang nói xong — hai câu chồng nhau nghe như cãi nhau
+
+  function files() {
+    const out = [];
+    Object.keys(RATE).forEach(bank => Object.keys(LINES).forEach(group => {
+      for (let i = 1; i <= LINES[group]; i++) out.push(['voice/' + bank + '-' + group, 'voice/' + bank + '-' + group + '-' + i + '.mp3']);
+    }));
+    return out;
+  }
+
+  /* true = đã lo phần tiếng cho bong bóng này (nói, hoặc cố ý im vì câu trước chưa xong) → không meo nữa */
+  function say(event) {
+    const group = GROUP[event], p = CC.Store.prefs();
+    if (!group || !p.sound || !p.chatOn || !CC.Audio.ready()) return false;
+    const bank = CC.CatProfiles.current().voice, key = 'voice/' + bank + '-' + group;
+    if (!CC.Samples.has(key)) return false;
+    const now = performance.now();
+    if (!END[group] && now < busyUntil) return true;
+    const wait = END[group] ? Math.max(0, CC.Sfx.jingleEnd() - now, busyUntil - now) : 0;
+    const g = CC.Game.gen();
+    busyUntil = now + wait + 1500;
+    setTimeout(() => {
+      // Ván mới mở trong lúc chờ jingle thì câu "em thắng rồi" của ván cũ thôi không nói
+      if (!CC.Game.isCurrent(g) || !CC.Audio.ready()) return;
+      const sec = CC.Samples.play(key, { rate: RATE[bank], g: 1 });
+      busyUntil = performance.now() + sec * 1000 + 250;
+    }, wait);
+    return true;
+  }
+
+  return {
+    files,
+    say,
+    init() {
+      CC.util.bus.on('chat:say', ({ from, event }) => {
+        if (from !== 'cat') return;
+        if (!say(event)) CC.Sfx.play('meow');
+      });
       return this;
     }
   };
@@ -3973,6 +4218,7 @@ CC.Interaction = (function () {
     if (d.moved && d.el.isConnected && to && to !== d.from && isLegal(d.from, to)) { CC.DropPlace.place(d.el, to); tryMove(d.from, to); return d; }
 
     d.el.classList.remove('dragging');
+    if (d.moved && to && to !== d.from) CC.Sfx.play('deny');   // thả vào ô không đi được: báo bằng tiếng, quân tự về chỗ
     if (d.moved) {
       // Tra quan ve lop thuong roi de sync() dat lai dung vi tri.
       // KHONG duoc xoa transform o day: transform rong = translate(0,0) = o goc
@@ -4005,6 +4251,7 @@ CC.Interaction = (function () {
        * Xem giai thich day du o onPointerUp — thieu no thi chon xong bi bo chon
        * ngay lap tuc, va ca kieu bam-chon-bam-di khong bao gio chay duoc. */
       justSelected = (sel !== sq);
+      if (justSelected) CC.Sfx.play('select');   // phone: chạm quân mà im lặng thì tưởng máy đơ
       select(sq);
       startDrag(sq, ev);
       capture(ev);
@@ -11052,6 +11299,8 @@ CC.UpdateNotice = (function () {
     CC.Audio.init();
     CC.Sfx.init();
     CC.Bgm.init();
+    CC.Samples.init();
+    CC.Voice.init();
     CC.BoardFx.init();
     CC.Celebration.init();
     CC.Moments.init();
