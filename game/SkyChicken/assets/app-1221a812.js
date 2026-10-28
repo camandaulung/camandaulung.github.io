@@ -6387,6 +6387,7 @@ SC.EnemyCounter = {
       //    hiệu toạ độ chỉ còn là nhiễu, chặn hay không thành ra ngẫu nhiên.
       if (src.vy < 0 && Math.abs(src.vx) < this.K.arc * -src.vy) {
         e.blocked = 0.14;
+        this.hint(e);                      // entity-enemy-counter-guard-hint.js
         return 0;
       }
     }
@@ -6510,6 +6511,35 @@ SC.EnemyCounter = {
 
 /* Nhập ba loại này vào bảng quái chung để mọi thứ khác dùng như quái thường */
 Object.assign(SC.ENEMY_DEF, SC.EnemyCounter.DEF);
+
+;
+/* ===== js/entity-enemy-counter-guard-hint.js ===== */
+/* entity-enemy-counter-guard-hint.js — nhắc người chơi CÁCH hạ KHIÊN NGƯỢC
+ *
+ * Bug live 28/10/2026 (banga, map 11): "khúc này chơi lâu vại, nó ko chết, mình cũng thế".
+ * Người chơi đứng nửa dưới bắn lên: mọi viên bị khiên chặn, khiên ngược không rút lui, trận
+ * treo mãi. Đúng điều chú thích `render` của khiên ngược đã sợ — "tưởng game lỗi". Sprite gà
+ * ôm khiên (21/09) cho thấy CÓ khiên nhưng không nói đánh từ đâu. Đường "đánh từ sườn" của
+ * thiết kế gốc thì chết từ khi xoay súng mặc định 45° (22/09): đạn 45° vẫn nằm trong nón
+ * chặn ±70°. Lối duy nhất còn ở cả hai chế độ xoay là BAY LÊN TRÊN nó cho súng chĩa xuống.
+ *
+ * Nhắc ngay lần chặn đầu của màn, rồi cứ HINT_EVERY giây một lần chừng nào còn bị chặn —
+ * toast chỉ sống 1,6s, nhắc một lần là người đang dồn mắt né đạn bỏ lỡ.
+ */
+
+Object.assign(SC.EnemyCounter, {
+  HINT_EVERY: 10,
+
+  hint(e) {
+    const g = SC.Game, t = g.stats.time;
+    // g.stats dựng mới mỗi startLevel: khác đối tượng = sang màn mới, nhắc lại từ đầu
+    if (this._hintStats === g.stats && t - this._hintAt < this.HINT_EVERY) return;
+    this._hintStats = g.stats;
+    this._hintAt = t;
+    SC.FX.text(e.x, e.y - e.r - 12, 'BẮN TỪ TRÊN!', '#ffd23f');
+    SC.UI.toast('BAY LÊN TRÊN KHIÊN NGƯỢC MÀ BẮN!');
+  }
+});
 
 ;
 /* ===== js/entity-enemy-art-insect.js ===== */
@@ -11840,17 +11870,22 @@ Object.assign(SC.Waves, {
      chỉ từ wave 2 trở đi — wave đầu để người chơi làm quen nhịp map đã. */
   _mixCounter(lv, inten) {
     if (this.index < 2) return;                  // wave đầu để làm quen nhịp map đã
+    // Khiên ngược không chết được nếu bắn từ dưới lên, nên thả đều mỗi wave là chúng dồn
+    // lại thành một bức tường không gỡ nổi — đo được map 45 không bot nào qua nổi vì tới
+    // wave 3 đã có 6 con chắn ngang màn. Vì thế mọi đường thả khiên ngược đều chặn TRẦN số
+    // con đang sống `guardMax`.
+    const live = SC.Game.enemies.filter(e => !e.dead && e.type === 'guard').length;
     const type = SC.EnemyCounter.forLevel(lv);
     if (type) {
       // muỗi đi thành bầy đông, hai loại kia đi lẻ vài con
-      const n = type === 'midge' ? Math.round(12 * Math.min(1.3, inten)) : 1 + Math.round(inten);
+      let n = type === 'midge' ? Math.round(12 * Math.min(1.3, inten)) : 1 + Math.round(inten);
+      /* BẪY 28/10/2026 (bug live map 11 banga): trần trước đây chỉ có ở đường "nửa sau chiến
+         dịch" bên dưới, còn map TỚI LƯỢT khiên ngược (10, 11, 16, 17…) thả 2+2+3 = 7 con không
+         trần — đúng bức tường đó. Người chơi đứng dưới bắn 180 giây vẫn còn 3-7 con, trận treo. */
+      if (type === 'guard') n = Math.min(n, Math.max(0, SC.EnemyCounter.K.guardMax - live));
       this._swapIn(type, n);
     }
     // Nửa sau chiến dịch luôn có KHIÊN NGƯỢC kèm theo, dù map đó thuộc lượt loại nào.
-    // Nhưng CHẶN TRẦN số con đang sống: chúng không chết được nếu bắn từ dưới lên, nên
-    // thả đều mỗi wave là chúng dồn lại thành một bức tường không gỡ nổi — đo được
-    // map 45 không bot nào qua nổi vì tới wave 3 đã có 6 con chắn ngang màn.
-    const live = SC.Game.enemies.filter(e => !e.dead && e.type === 'guard').length;
     this._swapIn('guard', Math.max(0, SC.EnemyCounter.guardCount(lv) - live));
   },
 
