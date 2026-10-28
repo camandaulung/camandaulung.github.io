@@ -6,6 +6,11 @@
 <meta name="theme-color" content="#05060f">
 <title>Neon Dash</title>
 <link rel="manifest" href="./manifest.webmanifest">
+<!-- IMPORT MAP — PHẢI nằm trong <head>, trước MỌI thứ nạp module (P02 plan art AAA).
+     Addon hậu kỳ r180 nhập `'three'` trần; thiếu map là màn đen. Map đến SAU một lệnh nạp module bất kỳ (kể cả
+     import() động của harness dev) thì trình duyệt bỏ qua nó. Đường dẫn PHẢI trùng y hệt dòng import của cầu nối
+     bên dưới: khác URL là ra hai bản Three, addon dựng hình bằng bản không có renderer. -->
+<script type="importmap">{ "imports": { "three": "./third-party/three-r180/three.module.min.js" } }</script>
 <link rel="stylesheet" href="assets/style-80400d72.css">
 </head>
 <body>
@@ -40,6 +45,17 @@
 <script type="module">
   import * as THREE from './third-party/three-r180/three.module.min.js';
   globalThis.THREE = THREE;
+  /* Addon hậu kỳ nạp ĐỘNG và bắt lỗi riêng: nhập tĩnh mà một file addon hỏng thì cả khối module hỏng → Three không
+     bao giờ được gán → màn đen. Hỏng addon thì game vẫn chạy, chỉ không có bloom (bậc Q0, view-quality.js).
+     `THREE` là namespace đóng băng, không gắn thêm được → addon ở biến riêng `ND_ADDONS`. */
+  const A = './third-party/three-r180/addons/postprocessing/';
+  try {
+    const m = await Promise.all(['EffectComposer', 'RenderPass', 'UnrealBloomPass', 'OutputPass'].map(n => import(A + n + '.js')));
+    globalThis.ND_ADDONS = Object.assign({}, ...m);
+  } catch (e) {
+    globalThis.ND_ADDONS = null;
+    console.warn('[neon-dash] không nạp được addon hậu kỳ, chạy không bloom', e);
+  }
   globalThis.__NDThreeReady = true;
   globalThis.dispatchEvent(new Event('nd:three-ready'));
 </script>
@@ -51,7 +67,7 @@
 <script src="../../shared/portal-cloud.js"></script>
 <script src="../../shared/portal-rank.js"></script>
 <script src="../../shared/portal-player.js"></script>
-<script src="assets/app-610d0b38.js" onerror="window.__shellHong=1"></script>
+<script src="assets/app-214be64c.js" onerror="window.__shellHong=1"></script>
 <script>
 /* LỚP TỰ CỨU KHI VỎ ỨNG DỤNG HỎNG — đừng xoá.
  *

@@ -11,17 +11,27 @@
  * là được kết quả xanh giả.
  */
 
-const CACHE = 'neon-dash-eb0ef7b2';
+const CACHE = 'neon-dash-7c72bee5';
 
 const SHELL = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
   "./assets/style-80400d72.css",
-  "./assets/app-610d0b38.js",
+  "./assets/app-214be64c.js",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./icons/icon-maskable-512.png",
+  "./third-party/three-r180/addons/postprocessing/EffectComposer.js",
+  "./third-party/three-r180/addons/postprocessing/MaskPass.js",
+  "./third-party/three-r180/addons/postprocessing/OutputPass.js",
+  "./third-party/three-r180/addons/postprocessing/Pass.js",
+  "./third-party/three-r180/addons/postprocessing/RenderPass.js",
+  "./third-party/three-r180/addons/postprocessing/ShaderPass.js",
+  "./third-party/three-r180/addons/postprocessing/UnrealBloomPass.js",
+  "./third-party/three-r180/addons/shaders/CopyShader.js",
+  "./third-party/three-r180/addons/shaders/LuminosityHighPassShader.js",
+  "./third-party/three-r180/addons/shaders/OutputShader.js",
   "./third-party/three-r180/three.core.min.js",
   "./third-party/three-r180/three.module.min.js",
   "../../shared/portal-config.js",
