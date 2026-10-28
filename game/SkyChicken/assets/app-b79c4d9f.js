@@ -15891,17 +15891,20 @@ SC.EVO_KW = {
   /* Chi tiết sơn/decal CÁ NHÂN (21/09/2026, goal "không ai giống ai"): 2 mục được
      chọn theo hash danh tính + số lần tiến hóa, nhồi vào prompt — hai người cùng
      ra một bộ từ khóa thì tàu vẫn khác nhau ở lớp áo. */
+  /* 28/10/2026: mỗi mục là MỘT mảng to (xem READ ở data-evo-shape-contract.js). Bản cũ xin
+     vết xước, hoa văn lục giác, ô cờ, mạch điện, decal số (chọi "no text") = nhiễu ở 240px.
+     Giữ đủ 10 mục đúng thứ tự: livery() chọn theo chỉ số. */
   LIVERY: [
     'diagonal racing stripes on the wings',
-    'scattered paw-print decals',
+    'one big paw-print emblem on each wing',
     'a star squadron emblem on the nose',
-    'weathered battle scratches and scuffs',
+    'a bold two-tone split paint scheme',
     'iridescent pearl paint finish',
-    'hexagon pattern panel accents',
-    'checker-tipped twin tail fins',
-    'glowing circuit line details along the hull',
-    'a big lucky number decal on one wing',
-    'flame decal trim along the edges',
+    'one broad contrasting color band across both wings',
+    'contrasting solid-color tail fins',
+    'one glowing energy stripe down the center line',
+    'a big lightning-bolt emblem on one wing',
+    'one big flame decal sweeping across each wing',
   ],
 
   _hash(s) {
@@ -16057,9 +16060,10 @@ Object.assign(SC.EVO_KW, {
      Khoá (chibi, fantasy...) KHÔNG đổi — đó là giá trị lưu trong progress.evo. */
   STYLES: {
     chibi:     { vi: 'CHIBI',     en: 'super-deformed chibi toy proportions, oversized cockpit head on a tiny round body, ultra cute' },
-    fantasy:   { vi: 'FANTASY',   en: 'fantasy collectible toy, ornate gold filigree armor plates, glowing rune engravings, feathered wing tips' },
+    // 28/10/2026: "ornate filigree / rune engravings / rivets" là chi tiết vụn, nhoè ở cỡ sảnh
+    fantasy:   { vi: 'FANTASY',   en: 'fantasy collectible toy, big polished gold-edged armor plates, two or three large glowing runes, broad feather-shaped wing plates' },
     mecha:     { vi: 'MECHA',     en: 'mecha model-kit toy, chunky robot armor plates with panel seams, bolted thrusters and missile pods' },
-    steampunk: { vi: 'STEAMPUNK', en: 'steampunk toy, polished brass and copper plating, chunky gears, rivets and little steam pipes' },
+    steampunk: { vi: 'STEAMPUNK', en: 'steampunk toy, polished brass and copper plating, a few chunky gears and two big steam pipes' },
     crystal:   { vi: 'PHA LÊ',    en: 'crystal resin toy, translucent glossy gemstone hull facets with inner glow' },
     origami:   { vi: 'ORIGAMI',   en: 'origami-inspired toy, folded geometric facet shapes molded in glossy vinyl' },
   },
@@ -16130,6 +16134,18 @@ Object.assign(SC.EVO_KW, {
     + 'wingspan roughly equal to body length, subject fills about 85 percent of the frame, '
     + 'nose near the top edge, engines near the bottom edge',
 
+  /* ĐỌC ĐƯỢC Ở CỠ NHỎ (28/10/2026) — tàu AI của anh Đức đứng cạnh tàu gốc ở sảnh 240px:
+     tàu gốc thân trắng + 2 màu nhấn + vài khối to nên vẫn rõ; tàu AI cánh navy + xoắn chỉ
+     vàng + lông vũ mảnh thành một đám nhoè. Chi tiết chỉ thấy ở 1024px là chi tiết thừa.
+     Thân SÁNG vì viền tối lúc chạy (`EvoAI._outlined`) lo phần map sáng, còn thân tối trên
+     map tối thì viền tối cũng chìm theo. Không đặt vào STYLE_B: khối đó dùng chung với
+     mọi quái/trùm, bài test bắt khớp từng chữ với tools/gen-assets-style-b.mjs. */
+  READ: 'built to read clearly as a small phone game sprite: a few big bold shape masses, '
+    + 'a limited palette of three main colors plus one glow accent, '
+    + 'a light bright main hull with strong value contrast against darker inner panels and engine housings, '
+    + 'large flat uninterrupted color areas on the wings, small details only around the nose and canopy, '
+    + 'no fine filigree, no small repeating patterns, no scratches or grime',
+
   /* KHUNG HÌNH + ÁNH SÁNG cho đường ẢNH → 3D. `--transparent` lo phần nền, phần còn lại
      phải ép ở đây: có phối cảnh hay có bóng đổ nướng sẵn là khối dựng ra bị méo và bị dính
      một mảng tối không gỡ được. Cũng là lý do cấm motion blur. */
@@ -16177,6 +16193,7 @@ Object.assign(SC.EVO_KW, {
     return [
       drone ? this.DRONE_PARTS : this.PARTS,
       drone ? '' : this.PROP,
+      drone ? '' : this.READ,   // drone đã có luật riêng "very simple bold silhouette at 24 pixels"
       this.NEG,
       this.FLAT,
       this.STYLE_B,
@@ -16362,7 +16379,7 @@ Object.assign(SC.EVO_KW, {
       ...(trait ? [`design attitude inspired by: ${trait} (expressed through shape and decals, no face)`] : []),
       // livery chung có "dấu chân thú" — mẫu 22/09 ra pháo hạm in chân mèo, lạc tông tiêm kích
       ...(seed ? [`unique personal livery: ${this.livery(seed)
-        .replace('scattered paw-print decals', 'squadron kill-mark decals')}`] : []),
+        .replace('one big paw-print emblem on each wing', 'one big squadron emblem on each wing')}`] : []),
       ...(color ? [`dominant color scheme: ${color}`] : []),
       this.FIGHTER_VIBE,
       'no animal features, no face',
@@ -16937,16 +16954,19 @@ SC.ITEM_DEF.push({ k: 'evoShard', w: 0, c: '#c58cff', ic: '🧬' });
 
 ;
 /* ===== js/system-evo-ship-hd-store.js ===== */
-/* system-evo-ship-hd-store.js — bản NÉT 512px của từng tàu AI, cất ở IndexedDB (21/10/2026)
+/* system-evo-ship-hd-store.js — bản NÉT của từng tàu AI, cất ở IndexedDB (21/10/2026)
  *
  * VÌ SAO CÓ: gara cất ảnh tàu ở localStorage (trần ~5MB cả trang) nên phải nén về 256px —
  * đủ cho tàu trong trận, nhưng tàu ở SẢNH vẽ to gấp ~3 lần và anh Đức chụp banga thấy "máy
- * bay vỡ pixel" đúng ở đó. IndexedDB không chung trần với localStorage, nên bản 512px
- * (~60-120KB/tàu) nằm đây, còn sổ gara giữ nguyên như cũ.
+ * bay vỡ pixel" đúng ở đó. IndexedDB không chung trần với localStorage, nên bản nét nằm đây,
+ * còn sổ gara giữ nguyên như cũ.
+ * 768px từ 28/10/2026 (trước là 512): quad tàu sảnh ở điện thoại 430px DPR 3 là 529px thiết bị,
+ * tàu mặc định 640px — tàu AI phải đẹp HƠN nên nguồn không được nhỏ hơn. Tàu cất trước đó giữ 512.
  *
- * Kho này là PHẦN THÊM, không phải nguồn sự thật: thiếu (tàu cất trước hôm nay, máy chặn
- * IndexedDB, đổi máy) thì sảnh dùng bản 256px. Mọi lỗi đều nuốt và trả null — mất ảnh nét
- * không được phép làm mất tàu.
+ * Kho này là PHẦN THÊM, không phải nguồn sự thật: thiếu (tàu cất trước 21/10, máy chặn
+ * IndexedDB, đổi máy) thì kéo bản trên mây (system-evo-ship-hd-cloud.js), không có nữa thì
+ * sảnh dùng ảnh gara / ảnh thu nhỏ. Mọi lỗi đều nuốt và trả null — mất ảnh nét không được
+ * phép làm mất tàu.
  *
  * BẪY (soát review 21/10): `EvoRecover.attach` CHỜ `put` trong Promise.all. IndexedDB có ca
  * `open` không bao giờ trả lời (Safari 14 lần mở đầu) — không có trần giờ thì việc cất tàu treo
@@ -16955,7 +16975,7 @@ SC.ITEM_DEF.push({ k: 'evoShard', w: 0, c: '#c58cff', ic: '🧬' });
  * hợp là cùng id — khoá trần thì hồ sơ này đúc lại là đè ảnh sảnh của hồ sơ kia.
  */
 SC.EvoHD = {
-  SIZE: 512,
+  SIZE: 768,
   WAIT: 3000,
   _db: null,
 
@@ -16992,11 +17012,12 @@ SC.EvoHD = {
     }));
   },
 
-  /* `url` là ảnh GỐC (1024px) — nén ở đây để chỗ gọi khỏi phải biết cỡ */
-  put(id, url) {
+  /* `url` là ảnh GỐC (1024px) — nén ở đây để chỗ gọi khỏi phải biết cỡ. `raw`: ảnh kéo từ mây,
+     đã đúng cỡ — cất nguyên, nén lại là mất thêm chi tiết. */
+  put(id, url, raw) {
     if (!id || !url) return Promise.resolve(null);
     const k = this._key(id);
-    return this._cap(SC.EvoGarage.compress(url, this.SIZE)
+    return this._cap((raw ? Promise.resolve(url) : SC.EvoGarage.compress(url, this.SIZE))
       .then(small => this._tx('readwrite', s => s.put(small, k)).then(() => small))
       .catch(() => null), null);
   },
@@ -17036,6 +17057,150 @@ SC.EvoHD = {
     img.src = url;
   }
 };
+
+;
+/* ===== js/system-evo-ship-hd-cloud.js ===== */
+/* system-evo-ship-hd-cloud.js — ảnh NÉT tàu AI theo TÀI KHOẢN, không theo máy (28/10/2026)
+ *
+ * VÌ SAO CÓ: anh Đức chụp sảnh banga màn 157 — tàu AI "nhòe, vỡ viền, viền dày" cạnh tàu mặc định
+ * nét căng. Ảnh gốc KHÔNG xấu: ảnh nét (EvoHD, IndexedDB) và ảnh 256 (gara, localStorage) chỉ nằm ở
+ * MÁY ĐÃ GEN ra tàu. Đo Chrome của anh: IndexedDB rỗng, 17/18 tàu chỉ còn ảnh thu nhỏ 160px trong sổ
+ * mây → sảnh phóng 2-3 lần rồi làm nét = nhòe + quầng. Hai lần sửa trước (21/10, 24/10) chữa ĐƯỜNG VẼ;
+ * lần này chữa NGUỒN ẢNH: ảnh nét lên Firestore, khoá theo EMAIL M365 — thứ duy nhất ổn định giữa
+ * các máy (uid anonymous sống theo trình duyệt).
+ *
+ * Collection RIÊNG `evoShipHD`, một doc một tàu: quyết định cũ "không nhét ảnh vào Firestore" là để
+ * khỏi phình doc tiến độ — vẫn giữ, ảnh không vào users/ hay m365Users/.
+ *   ĐẨY: tàu mới / đúc lại (EvoRecover.attach) + ĐẨY BÙ tàu cũ có ảnh ở máy này (lúc có vé).
+ *   KÉO: applyEquipped không thấy ảnh nét ở máy → getDoc → cất IndexedDB (EvoHD) → lên sảnh.
+ * Chỉ chạy khi biết email M365: máy dev (token vkm_) KHÔNG đọc/ghi kho thật.
+ *
+ * BẪY permission-denied (y như kho tàu phản bội 23/10): luật chưa dán, ảnh sai luật, hay cỡ nhỏ hơn
+ * bản trên mây (luật cấm hạ cỡ) đều ra CÙNG mã. Coi là "xong" thì sau khi dán luật máy này không bao
+ * giờ đẩy lại → gặp mã đó thì đọc doc: mây có bản cỡ ≥ mới ghi sổ đã-đẩy.
+ */
+SC.EvoHDCloud = {
+  COL: 'evoShipHD',
+  MAX: 880000,              // luật: img < 900000 ký tự (doc Firestore trần 1 MiB) — chừa lề
+  SIZES: [768, 512, 384],   // Safari xuất PNG thay webp, 768 có thể quá trần → lùi dần
+  WAIT: 30000,              // ảnh 100-300KB qua 4G: trần 8s chung của Portal.FB.limit là quá ngắn
+  PUB: 'sc.evoHDCloud.pub', // { '<hồ sơ>:<tàu>': cỡ đã có trên mây } — đẩy bù khỏi hỏi lại mỗi phiên
+  _busy: {},
+
+  _key(id) {
+    const b = SC.M365Sync && SC.M365Sync._base(), p = SC.Profiles.cur();
+    return b && p && id ? `${b}_p${p.id}_${id}` : '';
+  },
+  _on() { return !!(SC.EvoAI.active() && SC.M365Sync && SC.M365Sync._base() && Portal.FB.configured()); },
+  _cap(p, viec) {
+    return Promise.race([p, new Promise((_, rej) => setTimeout(
+      () => rej(Object.assign(new Error('Quá hạn ' + viec), { code: 'timeout' })), this.WAIT))]);
+  },
+  _pub() { try { return JSON.parse(localStorage.getItem(this.PUB) || '{}') || {}; } catch (e) { return {}; } },
+  _had(id) { return this._pub()[SC.EvoHD._key(id)] || 0; },
+  _mark(id, w) {
+    const p = this._pub();
+    p[SC.EvoHD._key(id)] = w;
+    try { localStorage.setItem(this.PUB, JSON.stringify(p)); } catch (e) {}
+  },
+  _w(url) { return new Promise(ok => { const i = new Image(); i.onload = () => ok(i.naturalWidth); i.onerror = () => ok(0); i.src = url; }); },
+  _ok(img) { return typeof img === 'string' && /^data:image\/(webp|png);base64,/.test(img); },
+
+  /* Đẩy ảnh ở cỡ lớn nhất lọt trần; `url` cỡ nào cũng được nhưng KHÔNG phóng to (256 đẩy 256).
+     Ảnh đã đúng cỡ thì đẩy nguyên — nén lại webp lần nữa là mất thêm chi tiết. */
+  async push(id, url, force) {
+    const key = this._key(id);          // chụp TRƯỚC mọi await: người chơi đổi hồ sơ giữa chừng
+    if (!this._on() || !key || !url) return;
+    const w0 = await this._w(url);
+    if (!w0) return;
+    const sizes = this.SIZES.filter(s => s <= w0);
+    if (!sizes.length) sizes.push(w0);
+    if (!force && this._had(id) >= sizes[0]) return;
+    let img = '', w = 0;
+    for (const s of sizes) {
+      img = s === w0 && this._ok(url) ? url : await SC.EvoGarage.compress(url, s);
+      w = s;
+      if (img.length < this.MAX) break;
+    }
+    if (img.length >= this.MAX || !this._ok(img)) throw new Error('ảnh tàu quá trần ' + img.length);
+    const fb = await SC.Defectors._auth(), { doc, setDoc, getDoc } = fb.fsM;
+    const ref = doc(fb.db, this.COL, key);
+    try {
+      await this._cap(setDoc(ref, { img, w, at: Date.now() }), 'đẩy ảnh tàu');
+    } catch (e) {
+      if (!String(e && e.code).includes('permission')) throw e;
+      const s = await this._cap(getDoc(ref), 'đọc ảnh tàu');
+      if (!s.exists() || !(s.data().w >= w)) throw e;     // luật chưa dán / sai luật: phiên sau thử lại
+      w = s.data().w;
+    }
+    this._mark(id, w);
+  },
+
+  /* Máy này thiếu ảnh nét của tàu đang bay → kéo về, cất IndexedDB, lên sảnh. `tok` chụp lúc GỬI
+     (bẫy EvoHD.wear: chụp lúc nhận là ảnh tàu cũ đè tàu vừa đổi). Ảnh trên mây là dữ liệu KHÔNG
+     tin (luật mức tin cậy thấp) — chỉ nhận dataURL webp/png. */
+  async pull(id, tok) {
+    const key = this._key(id);
+    if (!this._on() || !key || this._busy[key]) return;
+    this._busy[key] = 1;
+    try {
+      const fb = await SC.Defectors._auth(), { doc, getDoc } = fb.fsM;
+      const s = await this._cap(getDoc(doc(fb.db, this.COL, key)), 'đọc ảnh tàu');
+      const d = s.exists() ? s.data() : null;
+      if (!d || !this._ok(d.img)) return;
+      SC.EvoHD.put(id, d.img, true);                     // không chờ: cất là phần thêm
+      this._mark(id, d.w || 0);
+      SC.EvoHD.wear(d.img, tok);
+    } catch (e) {
+      console.warn('[evo-hd-cloud] chưa kéo được ảnh nét:', (e && e.code) || e);
+    } finally { delete this._busy[key]; }
+  },
+
+  /* Đẩy bù tàu có ảnh ở máy này mà mây chưa có bản cỡ đó: ảnh nét (EvoHD) trước, không có thì ảnh
+     gara 256. TUẦN TỰ + nhường khung: người chơi cũ có cả chục tàu, mỗi ảnh 100-300KB qua 4G. */
+  async backfill() {
+    if (this._bf) return;
+    this._bf = 1;
+    try {
+      const imgs = SC.EvoGarage.images();
+      for (const o of SC.EvoGarage.owned().slice()) {
+        if (!this._on()) break;
+        const url = (await SC.EvoHD.get(o.id)) || (imgs.find(x => x.id === o.id) || {}).ship;
+        if (!url) continue;
+        await this.push(o.id, url).catch(e => console.warn('[evo-hd-cloud] chưa đẩy được tàu', o.id, (e && e.code) || e));
+        await SC.DefectorOwned._idle();
+      }
+    } finally { this._bf = 0; }
+  },
+
+  /* Có vé đăng nhập: danh tính về SAU lần lên tàu đầu tiên (applyEquipped lúc khởi động chưa biết
+     email), nên kéo lại cho tàu đang bay nếu sảnh chưa có ảnh nét, rồi đẩy bù. */
+  sync() {
+    if (!this._on()) return;
+    const A = SC.EvoAI, e = A.st(), tok = A._tok;
+    if (e.equip && A._hdTok !== tok)
+      SC.EvoHD.get(e.equip).then(hd => hd ? SC.EvoHD.wear(hd, tok) : this.pull(e.equip, tok));
+    this.backfill().catch(err => console.warn('[evo-hd-cloud] đẩy bù hỏng:', (err && err.code) || err));
+  },
+
+  /* Bán tàu: ảnh nét trên mây đi theo (system-evo-garage-sell.js) */
+  del(id) {
+    const key = this._key(id);
+    if (!this._on() || !key) return;
+    SC.Defectors._auth()
+      .then(fb => this._cap(fb.fsM.deleteDoc(fb.fsM.doc(fb.db, this.COL, key)), 'xoá ảnh tàu'))
+      .catch(e => console.warn('[evo-hd-cloud] chưa xoá được ảnh tàu đã bán:', (e && e.code) || e));
+  }
+};
+
+/* Vé anonymous của banga về sau khi mọi script nạp xong; Portal.Auth.onChange gọi ngay một lần
+   (user null) rồi mỗi lần đổi — nên chỉ làm khi đã có user. Ngoài zingplay.dev `_on()` tắt hết. */
+SC.EvoHDCloud._hook = () => {
+  if (window.Portal && Portal.Auth && Portal.Auth.onChange)
+    Portal.Auth.onChange(u => { if (u) setTimeout(() => SC.EvoHDCloud.sync(), 0); });
+};
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', SC.EvoHDCloud._hook);
+else setTimeout(SC.EvoHDCloud._hook, 0);
 
 ;
 /* ===== js/system-evo-garage.js ===== */
@@ -17172,8 +17337,9 @@ SC.EvoGarage = {
       const im = e && e.equip ? this.imageOf(e.equip) : null;
       if (im) {
         SC.EvoAI._apply(im.ship, im.drone || '');
-        const tok = SC.EvoAI._tok, id = e.equip;    // sảnh: bản 512px nếu tàu có (EvoHD)
-        SC.EvoHD.get(id).then(hd => SC.EvoHD.wear(hd, tok));
+        // sảnh: bản nét ở máy (EvoHD), không có thì bản trên mây (máy này không gen ra tàu)
+        const tok = SC.EvoAI._tok, id = e.equip;
+        SC.EvoHD.get(id).then(hd => hd ? SC.EvoHD.wear(hd, tok) : SC.EvoHDCloud.pull(id, tok));
       }
       else SC.EvoAI.restoreDefault();
       if (SC.GarageUI && SC.UI.el.garage && !SC.UI.el.garage.classList.contains('hidden'))
@@ -17316,7 +17482,8 @@ SC.EvoRecover = {
   },
 
   /* Cất ảnh cho một tàu: bản 256px vào gara máy này + bản thu nhỏ vào sổ (theo mây) + bản
-     512px cho sảnh vào IndexedDB (EvoHD — lỗi thì thôi, không chặn việc cất) */
+     nét cho sảnh vào IndexedDB (EvoHD — lỗi thì thôi, không chặn việc cất) + bản nét lên mây
+     cho máy khác cùng tài khoản (EvoHDCloud, không chờ — như kho tàu phản bội bên dưới) */
   async attach(o, ship, drone) {
     const [big, dr, th] = await Promise.all([
       SC.EvoGarage.compress(ship, 256),
@@ -17331,6 +17498,8 @@ SC.EvoRecover = {
     // tàu AI mới ra trận làm quái cho MỌI người chơi (23/10/2026) — không chờ, lỗi thì
     // lần nạp kho đầu phiên sau đẩy bù (system-defector-pool-owned-ships.js)
     SC.DefectorOwned.share(o, big);
+    SC.EvoHDCloud.push(o.id, ship, true)
+      .catch(e => console.warn('[evo-hd-cloud] chưa đẩy được ảnh nét:', (e && e.code) || e));
   },
 
   /* Tàu này đúc lại được không: kênh có tiến hóa, có tổ hợp, chưa đúc lần nào */
@@ -17407,6 +17576,7 @@ SC.EvoSell = {
     }
     SC.EvoGarage._saveImages(SC.EvoGarage.images().filter(x => x.id !== id));
     SC.EvoHD.del(id);
+    SC.EvoHDCloud.del(id);
 
     SC.UI.progress.coin = (SC.UI.progress.coin || 0) + this.GOLD;
     const kw = SC.EvoAI._rollKw(e);
