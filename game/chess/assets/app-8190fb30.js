@@ -6224,9 +6224,10 @@ CC.CloudAdapter = (function () {
           };
         },
 
-        /* Cờ vua chỉ có một hồ sơ mỗi tài khoản nên lấy thẳng tên Google.
+        /* Cờ vua chỉ có một hồ sơ mỗi tài khoản nên lấy thẳng tên Google — hoặc tên M365 trên *.zingplay.dev
+         * (cloud-m365-identity.js nói vì sao không đọc tên của vé ẩn danh).
          * (Sky Chicken khác: một tài khoản có 3 hồ sơ phi công, xem adapter bên đó.) */
-        playerName: () => (Portal.Auth.user && Portal.Auth.user.name) || 'Kỳ thủ',
+        playerName: () => CC.M365.name() || (Portal.Auth.user && Portal.Auth.user.name) || 'Kỳ thủ',
 
         weight,
         isEmpty,
@@ -6282,8 +6283,8 @@ CC.CloudAdapter = (function () {
  *
  * Ai được log:
  *   portal: CHỈ người đã đăng nhập — khách chưa đăng nhập không nạp Firebase (~200 KB SDK, luật của portal-auth.js).
- *   *.zingplay.dev (bản thử nội bộ sau SSO): vé ẨN DANH trên app Firebase RIÊNG 'cc-tele'. Đăng nhập ẩn danh trên app
- *     mặc định thì Portal.Auth nhận vé đó là một "Người chơi" và đẩy tiến độ lên chessUsers/<uid ẩn danh>.
+ *   *.zingplay.dev (bản thử nội bộ sau SSO): vé ẨN DANH trên app Firebase RIÊNG 'cc-tele' — log không phụ thuộc vé
+ *     người chơi trên app mặc định (cloud-m365-identity.js, hỏng khi /whoami hỏng) và `pk` giữ nguyên từ bản đầu.
  *   máy dev: chỉ khi URL có `?tele`, kênh 'dev' (dashboard lọc bỏ mặc định). Trang harness `?state=` không bao giờ log.
  * Lỗi mạng / luật thì bỏ qua: hụt vài ván không sao, chặn game vì log là không được.
  */
@@ -6424,6 +6425,87 @@ CC.Telemetry = (function () {
       return this;
     },
     _test: { channel, hash, device, frameStats: () => frameStats(), state: () => g, finish }
+  };
+})();
+
+;
+/* ===== js/cloud-m365-identity.js ===== */
+/* cloud-m365-identity.js — danh tính M365 trên catchess.zingplay.dev (sau SSO), cùng khuôn banga (28/10/2026)
+ *
+ * Người chơi đã đăng nhập M365 ở tầng proxy trước khi thấy game, còn popup Google không chạy trên domain này — nên ở
+ * *.zingplay.dev KHÔNG có nút Google (ui-rank-panel.js): tên lấy từ /whoami (nginx của gói standalone echo header
+ * forward-auth, xem tools/build-standalone.mjs), vé ghi điểm là Firebase ANONYMOUS trên app mặc định → Portal.Auth +
+ * Portal.Cloud chạy như người đã đăng nhập, tiến độ + BXH mang tên domain. Anonymous không cần Authorized domains.
+ * CHƯA làm như banga: gương tiến độ theo email (m365Users) — uid ẩn danh sống theo trình duyệt, đổi máy là hồ sơ mới.
+ * Nơi khác (portal, máy dev) module im lặng, không một request nào. Mẫu đủ + lịch sử bẫy:
+ * games/sky-chicken-invader/js/system-m365-identity.js.
+ */
+
+CC.M365 = (function () {
+  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  let state = 'off', info = null;   // off | wait | ok | expired | fail
+
+  const active = () => /(^|\.)zingplay\.dev$/.test(location.hostname);
+
+  function set(s) {
+    state = s;
+    CC.util.bus.emit('m365:change', { state });
+  }
+
+  /* redirect:'manual': hết phiên thì proxy 302 sang access.zingplay.dev KHÔNG kèm CORS — để fetch tự theo là
+     "Failed to fetch" mù như rớt mạng; cùng origin thì đọc được opaqueredirect (bug banga 26/10). */
+  async function whoami() {
+    const r = await fetch('/whoami', { credentials: 'include', redirect: 'manual', cache: 'no-store',
+      headers: { accept: 'application/json' } });
+    if (r.type === 'opaqueredirect' || r.status === 401 || r.status === 403) return 'expired';
+    if (!r.ok) return null;
+    const j = await r.json();
+    const email = j.email || j.email2 || '';
+    // user2 (X-Auth-Request-User) là UUID Keycloak chứ không phải tên — đo thật trên banga
+    let name = [j.preferredUsername, j.user, email, j.user2].find(v => v && !UUID.test(v)) || '';
+    if (name.includes('@')) name = name.split('@')[0];
+    return name ? { email, name } : null;
+  }
+
+  /* Đợi FB.load() TRƯỚC _attach(): Portal.Auth.init (lần mở sau, có cờ portal.signedin) đang chờ cùng promise đó,
+     chờ sau nó thì nó gắn listener trước — gọi _attach song song là hai listener, onUser chạy hai lần.
+     authStateReady: phiên cũ hồi từ IndexedDB chưa xong mà hỏi currentUser là null → mỗi lần mở một uid mới. */
+  async function ticket() {
+    await Portal.FB.load();
+    const fb = await Portal.Auth._attach();
+    await fb.auth.authStateReady();
+    const u = fb.auth.currentUser || (await fb.authM.signInAnonymously(fb.auth)).user;
+    if (u.isAnonymous && u.displayName !== info.name)
+      await fb.authM.updateProfile(u, { displayName: info.name }).catch(() => { /* nhãn phụ, BXH đọc name() */ });
+  }
+
+  return {
+    active,
+    state: () => state,
+    // cloud-adapter đọc tên ở đây, không đọc Portal.Auth.user.name: lần đăng nhập ẩn danh đầu, onAuthStateChanged
+    // nổ TRƯỚC updateProfile và không nổ lại → tên Firebase còn là 'Người chơi' cả phiên
+    name: () => info && info.name,
+
+    async init() {
+      if (!active()) return;
+      set('wait');
+      try {
+        const w = await whoami();
+        if (w === 'expired') {
+          set('expired');
+          CC.util.bus.emit('ui:toast', { text: 'Phiên đăng nhập đã hết — tải lại trang để vào lại.' });
+          return;
+        }
+        if (!w) return set('fail');
+        info = w;
+        set('ok');
+        if (Portal.FB.configured()) await ticket();
+      } catch (e) {
+        // Hay gặp: mở lúc mất mạng (PWA). Game vẫn chơi được, chỉ chưa lên BXH tới lần tải sau.
+        console.warn('[m365] chưa lấy được danh tính / vé ghi điểm:', (e && e.code) || e);
+        if (!info) set('fail');
+      }
+    }
   };
 })();
 
@@ -10959,6 +11041,22 @@ CC.RankPanel = (function () {
     box.appendChild(grid);
   }
 
+  /* *.zingplay.dev: SSO M365 của proxy đã biết người chơi, popup Google không chạy trên domain đó → không nút Google,
+     không nút Đăng xuất (đăng xuất vé ẩn danh là bỏ rơi hồ sơ tiến độ của nó). Danh tính: cloud-m365-identity.js. */
+  function renderSso(box) {
+    const s = CC.M365.state();
+    box.textContent = '';
+    if (s === 'ok') {
+      box.appendChild(CC.util.el('span', { class: 'auth-name', text: 'Xin chào, ' + CC.M365.name() }));
+      return;
+    }
+    box.appendChild(CC.util.el('p', { class: 'rank-note', text: s === 'wait' ? 'Đang lấy tên đăng nhập…'
+      : s === 'expired' ? 'Phiên đăng nhập đã hết.' : 'Chưa lấy được tên đăng nhập.' }));
+    if (s !== 'wait') box.appendChild(CC.util.el('button', {
+      class: 'btn btn-sm', type: 'button', text: 'Tải lại trang', onclick: () => location.reload()
+    }));
+  }
+
   return {
     mount(container) {
       host = container;
@@ -10979,7 +11077,10 @@ CC.RankPanel = (function () {
         return this;
       }
 
-      Portal.Auth.onChange(u => {
+      if (CC.M365.active()) {
+        renderSso(authBox);
+        CC.util.bus.on('m365:change', () => renderSso(authBox));
+      } else Portal.Auth.onChange(u => {
         authBox.textContent = '';
         if (u) {
           authBox.appendChild(CC.util.el('span', { class: 'auth-name', text: 'Xin chào, ' + u.name }));
@@ -11380,6 +11481,7 @@ CC.UpdateNotice = (function () {
      * Portal.Cloud.onUser() ngay khi biet phien, luc do adapter phai co san. */
     CC.CloudAdapter.init();
     Portal.Auth.init();
+    CC.M365.init();        // *.zingplay.dev: tên M365 + vé ẩn danh thay nút Google; nơi khác im lặng
     CC.Telemetry.init();   // log ván chessRuns — sau Auth: kênh portal hỏi Portal.Auth.user lúc gửi
     CC.RankPanel.mount($('#rank-body'));
 

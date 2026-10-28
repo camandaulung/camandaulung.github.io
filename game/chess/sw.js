@@ -9,14 +9,14 @@
  * trang van trong binh thuong. build.mjs co buoc kiem tra chan dung loi nay.
  */
 
-const VERSION = 'a00f163d';
+const VERSION = 'a7d9f7bb';
 const CACHE = 'cat-chess-' + VERSION;
 const SHELL = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
   "./assets/style-b0748f44.css",
-  "./assets/app-5bcee74e.js",
+  "./assets/app-8190fb30.js",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./icons/icon-maskable-512.png",
@@ -220,6 +220,9 @@ self.addEventListener('fetch', ev => {
 
   const url = new URL(req.url);
   if (url.origin !== location.origin) return;   // khong dung vao yeu cau ben ngoai
+  /* Danh tinh SSO (catchess.zingplay.dev) di thang mang: nhanh cache ben duoi luu /whoami 200 roi tra mai mai —
+   * bug banga 12/10: het phien van ra danh tinh cu, doi tai khoan M365 cung trinh duyet doc EMAIL NGUOI TRUOC. */
+  if (url.pathname === '/whoami' || url.pathname.startsWith('/oauth2/')) return;
 
   /* TRANG (HTML) thi MANG TRUOC, cache chi de du phong khi mat mang.
    *
