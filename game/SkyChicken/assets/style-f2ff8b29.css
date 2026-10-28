@@ -159,7 +159,10 @@ body.is-touch #game{cursor:auto}
 }
 
 .layer{position:absolute;inset:0;pointer-events:none}
-.layer.screen{pointer-events:auto;display:flex;flex-direction:column}
+/* manipulation = tắt chạm-đúp-phóng-to (28/10/2026, banga: chạm đúp quả trứng TIẾN HÓA AI là cả
+   trang phóng to). Safari iOS bỏ qua user-scalable=no ở thẻ viewport. Không đổi gì ở trình duyệt
+   đã nghe touch-action:none của body (giao của hai luật vẫn là none). */
+.layer.screen{pointer-events:auto;display:flex;flex-direction:column;touch-action:manipulation}
 
 /* Màn phủ (briefing, tạm dừng, kết quả...) phải nằm TRÊN nội dung của màn bên dưới.
    Mọi .layer đều là anh em cùng một ngữ cảnh xếp lớp, nên .saga-node{z-index:2}
