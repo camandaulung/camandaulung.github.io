@@ -12,9 +12,18 @@
   color-scheme: light;
   --paper: #fffaf0; --ink: #111; --yellow: #ffe14d; --red: #d42a33; --blue: #2f63d6;
   --cream: #ffeec2; --pink: #ffd9e0; --sq-light: #fff6d6; --sq-dark: #f2b632;
-  --shadow-1: 5px 5px 0 var(--ink); --shadow-2: 3px 3px 0 var(--ink); --shadow-3: 2px 2px 0 var(--ink);
+  /* Bóng cứng + MẶT SÁNG (r12, fresh-eyes r11 Lighting "không mặt nào có cạnh sáng"): cùng đèn trên-trái nên cạnh trong
+   * trên-trái sáng, cạnh trong dưới-phải tối nhẹ. Chỉ cấp 1–2 (khung, nút, hộp thoại); cấp 3 nằm trên thanh LỰC + chip
+   * nhỏ, viền sáng ở đó làm sai số đọc của thanh. Trên nền trắng cạnh sáng không thấy — chỉ hiện ở nút màu, đúng chủ ý. */
+  --shadow-1: 5px 5px 0 var(--ink), inset 3px 3px 0 rgba(255, 255, 255, .6), inset -4px -4px 0 rgba(17, 17, 17, .08);
+  --shadow-2: 3px 3px 0 var(--ink), inset 2px 2px 0 rgba(255, 255, 255, .6), inset -3px -3px 0 rgba(17, 17, 17, .1);
+  --shadow-3: 2px 2px 0 var(--ink);
   --ink-1: 4px; --ink-2: 3px; --ink-3: 2px;
   --halftone: radial-gradient(rgba(17, 17, 17, .16) 1.4px, transparent 1.6px);
+  /* Lớp phủ hộp thoại (result-card.css, dialogs.css): lý do ở đầu result-card.css */
+  --scrim: radial-gradient(rgba(17, 17, 17, .34) 1.2px, transparent 1.5px) 0 0 / 5px 5px,
+    radial-gradient(ellipse at 50% 45%, transparent 45%, rgba(17, 17, 17, .22)), rgba(17, 17, 17, .06);
+  --scrim-filter: brightness(.86) saturate(1.35);
   /* Vân giấy in: ẢNH BITMAP lấm tấm mực 3,7 KB (tools/make-paper-grain.mjs), không SVG feTurbulence: ảnh nền SVG có bộ lọc
    * bị raster lại cùng vùng nền mỗi lần vùng đó vẽ lại (pháo giấy vẽ lại khắp màn); bitmap đã giải mã thì vẽ lát lại rẻ */
   --grain: url("../art/paper-grain.png");
@@ -408,7 +417,8 @@ main { flex: 1; display: flex; flex-direction: column; }
 .promo-overlay {
   position: fixed; inset: 0; z-index: 50;
   display: flex; align-items: center; justify-content: center;
-  background: rgba(0,0,0,.6);
+  background: var(--scrim);   /* cùng lớp phủ hộp kết quả (result-card.css): đen .6 nuốt nét mực, bàn thành ô liu */
+  -webkit-backdrop-filter: var(--scrim-filter); backdrop-filter: var(--scrim-filter);
   opacity: 0; transition: opacity .15s;
   padding: 16px;
 }
@@ -511,11 +521,18 @@ main { flex: 1; display: flex; flex-direction: column; }
 .sq-dot { fill: var(--ink); opacity: .08; }
 
 /* Mực trên CẢ HAI màu ô: chữ giấy trên nghệ #f2b632 chỉ ~1,9:1 (lệch plan "giấy trên ô tối", đo trước khi đổi) */
-.coord { font: 800 15px var(--font-body); pointer-events: none; }
-/* Điện thoại: 15/800 đơn vị ở bàn ~370 px chỉ còn ~7 px chữ (fresh-eyes r4) → 21 ≈ 10 px */
-@media (max-width: 480px) { .coord { font-size: 21px; } }
-.coord-on-light { fill: rgba(17, 17, 17, .62); }
-.coord-on-dark { fill: rgba(17, 17, 17, .78); }
+/* Viền kem quanh chữ (paint-order: stroke = nét nằm DƯỚI ruột chữ): trên ô nghệ chữ mực có quầng giấy như chữ in đè
+ * lên tranh; trên ô kem viền trùng nền nên không thấy. Lớp coords nằm trên quân (board-svg-render.js) → viền tách chữ
+ * khỏi đế quân khi chồng lên nhau. */
+.coord {
+  font: 800 15px var(--font-body); pointer-events: none;
+  stroke: var(--sq-light); stroke-width: 4px; stroke-linejoin: round; paint-order: stroke;
+}
+/* Điện thoại: 15/800 đơn vị ở bàn ~370 px chỉ còn ~7 px chữ (fresh-eyes r4); 21 vẫn bị chấm "nhỏ, mờ trên ô vàng"
+ * (fresh-eyes r11) → 27 ≈ 12 px */
+@media (max-width: 480px) { .coord { font-size: 27px; stroke-width: 6px; } }
+.coord-on-light { fill: rgba(17, 17, 17, .78); }
+.coord-on-dark { fill: rgba(17, 17, 17, .92); }
 
 .mk { pointer-events: none; }
 /* Nước vừa đi tô HỒNG chứ không vàng như plan: vàng 50 % trên ô nghệ gần như không thấy; xanh (thử r2a) trộn với
@@ -554,7 +571,7 @@ main { flex: 1; display: flex; flex-direction: column; }
   content: attr(data-label); align-self: stretch; display: flex; align-items: center;
   margin-right: 6px; padding: 0 7px;
   background: var(--yellow); border-right: var(--ink-3) solid var(--ink);
-  font: 900 11px/1 var(--font-body); color: var(--ink); white-space: nowrap;
+  font: 900 12px/1 var(--font-body); color: var(--ink); white-space: nowrap;
 }
 /* KHÔNG xuống hàng: khay hai hàng ở 375×812 đẩy hàng nút ra khỏi màn (fresh-eyes r4, lỗi tự trượt #7) — chiều cao màn
  * chơi tính sẵn MỘT hàng khay trong --game-chrome. Cùng loại thì xếp chồng như xấp bài; ăn hết 15 quân mà vẫn chật thì
@@ -571,7 +588,7 @@ main { flex: 1; display: flex; flex-direction: column; }
 .mat-bar {
   --cut: calc(50% + var(--mat, 0) * 5%);
   flex: 0 0 auto;
-  margin-left: 6px; width: 72px; height: 12px;
+  margin-left: 6px; width: 72px; height: 16px;   /* 12 → 16 (r12): fresh-eyes r11 đo thanh ở điện thoại ~8 px */
   border: var(--ink-3) solid var(--ink); box-shadow: var(--shadow-3);
   /* Vạch đỏ giữa = điểm cân bằng: thanh đọc ra "bên nào hơn", không chỉ là một khối hai màu (r8 "không rõ nghĩa") */
   --tick: linear-gradient(var(--red), var(--red)) center / 2px 100% no-repeat;
@@ -580,7 +597,7 @@ main { flex: 1; display: flex; flex-direction: column; }
 .mat-bar.mat-b { background: var(--tick), linear-gradient(90deg, #1b1b1b var(--cut), #fff var(--cut)); }
 /* Nhãn nằm TRONG hàng (không ::before tuyệt đối): khay đầy thì nhãn bị đẩy chứ không đè lên quân.
  * r4 fresh-eyes đọc thanh này là "một thanh không tên dưới bàn". */
-.mat-label { margin-left: auto; padding-left: 6px; font: 900 11px/1 var(--font-body); color: var(--ink); letter-spacing: .04em; }
+.mat-label { margin-left: auto; padding-left: 6px; font: 900 13px/1 var(--font-body); color: var(--ink); letter-spacing: .04em; }
 
 /* Bóng đổ của quân (CC.Pieces.onBoard): hình bóng quân lệch xuống-phải như bóng cứng của khung và nút. Mực .3 r4 đọc
  * thành "bóng mờ nhoè"; mực đặc thì quân đen (thân #1b1b1b) phình sang phải, mất dáng → .6, nét bằng viền mực của quân. */
@@ -649,7 +666,12 @@ body:not([data-screen="game"]) .btn-back { visibility: hidden; }
 }
 .bubble::before { left: -14px; margin-top: -9px; border-width: 9px 14px 9px 0; border-right-color: var(--ink); }
 .bubble::after { left: -9px; margin-top: -6px; border-width: 6px 10px 6px 0; border-right-color: #fff; }
-.bubble-text { min-height: 1.35em; }
+.bubble-text { min-height: 1.35em; position: relative; }
+/* Gõ chữ (chat-ui-bubble.js): câu đầy đủ giữ chỗ trong suốt, phần đã gõ vẽ đè bằng ::before — ô thoại không co dãn
+ * theo từng chữ nên không kéo layout cả trang (r12). will-change: nét vẽ lại chỉ rơi vào lớp của ô thoại. */
+.bubble { will-change: transform; }
+.bubble-text.typing { color: transparent; }
+.bubble-text.typing::before { content: attr(data-typed); position: absolute; inset: 0; color: var(--ink); }
 
 /* Lượt đi = ô chú thích vàng của truyện tranh; chiếu = ô đỏ */
 .status {
@@ -671,7 +693,10 @@ body:not([data-screen="game"]) .btn-back { visibility: hidden; }
 .status.check { box-shadow: var(--shadow-3); padding-left: 10px; }
 .status.tight { font-size: 12px; letter-spacing: -.2px; white-space: normal; text-wrap: balance; }   /* ui-game-hud.js fit() */
 
+/* NỔI trên khay trên (r12): nằm trong dòng chảy thì lúc Stockfish nạp chậm (điện thoại yếu, máy bận) cột bàn dài thêm
+ * 33 px → hàng nút điện thoại bị đẩy khỏi màn, desktop cuộn 13 px (census r12 bắt được khi máy đo đang bận). */
 .engine-state {
+  position: absolute; z-index: 25; top: 0; left: 50%; transform: translateX(-50%); max-width: 100%; white-space: nowrap;
   display: flex; align-items: center; justify-content: center; gap: 10px;
   padding: 3px 10px;
   background: var(--yellow); border: var(--ink-2) solid var(--ink); box-shadow: var(--shadow-3);
@@ -679,7 +704,7 @@ body:not([data-screen="game"]) .btn-back { visibility: hidden; }
 }
 .engine-state .err { color: var(--danger-text); }
 
-.board-col { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.board-col { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .board-host { display: flex; justify-content: center; width: 100%; }
 .board { width: var(--board-size); }
 /* Khay rộng bằng VÒNG MỰC của bàn (svg + 4 px mỗi bên): mép khay thẳng mép khung, khay đọc như ô chú thích của bàn */
@@ -707,8 +732,9 @@ body:not([data-screen="game"]) .btn-back { visibility: hidden; }
   font: 900 22px/1 var(--font-body); cursor: pointer;
 }
 .nav-btn:active:not(:disabled) { transform: translate(2px, 2px); box-shadow: none; }
-.nav-label { min-width: 118px; text-align: center; font: 800 12px/1.3 var(--font-body); color: var(--accent-text); }
-.move-nav:not(.reviewing) .nav-label { color: var(--text-dim); }
+/* 12 px xám → 14 px mực (r12): fresh-eyes r11 đọc "Xem lại nước" là chữ phụ ~11 px xám, khó thấy trên giấy hạt */
+.nav-label { min-width: 118px; text-align: center; font: 800 14px/1.3 var(--font-body); color: var(--accent-text); }
+.move-nav:not(.reviewing) .nav-label { color: var(--ink); }
 .nav-live { padding: 6px 10px; font-size: 12px; }
 /* Đang xem lại: viền xanh trong bàn, để không nhầm với ván đang chơi */
 body.reviewing .board { outline: 4px solid var(--blue); outline-offset: -4px; }
@@ -856,11 +882,20 @@ button.ml-san:hover { background: var(--yellow); }
 .ps-floor {
   left: 0; right: 0; bottom: 0; height: 26px;
   border-top: var(--ink-2) solid var(--ink);
+  /* Ván sàn PHỐI CẢNH (r12, fresh-eyes r11 World "không có tín hiệu chiều sâu ngoài một dải sàn"): conic lặp có tâm
+   * cao trên sàn = các đường ván toả xuống, xa thì sít, gần thì thưa — tâm `--vp` là điểm tụ. */
   background:
     linear-gradient(100deg, transparent 37%, rgba(255, 250, 240, .7) 37% 77%, transparent 77%),
-    repeating-linear-gradient(90deg, transparent 0 46px, rgba(17, 17, 17, .35) 46px 48px),
+    repeating-conic-gradient(from 180deg at 50% var(--vp, -700%), transparent 0 8.6deg, rgba(17, 17, 17, .35) 8.6deg 9deg),
     #f5bccb;
   box-shadow: 0 -8px 0 var(--cream), 0 -11px 0 var(--ink);   /* chân tường: gờ kem 8 px + nét mực trên */
+}
+/* Thảm dưới nệm: lớp sàn → thảm → nệm → mèo cho chiều sâu; xanh cửa sổ = màu bổ túc của mèo cam */
+.ps-floor::before {
+  content: ''; position: absolute; left: 12px; bottom: 1px; width: calc(180px + var(--slack, 0px) * .9); height: 21px;
+  border: var(--ink-3) solid var(--ink); border-radius: 50%;
+  background: repeating-linear-gradient(90deg, rgba(255, 255, 255, .14) 0 2px, transparent 2px 6px), var(--blue);
+  box-shadow: inset 0 0 0 3px var(--cream), inset 0 0 0 4.5px var(--ink);
 }
 /* Cuộn len trên sàn, góc phải (vùng bóng): đồ vật TIỀN CẢNH có cỡ thật để so với mèo — tường có cửa sổ / đồng hồ ở hậu cảnh */
 .ps-floor::after {
@@ -895,8 +930,12 @@ button.ml-san:hover { background: var(--yellow); }
 .cat-host::before {
   content: ''; position: absolute; z-index: -1;
   left: 4%; right: 4%; bottom: 2px; height: 22%;
-  background: var(--cream); border: var(--ink-2) solid var(--ink); border-radius: 50%;
-  box-shadow: var(--shadow-2);
+  border: var(--ink-2) solid var(--ink); border-radius: 50%;
+  /* Vải chần chéo + viền ống + đường may (r12, fresh-eyes r11 Materials "nệm, tường, bàn cùng một mặt giấy") */
+  background:
+    repeating-linear-gradient(45deg, rgba(17, 17, 17, .08) 0 1.5px, transparent 1.5px 8px),
+    repeating-linear-gradient(-45deg, rgba(17, 17, 17, .08) 0 1.5px, transparent 1.5px 8px), var(--cream);
+  box-shadow: inset 0 0 0 4px var(--cream), inset 0 0 0 5.5px rgba(17, 17, 17, .3), var(--shadow-2);
 }
 
 /* Điện thoại: đồng hồ nhỏ dưới bậu cửa — dải trái giữa cửa sổ và mèo là chỗ trống duy nhất không đụng bong bóng / hộp
@@ -904,6 +943,9 @@ button.ml-san:hover { background: var(--yellow); }
 @media (max-width: 899px) and (min-height: 721px) { .ps-clock { display: block; left: 13px; top: 60px; width: 34px; height: auto; } }
 @media (min-width: 900px) and (min-height: 780px) { .ps-shelf { display: block; } }
 @media (min-width: 900px) and (min-height: 860px) { .ps-clock { display: block; } }
+/* Tranh thế cờ cần khung cao hơn đồng hồ: bong bóng ba dòng ở khung 860 px mọc lên tới ~y 320 của khung tranh.
+ * Bật bằng `content` (khối desktop ở dưới chỉ đặt vị trí + ảnh): khối đó nằm SAU nên `display` đặt ở đây sẽ bị đè. */
+@media (min-width: 900px) and (min-height: 900px) { .panel-scene::before { content: ''; } }
 
 /* Máy thấp: khai Ở ĐÂY chứ không ở game-page.css — file này nạp sau, luật gốc cùng độ ưu tiên sẽ đè mất (lỗi P03) */
 @media (max-height: 720px) {
@@ -912,6 +954,7 @@ button.ml-san:hover { background: var(--yellow); }
   .ps-window { width: 34px; height: 30px; --drape: 8px; }
   .ps-floor { height: 18px; }
   .ps-floor::after { width: 14px; height: 14px; bottom: 2px; }
+  .ps-floor::before { width: 124px; height: 14px; }
 }
 
 /* ---------- desktop: khung tranh dọc cao bằng bàn ---------- */
@@ -933,12 +976,27 @@ button.ml-san:hover { background: var(--yellow); }
       var(--blue); --drape: 17px; }
   .ps-rays { left: 18px; top: 30px; width: 100%;
     clip-path: polygon(0 0, 96px 0, 100% 78%, 100% 100%, 30% 100%); }
-  .ps-floor { height: 18%; }
+  .ps-floor { height: 18%; --vp: -160%;
+    background:
+      linear-gradient(100deg, transparent 37%, rgba(255, 250, 240, .7) 37% 77%, transparent 77%),
+      linear-gradient(transparent 16%, rgba(17, 17, 17, .22) 16% 17%, transparent 17% 38%, rgba(17, 17, 17, .25) 38% 39.5%,
+        transparent 39.5% 66%, rgba(17, 17, 17, .28) 66% 68%, transparent 68%),
+      repeating-conic-gradient(from 180deg at 50% var(--vp), transparent 0 5.6deg, rgba(17, 17, 17, .35) 5.6deg 6deg),
+      #f5bccb; }
   .ps-floor::after { width: 34px; height: 34px; right: 18px; bottom: 14px; }
+  .ps-floor::before { left: 2%; width: 96%; bottom: 3%; height: 66%; border-width: var(--ink-2);
+    box-shadow: inset 0 0 0 5px var(--cream), inset 0 0 0 7px var(--ink); }
   .ps-frame { display: block; }
   /* Kệ + đồng hồ chỉ khi khung đủ cao: ở 1280×720 bong bóng mọc lên tới ~y 210 sẽ đè kệ */
   .ps-shelf { left: 16px; top: 140px; width: 46%; height: auto; }
   .ps-clock { right: 24px; top: 205px; width: 76px; height: auto; }
+  /* Tranh "thế cờ hôm nay" ghim trên vách trống dưới kệ (fresh-eyes r11: ~130 px tường trống y 300–430 ở 1440×900).
+   * Ảnh nền SVG nội tuyến trên pseudo: 0 node; bóng cứng vẽ sẵn trong SVG nên không cần filter. ::before = vẽ DƯỚI các
+   * con của .panel-scene → tia nắng cửa sổ phủ lên tranh, pháo giấy bay trước tranh. */
+  .panel-scene::before {
+    position: absolute; left: 30px; top: 230px; width: 72px; height: 88px; transform: rotate(-4deg);
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 82 100'%3E%3Crect x='6' y='10' width='74' height='88' fill='%23111'/%3E%3Crect x='3' y='7' width='74' height='88' fill='%23ffeec2' stroke='%23111' stroke-width='3'/%3E%3Crect x='9' y='14' width='62' height='10' fill='%23d42a33' stroke='%23111' stroke-width='2'/%3E%3Crect x='14' y='17.5' width='30' height='3' fill='%23ffeec2'/%3E%3Crect x='12' y='31' width='56' height='56' fill='%23fff6d6'/%3E%3Cpath fill='%23f2b632' d='M30.7 31h18.6v18.7H30.7zM12 49.7h18.7v18.6H12zM49.3 49.7H68v18.6H49.3zM30.7 68.3h18.6V87H30.7z'/%3E%3Crect x='12' y='31' width='56' height='56' fill='none' stroke='%23111' stroke-width='2.5'/%3E%3Ccircle cx='58.7' cy='37' r='3.4' fill='%23111'/%3E%3Cpath d='M53.6 47.5h10.2l-1.8-7h-6.6z' fill='%23111'/%3E%3Cpath d='M22 80 Q26 56 47 45' fill='none' stroke='%23d42a33' stroke-width='3.5' stroke-linecap='round'/%3E%3Cpath d='M43 40 L52 42.5 L46.5 50 Z' fill='%23d42a33'/%3E%3Ccircle cx='40' cy='8' r='4.5' fill='%23d42a33' stroke='%23111' stroke-width='2'/%3E%3Ccircle cx='38.6' cy='6.6' r='1.3' fill='%23fff'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
+  }
   /* Ô thoại sát đầu mèo (dưới cửa sổ + tranh): nửa trên khung là căn phòng, không phải một mảng chờ chữ */
   .talk-col { margin-top: auto; }
   /* Mèo PHÁ KHUNG: rộng hơn khung 28 px, mép trong suốt của ảnh tràn ra hai bên — mèo cao ~300 px thay vì ~230 */
@@ -1038,16 +1096,20 @@ body.chat-open .chat-host { transform: none; visibility: visible; transition: tr
 /* ===== css/result-card.css ===== */
 /* result-card.css — hộp kết quả + hộp hỏi lại: khung tranh viền mực 4 + bóng 5, chân dung mèo tràn mép trên
  * (P04 plan art AAA, yêu cầu D). Lớp phủ là giấy chấm tối chứ không đen 65 %: nền đen nuốt mất nét mực của trang.
- * Lớp phủ = màn chấm (screen-tone) trên một lớp tối LẠNH mỏng: mực phẳng .55 trên giấy vàng / ô nghệ ra màu ô liu xám
- * (r8 đo độ sáng ~100); chỉ chấm đậm thì thành lưới dày nhức mắt (thử r10a). Xanh đêm mỏng + chấm nhỏ: trang lùi lại
- * mà màu không bẩn.
+ * Lớp phủ = màn chấm (screen-tone) trên trang đã HẠ SÁNG BẰNG BỘ LỌC: mực phẳng .55 trên giấy vàng / ô nghệ ra màu ô liu
+ * xám (r8 đo độ sáng ~100); chỉ chấm đậm thì thành lưới dày nhức mắt (thử r10a); xanh đêm mỏng (bản trước r12) vẫn bị fresh-eyes
+ * r11 chấm "đầu đỏ thành nâu, bàn vàng thành ô liu" — phủ màu nào lên cũng là pha màu đó vào trang.
+ * r12: backdrop-filter brightness(.86) saturate(1.35) — tối đi mà GIỮ độ rực (nghệ → hổ phách, đỏ vẫn đỏ), cộng
+ * quầng tối ở rìa = hộp thoại đứng dưới đèn. Lọc màu, không blur: blur cả màn mỗi khung pháo giấy là đắt trên điện thoại.
+ * Máy không có backdrop-filter thì còn mực .14 + chấm + quầng — vẫn tối, chỉ nhạt màu hơn.
  */
 
 .result-overlay, .confirm-overlay {
   position: fixed; inset: 0; z-index: 70;
   display: flex; align-items: center; justify-content: center;
   padding: 16px;
-  background: radial-gradient(rgba(17, 17, 17, .42) 1.3px, transparent 1.6px) 0 0 / 5px 5px, rgba(24, 34, 78, .38);
+  background: var(--scrim);
+  -webkit-backdrop-filter: var(--scrim-filter); backdrop-filter: var(--scrim-filter);
 }
 .result-overlay { opacity: 0; transition: opacity .2s; }
 .result-overlay.show { opacity: 1; }

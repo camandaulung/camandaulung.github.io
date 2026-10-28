@@ -3563,13 +3563,16 @@ CC.BoardPattern = (function () {
   /* Bóng khối của quân (P08, Lighting): đèn trên-trái như mọi bóng cứng → quân trắng in chấm mực ở nửa PHẢI, quân đen
    * có chấm kem (ánh sáng) ở nửa TRÁI. userSpaceOnUse = toạ độ riêng của quân (0…100, nhóm quân đã dịch tới ô) nên một
    * pattern dùng chung cho 32 quân, 0 node thêm mỗi quân. Pattern lồng pattern để chấm giữ cỡ ở mọi phần của quân.
-   * Pattern chấm KHÔNG có nền riêng (nền trong suốt để lộ nền pattern ngoài): r9 có nền thì DOM desktop 1.105 > trần. */
-  const lit = (id, base, dot, dotOp, x, w) => [
+   * Pattern chấm KHÔNG có nền riêng (nền trong suốt để lộ nền pattern ngoài): r9 có nền thì DOM desktop 1.105 > trần.
+   * `band` (r12) = mảng màu PHẲNG dưới chấm ở nửa bóng/sáng: chấm 1,45 đơn vị ở ô 46 px điện thoại nhoè hết (fresh-eyes
+   * r11 "quân không có mặt sáng"), mảng phẳng thì còn — hai tông như tô màu truyện tranh. +2 node cả bàn. */
+  const lit = (id, base, band, dot, dotOp, x, w) => [
     s('pattern', { id: id + '-dot', patternUnits: 'userSpaceOnUse', width: 5, height: 5 }, [
       s('circle', { cx: 2.5, cy: 2.5, r: 1.45, fill: dot, 'fill-opacity': dotOp })
     ]),
     s('pattern', { id, patternUnits: 'userSpaceOnUse', width: 100, height: 100 }, [
       s('rect', { width: 100, height: 100, fill: base }),
+      s('rect', { x, width: w, height: 100, fill: band }),
       s('rect', { x, width: w, height: 100, fill: 'url(#' + id + '-dot)' })
     ])
   ];
@@ -3593,8 +3596,9 @@ CC.BoardPattern = (function () {
         ]),
         paper('paper-l', 'sq-base-l'),
         paper('paper-d', 'sq-base-dh'),
-        ...lit('pc-lit-w', CC.cfg.PIECE.w.fill, '#111', 0.5, 53, 47),
-        ...lit('pc-lit-b', CC.cfg.PIECE.b.fill, CC.cfg.PIECE.b.rim, 0.5, 0, 46)
+        // Bóng quân trắng: xám ấm, KHÔNG kem `shade` — kem trùng ô sáng #fff6d6 thì nửa phải quân tan vào ô
+        ...lit('pc-lit-w', CC.cfg.PIECE.w.fill, '#e4dccd', '#111', 0.5, 53, 47),
+        ...lit('pc-lit-b', CC.cfg.PIECE.b.fill, '#3d3d3d', CC.cfg.PIECE.b.rim, 0.5, 0, 46)
       ]);
     }
   };
@@ -3610,6 +3614,7 @@ CC.BoardPattern = (function () {
  *   #layer-squares    64 o vuong (dung mot lan, khong bao gio ve lai)
  *   #layer-marks      to sang: o chon, nuoc vua di, vua bi chieu
  *   #layer-pieces     quan co
+ *   #layer-coords     chữ a–h, 1–8 ở rìa (trên quân từ r12 để đế quân không che)
  *   #layer-dots       cham tron bao nuoc di duoc (tren quan de khong bi che)
  *   #layer-fx         hiệu ứng (ui-board-fx.js) — tách khỏi dots vì Highlight.redraw() xoá sạch dots
  *   #layer-drag       quan dang duoc keo (tren cung)
@@ -3683,12 +3688,13 @@ CC.Board = (function () {
       const rank = flipped ? i + 1 : 8 - i;
       const dark = i % 2 === 0;   // hàng dưới: a1 ô TỐI; cột trái: a8 ô SÁNG (lật bàn giữ nguyên tính chẵn lẻ)
       g.appendChild(CC.util.svg('text', {
-        x: i * SQ + SQ - 8, y: 8 * SQ - 8,
+        x: i * SQ + SQ - 5, y: 8 * SQ - 6,
         class: 'coord ' + (dark ? 'coord-on-dark' : 'coord-on-light'),
         'text-anchor': 'end', text: file
       }));
       g.appendChild(CC.util.svg('text', {
-        x: 7, y: i * SQ + 22,
+        // hanging: mép trên chữ số cách mép ô 5 đơn vị dù cỡ chữ desktop 15 hay điện thoại 27
+        x: 5, y: i * SQ + 5, 'dominant-baseline': 'hanging',
         class: 'coord ' + (dark ? 'coord-on-light' : 'coord-on-dark'),
         text: String(rank)
       }));
@@ -3726,7 +3732,8 @@ CC.Board = (function () {
         xmlns: 'http://www.w3.org/2000/svg'
       });
       svg.appendChild(CC.BoardPattern.defs());
-      ['squares', 'coords', 'marks', 'pieces', 'dots', 'fx', 'drag'].forEach(name => {
+      // coords TRÊN pieces (r12): dưới quân thì chữ a–h ở góc dưới-phải nằm khuất sau đế + bóng quân (fresh-eyes r11)
+      ['squares', 'marks', 'pieces', 'coords', 'dots', 'fx', 'drag'].forEach(name => {
         layers[name] = CC.util.svg('g', { class: 'layer layer-' + name });
         svg.appendChild(layers[name]);
       });
@@ -9633,17 +9640,26 @@ CC.ChatUI = (function () {
     freshTimer = setTimeout(() => logBox.classList.remove('fresh'), CC.cfg.BUBBLE_HIDE);
   }
 
-  /* Go tung chu — toc do vua du de kip nhan ra, khong lam nguoi ta cho */
+  /* Go tung chu — toc do vua du de kip nhan ra, khong lam nguoi ta cho.
+   * Cau DAY DU nam san trong node (chu trong suot) ngay tu khung dau; phan da go ve bang
+   * ::before doc data-typed (game-page.css) → bong bong dung kich thuoc that ngay, khong co dan.
+   * LOI DA SUA (r12): ban cu thay textContent moi 18 ms → ~40 lan chen text node + layout
+   * ca trang moi cau, roi trung luc meo an quan → p95 khung hinh canh an quan vot len.
+   * rAF thay setInterval: may cham thi bot lan ve, khong don viec vao khung dang ban. */
   function typeInto(node, text) {
-    clearInterval(typeTimer);
-    node.textContent = '';
-    let i = 0;
-    const step = Math.max(1, Math.round(text.length / 40));
-    typeTimer = setInterval(() => {
-      i += step;
-      node.textContent = text.slice(0, i);
-      if (i >= text.length) { clearInterval(typeTimer); node.textContent = text; }
-    }, 18);
+    cancelAnimationFrame(typeTimer);
+    node.textContent = text;
+    node.dataset.typed = '';
+    node.classList.add('typing');
+    const dur = 18 * Math.min(text.length, 40);
+    let t0 = 0, shown = 0;
+    typeTimer = requestAnimationFrame(function tick(t) {
+      t0 = t0 || t;
+      const n = Math.ceil(text.length * (t - t0) / dur);
+      if (n >= text.length) { node.classList.remove('typing'); delete node.dataset.typed; return; }
+      if (n !== shown) { shown = n; node.dataset.typed = text.slice(0, n); }
+      typeTimer = requestAnimationFrame(tick);
+    });
   }
 
   function showBubble(text) {

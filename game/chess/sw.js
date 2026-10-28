@@ -9,14 +9,14 @@
  * trang van trong binh thuong. build.mjs co buoc kiem tra chan dung loi nay.
  */
 
-const VERSION = 'f2432ea9';
+const VERSION = '473fb5bd';
 const CACHE = 'cat-chess-' + VERSION;
 const SHELL = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
-  "./assets/style-104cf881.css",
-  "./assets/app-a9047212.js",
+  "./assets/style-b0748f44.css",
+  "./assets/app-5a4b390f.js",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./icons/icon-maskable-512.png",
@@ -237,13 +237,21 @@ self.addEventListener('fetch', ev => {
        * `fetch(req)` thuong VAN di qua HTTP cache cua trinh duyet. GitHub Pages dat
        * max-age=600 cho HTML, nen trong 10 phut sau khi phat hanh, "mang truoc" van
        * co the nhan ve index.html CU — tro toi ten file da bi xoa khoi may chu. Dung
-       * y nguyen kich ban da gay su co, chi khac duong di. */
-      fetch(new Request(req.url, { cache: 'reload', credentials: 'same-origin' }))
+       * y nguyen kich ban da gay su co, chi khac duong di.
+       *
+       * `redirect: 'manual'` + nhanh 401/403: chi co tac dung sau SSO *.zingplay.dev (ban standalone
+       * catchess.zingplay.dev). Het phien thi proxy 302 sang access.zingplay.dev KHONG kem CORS — de fetch tu theo
+       * redirect la loi CORS -> `.catch` -> tra index.html CU, khong ai thay trang dang nhap. 'manual' tra ve
+       * opaqueredirect cho trinh duyet tu di dang nhap. Proxy chi 302 khi thay Sec-Fetch-Mode: navigate; Request
+       * dung lai o day mang mode 'cors' nen nhan 401 -> gui lai CHINH luot dieu huong. Hai bug that o Sky Chicken:
+       * docs/debugging/2026-10-26-sky-chicken-het-phien-sso-sw-tra-ban-cu.md, ...-28-banga-het-phien-sso-401-... */
+      fetch(new Request(req.url, { cache: 'reload', credentials: 'same-origin', redirect: 'manual' }))
         .then(res => {
           if (res && res.status === 200 && res.type === 'basic') {
             const copy = res.clone();
             caches.open(CACHE).then(c => c.put(req, copy));
           }
+          if (res.status === 401 || res.status === 403) return fetch(req);
           return res;
         })
         .catch(() => caches.match(req).then(hit => hit || caches.match('./index.html')))
