@@ -2557,23 +2557,24 @@ CC.Store = (function () {
     chatOn: true,
     dark: null,          // null = theo he thong
     sound: true,         // tieng dong (dat quan, an quan, chieu)
-    bgm: false,          // nhac nen — MAC DINH TAT, xem ghi chu duoi
+    bgm: true,           // nhạc nền — BẬT từ 28/10 (anh chốt), âm lượng nhỏ ở audio-bgm.js
     fx: true,            // hieu ung hinh anh
     haptics: true        // rung máy khi quân chạm bàn; máy không hỗ trợ (iOS) thì tự im
   };
 
-  /* Vi sao nhac nen mac dinh TAT: nguoi choi mo game lan dau ma bi phat nhac ngay
-   * la phan xa dau tien di tim nut tat. Tieng dong thi giu bat vi no gan lien voi
-   * hanh dong (dat quan xuong co tieng go) — thieu no game thay nhu hong. */
-
   const api = {
     /* --- tuy chon --- */
     prefs() {
-      return Object.assign({}, DEFAULT_PREFS, read(LS.PREFS, {}));
+      const saved = read(LS.PREFS, {});
+      /* setPref ghi CẢ bộ prefs, nên `bgm: false` lưu trước 28/10 phần lớn là mặc định TẮT cũ bị ghi theo (chọn mèo là
+       * lưu elo), không phải người chơi tự tắt. Bỏ qua nó một lần; lần ghi kế tiếp đóng dấu `bgmV2`. */
+      if (!saved.bgmV2) delete saved.bgm;
+      return Object.assign({}, DEFAULT_PREFS, saved);
     },
     setPref(key, val) {
       const p = api.prefs();
       p[key] = val;
+      p.bgmV2 = true;
       write(LS.PREFS, p);
       CC.util.bus.emit('prefs:changed', { key, val, prefs: p });
       return p;
@@ -2730,11 +2731,24 @@ CC.Audio = (function () {
       ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown'].forEach(e =>
         document.addEventListener(e, kick, { passive: true, capture: true }));
 
+      /* iOS: Web Audio mac dinh choi CHUNG voi nhac app khac nhung gat im lang la cam ('ambient'). 'playback' keu ca khi
+       * gat im lang, doi lai NGAT nhac app khac — iOS khong co loai nao duoc ca hai. Anh chot 28/10: nhac nen bat =
+       * 'playback'; tat nhac nen = 'ambient' de nguoi choi nghe nhac rieng (luc do gat im lang lai cam game).
+       * Dat TRUOC tieng dau tien: context da phat roi thi iOS co the giu loai cu toi lan kich hoat sau.
+       * Safari < 16.4 va Chrome khong co API nay → bo qua. */
+      const session = () => {
+        try { if (navigator.audioSession) navigator.audioSession.type = CC.Store.prefs().bgm ? 'playback' : 'ambient'; }
+        catch (e) { /* khong sao */ }
+      };
+      session();
+      CC.util.bus.on('prefs:changed', ({ key }) => { if (key === 'bgm') session(); });
+
       // Tab an thi dung han tieng — khong ai muon game keu khi dang lam viec khac
       document.addEventListener('visibilitychange', () => {
         if (!ctx) return;
+        const p = CC.Store.prefs();
         if (document.hidden) ctx.suspend();
-        else if (unlocked && CC.Store.prefs().sound) ctx.resume();
+        else if (unlocked && (p.sound || p.bgm)) ctx.resume();   // chi bat nhac nen (tat tieng dong) van phai keu lai
       });
 
       return api;
@@ -2937,8 +2951,8 @@ CC.Sfx = (function () {
 /* ===== js/audio-bgm.js ===== */
 /* audio-bgm.js — nhac nen: FILE THAT (CC.Samples.startMusic, 28/10/2026) truoc, nhac sinh tai cho ben duoi la luoi do
  *
- * File (ZPS Music, jazz cafe 60 s, nen 410 KB) KHONG nam trong precache: nhac mac dinh tat, khong bat ai cung tai luc
- * cai. Bat lan dau ma mat mang thi chay ban sinh tai cho duoi day.
+ * File (ZPS Music, jazz cafe 60 s, nen 293 KB) KHONG nam trong precache: tai luc vao van dau, service worker cat vao
+ * cache khi phat — lan cai dau tren mang yeu khong keo them 293 KB. Lan dau ma mat mang thi chay ban sinh tai cho duoi day.
  *
  * BAN SINH TAI CHO: mot vong hop am 4 nhip, moi nhip rai vai not theo THANG NGU AM (pentatonic).
  * Thang ngu am co tinh chat de chiu: bat ky hai not nao trong thang cung khong nghich
@@ -2956,6 +2970,10 @@ CC.Bgm = (function () {
 
   /* Vong hop am 4 nhip: thu / quang 6 / quang 4 / quang 5 */
   const CHORDS = [0, -4, -7, -5];
+
+  /* Muc nhac nen. Anh chot 28/10: nhac BAT mac dinh nhung NHO — tu 0.5 ha con mot nua (−6 dB), giong meo va tieng
+   * dong phai noi han len tren. DUCK = luc ket van, de tieng thang / thua noi len. */
+  const LEVEL = 0.25, DUCK = 0.08;
 
   let timer = null;
   let playing = false;
@@ -3047,7 +3065,7 @@ CC.Bgm = (function () {
       if (!CC.Store.prefs().bgm) return;
       playing = true;
       beat = 0;
-      CC.Audio.fadeBgm(0.5, 2.5);   // vao rat tu tu
+      CC.Audio.fadeBgm(LEVEL, 2.5);   // vao rat tu tu
       CC.Samples.startMusic().then(ok => { if (!ok && playing) step(); });
     },
 
@@ -3062,7 +3080,7 @@ CC.Bgm = (function () {
     /* Ha nho khi can — dung luc ket thuc van de tieng thang/thua noi len */
     duck(on) {
       if (!playing) return;
-      CC.Audio.fadeBgm(on ? 0.16 : 0.5, 0.6);
+      CC.Audio.fadeBgm(on ? DUCK : LEVEL, 0.6);
     },
 
     init() {
