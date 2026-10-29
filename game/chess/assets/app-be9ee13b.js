@@ -2648,6 +2648,7 @@ CC.Audio = (function () {
   let sfxGain = null;
   let bgmGain = null;
   let unlocked = false;
+  let resumeErr = '';
 
   function build() {
     const AC = window.AudioContext || window.webkitAudioContext;
@@ -2688,6 +2689,46 @@ CC.Audio = (function () {
     } catch (e) { /* khong sao */ }
   }
 
+  /* ?amthanh — soi am thanh tren DIEN THOAI THAT (khong mo duoc DevTools), cung kieu ?m365debug cua banga. Ban sua
+   * 28/10 chi kiem tren iPhone gia lap (Chromium) ma anh van nghe cam. Hai nut phat thu cung mot file: the <audio>
+   * keu ma Web Audio cam = iOS gat im lang (Web Audio di loai 'ambient'). Nam o day, khong file rieng: DOM 1099/1100. */
+  function debugPanel() {
+    const box = document.createElement('div'), txt = document.createElement('div');
+    box.style.cssText = 'position:fixed;left:4px;right:4px;bottom:4px;z-index:9999;background:#fff;color:#000;' +
+      'font:11px/1.4 monospace;padding:6px;border:2px solid #000;white-space:pre-wrap;word-break:break-all';
+    box.appendChild(txt);
+    let log = '';
+    const btn = (label, fn) => {
+      const b = document.createElement('button');
+      b.textContent = label;
+      b.style.cssText = 'margin:6px 6px 0 0;padding:8px 10px;font:13px sans-serif';
+      b.addEventListener('click', fn);
+      box.appendChild(b);
+    };
+    btn('Phát Web Audio', () => {
+      api.unlock();
+      const s = CC.Samples.play('sfx/meow', {});
+      log = 'Web Audio: ' + (s ? 'đã phát ' + s.toFixed(2) + ' s' : 'chưa có file (synth)');
+    });
+    btn('Phát thẻ <audio>', () => {
+      new Audio('audio/sfx/meow-1.mp3').play().then(() => { log = 'thẻ <audio>: đang phát'; },
+        e => { log = 'thẻ <audio> lỗi: ' + e.name; });
+    });
+    document.body.appendChild(box);
+    setInterval(() => {
+      const s = navigator.audioSession, p = CC.Store.prefs(), st = CC.Samples.stat();
+      txt.textContent = [
+        navigator.userAgent.replace(/^Mozilla\/5\.0 /, '').slice(0, 140),
+        'audioSession: ' + (s ? s.type + (s.state ? ' / ' + s.state : '') : 'KHÔNG CÓ API'),
+        'ctx: ' + (ctx ? ctx.state + ' · ' + ctx.sampleRate + ' Hz' : 'chưa tạo (chưa chạm)') + ' · ready ' + api.ready() +
+          (resumeErr ? ' · resume lỗi ' + resumeErr : ''),
+        'prefs: sound ' + p.sound + ' · bgm ' + p.bgm + ' · trang ' + document.visibilityState,
+        'file giải mã: ' + st.ok + ' được · ' + st.fail + ' hỏng' + (st.err ? ' (' + st.err + ')' : ''),
+        log
+      ].join('\n');
+    }, 500);
+  }
+
   const api = {
     /* Goi trong mot cu chi nguoi dung. An toan khi goi nhieu lan. */
     unlock() {
@@ -2695,7 +2736,8 @@ CC.Audio = (function () {
       if (ctx.state !== 'running') {
         primeSilence();
         const p = ctx.resume();
-        if (p && p.then) p.then(markReady, () => { /* chua phai cu chi hop le — thu lai o cu chi sau */ });
+        // that bai = chua phai cu chi hop le — thu lai o cu chi sau; ghi lai cho bang soi ?amthanh
+        if (p && p.then) p.then(markReady, e => { resumeErr = (e && e.name) || 'loi'; });
       }
       markReady();
       return true;
@@ -2750,6 +2792,8 @@ CC.Audio = (function () {
         if (document.hidden) ctx.suspend();
         else if (unlocked && (p.sound || p.bgm)) ctx.resume();   // chi bat nhac nen (tat tieng dong) van phai keu lai
       });
+
+      if (/[?&]amthanh\b/.test(location.search)) debugPanel();
 
       return api;
     }
@@ -3139,6 +3183,7 @@ CC.Samples = (function () {
   const buf = {};          // khoá ('sfx/move', 'voice/kitten-hello') -> [AudioBuffer]
   const lastPick = {};
   let started = false, music = null, musicLoading = null;
+  const stat = { ok: 0, fail: 0, err: '' };   // bảng soi ?amthanh đọc: lỗi tải / giải mã bị nuốt im lặng ở dưới
 
   /* BẪY iOS < 14.5: decodeAudioData chỉ có dạng callback, không trả Promise — bọc tay chạy được cả hai */
   function decode(ab) {
@@ -3148,9 +3193,15 @@ CC.Samples = (function () {
   async function fetchBuffer(path) {
     try {
       const r = await fetch(BASE + path);
-      if (!r.ok) return null;
-      return await decode(await r.arrayBuffer());
-    } catch (e) { return null; }
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const b = await decode(await r.arrayBuffer());
+      stat.ok++;
+      return b;
+    } catch (e) {
+      stat.fail++;
+      stat.err = path + ': ' + ((e && (e.name + ' ' + e.message)) || e);
+      return null;
+    }
   }
 
   function load(key, path) {
@@ -3209,6 +3260,7 @@ CC.Samples = (function () {
 
   const api = {
     play,
+    stat: () => stat,
     has: key => !!(buf[key] && buf[key].length),
     sfxDef: name => SFX[name],
 
