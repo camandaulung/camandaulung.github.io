@@ -319,10 +319,12 @@ main { flex: 1; display: flex; flex-direction: column; }
 .screen-menu .btn-big { margin-top: 0; }
 
 /* Điện thoại: CẢ sảnh trong một màn, không cuộn (anh báo 29/10 trên iPhone thật). Chrome / Safari iOS chừa ~670 px cho
- * trang, không phải 844 của khung chụp; sảnh đủ cỡ cao 804 px. Huy hiệu nằm ngang cạnh lời chào, mặt mèo + khe nhỏ lại.
- * Có ván dở (ô "Chơi tiếp" +~100 px) thì bỏ huy hiệu: nút Chơi tiếp là việc chính. Thấp hơn 640 px cũng bỏ; dưới
- * 600 px (iPhone SE + Safari: 548) bỏ thêm nhãn "Chọn đối thủ" + dòng tóm tắt — số đó có đủ ở màn Thành tích. */
-@media (max-width: 619px) and (max-height: 820px) {
+ * trang, không phải 844 của khung chụp. Mỗi dải chiều cao dưới đây có sảnh cao CỐ ĐỊNH, nên ngưỡng = chiều cao sảnh
+ * đo được của dải đó (đo 29/10, bề ngang 360–414, mô tả mèo dài nhất, kèm / không kèm ô "Chơi tiếp"):
+ *   ≤ 840 thu gọn, cao 650 → bỏ huy hiệu từ 655 · ≤ 655 cao 589 → bỏ nhãn + tóm tắt từ 608 · ≤ 608 cao 545 (có
+ *   ván dở; iPhone SE + Safari = 548) · 841–900 mặt mèo 84 px cao 833 · trên 900 đủ cỡ 856.
+ * Có ván dở thì nút "Chơi tiếp" là việc chính: bỏ huy hiệu ở mọi cỡ, bỏ tóm tắt, dưới 655 bỏ thêm dòng mô tả. */
+@media (max-width: 619px) and (max-height: 840px) {
   .screen-menu { padding: 8px 12px 6px; gap: 8px; }
   .menu-hero { flex-direction: row; justify-content: center; gap: 10px; }
   .menu-hero .menu-cat img { width: 48px; }
@@ -333,15 +335,28 @@ main { flex: 1; display: flex; flex-direction: column; }
   .pick-detail { padding: 8px 10px 10px; gap: 2px 10px; }
   .pick-face { width: 60px; height: 60px; }
   .pick-name { font-size: 20px; }
+  /* 13 px: "Mèo lão luyện · điềm đạm · khoảng 2000 Elo" rộng 255 px, xuống dòng ở bề ngang 375 (+17 px); 12 px = 236 */
+  .pick-tag { font-size: 12px; }
   .pick-detail .btn-play { margin-top: 4px; padding: 8px; }
   .screen-menu .btn-ghost.btn-big { padding: 8px; font-size: 16px; }
   .menu-summary { padding: 4px 8px; }
+  .screen-menu:has(.resume-box:not([hidden])) .menu-summary { display: none; }
+}
+@media (max-width: 619px) {
   .screen-menu:has(.resume-box:not([hidden])) .menu-hero { display: none; }
   .resume-box { flex-direction: row; }
   .btn-resume { flex: 1; min-width: 0; }
 }
-@media (max-width: 619px) and (max-height: 640px) { .menu-hero { display: none; } }
-@media (max-width: 619px) and (max-height: 600px) { .screen-menu .sec-title, .menu-summary { display: none; } }
+/* Khung chụp art 390×844 cũng từng dư 12 px khi hồ sơ đã có dòng tóm tắt (máy chụp sạch không có dòng này) */
+@media (max-width: 619px) and (min-height: 841px) and (max-height: 900px) { .menu-hero .menu-cat img { width: 84px; } }
+@media (max-width: 619px) and (max-height: 655px) {
+  .menu-hero { display: none; }
+  .screen-menu:has(.resume-box:not([hidden])) :is(.resume-desc, .pick-tag) { display: none; }
+}
+@media (max-width: 619px) and (max-height: 608px) {
+  .screen-menu .sec-title, .menu-summary { display: none; }
+  .elo-avatar { width: 40px; height: 40px; }
+}
 
 /* Desktop: chặn bề ngang 760 px giữa trang giấy, mặt mèo to hơn, cả khối căn giữa dọc — r4 sảnh desktop để trống
  * ~35 % đáy trang */

@@ -9,13 +9,13 @@
  * trang van trong binh thuong. build.mjs co buoc kiem tra chan dung loi nay.
  */
 
-const VERSION = '94a53a54';
+const VERSION = 'c6caf261';
 const CACHE = 'cat-chess-' + VERSION;
 const SHELL = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
-  "./assets/style-c9c2c2e9.css",
+  "./assets/style-f9ccd736.css",
   "./assets/app-be9ee13b.js",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
