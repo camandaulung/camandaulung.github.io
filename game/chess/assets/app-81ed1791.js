@@ -2068,7 +2068,8 @@ CC.cfg = {
     GAME: 'catchess.game',        // van dang choi
     PREFS: 'catchess.prefs',      // tuy chon nguoi choi
     RECORD: 'catchess.record',    // thang/thua/hoa theo tung muc
-    SCORE: 'catchess.score'       // diem tich luy cho bang xep hang
+    SCORE: 'catchess.score',      // diem tich luy cho bang xep hang
+    LOBBY: 'catchess.lobby'       // sảnh: mức nào đã đóng dấu "THẮNG" (ui-lobby-life.js) — chỉ để hiệu ứng chạy một lần
   },
 
   /* --- mau quan co ---
@@ -2612,6 +2613,14 @@ CC.Store = (function () {
       return rec;
     },
 
+    /* --- sảnh: { stamped: [elo…] } — null = máy chưa từng có khoá này (bản trước 30/10) --- */
+    lobby() {
+      return read(LS.LOBBY, null);
+    },
+    setLobby(v) {
+      return write(LS.LOBBY, v);
+    },
+
     /* --- diem tich luy cho bang xep hang (phase 08) --- */
     score() {
       return read(LS.SCORE, { bestEloBeaten: 0, catPoints: 0, bestStreak: 0, streak: 0, totalGames: 0 });
@@ -3019,8 +3028,13 @@ CC.Bgm = (function () {
    * dong phai noi han len tren. DUCK = luc ket van, de tieng thang / thua noi len. */
   const LEVEL = 0.25, DUCK = 0.08;
 
+  /* Bài theo màn (30/10, plan sảnh có hồn): sảnh + thành tích chơi bài sảnh, màn chơi chơi bài ván. Trước đó sảnh CỐ Ý
+   * im ("chỉ bật nhạc khi vào màn chơi") — anh Đức chê sảnh không có nhạc nên đảo lại; bài sảnh riêng (cùng giọng Si
+   * giáng trưởng) để vào ván nghe như đổi cảnh, không phải một bài chạy suốt. */
+  const TRACK = { menu: 'lobby', rank: 'lobby', game: 'game' };
+
   let timer = null;
-  let playing = false;
+  let playing = null;    // bài đang chơi ('lobby' | 'game'), null = tắt
   let beat = 0;
 
   function midiToHz(semi) {
@@ -3102,19 +3116,22 @@ CC.Bgm = (function () {
   }
 
   return {
-    isPlaying: () => playing,
+    isPlaying: () => !!playing,
 
-    start() {
-      if (playing || !CC.Audio.ready()) return;
+    /* Đang chơi bài khác thì nối chéo (CC.Samples tự tắt dần bài cũ), không hạ gain chung về 0 */
+    start(which) {
+      if (playing === which || !CC.Audio.ready()) return;
       if (!CC.Store.prefs().bgm) return;
-      playing = true;
-      beat = 0;
-      CC.Audio.fadeBgm(LEVEL, 2.5);   // vao rat tu tu
-      CC.Samples.startMusic().then(ok => { if (!ok && playing) step(); });
+      const was = playing;
+      playing = which;
+      clearTimeout(timer);            // bài trước đang chạy bản synth (mất mạng) thì thôi rải nốt
+      timer = null;
+      if (!was) { beat = 0; CC.Audio.fadeBgm(LEVEL, 2.5); }   // vao rat tu tu
+      CC.Samples.startMusic(which).then(ok => { if (!ok && playing === which && !timer) step(); });
     },
 
     stop() {
-      playing = false;
+      playing = null;
       clearTimeout(timer);
       timer = null;
       CC.Audio.fadeBgm(0, 1.0);
@@ -3130,15 +3147,14 @@ CC.Bgm = (function () {
     init() {
       const B = CC.util.bus;
 
-      // Chi bat nhac khi vao man choi, khong bat o menu
+      const want = () => TRACK[CC.Screens.current()];
       B.on('screen:changed', ({ name }) => {
-        if (name === 'game') CC.Bgm.start();
+        if (TRACK[name]) CC.Bgm.start(TRACK[name]);
         else CC.Bgm.stop();
       });
 
-      B.on('audio:ready', () => {
-        if (CC.Screens.current() === 'game') CC.Bgm.start();
-      });
+      // Sảnh là màn ĐẦU: nhạc chỉ vào sau cử chỉ đầu tiên (mở khoá âm thanh), không có tự phát
+      B.on('audio:ready', () => { if (want()) CC.Bgm.start(want()); });
 
       B.on('game:over', () => {
         CC.Bgm.duck(true);
@@ -3147,7 +3163,7 @@ CC.Bgm = (function () {
 
       B.on('prefs:changed', ({ key, val }) => {
         if (key !== 'bgm') return;
-        if (val && CC.Screens.current() === 'game') CC.Bgm.start();
+        if (val && want()) CC.Bgm.start(want());
         else if (!val) CC.Bgm.stop();
       });
 
@@ -3166,7 +3182,7 @@ CC.Bgm = (function () {
  *
  * Tải ở `audio:ready` (sau cử chỉ đầu): AudioContext chưa chạy thì decode cũng vô ích. File thiếu / mất mạng thì
  * bỏ qua im lặng — CC.Sfx tự rơi về synth, CC.Voice rơi về tiếng meo.
- * Nhạc nền KHÔNG tải ở đây: mặc định tắt, 410 KB chỉ tải khi bật (build.mjs không precache, service worker cất lúc phát).
+ * Nhạc nền KHÔNG tải ở đây: mỗi bài tải lúc màn của nó cần (build.mjs không precache, service worker cất lúc phát).
  */
 
 CC.Samples = (function () {
@@ -3175,14 +3191,19 @@ CC.Samples = (function () {
   const SFX = {
     move: { n: 2, g: 0.9, p: 0.05 }, capture: { n: 2, g: 1, p: 0.04 }, castle: { n: 1, g: 0.9, p: 0.03 },
     check: { n: 2, g: 0.75 }, promote: { n: 1, g: 0.8 }, select: { n: 2, g: 0.55, p: 0.06 }, deny: { n: 1, g: 0.7 },
-    win: { n: 2, g: 0.8 }, lose: { n: 2, g: 0.8 }, draw: { n: 1, g: 0.8 }, meow: { n: 3, g: 0.7, p: 0.06 }
+    win: { n: 2, g: 0.8 }, lose: { n: 2, g: 0.8 }, draw: { n: 1, g: 0.8 }, meow: { n: 3, g: 0.7, p: 0.06 },
+    // sảnh (30/10): màn VS trượt vào + con dấu "THẮNG" / chữ VS! đóng xuống
+    whoosh: { n: 1, g: 0.6, p: 0.04 }, stamp: { n: 1, g: 0.85, p: 0.03 }
   };
-  const MUSIC = 'music/bgm.mp3';
+  /* Hai bài (30/10): sảnh + thành tích chơi `lobby`, màn chơi chơi `game` — audio-bgm.js chọn theo màn */
+  const MUSIC = { game: 'music/bgm.mp3', lobby: 'music/lobby.mp3' };
   const XF = 3;            // giây nối chéo giữa hai vòng nhạc: bài AI không lặp liền mạch, nối thẳng là nghe giật
+  const SWAP = 1.2;        // giây bài cũ tắt dần khi đổi bài (bài mới vào dần XF giây như mọi vòng)
 
   const buf = {};          // khoá ('sfx/move', 'voice/kitten-hello') -> [AudioBuffer]
   const lastPick = {};
-  let started = false, music = null, musicLoading = null;
+  const tracks = {}, loading = {};   // đường dẫn nhạc -> AudioBuffer / Promise đang tải
+  let started = false;
   const stat = { ok: 0, fail: 0, err: '' };   // bảng soi ?amthanh đọc: lỗi tải / giải mã bị nuốt im lặng ở dưới
 
   /* BẪY iOS < 14.5: decodeAudioData chỉ có dạng callback, không trả Promise — bọc tay chạy được cả hai */
@@ -3232,10 +3253,12 @@ CC.Samples = (function () {
     return src.buffer.duration / src.playbackRate.value;
   }
 
-  /* --- vòng nhạc nền: mỗi vòng một nguồn, vòng sau vào trước khi vòng trước hết XF giây --- */
-  let looping = false, wanted = false, timer = null, live = [];
+  /* --- vòng nhạc nền: mỗi vòng một nguồn, vòng sau vào trước khi vòng trước hết XF giây ---
+   * `looping` / `wanted` = ĐƯỜNG DẪN bài (null = tắt). Mỗi nguồn giữ gain riêng để đổi bài nối chéo được: hạ gain chung
+   * (CC.Audio.fadeBgm) thì cả bài cũ lẫn bài mới cùng tắt. */
+  let looping = null, wanted = null, timer = null, live = [];
 
-  function voiceAt(at) {
+  function voiceAt(at, music) {
     const ctx = CC.Audio.ctx(), s = ctx.createBufferSource(), g = ctx.createGain(), end = at + music.duration;
     s.buffer = music;
     g.gain.setValueAtTime(0, at);
@@ -3246,14 +3269,32 @@ CC.Samples = (function () {
     g.connect(CC.Audio.bgmOut());
     s.start(at);
     s.stop(end + 0.05);
-    live.push(s);
-    s.onended = () => { live = live.filter(x => x !== s); };
+    const v = { s, g };
+    live.push(v);
+    s.onended = () => { live = live.filter(x => x !== v); };
     return end;
+  }
+
+  /* Tắt mọi nguồn đang kêu: hạ gain riêng về 0 trong `sec` giây rồi DỪNG nguồn (không chỉ hạ gain — bài học Toy Tower:
+   * vòng lặp hạ gain vẫn chạy ngầm mãi) */
+  function fadeLive(sec) {
+    const ctx = CC.Audio.ctx(), old = live;
+    live = [];
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    old.forEach(({ s, g }) => {
+      try {
+        g.gain.cancelScheduledValues(t);
+        g.gain.setValueAtTime(g.gain.value, t);
+        g.gain.linearRampToValueAtTime(0, t + sec);
+        s.stop(t + sec + 0.05);
+      } catch (e) { /* đã dừng */ }
+    });
   }
 
   function chain(at) {
     if (!looping) return;
-    const next = voiceAt(at) - XF;
+    const next = voiceAt(at, tracks[looping]) - XF;
     // Hẹn theo đồng hồ AudioContext, không theo setTimeout: tab ẩn thì context dừng mà timer vẫn chạy
     timer = setTimeout(() => chain(next), Math.max(0, (next - CC.Audio.now() - 1.5) * 1000));
   }
@@ -3264,29 +3305,31 @@ CC.Samples = (function () {
     has: key => !!(buf[key] && buf[key].length),
     sfxDef: name => SFX[name],
 
-    /* true = đã có file và đã bắt đầu vòng; false = chưa tải được (mất mạng lần đầu) → CC.Bgm dùng synth */
-    async startMusic() {
-      wanted = true;
-      if (!music) {
-        musicLoading = musicLoading || fetchBuffer(MUSIC);
-        music = await musicLoading;
-        musicLoading = null;
-        if (!music) return false;
+    /* `which` = 'game' | 'lobby'. true = đã có file và đang chơi bài đó; false = chưa tải được (mất mạng lần đầu) →
+     * CC.Bgm dùng synth */
+    async startMusic(which) {
+      const path = MUSIC[which] || MUSIC.game;
+      wanted = path;
+      if (!tracks[path]) {
+        loading[path] = loading[path] || fetchBuffer(path);
+        const b = await loading[path];
+        delete loading[path];
+        if (!b) return false;
+        tracks[path] = b;
       }
-      // Tắt nhạc / rời màn chơi trong lúc đang tải thì thôi, đừng tự bật lại sau khi tải xong
-      if (looping || !wanted) return true;
-      looping = true;
+      // Tắt nhạc / đổi màn trong lúc đang tải thì thôi, đừng tự bật bài này lên sau khi tải xong
+      if (wanted !== path || looping === path) return true;
+      clearTimeout(timer);
+      fadeLive(SWAP);
+      looping = path;
       chain(CC.Audio.now() + 0.05);
       return true;
     },
 
-    /* Tắt nhạc = DỪNG nguồn thật, không chỉ hạ gain về 0 — bài học Toy Tower: vòng lặp hạ gain vẫn chạy ngầm mãi */
     stopMusic(fade) {
-      looping = wanted = false;
+      looping = wanted = null;
       clearTimeout(timer);
-      const ctx = CC.Audio.ctx(), old = live;
-      live = [];
-      if (ctx) old.forEach(s => { try { s.stop(ctx.currentTime + (fade || 0)); } catch (e) { /* đã dừng */ } });
+      fadeLive(fade || 0);
     },
 
     init() {
@@ -3314,7 +3357,7 @@ CC.Samples = (function () {
 CC.Voice = (function () {
   const LINES = {
     hello: 2, check: 2, gotcha: 2, tease: 2, ouch: 2, worry: 1, wow: 1, think: 2,
-    nudge: 1, reply: 1, thanks: 1, pout: 1, win: 1, lose: 1, draw: 1
+    nudge: 1, reply: 1, thanks: 1, pout: 1, win: 1, lose: 1, draw: 1, pick: 2
   };
   const RATE = { kitten: 1.08, adult: 1, master: 0.97 };
   const END = { win: 1, lose: 1, draw: 1 };     // câu kết ván: chờ jingle thắng / thua kêu xong mới nói
@@ -3332,7 +3375,8 @@ CC.Voice = (function () {
     castling: 'wow', en_passant: 'wow', promotion: 'wow', player_best: 'wow', player_fast: 'wow',
     endgame: 'think', hint_given: 'think', hint_none: 'think',
     player_slow: 'nudge', ask_name: 'reply', unknown: 'reply', praise: 'thanks', insult: 'pout',
-    game_win: 'win', game_loss: 'lose', game_draw: 'draw'
+    game_win: 'win', game_loss: 'lose', game_draw: 'draw',
+    lobby_pick: 'pick'   // mèo vừa được chọn ở sảnh (ui-lobby-life.js)
   };
 
   let busyUntil = 0;       // performance.now() lúc câu đang nói xong — hai câu chồng nhau nghe như cãi nhau
@@ -3346,10 +3390,12 @@ CC.Voice = (function () {
   }
 
   /* true = đã lo phần tiếng cho bong bóng này (nói, hoặc cố ý im vì câu trước chưa xong) → không meo nữa */
-  function say(event) {
+  /* `forBank`: ở sảnh, CatProfiles.current() còn trả con của ván VỪA CHƠI (Game.state.elo sống qua ván), không phải con
+   * đang chọn → sảnh truyền giọng của con được chọn vào đây. */
+  function say(event, forBank) {
     const group = GROUP[event], p = CC.Store.prefs();
     if (!group || !p.sound || !p.chatOn || !CC.Audio.ready()) return false;
-    const bank = CC.CatProfiles.current().voice, key = 'voice/' + bank + '-' + group;
+    const bank = forBank || CC.CatProfiles.current().voice, key = 'voice/' + bank + '-' + group;
     if (!CC.Samples.has(key)) return false;
     const now = performance.now();
     if (!END[group] && now < busyUntil) return true;
@@ -9972,6 +10018,8 @@ CC.Icons = (function () {
     back:     [['f', 'M14.5 3 L5 12 L14.5 21 L18 17.6 L12 12 L18 6.4 Z']],
     next:     [['f', 'M9.5 3 L19 12 L9.5 21 L6 17.6 L12 12 L6 6.4 Z']],
     home:     [['f', 'M10.5 3.5 L2 12 L10.5 20.5 V15 H21.5 V9 H10.5 Z']],
+    // Ngôi nhà = về SẢNH game; `home` (mũi tên ra cửa) là về trang chủ PORTAL — hai đích khác nhau, đừng gộp một icon
+    house:    [['f', 'M12 2.5 L1.5 12 H4.5 V21.5 H9.5 V15.5 H14.5 V21.5 H19.5 V12 H22.5 Z']],
     gear:     [['f', GEAR + ' M12 8.6 A3.4 3.4 0 1 0 12.01 8.6 Z']],   // lỗ giữa nhờ fill-rule evenodd
     close:    [['s', 'M5.5 5.5 L18.5 18.5 M18.5 5.5 L5.5 18.5']],
     soundOn:  [SPEAKER, ['s', 'M15.5 8.5 Q18.5 12 15.5 15.5 M18.5 5.5 Q23 12 18.5 18.5']],
@@ -10176,32 +10224,39 @@ CC.EloPicker = (function () {
       CC.util.el('i', { style: 'width:' + val * 20 + '%' }));
   }
 
-  function levelCard(lv, rank) {
-    const cat = CC.CatProfiles.byElo(lv.elo);
-    const rec = CC.Store.record()[String(lv.elo)] || { w: 0, l: 0, d: 0 };
-    const played = rec.w + rec.l + rec.d;
+  /* Mèo kế nên thử: con ngay trên mức cao nhất đã thắng đủ 3 ván, khi con đó chưa bị thắng đủ 3. Cùng ngưỡng 3 với
+   * gợi ý "thử đấu với … xem sao?" của hộp kết quả (ui-result-dialog.js WIN_STREAK). */
+  function nextElo(rec) {
+    const levels = CC.EloProfiles.LEVELS, wins = l => (rec[String(l.elo)] || {}).w || 0;
+    let top = -1;
+    levels.forEach((l, i) => { if (wins(l) >= 3) top = i; });
+    const nx = levels[top + 1];
+    return top >= 0 && nx && wins(nx) < 3 ? nx.elo : null;
+  }
 
-    const stats = played
-      ? rec.w + ' thắng · ' + rec.l + ' thua' + (rec.d ? ' · ' + rec.d + ' hoà' : '')
-      : 'Chưa chơi';
+  function levelCard(lv, rank, rec, next) {
+    const cat = CC.CatProfiles.byElo(lv.elo);
+    const r = rec[String(lv.elo)] || { w: 0, l: 0, d: 0 };
 
     /* Anh dai dien la KHUON MAT that cua con meo do, khong phai bieu tuong chung.
      * Nguoi choi nhan ra doi thu ngay tu man chon, truoc khi vao van. */
     const avatar = CC.util.el('div', { class: 'elo-avatar' });
     avatar.appendChild(CC.CatArt.avatar(cat, 54));
 
+    /* Mô tả / Elo / thành tích từng con nằm ở khung chi tiết (P07): ba dòng ẩn cũ ở đây là 24 node chết mà màn chơi
+     * vẫn đếm (sảnh ẩn vẫn trong DOM) — gỡ 30/10 để có chỗ cho file sảnh mới dưới trần 1.100. */
     const info = CC.util.el('div', { class: 'elo-info' }, [
       CC.util.el('div', { class: 'elo-name', text: cat.name }),
-      CC.util.el('div', { class: 'elo-tag', text: cat.tag }),
-      CC.util.el('div', { class: 'elo-num', text: 'khoảng ' + lv.elo + ' Elo' }),
-      starRow(rank, CC.EloProfiles.LEVELS.length - 1),
-      CC.util.el('div', { class: 'elo-stats' + (rec.w ? ' has-win' : ''), text: stats })
+      starRow(rank, CC.EloProfiles.LEVELS.length - 1)
     ]);
 
+    // Con dấu "THẮNG" + nhãn "Thử em!" là ::before / ::after đọc data-* (lobby-motion.css): 0 node
     return CC.util.el('button', {
       class: 'elo-card' + (lv.elo === selected ? ' sel' : ''),
       type: 'button',
       'data-elo': lv.elo,
+      'data-won': r.w ? '' : null,
+      'data-next': lv.elo === next ? '' : null,
       title: cat.about,
       'aria-pressed': lv.elo === selected ? 'true' : 'false',
       onclick: () => api.select(lv.elo)
@@ -10222,7 +10277,8 @@ CC.EloPicker = (function () {
     render() {
       if (!host) return;
       host.textContent = '';
-      CC.EloProfiles.LEVELS.forEach((lv, i) => host.appendChild(levelCard(lv, i)));
+      const rec = CC.Store.record(), next = nextElo(rec);
+      CC.EloProfiles.LEVELS.forEach((lv, i) => host.appendChild(levelCard(lv, i, rec, next)));
     },
 
     select(elo) {
@@ -10318,10 +10374,15 @@ CC.Menu = (function () {
       host.appendChild(CC.util.el('h2', { class: 'sec-title', text: 'Chọn đối thủ' }));
       CC.EloPicker.mount(host);
 
-      /* Nut doi chu theo con meo dang chon — nguoi choi biet minh sap dau voi ai */
+      /* Nut doi chu theo con meo dang chon — nguoi choi biet minh sap dau voi ai.
+       * Màn "ANH VS MÈO" phủ lên ván đã bắt đầu, không đứng trước nó (ui-vs-splash.js). */
       playBtn = CC.util.el('button', {
         class: 'btn btn-primary btn-big btn-play', type: 'button',
-        onclick: () => CC.util.bus.emit('ui:start', { mode: 'ai', elo: CC.EloPicker.value() })
+        onclick: () => {
+          const elo = CC.EloPicker.value();
+          CC.VsSplash.play(elo);
+          CC.util.bus.emit('ui:start', { mode: 'ai', elo });
+        }
       });
       detail = CC.util.el('div', { class: 'pick-detail' });
       host.appendChild(detail);
@@ -10365,6 +10426,219 @@ CC.Menu = (function () {
       renderDetail();
       const el = CC.util.$('#menu-summary');
       if (el) el.textContent = summaryLine();
+    }
+  };
+})();
+
+;
+/* ===== js/ui-lobby-life.js ===== */
+/* ui-lobby-life.js — sảnh có hồn (plan 261030-1422-cat-chess-lobby-juice, P1 + tiếng của P3)
+ *
+ * Bốn khoảnh khắc, hình ở css/lobby-motion.css: vào sảnh (thẻ bật lần lượt), chọn mèo (thẻ bật + vòng + mảnh văng + mèo
+ * phản ứng + nói), đứng yên (nút Đấu lắc, mèo ngủ gật), về sảnh sau ván (con dấu "THẮNG" lần đầu thắng con đó; thua thì
+ * mèo vừa thắng vênh mặt).
+ *
+ * Node tạm (mảnh văng) gỡ sau 420 ms và gỡ hết khi rời sảnh: sảnh ẩn vẫn nằm trong DOM lúc chơi, trần 1.100 tính cả trang.
+ * Một công tắc hình: CC.BoardFx.enabled(). Tắt thì không động, nhưng con dấu vẫn được ghi là đã đóng (không dồn lại).
+ */
+
+CC.LobbyLife = (function () {
+  const B = CC.util.bus;
+  /* Mèo phản ứng khi được chọn — theo giọng nền: mèo con mừng, mèo lớn vênh, cao thủ trầm ngâm */
+  const REACT = { kitten: 'cheer', adult: 'smug', master: 'think' };
+  const AFTER = { win: 'sad', loss: 'smug', draw: 'confused' };   // góc nhìn CỦA MÈO, như hộp kết quả
+  const BITS = [['paw', '#ffe14d', 1], ['star', '#ffffff', 0], ['dot', '#d42a33', 0]];   // vàng dẫn, trắng, đỏ nhấn
+
+  let screen = null, booted = false, last = null;   // last = { elo, outcome } của ván vừa xong
+  let moodTimer = 0, idleTimer = 0, idleStep = 0, voiceTimer = 0, enterTimer = 0;
+  const bursts = new Set();
+
+  const live = () => CC.BoardFx.enabled();
+  const scr = () => CC.util.$('#scr-menu');
+  const card = elo => CC.util.$('.elo-card[data-elo="' + elo + '"]', scr());
+
+  /* Đổi nét mặt mèo ở khung chi tiết; `ms` > 0 thì tự về idle. Ảnh 64 nét mặt đã precache nên không chờ mạng. */
+  function face(mood, ms) {
+    clearTimeout(moodTimer);
+    const img = CC.util.$('.pick-face .cat-avatar-img', scr());
+    if (!img) return;
+    const cat = CC.CatProfiles.byElo(CC.EloPicker.value());
+    img.src = CC.CatArt.url(cat.id, mood);
+    const box = img.parentNode;
+    if (live()) { box.classList.remove('react'); void box.offsetWidth; box.classList.add('react'); }
+    if (ms) moodTimer = setTimeout(() => face('idle'), ms);
+  }
+
+  function burst(el) {
+    if (!live() || !el) return;
+    const r = el.getBoundingClientRect();
+    const host = CC.util.el('div', { class: 'lobby-burst', style: 'left:' + (r.left + r.width / 2) + 'px;top:' + (r.top + r.height * .32) + 'px' });
+    BITS.forEach(([shape, color, big], i) => {
+      const a = (-90 + (i - 1) * 42 + (Math.random() * 16 - 8)) * Math.PI / 180, d = big ? 46 : 36 + Math.random() * 8;
+      host.appendChild(CC.util.svg('svg', { class: 'cf' + (big ? ' big' : ''), viewBox: '0 0 40 40',
+        style: 'color:' + color + ';--dx:' + Math.round(Math.cos(a) * d) + 'px;--dy:' + Math.round(Math.sin(a) * d) + 'px;--r:'
+          + Math.round(Math.random() * 80 - 40) + 'deg;animation-delay:' + i * 25 + 'ms' },
+      [CC.util.svg('use', { href: '#cf-' + shape })]));
+    });
+    document.body.appendChild(host);
+    bursts.add(host);
+    setTimeout(() => { host.remove(); bursts.delete(host); }, 420);
+  }
+
+  function clearBursts() { bursts.forEach(h => h.remove()); bursts.clear(); }
+
+  /* --- đứng yên: 6 s lắc nút Đấu, 12 s mèo ngủ gật, 18 s lắc lần cuối rồi thôi (không lắc mãi) --- */
+  function idle() {
+    clearTimeout(idleTimer);
+    idleStep = 0;
+    if (screen === 'menu') idleTimer = setTimeout(idleTick, 6000);
+  }
+  function idleTick() {
+    idleStep++;
+    if (idleStep === 2) face('sleepy');
+    else {
+      const btn = CC.util.$('.btn-play', scr());
+      if (btn && live()) { btn.classList.remove('nudge'); void btn.offsetWidth; btn.classList.add('nudge'); }
+    }
+    if (idleStep < 3) idleTimer = setTimeout(idleTick, 6000);
+  }
+  function wake() {
+    if (idleStep >= 2) face('confused', 600);
+    idle();
+  }
+
+  /* --- con dấu: lần ĐẦU thắng một con. Máy chưa có khoá sảnh (bản trước 30/10) → coi mọi trận thắng cũ là đã đóng,
+   * kẻo người chơi lâu năm mở bản mới thấy cả hàng con dấu rơi cùng lúc. --- */
+  function stamps(delay) {
+    const rec = CC.Store.record();
+    const won = Object.keys(rec).filter(k => rec[k].w > 0).map(Number);
+    const saved = CC.Store.lobby();
+    const done = saved ? saved.stamped || [] : won;
+    const fresh = won.filter(e => done.indexOf(e) < 0);
+    CC.Store.setLobby({ stamped: won });
+    if (!fresh.length || !live()) return;
+    fresh.forEach((elo, i) => {
+      const c = card(elo);
+      if (c) { c.style.setProperty('--d', delay + i * 160 + 'ms'); c.classList.add('stamp-new'); }
+    });
+    // Rung chỉ khi đã có cử chỉ (âm đã mở khoá): con dấu lúc vừa mở app thì Chrome chặn navigator.vibrate, báo lỗi đỏ
+    setTimeout(() => { CC.Sfx.play('stamp'); if (CC.Audio.ready()) CC.Haptics.thud(); }, delay + 200);
+  }
+
+  /* `again` = harness chụp lại (dev-state-harness.js): true dựng lại lần mở app, false dựng lại lần từ ván về */
+  function enter(again) {
+    const el = scr();
+    el.classList.toggle('lobby-live', live());
+    el.classList.remove('lobby-enter', 'lobby-back');
+    CC.util.$$('.stamp-new', el).forEach(c => c.classList.remove('stamp-new'));
+    void el.offsetWidth;
+    const first = again === undefined ? !booted : again;
+    booted = true;
+    el.classList.add(first ? 'lobby-enter' : 'lobby-back');
+    clearTimeout(enterTimer);   // hẹn gỡ của lần vào trước còn treo thì cắt cụt lần vào này
+    enterTimer = setTimeout(endEnter, 800);
+    stamps(first ? 520 : 260);
+    if (last) {
+      if (last.elo === CC.EloPicker.value() && AFTER[last.outcome]) face(AFTER[last.outcome], 1200);
+      last = null;
+    }
+    idle();
+  }
+
+  function endEnter() {
+    clearTimeout(enterTimer);
+    scr().classList.remove('lobby-enter', 'lobby-back');
+  }
+
+  function leave() {
+    clearTimeout(moodTimer); clearTimeout(idleTimer); clearTimeout(voiceTimer);
+    clearBursts();
+  }
+
+  function picked({ elo }) {
+    // select() dựng lại cả 8 thẻ: còn class vào sảnh thì thẻ mới chạy lại màn bật lần lượt (cả lưới trống một nhịp)
+    endEnter();
+    const c = card(elo);
+    if (c && live()) { c.classList.add('pop'); burst(c.querySelector('.elo-avatar')); }
+    const cat = CC.CatProfiles.byElo(elo);
+    face(REACT[cat.voice] || 'cheer', 900);
+    CC.Sfx.play('select');
+    // Lướt nhanh qua nhiều thẻ thì chỉ con dừng lại cuối cùng mới nói — hai câu chồng nhau nghe như cãi nhau
+    clearTimeout(voiceTimer);
+    voiceTimer = setTimeout(() => { if (!CC.Voice.say('lobby_pick', cat.voice)) CC.Sfx.play('meow'); }, 350);
+    idle();
+  }
+
+  return {
+    enter,
+    init() {
+      B.on('screen:changed', ({ name }) => {
+        const was = screen;
+        screen = name;
+        if (name === 'menu') enter();
+        else if (was === 'menu') leave();
+      });
+      B.on('elo:selected', picked);
+      B.on('prefs:changed', ({ key }) => { if (key === 'fx') scr().classList.toggle('lobby-live', live()); });
+      B.on('game:over', ({ outcome, mode }) => { if (mode === 'ai') last = { elo: CC.Game.state.elo, outcome }; });
+      scr().addEventListener('pointerdown', wake, { passive: true });
+      return this;
+    }
+  };
+})();
+
+;
+/* ===== js/ui-vs-splash.js ===== */
+/* ui-vs-splash.js — màn "ANH VS MÈO" khi bấm "Đấu với …!" (plan 261030-1422-cat-chess-lobby-juice, P2; tầng L)
+ *
+ * PHỦ LÊN màn chơi chứ không đứng trước nó: ván bắt đầu ngay lúc bấm (ui:start), Stockfish nạp song song, nên màn này
+ * không làm chậm vào ván một ms nào. Chạm là bỏ qua. Tổng ≤ 850 ms: hai khung tranh chéo trượt vào 220 → chữ VS! đóng
+ * dấu, đỉnh ~300 → giữ → trượt ra từ 620.
+ * 8 node, gỡ hết khi xong: lúc này là đầu ván (DOM thấp), đỉnh trần 1.100 là khung thắng cuối ván.
+ * "Chơi tiếp" ván dở và harness `?state=start` không đi qua đây — chỉ nút Đấu.
+ */
+
+CC.VsSplash = (function () {
+  const HIT = 300, OUT = 620, END = 840;
+  let box = null, timers = [];
+
+  function close(fast) {
+    if (!box) return;
+    timers.forEach(clearTimeout);
+    timers = [];
+    const el = box;
+    box = null;
+    el.classList.add('out');
+    setTimeout(() => el.remove(), fast ? 200 : END - OUT);
+  }
+
+  return {
+    play(elo) {
+      if (!CC.BoardFx.enabled()) return;
+      close(true);
+      const cat = CC.CatProfiles.byElo(elo);
+      const black = CC.Store.prefs().playerColor === 'b';
+      box = CC.util.el('div', { class: 'vs-splash', 'aria-hidden': 'true', onpointerdown: () => close(true) }, [
+        CC.util.el('div', { class: 'vs-side vs-me' }, [
+          CC.util.el('span', { class: 'vs-name', text: 'ANH' }),
+          CC.util.el('span', { class: 'vs-sub', text: black ? 'cầm quân Đen' : 'cầm quân Trắng' })
+        ]),
+        CC.util.el('div', { class: 'vs-side vs-cat' }, [
+          CC.util.el('img', { class: 'vs-art', src: CC.CatArt.url(cat.id, 'smug'), alt: '', decoding: 'async' }),
+          CC.util.el('span', { class: 'vs-name', text: cat.name })
+        ]),
+        CC.util.el('div', { class: 'vs-word', text: 'VS!' })
+      ]);
+      document.body.appendChild(box);
+      CC.Sfx.play('whoosh');
+      timers.push(setTimeout(() => { CC.Sfx.play('stamp'); CC.Haptics.thud(); }, HIT));
+      timers.push(setTimeout(() => close(false), OUT));
+    },
+
+    init() {
+      // Rời màn chơi trong lúc đang chiếu (bấm ‹ ngay) thì gỡ luôn, đừng để khung tranh đè lên sảnh
+      CC.util.bus.on('screen:changed', ({ name }) => { if (name !== 'game') close(true); });
+      return this;
     }
   };
 })();
@@ -11286,11 +11560,14 @@ CC.ResultDialog = (function () {
       class: 'btn btn-primary btn-wide', type: 'button', text: 'Chơi lại',
       onclick: () => { close(); CC.util.bus.emit('ui:new-game', {}); }
     }));
+    /* Thắng thì "Về sảnh" (anh Đức 30/10): "Đổi mức" sau ván thắng đọc như bị bắt đổi đối thủ. Thua / hoà giữ "Đổi
+     * mức" — hạ mức là bước tự nhiên sau thua. Hai nút cùng đích (sảnh là nơi chọn mèo), chỉ khác lời mời. */
     if (mode === 'ai') {
+      const home = outcome === 'win';
       row.appendChild(CC.util.el('button', {
-        class: 'btn', type: 'button', text: 'Đổi mức',
+        class: 'btn' + (home ? ' btn-home' : ''), type: 'button',
         onclick: () => { close(); CC.Screens.show('menu'); }
-      }));
+      }, home ? [CC.Icons.get('house'), CC.util.el('span', { text: 'Về sảnh' })] : 'Đổi mức'));
     }
     row.appendChild(CC.util.el('button', {
       class: 'btn btn-ghost', type: 'button', text: 'Xem lại bàn cờ',
@@ -11520,6 +11797,8 @@ CC.UpdateNotice = (function () {
       .register('rank', $('#scr-rank'));
 
     CC.Menu.mount($('#menu-body'));
+    CC.LobbyLife.init();   // SAU Menu.mount: nghe elo:selected sau renderDetail (cần ảnh mặt mới), TRƯỚC show('menu')
+    CC.VsSplash.init();
     CC.PortalReturn.init($('#btn-portal'));
 
     /* Hai nut am thanh bam mot cham, dat truoc nut banh rang */

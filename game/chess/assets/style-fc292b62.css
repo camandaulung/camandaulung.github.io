@@ -275,7 +275,6 @@ main { flex: 1; display: flex; flex-direction: column; }
 
 .elo-info { display: flex; flex-direction: column; align-items: center; gap: 1px; width: 100%; min-width: 0; }
 .elo-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 400 14px/1.25 var(--font-title); }
-.elo-tag, .elo-num, .elo-stats { display: none; }
 
 /* Khung chi tiết: mặt to + tên + mô tả + thành tích riêng con này, nút Đấu ngay dưới */
 .pick-detail {
@@ -376,6 +375,177 @@ main { flex: 1; display: flex; flex-direction: column; }
       var(--grain) 0 0 / 128px 128px, var(--halftone) 0 0 / 9px 9px, var(--paper);
   }
 }
+
+/* ===== css/lobby-motion.css ===== */
+/* lobby-motion.css — sảnh có hồn (plan 261030-1422-cat-chess-lobby-juice, P1): vào sảnh, chọn mèo, mèo sống khi đứng yên,
+ * con dấu "THẮNG", nhãn "Thử em!". Nạp ngay sau lobby.css.
+ *
+ * MỌI chuyển động nằm sau `.screen-menu.lobby-live` — class do js/ui-lobby-life.js gắn khi CC.BoardFx.enabled() (pref
+ * `fx` + giảm chuyển động), một công tắc cho cả game. Dấu bền (con dấu, nhãn) thì luôn hiện, chỉ không động.
+ * Chỉ transform / opacity: sảnh điện thoại cao CỐ ĐỊNH theo dải (cuối lobby.css), FX không được thêm một px nào.
+ * Dấu bền là ::before / ::after đọc data-*: sảnh ẩn vẫn nằm trong DOM lúc chơi, trần DOM 1.100 tính cả trang. */
+
+/* Tâm vòng chọn = tâm mặt mèo; số theo đúng các dải của lobby.css (mặt 54 / 46 / 40 / 66, đệm trên 6 / 4 / 8) */
+.elo-card { position: relative; --av: 54px; --pt: 6px; }
+@media (max-width: 619px) and (max-height: 840px) { .elo-card { --av: 46px; --pt: 4px; } }
+@media (max-width: 619px) and (max-height: 608px) { .elo-card { --av: 40px; } }
+@media (min-width: 900px) and (min-height: 560px) { .elo-card { --av: 66px; --pt: 8px; } }
+
+/* ---------- con dấu "THẮNG": mực đỏ nghiêng, đè góc dưới-phải mặt mèo (góc trên là chỗ của nhãn "Thử em!") ---------- */
+.elo-card[data-won]::before {
+  content: "THẮNG"; position: absolute; top: calc(var(--pt) + var(--av) * .58); right: -6px; z-index: 2;
+  padding: 1px 3px; border: var(--ink-3) solid var(--red); border-radius: 3px;
+  background: rgba(255, 255, 255, .82); color: var(--red);
+  font: 400 10px/1.1 var(--font-title); letter-spacing: .5px;
+  transform: rotate(-14deg); pointer-events: none;
+}
+/* ---------- nhãn "Thử em!" trên đầu thẻ mèo kế nên thử ---------- */
+.elo-card[data-next] .elo-info::before {
+  content: "Thử em!"; position: absolute; top: -9px; left: 50%; z-index: 3;
+  padding: 1px 6px; background: var(--yellow); border: var(--ink-3) solid var(--ink); box-shadow: var(--shadow-3);
+  font: 400 11px/1.2 var(--font-title); color: var(--ink); white-space: nowrap;
+  transform: translateX(-50%) rotate(-4deg); pointer-events: none;
+}
+
+/* ---------- 1. vào sảnh: thẻ bật lên lần lượt (Back.out), khung chi tiết trượt lên, huy hiệu nảy ---------- */
+.lobby-live.lobby-enter .elo-card { animation: lb-card-in 260ms cubic-bezier(.34, 1.56, .64, 1) backwards; }
+.lobby-live.lobby-enter .elo-card:nth-child(2) { animation-delay: 35ms; }
+.lobby-live.lobby-enter .elo-card:nth-child(3) { animation-delay: 70ms; }
+.lobby-live.lobby-enter .elo-card:nth-child(4) { animation-delay: 105ms; }
+.lobby-live.lobby-enter .elo-card:nth-child(5) { animation-delay: 140ms; }
+.lobby-live.lobby-enter .elo-card:nth-child(6) { animation-delay: 175ms; }
+.lobby-live.lobby-enter .elo-card:nth-child(7) { animation-delay: 210ms; }
+.lobby-live.lobby-enter .elo-card:nth-child(8) { animation-delay: 245ms; }
+@keyframes lb-card-in { 0% { opacity: 0; transform: translateY(10px) scale(.6); } 60% { opacity: 1; transform: scale(1.06); } }
+.lobby-live:is(.lobby-enter, .lobby-back) .pick-detail { animation: lb-rise 220ms cubic-bezier(.16, 1, .3, 1) 120ms backwards; }
+@keyframes lb-rise { from { opacity: 0; transform: translateY(12px); } }
+.lobby-live.lobby-enter .menu-cat img { animation: lb-badge 420ms cubic-bezier(.34, 1.56, .64, 1) backwards; }
+@keyframes lb-badge { 0% { transform: scale(.6) rotate(-10deg); } 55% { transform: scale(1.08) rotate(3deg); } }
+
+/* ---------- 2. chọn mèo: thẻ nén rồi bật (đã .sel nên giữ lệch −2 px), vòng mực-vàng nở sau mặt ---------- */
+.lobby-live .elo-card.pop { animation: lb-pop 240ms cubic-bezier(.34, 1.56, .64, 1); }
+@keyframes lb-pop {
+  0% { transform: translate(-2px, -2px) scale(.92); }
+  45% { transform: translate(-2px, -2px) scale(1.08); }
+  100% { transform: translate(-2px, -2px) scale(1); }
+}
+/* z −1 trong khung xếp lớp của thẻ (.sel có transform): trên nền thẻ, DƯỚI mặt mèo */
+.lobby-live .elo-card.pop::after {
+  content: ""; position: absolute; z-index: -1; left: 50%; top: calc(var(--pt) + var(--av) / 2);
+  width: calc(var(--av) + 10px); height: calc(var(--av) + 10px); margin: calc(var(--av) / -2 - 5px) 0 0 calc(var(--av) / -2 - 5px);
+  border: var(--ink-2) solid var(--ink); border-radius: 50%; box-shadow: inset 0 0 0 4px var(--yellow);
+  opacity: 0; animation: lb-ring 300ms cubic-bezier(.16, 1, .3, 1);
+}
+@keyframes lb-ring { 0% { opacity: 1; transform: scale(.7); } 55% { opacity: 1; } 100% { opacity: 0; transform: scale(1.35); } }
+
+/* Mảnh văng (node TẠM, ui-lobby-life.js gỡ sau 420 ms): ít mà to, bay theo một hướng (lên), tắt ease-out */
+.lobby-burst { position: fixed; z-index: 30; width: 0; height: 0; pointer-events: none; }
+.lobby-burst .cf { width: 22px; height: 22px; left: -11px; top: -11px; opacity: 0;
+  animation: lb-bit 400ms cubic-bezier(.16, 1, .3, 1) forwards; }
+.lobby-burst .cf.big { width: 30px; height: 30px; left: -15px; top: -15px; }
+@keyframes lb-bit {
+  0% { opacity: 1; transform: translate(0, 0) scale(.3) rotate(0); }
+  45% { opacity: 1; transform: translate(calc(var(--dx) * .75), calc(var(--dy) * .75)) scale(1.1) rotate(calc(var(--r) * .6)); }
+  100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(.8) rotate(var(--r)); }
+}
+
+/* ---------- 3. sống khi đứng yên: mặt trong khung chi tiết đung đưa (animation vô hạn DUY NHẤT của sảnh) ----------
+ * Giữ scale(1.4) + gốc 50% 6% của art-skin.css: đó là phần cắt lấy khuôn mặt, animation transform mà quên là mặt nhỏ lại. */
+.lobby-live .pick-face .cat-avatar-img { animation: lb-sway 3.2s ease-in-out infinite; }
+@keyframes lb-sway {
+  0%, 100% { transform: scale(1.4); }
+  25% { transform: scale(1.4) translateY(-1px) rotate(-1.5deg); }
+  75% { transform: scale(1.4) translateY(-1px) rotate(1.5deg); }
+}
+/* Đổi nét mặt = đổi ảnh: nảy nhỏ đúng lúc đổi để che chỗ ảnh nhảy (rule "lộ đổi ảnh") */
+.lobby-live .pick-face.react { animation: lb-react 260ms cubic-bezier(.34, 1.56, .64, 1); }
+@keyframes lb-react { 0% { transform: scale(.88); } 60% { transform: scale(1.06); } }
+.lobby-live .btn-play.nudge { animation: lb-nudge 620ms ease-in-out; }
+@keyframes lb-nudge {
+  0%, 100% { transform: none; } 20% { transform: rotate(-2.5deg) scale(1.03); } 45% { transform: rotate(2deg) scale(1.03); }
+  70% { transform: rotate(-1deg); }
+}
+
+/* ---------- 5. con dấu mới đóng xuống (lần ĐẦU thắng con đó) + thẻ nhún theo cú đóng ---------- */
+.lobby-live .elo-card.stamp-new::before { animation: lb-stamp 360ms cubic-bezier(.5, 0, .75, 0) var(--d, 0ms) backwards; }
+@keyframes lb-stamp {
+  0% { opacity: 0; transform: scale(2.2) rotate(-4deg); }
+  55% { opacity: 1; transform: scale(.9) rotate(-14deg); }
+  80% { transform: scale(1.07) rotate(-14deg); }
+  100% { transform: rotate(-14deg); }
+}
+.lobby-live .elo-card.stamp-new:not(.sel) { animation: lb-thud 180ms ease-out calc(var(--d, 0ms) + 200ms); }
+@keyframes lb-thud { 40% { transform: translateY(2px) scale(1.02, .97); } }
+.lobby-live .elo-card[data-next] .elo-info::before { animation: lb-wiggle 700ms ease-in-out 700ms 2; }
+@keyframes lb-wiggle {
+  0%, 100% { transform: translateX(-50%) rotate(-4deg); } 30% { transform: translateX(-50%) rotate(5deg) scale(1.08); }
+  65% { transform: translateX(-50%) rotate(-7deg); }
+}
+
+/* ===== css/vs-splash.css ===== */
+/* vs-splash.css — màn "ANH VS MÈO" (js/ui-vs-splash.js). Trang truyện: hai khung tranh cắt chéo, khe mực giữa, chữ VS!
+ * đóng dấu trên tia nắng. Chỉ transform / opacity động; tia nắng và halftone là nền tĩnh.
+ * Không có khối giảm chuyển động ở đây: JS không dựng màn này khi CC.BoardFx.enabled() = false. */
+.vs-splash { position: fixed; inset: 0; z-index: 90; overflow: hidden; cursor: pointer; }
+/* Khe mực chéo giữa hai khung — hiện cùng lúc chữ đóng dấu */
+.vs-splash::before {
+  content: ""; position: absolute; inset: 0; z-index: 1; background: var(--ink);
+  clip-path: polygon(calc(62% - 5px) 0, calc(62% + 5px) 0, calc(38% + 5px) 100%, calc(38% - 5px) 100%);
+  animation: vs-fade 120ms ease-out 180ms backwards;
+}
+.vs-side { position: absolute; inset: 0; display: flex; flex-direction: column; }
+.vs-me {
+  clip-path: polygon(0 0, 62% 0, 38% 100%, 0 100%);
+  background: var(--halftone) 0 0 / 9px 9px, var(--red);
+  justify-content: center; padding: 0 0 18vh max(18px, env(safe-area-inset-left));
+  animation: vs-in-l 220ms cubic-bezier(.16, 1, .3, 1) backwards;
+}
+.vs-cat {
+  clip-path: polygon(62% 0, 100% 0, 100% 100%, 38% 100%);
+  background: var(--halftone) 0 0 / 9px 9px, var(--yellow);
+  align-items: flex-end; justify-content: flex-end;
+  padding: 0 max(16px, env(safe-area-inset-right)) max(22px, env(safe-area-inset-bottom)) 0;
+  animation: vs-in-r 220ms cubic-bezier(.16, 1, .3, 1) 40ms backwards;
+}
+@keyframes vs-in-l { from { transform: translateX(-100%); } }
+@keyframes vs-in-r { from { transform: translateX(100%); } }
+@keyframes vs-fade { from { opacity: 0; } }
+
+.vs-name { font: 400 clamp(40px, 13vw, 92px)/1 var(--font-title); color: #fff; text-shadow: 4px 4px 0 var(--ink);
+  -webkit-text-stroke: 2px var(--ink); }
+.vs-sub { margin-top: 6px; align-self: flex-start; padding: 2px 10px; background: var(--ink); color: #fff;
+  font: 700 clamp(13px, 3.6vw, 18px)/1.3 var(--font-body); }
+.vs-cat .vs-name { position: relative; z-index: 1; margin-top: -10px; }
+/* Mèo phá khung như mèo trong ván (cat-presence.css): viền mực bằng drop-shadow tĩnh, không đổi theo khung hình */
+.vs-art {
+  width: min(62vw, 46vh); height: auto;
+  filter: drop-shadow(3px 0 0 var(--ink)) drop-shadow(-3px 0 0 var(--ink)) drop-shadow(0 3px 0 var(--ink))
+    drop-shadow(0 -3px 0 var(--ink)) drop-shadow(6px 6px 0 var(--ink));
+}
+
+/* VS!: gồng (to, trong suốt) → đỉnh ~300 ms (đóng xuống, hơi lố) → nảy về. Tia nắng là ::before tĩnh của chính chữ. */
+.vs-word {
+  position: absolute; z-index: 2; left: 50%; top: 50%; width: 0; height: 0;
+  display: flex; align-items: center; justify-content: center;
+  font: 400 clamp(72px, 24vw, 150px)/1 var(--font-title); color: var(--yellow);
+  -webkit-text-stroke: 4px var(--ink); text-shadow: 6px 6px 0 var(--ink); white-space: nowrap;
+  transform: rotate(-8deg);
+  animation: vs-stamp 300ms cubic-bezier(.34, 1.56, .64, 1) 160ms backwards;
+}
+.vs-word::before {
+  content: ""; position: absolute; z-index: -1; width: clamp(220px, 70vw, 420px); aspect-ratio: 1; border-radius: 50%;
+  background: repeating-conic-gradient(var(--paper) 0 8deg, transparent 8deg 16deg);
+  -webkit-mask: radial-gradient(closest-side, #000 55%, transparent);
+  mask: radial-gradient(closest-side, #000 55%, transparent);
+}
+@keyframes vs-stamp { 0% { opacity: 0; transform: rotate(-2deg) scale(2.4); } 45% { opacity: 1; } }
+
+/* Ra: hai khung trượt ngược, chữ co lại — ease-in, ván hiện ra bên dưới */
+.vs-splash.out { pointer-events: none; }
+.vs-splash.out .vs-me { transform: translateX(-100%); transition: transform 200ms cubic-bezier(.7, 0, .84, 0); }
+.vs-splash.out .vs-cat { transform: translateX(100%); transition: transform 200ms cubic-bezier(.7, 0, .84, 0); }
+.vs-splash.out .vs-word, .vs-splash.out::before { opacity: 0; transition: opacity 140ms ease-in; }
+.vs-splash.out .vs-word { transform: rotate(-8deg) scale(.6); transition: opacity 140ms ease-in, transform 160ms ease-in; }
 
 /* ===== css/rank.css ===== */
 /* rank.css — thành tích + bảng xếp hạng (tách từ style.css, P07 plan art AAA) */
@@ -1215,6 +1385,8 @@ body.chat-open .chat-host { transform: none; visibility: visible; transition: tr
 .result-actions, .confirm-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
 .result-actions .btn-wide { grid-column: 1 / -1; font-size: 18px; padding: 12px; }
 .result-actions .btn:only-child, .result-actions .btn-ghost:nth-child(2) { grid-column: 1 / -1; }
+.result-actions .btn-home { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.result-actions .btn-home .ic { width: 20px; height: 20px; }
 
 @media (prefers-reduced-motion: reduce) {
   .result-overlay, .result-box { transition: none; }

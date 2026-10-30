@@ -9,14 +9,14 @@
  * trang van trong binh thuong. build.mjs co buoc kiem tra chan dung loi nay.
  */
 
-const VERSION = 'c6caf261';
+const VERSION = '5e5d1cb1';
 const CACHE = 'cat-chess-' + VERSION;
 const SHELL = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
-  "./assets/style-f9ccd736.css",
-  "./assets/app-be9ee13b.js",
+  "./assets/style-fc292b62.css",
+  "./assets/app-81ed1791.js",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./icons/icon-maskable-512.png",
@@ -103,6 +103,8 @@ const SHELL = [
   "./audio/sfx/promote-1.mp3",
   "./audio/sfx/select-1.mp3",
   "./audio/sfx/select-2.mp3",
+  "./audio/sfx/stamp-1.mp3",
+  "./audio/sfx/whoosh-1.mp3",
   "./audio/sfx/win-1.mp3",
   "./audio/sfx/win-2.mp3",
   "./audio/voice/adult-check-1.mp3",
@@ -116,6 +118,8 @@ const SHELL = [
   "./audio/voice/adult-nudge-1.mp3",
   "./audio/voice/adult-ouch-1.mp3",
   "./audio/voice/adult-ouch-2.mp3",
+  "./audio/voice/adult-pick-1.mp3",
+  "./audio/voice/adult-pick-2.mp3",
   "./audio/voice/adult-pout-1.mp3",
   "./audio/voice/adult-reply-1.mp3",
   "./audio/voice/adult-tease-1.mp3",
@@ -137,6 +141,8 @@ const SHELL = [
   "./audio/voice/kitten-nudge-1.mp3",
   "./audio/voice/kitten-ouch-1.mp3",
   "./audio/voice/kitten-ouch-2.mp3",
+  "./audio/voice/kitten-pick-1.mp3",
+  "./audio/voice/kitten-pick-2.mp3",
   "./audio/voice/kitten-pout-1.mp3",
   "./audio/voice/kitten-reply-1.mp3",
   "./audio/voice/kitten-tease-1.mp3",
@@ -158,6 +164,8 @@ const SHELL = [
   "./audio/voice/master-nudge-1.mp3",
   "./audio/voice/master-ouch-1.mp3",
   "./audio/voice/master-ouch-2.mp3",
+  "./audio/voice/master-pick-1.mp3",
+  "./audio/voice/master-pick-2.mp3",
   "./audio/voice/master-pout-1.mp3",
   "./audio/voice/master-reply-1.mp3",
   "./audio/voice/master-tease-1.mp3",
