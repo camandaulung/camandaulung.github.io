@@ -1,8 +1,8 @@
-const Z = /^\d{4}-\d{2}-\d{2}\.v\d{1,3}$/, T = (t) => new Date(t + 252e5).toISOString().slice(0, 10);
-const G = /* @__PURE__ */ new Set(["route", "rv", "sv", "alt", "dist", "dur", "score", "crash", "tainted"]), K = /^[A-Za-z][A-Za-z0-9_]{0,31}$/, C = /^[a-z][a-z-]{0,15}$/, O = (t) => typeof t == "number" && Number.isFinite(t), w = (t, n, e) => Math.min(e, Math.max(n, t)), N = (t) => O(t) ? w(Math.round(t), 1, 99) : 1;
+const Z = /^\d{4}-\d{2}-\d{2}\.(v|hg)\d{1,3}$/, T = (t) => new Date(t + 252e5).toISOString().slice(0, 10);
+const G = /* @__PURE__ */ new Set(["route", "rv", "sv", "alt", "dist", "dur", "score", "crash", "tainted"]), K = /^[A-Za-z][A-Za-z0-9_]{0,31}$/, C = /^[a-z][a-z-]{0,15}$/, O = (t) => typeof t == "number" && Number.isFinite(t), v = (t, n, e) => Math.min(e, Math.max(n, t)), N = (t) => O(t) ? v(Math.round(t), 1, 99) : 1;
 function x(t, n) {
   if (t === null || typeof t == "boolean") return t;
-  if (typeof t == "number") return Number.isFinite(t) ? w(Math.round(t * 1e3) / 1e3, -1e9, 1e9) : null;
+  if (typeof t == "number") return Number.isFinite(t) ? v(Math.round(t * 1e3) / 1e3, -1e9, 1e9) : null;
   if (typeof t == "string") return t.replace(/[\u0000-\u001f<>]/g, "").slice(0, 64);
   if (typeof t != "object" || n >= 4) return null;
   if (Array.isArray(t)) return t.slice(0, 32).map((o) => x(o, n + 1));
@@ -16,7 +16,7 @@ function U(t) {
   const n = typeof t.route == "string" ? t.route : "";
   if (!Z.test(n)) return "route";
   if (!O(t.dist) || !O(t.dur) || !O(t.score)) return "fields";
-  const e = w(Math.round(t.dist * 10) / 10, 0, 1e6), r = w(Math.round(t.dur * 100) / 100, 0, 36e3), o = t.tainted === !0 || e > r * 110 + 50;
+  const e = v(Math.round(t.dist * 10) / 10, 0, 1e6), r = v(Math.round(t.dur * 100) / 100, 0, 36e3), o = t.tainted === !0 || e > r * 110 + 50;
   return {
     route: n,
     rv: N(t.rv),
@@ -24,13 +24,13 @@ function U(t) {
     alt: t.alt === !0,
     dist: e,
     dur: r,
-    score: w(Math.round(t.score), 0, 1e9),
+    score: v(Math.round(t.score), 0, 1e9),
     crash: typeof t.crash == "string" && C.test(t.crash) ? t.crash : null,
     tainted: o,
     detail: JSON.stringify(x(t, 0))
   };
 }
-const m = (t) => t && typeof t == "object" && !Array.isArray(t) ? t : {}, E = (t) => typeof t == "number" && Number.isFinite(t) ? t : null, S = (t) => E(t) ?? 0, v = (t) => typeof t == "string" && t ? t : null, j = (t) => Object.values(m(t)).reduce((n, e) => n + Math.max(0, S(e)), 0), M = (t, n = 4) => Math.round(t * 10 ** n) / 10 ** n, y = (t, n, e = 4) => n > 0 ? M(t / n, e) : null;
+const m = (t) => t && typeof t == "object" && !Array.isArray(t) ? t : {}, E = (t) => typeof t == "number" && Number.isFinite(t) ? t : null, S = (t) => E(t) ?? 0, w = (t) => typeof t == "string" && t ? t : null, j = (t) => Object.values(m(t)).reduce((n, e) => n + Math.max(0, S(e)), 0), M = (t, n = 4) => Math.round(t * 10 ** n) / 10 ** n, y = (t, n, e = 4) => n > 0 ? M(t / n, e) : null;
 function X(t, n) {
   const e = Math.min(t.length, n.length);
   if (e < 3) return null;
@@ -75,7 +75,7 @@ function H(t) {
   };
 }
 function J(t) {
-  const n = [], e = ["gorge", "mouth", "valley", "village"], r = [...A], o = [], c = [];
+  const n = [], e = ["gorge", "mouth", "valley", "village", "rim", "dive", "river", "cave", "climb", "gate"], r = [...A], o = [], c = [];
   let s = 0;
   const a = (u, h, g) => {
     const p = u[h] ??= [];
@@ -83,7 +83,7 @@ function J(t) {
   };
   for (const u of t) {
     if (!u.crash) continue;
-    const h = _(n, u.crash), g = m(u.d.death), p = v(g.zone), R = v(g.tier);
+    const h = _(n, u.crash), g = m(u.d.death), p = w(g.zone), R = w(g.tier);
     if (h < 0 || !p && !R) {
       s++;
       continue;
@@ -142,8 +142,8 @@ function q(t) {
   }, e = (r) => m(r.d.device);
   return {
     edges: z,
-    byTier: n((r) => v(e(r).tier), ["high", "mid", "low"]),
-    byInput: n((r) => v(e(r).input), ["touch", "key", "mixed"])
+    byTier: n((r) => w(e(r).tier), ["high", "mid", "low"]),
+    byInput: n((r) => w(e(r).input), ["touch", "key", "mixed"])
   };
 }
 const k = ["meters", "lantern", "nearMiss", "gust"], Q = 864e5, W = 200, L = (t, n) => {
@@ -191,7 +191,7 @@ function nt(t) {
   const n = (s, a) => {
     const i = a.filter((f) => f.crash).length, l = a.reduce((f, u) => f + u.dist / 1e3, 0), d = a.filter((f) => f.crash && m(f.d.ghosts).deathNear === !0).length;
     return { key: s, runs: a.length, deaths: i, km: M(l, 1), perKm: y(i, l, 3), medianDist: $(a.map((f) => f.dist)), nearShare: y(d, i, 3) };
-  }, e = t.filter((s) => E(m(s.d.ghosts).shown) !== null), r = (s) => S(m(s.d.ghosts).shown) > 0, o = (s) => m(s.d.ghosts).deathNear === !0, c = L(t, (s) => v(m(s.d.prefs).ghosts));
+  }, e = t.filter((s) => E(m(s.d.ghosts).shown) !== null), r = (s) => S(m(s.d.ghosts).shown) > 0, o = (s) => m(s.d.ghosts).deathNear === !0, c = L(t, (s) => w(m(s.d.prefs).ghosts));
   return {
     groups: [
       n("near", e.filter((s) => r(s) && o(s))),

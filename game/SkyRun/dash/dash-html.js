@@ -7,7 +7,11 @@ export const rvColor = (rv) => SERIES[(rv - 1) % SERIES.length];
 export const rvName = (rv) => `Luật bay v${rv}`;
 
 export const KIND = { pillar: 'Cột đá', spike: 'Mỏm đá', ridge: 'Sống đá', bridge: 'Cầu phướn' };
-export const ZONE = { gorge: 'Khe', mouth: 'Miệng khe', valley: 'Thung lũng', village: 'Làng' };
+// Vùng Khau Phạ + Hà Giang (src/world/track-layout.ts RunZone). Log Hà Giang có rv 1000 + n (maps.ts logRvBase).
+export const ZONE = {
+  gorge: 'Khe', mouth: 'Miệng khe', valley: 'Thung lũng', village: 'Làng',
+  rim: 'HG · Gờ Mã Pí Lèng', dive: 'HG · Lao Tu Sản', river: 'HG · Sông Nho Quế', cave: 'HG · Hang', climb: 'HG · Leo cột gió', gate: 'HG · Cổng Trời',
+};
 export const FLIGHT = { low: 'Thấp', zero: 'Tầm 0', high: 'Cao', thermal: 'Luồng nhiệt' };
 export const DEVICE = { high: 'Máy mạnh', mid: 'Máy vừa', low: 'Máy yếu' };
 export const INPUT = { touch: 'Chạm', key: 'Phím', mixed: 'Chạm + phím' };

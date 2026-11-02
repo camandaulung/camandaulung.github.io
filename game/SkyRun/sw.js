@@ -11,12 +11,12 @@
  * không skipWaiting vì đổi bản giữa ván cờ mất ván — ở đây trang đang chạy không bị tải lại, chỉ đổi cache bên dưới.
  */
 
-const VERSION = '6450fe39';
+const VERSION = 'a4802cb1';
 const CACHE = 'sky-run-' + VERSION;
 const SHELL = [
   "./",
-  "./assets/index-DNcXOLju.css",
-  "./assets/index-e1yJpviy.js",
+  "./assets/index-Ds-SxFkd.js",
+  "./assets/index-Oc27oMqa.css",
   "./audio/crash.mp3",
   "./audio/dive-whoosh.mp3",
   "./audio/flare-whoosh.mp3",
@@ -32,6 +32,8 @@ const SHELL = [
   "./audio/thermal-boost.mp3",
   "./audio/voice/cat-canh.mp3",
   "./audio/voice/chang-vang.mp3",
+  "./audio/voice/cong-troi.mp3",
+  "./audio/voice/cot-gio.mp3",
   "./audio/voice/dem-hoi.mp3",
   "./audio/voice/den-troi-chuoi.mp3",
   "./audio/voice/du-cuu.mp3",
@@ -40,9 +42,12 @@ const SHELL = [
   "./audio/voice/khe-da.mp3",
   "./audio/voice/ky-luc.mp3",
   "./audio/voice/luong-nhiet.mp3",
+  "./audio/voice/ma-pi-leng.mp3",
   "./audio/voice/qua-dinh.mp3",
+  "./audio/voice/song-nho-que.mp3",
   "./audio/voice/suot-dep.mp3",
   "./audio/voice/thung-lung.mp3",
+  "./audio/voice/vao-hang.mp3",
   "./audio/wind-loop.mp3",
   "./icons/apple-touch-icon-180.png",
   "./icons/icon-192.png",
