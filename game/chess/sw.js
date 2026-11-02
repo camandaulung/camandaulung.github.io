@@ -9,7 +9,7 @@
  * trang van trong binh thuong. build.mjs co buoc kiem tra chan dung loi nay.
  */
 
-const VERSION = '5e5d1cb1';
+const VERSION = 'f500b0d0';
 const CACHE = 'cat-chess-' + VERSION;
 const SHELL = [
   "./",

@@ -50,21 +50,10 @@ Portal.GAMES = [
       { khoa: 'catPoints',     nhan: 'Điểm mèo', chinh: true },
       { khoa: 'bestStreak',    nhan: 'Chuỗi thắng' }
     ]
-  },
-  {
-    id: 'dash',
-    ten: 'Neon Dash',
-    bieuTuong: '\u26A1',
-    thuMuc: 'NeonDash',
-    scoreDoc: 'dashScores',
-    tieuChi: [
-      /* `bestMeters` la tieu chi CHINH: no la thu ca game do luong, va cung la thu duy
-         nhat duoc hoi thu hang tren may chu. */
-      { khoa: 'bestMeters', nhan: 'Xa nhất', chinh: true, donVi: 'm' },
-      { khoa: 'weekMeters', nhan: 'Tuần này', donVi: 'm' },
-      { khoa: 'totalRuns',  nhan: 'Số ván' }
-    ]
   }
+  /* Neon Dash (id 'dash', thuMuc 'NeonDash', scoreDoc 'dashScores') go khoi portal
+     02/11/2026 cung commit voi workflow. Du lieu `dashScores`/`dashUsers` va luat
+     Firestore cua no van giu — bat lai = tra entry nay + dong trong `GAMES`. */
 ];
 
 Portal.gameById = id => Portal.GAMES.find(g => g.id === id) || null;
