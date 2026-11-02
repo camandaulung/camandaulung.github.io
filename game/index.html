@@ -649,6 +649,46 @@
 
         <!-- Neon Dash gỡ khỏi portal 02/11/2026 (chơi chán) — xem docs/decisions/2026-11-02-go-neon-dash-khoi-portal.md -->
 
+        <!-- Sky Run (02/11/2026, anh Đức: "game offline chơi vui thôi") — KHÔNG có trong portal-games.js: không hồ sơ, không
+             lưu đám mây, không BXH. Kỷ lục + bóng của chính mình lưu máy; ô "Kỷ lục" đọc localStorage['skyrun.best'] — cùng
+             origin với game nên đọc thẳng được (games/sky-run/src/game/screens.ts). Không có mascot GLB: người bay 2 MB quá
+             nặng cho trang danh sách. -->
+        <article class="game-card live" data-od-id="game-card-skyrun">
+          <div class="card-thumb" aria-hidden="true">
+            <img class="card-icon" alt="" decoding="async" width="192" height="192"
+                 src="./SkyRun/icons/icon-192.png" sizes="124px">
+          </div>
+          <div class="card-body">
+            <span class="card-tag" data-i18n="tag-wingsuit">Bay lượn</span>
+            <h3 class="card-title">Sky Run</h3>
+            <p class="card-desc" data-i18n="desc-skyrun">Mặc wingsuit lao qua khe núi Tây Bắc, từ bình minh tới đêm đèn trời.
+              Đổi làn, vọt lên, bổ nhào, nhặt đèn trời nhân điểm. Bóng vàng là ván xa nhất hôm nay của chính bạn — bay vượt nó.</p>
+            <div class="card-progress" data-game="skyrun">
+              <div class="progress-label">
+                <span data-i18n="progress-best">Kỷ lục</span>
+                <span class="progress-value"><span class="progress-current">0</span><span class="progress-total" data-i18n="unit-points"> điểm</span></span>
+              </div>
+            </div>
+            <div class="card-footer">
+              <a class="card-play" href="./SkyRun/" data-i18n-aria="aria-play-skyrun" aria-label="Chơi Sky Run">
+                <span data-i18n="cta-play">Chơi ngay</span>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+              </a>
+            </div>
+          </div>
+          <div class="card-halo"></div>
+        </article>
+        <script>
+          (function () {
+            var best = 0;
+            try { best = Number(localStorage.getItem('skyrun.best')) || 0; } catch (e) {}
+            var box = document.querySelector('.card-progress[data-game="skyrun"]');
+            if (!box || best <= 0) return;
+            box.querySelector('.progress-current').textContent = best.toLocaleString('vi-VN');
+            box.classList.add('loaded');
+          })();
+        </script>
+
       </div>
       <!-- Dashboard cân bằng Sky Chicken (log trận Firestore `runs`) — sky-dash/ -->
       <div class="dash-links">
@@ -661,6 +701,13 @@
       <a class="dash-link" href="./chess-dash/" hidden>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
         <span>Log &amp; theo dõi ván · Cờ vua với mèo</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </a>
+      <!-- Dashboard Sky Run (02/11/2026) — SkyRun/dash/ nằm TRONG bản dựng game (games/sky-run/public/dash/), đọc log ván
+           Firestore `skyRuns` của bản portal và tính bằng chính hàm của server zingplay. Chặn thật ở luật `skyRuns`. -->
+      <a class="dash-link" href="./SkyRun/dash/" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+        <span>Log &amp; dashboard tune · Sky Run</span>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
       </a>
       <!-- Dashboard Toy Tower — toy-dash/ đọc stats.json SNAPSHOT (bản live sau SSO toy-tower.zingplay.dev/dash/ → "Xuất
@@ -796,6 +843,10 @@
           'btn-lang': 'Đổi ngôn ngữ',
           'aria-play-sky': 'Chơi Sky Chicken',
           'aria-play-chess': 'Chơi Cờ vua với mèo',
+          'tag-wingsuit': 'Bay lượn',
+          'desc-skyrun': 'Mặc wingsuit lao qua khe núi Tây Bắc, từ bình minh tới đêm đèn trời. Đổi làn, vọt lên, bổ nhào, nhặt đèn trời nhân điểm. Bóng vàng là ván xa nhất hôm nay của chính bạn — bay vượt nó.',
+          'progress-best': 'Kỷ lục',
+          'aria-play-skyrun': 'Chơi Sky Run',
           'meta-desc': 'Vài minigame của Cá Mặn, chạy thẳng trên trình duyệt.'
         },
         en: {
@@ -818,6 +869,10 @@
           'btn-theme': 'Toggle theme',
           'btn-lang': 'Toggle language',
           'aria-play-sky': 'Play Sky Chicken',
+          'tag-wingsuit': 'Wingsuit',
+          'desc-skyrun': 'Wingsuit through the gorges of northwest Vietnam, from sunrise to a night of sky lanterns. Switch lanes, pull up, dive, grab lanterns to multiply your score. The gold ghost is your own farthest flight today — beat it.',
+          'progress-best': 'Best',
+          'aria-play-skyrun': 'Play Sky Run',
           'aria-play-chess': 'Play Chess with Cats',
           'meta-desc': 'A few small games by Cá Mặn, running right in the browser.'
         }

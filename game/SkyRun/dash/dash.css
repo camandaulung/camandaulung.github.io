@@ -1,0 +1,77 @@
+/* Dashboard tune Sky Run — cùng bảng màu đêm tím của game (src/style.css: nền #1a1020, chữ kem, vàng nắng).
+   Màu dãy số = bảng categorical tối đã chạy bộ kiểm (skill dataviz, nền thẻ #241830, đủ 5 phép thử). */
+:root {
+  color-scheme: dark;
+  --page: #1a1020;
+  --card: #241830;
+  --ink: #fff3df;
+  --ink-2: #dccbb9;
+  --muted: #a4919f;
+  --grid: #362845;
+  --axis: #54426a;
+  --gold: #ffc56e;
+  --s1: #3987e5;
+  --s2: #d95926;
+  --s3: #199e70;
+  --s4: #c98500;
+  --font: 'Be Vietnam Pro', system-ui, 'Segoe UI', sans-serif;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--page); color: var(--ink); font: 15px/1.5 var(--font); }
+main { max-width: 980px; margin: 0 auto; padding: 16px 16px 48px; }
+h1 { margin: 4px 0 2px; font-size: 22px; font-weight: 800; letter-spacing: -0.01em; }
+.sub { margin: 0 0 12px; color: var(--ink-2); font-size: 14px; }
+.demo { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: var(--s2); color: #fff; font-size: 12px; font-weight: 700; vertical-align: middle; }
+
+/* Bộ lọc MỘT hàng phía trên mọi biểu đồ — đổi khoảng ngày thì mọi thẻ vẽ lại theo cùng lát dữ liệu. */
+.filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 14px; }
+.filters button { min-height: 40px; padding: 0 14px; border: 1px solid var(--axis); border-radius: 999px; background: transparent; color: var(--ink-2); font: 600 14px var(--font); cursor: pointer; }
+.filters button[aria-pressed='true'] { background: var(--gold); border-color: var(--gold); color: #2a1406; }
+
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.tile { padding: 12px 14px; border-radius: 12px; background: var(--card); }
+.tile b { display: block; font-size: 26px; font-weight: 800; line-height: 1.1; }
+.tile span { color: var(--muted); font-size: 13px; }
+
+.card { margin: 0 0 14px; padding: 14px 16px 12px; border-radius: 14px; background: var(--card); }
+.card h2 { margin: 0; font-size: 16px; font-weight: 700; line-height: 1.35; }
+.target { display: inline-block; margin: 4px 0 8px; padding: 1px 10px; border-radius: 999px; box-shadow: inset 0 0 0 1px var(--gold); color: var(--gold); font-size: 13px; font-weight: 600; }
+.note { margin: 6px 0 0; color: var(--ink-2); font-size: 13px; }
+.note b { color: var(--ink); }
+.empty { margin: 10px 0 4px; padding: 14px; border-radius: 10px; background: rgba(255, 255, 255, 0.04); color: var(--muted); font-size: 14px; text-align: center; }
+.panel-title { margin: 12px 0 2px; color: var(--ink-2); font-size: 13px; font-weight: 600; }
+.grid2 { display: grid; gap: 4px 18px; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 2px 0 6px; color: var(--ink-2); font-size: 13px; }
+.legend i { display: inline-block; width: 10px; height: 10px; margin-right: 6px; border-radius: 3px; vertical-align: -1px; }
+
+/* SVG: chữ dùng mực chữ, KHÔNG dùng màu dãy (màu chỉ ở vạch / cột). */
+svg { display: block; max-width: 100%; overflow: visible; font-family: var(--font); }
+svg .tick { fill: var(--muted); font-size: 12px; }
+svg .lbl { fill: var(--ink-2); font-size: 13px; }
+svg .val { fill: var(--ink); font-size: 12px; font-weight: 600; }
+svg .in { fill: #fff; font-size: 12px; font-weight: 700; pointer-events: none; }
+svg .gridline { stroke: var(--grid); stroke-width: 1; }
+svg .axis { stroke: var(--axis); stroke-width: 1; }
+svg .band { fill: rgba(255, 197, 110, 0.12); }
+svg .band-label, svg .marker-label { fill: var(--gold); font-size: 12px; font-weight: 600; }
+svg .marker { stroke: var(--gold); stroke-width: 1.5; }
+svg .hit { fill: transparent; }
+svg [data-tip] { cursor: default; }
+
+/* Bảng rộng cuộn TRONG khung của nó — trang không bao giờ cuộn ngang ở 375 px. */
+.scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; font-variant-numeric: tabular-nums; }
+th, td { padding: 6px 8px; border-bottom: 1px solid var(--grid); text-align: right; white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+th { color: var(--muted); font-weight: 600; }
+td.heat { color: var(--ink); }
+.twin { margin-top: 6px; }
+.twin summary { color: var(--muted); font-size: 13px; cursor: pointer; padding: 4px 0; }
+.tainted { color: var(--muted); }
+
+.tip { position: fixed; z-index: 10; max-width: 260px; padding: 6px 10px; border-radius: 8px; background: #0f0a14; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), inset 0 0 0 1px var(--axis); color: var(--ink); font-size: 13px; pointer-events: none; white-space: pre-line; }
+.tip[hidden] { display: none; }
+.error { padding: 14px; border-radius: 12px; background: rgba(200, 32, 42, 0.18); color: var(--ink); }
+.login { min-height: 48px; padding: 0 22px; border: 0; border-radius: 999px; background: var(--gold); color: #2a1406; font: 700 15px var(--font); cursor: pointer; }
