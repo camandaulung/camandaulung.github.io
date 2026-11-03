@@ -11,12 +11,12 @@
  * không skipWaiting vì đổi bản giữa ván cờ mất ván — ở đây trang đang chạy không bị tải lại, chỉ đổi cache bên dưới.
  */
 
-const VERSION = '8b27b246';
+const VERSION = '2880d396';
 const CACHE = 'sky-run-' + VERSION;
 const SHELL = [
   "./",
-  "./assets/index-C_MmdcLl.css",
-  "./assets/index-Dx71f1B0.js",
+  "./assets/index-CTDP9sCv.js",
+  "./assets/index-gvjsY71B.css",
   "./audio/crash.mp3",
   "./audio/dive-whoosh.mp3",
   "./audio/flare-whoosh.mp3",
@@ -54,6 +54,9 @@ const SHELL = [
   "./icons/icon-32.png",
   "./index.html",
   "./models/pilot.glb",
+  "./ui/logo.webp",
+  "./ui/map-ha-giang.webp",
+  "./ui/map-khau-pha.webp",
   "../../shared/portal-config.js",
   "../../shared/portal-firebase.js"
 ];
