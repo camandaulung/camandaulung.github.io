@@ -12,12 +12,12 @@
  * không skipWaiting vì đổi bản giữa ván cờ mất ván — ở đây trang đang chạy không bị tải lại, chỉ đổi cache bên dưới.
  */
 
-const VERSION = 'd3371abe';
+const VERSION = 'ae4dc35a';
 const CACHE = 'sky-run-' + VERSION;
 const SHELL = [
   "./",
+  "./assets/index-C9uQa7f8.js",
   "./assets/index-CO2QJ1l6.css",
-  "./assets/index-DGyIX-sy.js",
   "./assets/three-DuwQ4nce.js",
   "./audio/crash.mp3",
   "./audio/dive-whoosh.mp3",
