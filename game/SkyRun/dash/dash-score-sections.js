@@ -1,4 +1,4 @@
-// Câu 1–2 của dashboard: điểm đèn trời có đáng ăn không (plan 261102-1428 phase 03 đo bằng hai câu này).
+// Câu 4–5 của dashboard (1–3 là câu tuning 03/11): điểm đèn trời có đáng ăn không (plan 261102-1428 phase 03 đo bằng hai câu này).
 import { card, empty, grid, half, legend, note, panelTitle, twin } from './dash-html.js';
 import { fmt, pct, scatter, stackBars } from './dash-svg.js';
 
@@ -11,7 +11,7 @@ const PARTS = [
 ];
 
 export function scoreSection(s, w) {
-  const title = '1 · Đèn trời đã chiếm 25–35% điểm chưa?';
+  const title = '4 · Đèn trời đã chiếm 25–35% điểm chưa?';
   const target = `Đích: đèn ${pct(s.score.target[0])}–${pct(s.score.target[1])} tổng điểm`;
   const groups = s.score.bySv;
   if (!groups.length) return card(title, target, empty());
@@ -34,7 +34,7 @@ export function scoreSection(s, w) {
 }
 
 export function lanternRankSection(s, w) {
-  const title = '2 · Người ham đèn có đứng hạng cao hơn không?';
+  const title = '5 · Người ham đèn có đứng hạng cao hơn không?';
   const target = `Đích: tương quan r ≥ ${fmt(s.lanternRank.target, 1)} (dương = nhặt nhiều đèn thì hạng cao)`;
   const groups = s.lanternRank.bySv.filter((g) => g.players.length);
   if (!groups.length) return card(title, target, empty());

@@ -1,12 +1,10 @@
-// Câu 3–5 của dashboard: cách bay — đổi điều khiển dọc (phase 04, `rv` 2) có làm chết sớm hơn, tầng thấp có trội,
+// Câu 6–8 của dashboard: cách bay — đổi điều khiển dọc (phase 04, `rv` 2) có làm chết sớm hơn, tầng thấp có trội,
 // người thật có đọc kịp hàng không. Mỗi luật bay một màu cố định (rvColor).
-import { DEVICE, FLIGHT, INPUT, ZONE, card, empty, grid, half, heat, legend, nameOf, note, panelTitle, rvColor, rvName, twin } from './dash-html.js';
+import { DEVICE, FLIGHT, INPUT, ZONE, card, empty, grid, half, heat, legend, meters, nameOf, note, panelTitle, rvColor, rvName, twin } from './dash-html.js';
 import { columns, fmt, lines, pct, stackBars } from './dash-svg.js';
 
-const meters = (m) => (m >= 1000 ? `${fmt(m / 1000, m % 1000 ? 1 : 0)} km` : `${fmt(m)} m`);
-
 export function survivalSection(s, w) {
-  const title = '3 · Đổi điều khiển có làm chết sớm hơn không?';
+  const title = '6 · Đổi điều khiển có làm chết sớm hơn không?';
   const target = 'Đích: đường luật mới không nằm dưới đường luật cũ';
   const curves = s.survival.byRv;
   if (!curves.length) return card(title, target, empty());
@@ -40,7 +38,7 @@ export function survivalSection(s, w) {
 const TIER_PARTS = [['low', 'var(--s1)'], ['zero', 'var(--s2)'], ['high', 'var(--s3)'], ['thermal', 'var(--s4)']];
 
 export function tierSection(s, w) {
-  const title = '4 · Tầng thấp có "miễn phí" quá không?';
+  const title = '7 · Tầng thấp có "miễn phí" quá không?';
   const target = 'Đích: ở tầng thấp < 50% thời gian bay';
   const groups = s.tiers.byRv;
   if (!groups.length) return card(title, target, empty());
@@ -62,7 +60,7 @@ export function tierSection(s, w) {
 const READ_FLOOR = 0.567;
 
 export function leadSection(s, w) {
-  const title = '5 · Người thật có đọc kịp hàng chướng ngại không?';
+  const title = '8 · Người thật có đọc kịp hàng chướng ngại không?';
   const target = `Mốc: hàng sát nhất cách ${fmt(READ_FLOOR, 2)} s — lead p10 dồn bên trái vạch là né sát nút`;
   const { edges, byTier, byInput } = s.lead;
   if (!byTier.length && !byInput.length) return card(title, target, empty('Chưa có ván nào có số lead (ván phải qua ít nhất một hàng phải né).'));

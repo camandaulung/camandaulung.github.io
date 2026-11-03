@@ -61,7 +61,8 @@ function xTicks(P, ph, n, at, text) {
   return b;
 }
 
-/** Đường (y từ 0 tới yMax) trên trục x chung `xs`. Dải trong suốt mỗi mốc x = vùng rê: tip ghi mọi dãy tại mốc đó. */
+/** Đường (y từ 0 tới yMax) trên trục x chung `xs`. Dải trong suốt mỗi mốc x = vùng rê: tip ghi mọi dãy tại mốc đó.
+ *  Giá trị null = đứt đường (ô không có số), không kéo về 0 — kéo về 0 là vẽ ra một cú rơi không có thật. */
 export function lines({ width, height = 220, xs, series, xFmt, yFmt, yMax = 1, label }) {
   const P = { l: 44, r: 10, t: 10, b: 28 };
   const pw = width - P.l - P.r;
@@ -71,8 +72,20 @@ export function lines({ width, height = 220, xs, series, xFmt, yFmt, yMax = 1, l
   const Y = (v) => P.t + ph - (Math.min(v, yMax) / yMax) * ph;
   let b = yGrid(P, pw, ph, yMax, yFmt) + xTicks(P, ph, n, X, (i) => xFmt(xs[i]));
   series.forEach((s) => {
-    const d = s.values.map((v, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)} ${Y(v ?? 0).toFixed(1)}`).join('');
+    let pen = 'M';
+    const d = s.values.map((v, i) => {
+      if (v == null) {
+        pen = 'M';
+        return '';
+      }
+      const seg = `${pen}${X(i).toFixed(1)} ${Y(v).toFixed(1)}`;
+      pen = 'L';
+      return seg;
+    }).join('');
     b += `<path d="${d}" fill="none" stroke="${s.color}" stroke-width="2" stroke-linejoin="round"/>`;
+    // Chấm ở điểm lẻ (hai bên đều null) — đoạn một điểm không có nét nào để thấy.
+    s.values.forEach((v, i) => v != null && s.values[i - 1] == null && s.values[i + 1] == null
+      && (b += `<circle cx="${X(i).toFixed(1)}" cy="${Y(v).toFixed(1)}" r="3" fill="${s.color}"/>`));
   });
   const step = n > 1 ? pw / (n - 1) : pw;
   for (let i = 0; i < n; i++) {
@@ -97,26 +110,29 @@ export function scatter({ width, height = 220, points, xMax, xLabel, yFmt, label
   return svg(width, height, label, b);
 }
 
-/** Cột đứng một dãy (histogram, đếm theo ngày). `marker` = { at: vị trí theo ô (có phần lẻ), text } — vạch mốc vàng. */
-export function columns({ width, height = 150, values, xText, marker, color = 'var(--s1)', label }) {
-  const P = { l: 36, r: 8, t: marker ? 18 : 8, b: 24 };
+/** Cột đứng một dãy (histogram, đếm theo ngày). `marker` = { at: vị trí theo ô (có phần lẻ), text } — vạch mốc vàng;
+ *  `markers` = nhiều vạch (P25/50/75/95), nhãn so le hai hàng để hai mốc sát nhau không đè chữ. `yFmt` = chữ trục y. */
+export function columns({ width, height = 150, values, xText, marker, markers, yFmt = (v) => fmt(v), color = 'var(--s1)', label }) {
+  const ms = markers ?? (marker ? [marker] : []);
+  const P = { l: 36, r: 8, t: ms.length > 1 ? 30 : ms.length ? 18 : 8, b: 24 };
   const pw = width - P.l - P.r;
   const ph = height - P.t - P.b;
   const n = values.length;
   const slot = pw / Math.max(1, n);
   const max = Math.max(1, ...values.map((v) => v.value));
-  let b = yGrid(P, pw, ph, max, (v) => fmt(v));
+  let b = yGrid(P, pw, ph, max, yFmt);
   values.forEach((v, i) => {
     const hgt = (v.value / max) * ph;
     if (hgt > 0) b += `<rect x="${P.l + i * slot + 1}" y="${P.t + ph - hgt}" width="${Math.max(1, slot - 2)}" height="${hgt}" rx="2" fill="${color}"/>`;
     b += `<rect class="hit" x="${P.l + i * slot}" y="${P.t}" width="${slot}" height="${ph}"${tipAttr(v.tip)}/>`;
   });
   b += xTicks(P, ph, n, (i) => P.l + (i + 0.5) * slot, xText);
-  if (marker) {
-    const x = P.l + marker.at * slot;
-    b += `<line class="marker" x1="${x}" x2="${x}" y1="${P.t - 4}" y2="${P.t + ph}"/>`;
-    b += `<text class="marker-label" x="${x + 4}" y="${P.t - 6}">${esc(marker.text)}</text>`;
-  }
+  ms.forEach((m, k) => {
+    const x = P.l + m.at * slot;
+    const y = P.t - 6 - (ms.length > 1 && k % 2 ? 12 : 0);
+    b += `<line class="marker" x1="${x}" x2="${x}" y1="${y + 2}" y2="${P.t + ph}"/>`;
+    b += `<text class="marker-label" x="${x + 4}" y="${y}">${esc(m.text)}</text>`;
+  });
   return svg(width, height, label, b);
 }
 

@@ -1,11 +1,15 @@
 // Dashboard tune Sky Run (`/dash/`, plan 261102-1428 phase 02): đọc `GET /api/stats` (server/run-log-stats.ts) và vẽ
-// 7 câu hỏi. Nằm sau SSO như game — mọi tài khoản zps xem được, trang chỉ có tên SSO, không email.
+// 10 câu hỏi — 1–3 là câu tuning 03/11 (kẹt ở đâu · tiến bộ · bỏ game), 4–10 là 7 câu của phase 02. Nằm sau SSO như
+// game — mọi tài khoản zps xem được, trang chỉ có tên SSO, không email.
 // `?demo` = số giả `demo-stats.json` (sinh bằng server/test-fixtures/make-demo-stats.ts, CÙNG đường tính của server).
 // Bản portal (camandaulung.github.io, hoặc `?portal`): không có server → dash-portal-source.js đọc Firestore `skyRuns`
 // (chỉ admin) và tính cùng hình Stats ngay trong trang; `?dev` gồm cả ván bản dựng chạy localhost.
 import { dailySection, ghostSection, recentSection } from './dash-player-sections.js';
 import { leadSection, survivalSection, tierSection } from './dash-flight-sections.js';
+import { quitSection } from './dash-quit-section.js';
 import { lanternRankSection, scoreSection } from './dash-score-sections.js';
+import { skillSection } from './dash-skill-section.js';
+import { stuckSection } from './dash-stuck-section.js';
 import { esc, fmt, initTips } from './dash-svg.js';
 
 const params = new URLSearchParams(location.search);
@@ -32,7 +36,7 @@ function draw() {
   root.innerHTML = `<div class="tiles">${tile(fmt(s.used), 'ván sạch')}${tile(fmt(s.players), 'người chơi')}`
     + `${tile(fmt(s.tainted), 'ván bẩn đã loại')}${tile(fmt(s.altRuns), 'ván thử ?alt')}</div>`
     + (s.runs ? '' : '<p class="empty">Chưa có ván nào được log trong khoảng này — chơi một ván rồi tải lại.</p>')
-    + [scoreSection, lanternRankSection, survivalSection, tierSection, leadSection, dailySection, ghostSection]
+    + [stuckSection, skillSection, quitSection, scoreSection, lanternRankSection, survivalSection, tierSection, leadSection, dailySection, ghostSection]
       .map((f) => f(s, w)).join('')
     + recentSection(s);
 }

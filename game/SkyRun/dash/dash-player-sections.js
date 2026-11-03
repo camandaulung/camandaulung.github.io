@@ -1,11 +1,11 @@
-// Câu 6–7 + danh sách ván mới nhất: người chơi có quay lại không, bóng ma (đã bớt chói ở phase 01) còn làm rơi không.
+// Câu 9–10 + danh sách ván mới nhất: người chơi có quay lại không, bóng ma (đã bớt chói ở phase 01) còn làm rơi không.
 import { KIND, card, empty, grid, half, nameOf, note, panelTitle, table, twin } from './dash-html.js';
 import { columns, fmt, hbars, pct } from './dash-svg.js';
 
 const dayText = (d) => `${d.slice(8, 10)}/${d.slice(5, 7)}`;
 
 export function dailySection(s, w) {
-  const title = '6 · Người chơi có quay lại mỗi ngày không?';
+  const title = '9 · Người chơi có quay lại mỗi ngày không?';
   const target = 'Ván / người chơi mỗi ngày (giờ VN) — hai thước khác nhau nên hai biểu đồ';
   const d = s.daily;
   if (!d.some((x) => x.runs || x.tainted)) return card(title, target, empty());
@@ -31,7 +31,7 @@ const GROUP = { near: 'Rơi khi có bóng < 15 m', far: 'Có bóng nhưng không
 const SETTING = { on: '⚙ Bóng ma: Hiện', dim: '⚙ Bóng ma: Mờ', off: '⚙ Bóng ma: Tắt' };
 
 export function ghostSection(s, w) {
-  const title = '7 · Bóng ma còn làm người chơi rơi không?';
+  const title = '10 · Bóng ma còn làm người chơi rơi không?';
   const target = 'Đích: số lần rơi / km khi có bóng gần ≈ khi không có bóng';
   const g = s.ghosts;
   const all = [...g.groups, ...g.bySetting];

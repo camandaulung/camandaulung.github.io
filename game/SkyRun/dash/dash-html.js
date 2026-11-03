@@ -2,11 +2,17 @@
 // lớp phụ, số nào cũng phải đọc được không cần rê chuột), tên tiếng Việt cho mã trong log.
 import { SERIES, esc, fmt } from './dash-svg.js';
 
-/** Màu theo `rv` — cố định theo luật bay, không theo thứ tự đang hiện (lọc bớt luật thì màu không đổi chủ). */
-export const rvColor = (rv) => SERIES[(rv - 1) % SERIES.length];
-export const rvName = (rv) => `Luật bay v${rv}`;
+/** Màu theo `rv` — cố định theo luật bay, không theo thứ tự đang hiện (lọc bớt luật thì màu không đổi chủ). Hà Giang
+ *  (rv 1000 + n) lệch một nấc: không thì v3 và hg3 trùng màu trên cùng biểu đồ. */
+export const rvColor = (rv) => SERIES[(rv >= 1000 ? rv - 999 : rv - 1) % SERIES.length];
+/** rv = map + phiên bản route (src/world/maps.ts logRvBase): 2 = ván thử `?alt`, 1000 + n = Hà Giang `.hgN`. */
+export const rvName = (rv) => (rv === 2 ? 'Luật thử ?alt' : rv >= 1000 ? `Hà Giang hg${rv - 1000}` : `Khau Phạ v${rv}`);
+/** Số km giữ đủ chữ số cho mốc tròn 50 m (đoạn 250 m: "2,25 km" chứ không làm tròn thành "2,3 km"); số lẻ thì 1 chữ số. */
+const kmNum = (m) => fmt(m / 1000, m % 1000 === 0 ? 0 : m % 100 === 0 ? 1 : m % 50 === 0 ? 2 : 1);
+export const meters = (m) => (m == null ? '—' : m >= 1000 ? `${kmNum(m)} km` : `${fmt(m)} m`);
+export const segText = (from, seg) => (from + seg <= 1000 ? `${fmt(from)}–${fmt(from + seg)} m` : `${kmNum(from)}–${kmNum(from + seg)} km`);
 
-export const KIND = { pillar: 'Cột đá', spike: 'Mỏm đá', ridge: 'Sống đá', bridge: 'Cầu phướn' };
+export const KIND = { pillar: 'Cột đá', spike: 'Mỏm đá', ridge: 'Sống đá', bridge: 'Cầu phướn', overhang: 'Mái đá' };
 // Vùng Khau Phạ + Hà Giang (src/world/track-layout.ts RunZone). Log Hà Giang có rv 1000 + n (maps.ts logRvBase).
 export const ZONE = {
   gorge: 'Khe', mouth: 'Miệng khe', valley: 'Thung lũng', village: 'Làng',
@@ -24,6 +30,8 @@ export const empty = (msg = 'Chưa có ván nào trong khoảng ngày này.') =>
 export const legend = (items) =>
   `<div class="legend">${items.map(([name, color]) => `<span><i style="background:${color}"></i>${esc(name)}</span>`).join('')}</div>`;
 export const panelTitle = (t) => `<p class="panel-title">${esc(t)}</p>`;
+/** Hàng ô số lớn trong một thẻ: [[giá trị, chú thích], …]. */
+export const kpis = (items) => `<div class="kpis">${items.map(([v, t]) => `<div><b>${esc(v)}</b><span>${esc(t)}</span></div>`).join('')}</div>`;
 export const note = (html) => `<p class="note">${html}</p>`;
 
 /** Bảng: ô là chuỗi / số (tự thoát), hoặc { v, style } cho ô tô màu. */
