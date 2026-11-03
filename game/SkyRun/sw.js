@@ -6,17 +6,19 @@
  * precache: lượt cài sẽ tải hết cả 9 bài dù người chơi chỉ nghe một — bài nào đã phát thì nhánh fetch tự lưu.
  *
  * skipWaiting NGAY (khác cờ mèo, review 02/11): không có thì SW cũ giữ người bay GLB / SFX / shared/ tên cố định của bản
- * CŨ tới khi đóng hết tab, trong khi F5 đã chạy JS MỚI (rig lại người bay = số xương lệch). An toàn vì bản dựng chỉ có MỘT
- * gói assets/index-*.js, không chunk tải lười nào để trang đang chạy hụt; nhạc tên cố định vẫn còn trên server. Cờ mèo
+ * CŨ tới khi đóng hết tab, trong khi F5 đã chạy JS MỚI (rig lại người bay = số xương lệch). An toàn vì bản dựng chỉ có gói
+ * nạp TĨNH (assets/index-*.js + assets/three-*.js từ 03/11, cùng tải lúc mở trang), không chunk tải lười nào để trang đang
+ * chạy hụt; nhạc tên cố định vẫn còn trên server. Thêm import() động thì phải xem lại chỗ này. Cờ mèo
  * không skipWaiting vì đổi bản giữa ván cờ mất ván — ở đây trang đang chạy không bị tải lại, chỉ đổi cache bên dưới.
  */
 
-const VERSION = '2eaf62c0';
+const VERSION = 'd9b1a343';
 const CACHE = 'sky-run-' + VERSION;
 const SHELL = [
   "./",
-  "./assets/index-BM5DFl0f.css",
-  "./assets/index-BxoRWpCv.js",
+  "./assets/index-CO2QJ1l6.css",
+  "./assets/index-Cai1Bpb9.js",
+  "./assets/three-DtuSUYip.js",
   "./audio/crash.mp3",
   "./audio/dive-whoosh.mp3",
   "./audio/flare-whoosh.mp3",

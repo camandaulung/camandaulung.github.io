@@ -8,14 +8,41 @@
     <link rel="icon" type="image/png" sizes="32x32" href="./icons/icon-32.png" />
     <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png" />
     <link rel="apple-touch-icon" href="./icons/apple-touch-icon-180.png" />
+    <!-- KHÔNG preload người bay GLB (thử 03/11, CPU ×4 + 4G): 2,3 MB giành băng thông với gói JS (JS về 0,70 → 1,1 s, kể cả
+         fetchpriority=low) mà JS mới chặn khởi động → vào game 3,2 → 3,6 s; không preload thì GLB vẫn về ngay trước lúc vào. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,600;0,700;0,800;0,900;1,800;1,900&display=swap" rel="stylesheet" />
-    <script type="module" crossorigin src="./assets/index-BxoRWpCv.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-BM5DFl0f.css">
+    <!-- Font KHÔNG chặn vẽ: link stylesheet thường bắt màn tải đợi fonts.googleapis.com (điện thoại 4G: vài trăm ms trắng). -->
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,600;0,700;0,800;0,900;1,800;1,900&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
+    <style>
+      /* Màn tải vẽ NGAY từ HTML, trước khi gói JS về (game/boot-screen.ts đẩy thanh khi JS chạy). Màu chép từ
+         src/ui/ui-tokens.css — file đó nằm trong gói CSS, tới cùng lúc với JS nên không dùng được ở đây. */
+      html, body { margin: 0; height: 100%; background: #2a1530; }
+      #boot { position: fixed; inset: 0; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px;
+        background: radial-gradient(120% 80% at 50% 100%, #c8572a 0%, #6b2440 42%, #2a1530 78%); color: #fff3df;
+        font: 700 15px/1.3 'Be Vietnam Pro', system-ui, 'Segoe UI', sans-serif; transition: opacity 0.45s ease; }
+      #boot.done { opacity: 0; pointer-events: none; }
+      #boot img { width: min(68vw, 340px); height: auto; filter: drop-shadow(0 4px 18px rgba(40, 10, 30, 0.6)); }
+      #boot .bar { width: min(62vw, 280px); height: 8px; border-radius: 4px; background: rgba(255, 243, 223, 0.16); overflow: hidden; }
+      /* Trước khi JS chạy: nhích dần tới 18% (phần tải gói) — JS gỡ animation rồi đặt số thật. */
+      #boot .bar i { display: block; height: 100%; width: 0; border-radius: 4px; background: linear-gradient(90deg, #ff8a3d, #ffc56e);
+        animation: boot-creep 5s cubic-bezier(0.15, 0.7, 0.3, 1) forwards; transition: width 0.2s linear; }
+      #boot p { margin: 0; opacity: 0.85; text-shadow: 0 1px 6px rgba(30, 8, 26, 0.7); }
+      @keyframes boot-creep { to { width: 18%; } }
+      /* Hoạt cảnh vào màn tiêu đề chờ màn tải tắt — chạy dưới lớp phủ là phí. */
+      html:not([data-boot='ready']) #app * { animation-play-state: paused !important; }
+    </style>
+    <script type="module" crossorigin src="./assets/index-Cai1Bpb9.js"></script>
+    <link rel="modulepreload" crossorigin href="./assets/three-DtuSUYip.js">
+    <link rel="stylesheet" crossorigin href="./assets/index-CO2QJ1l6.css">
     <script>window.SR_SW = "sw.js";</script>
   </head>
   <body>
+    <div id="boot" role="progressbar" aria-label="Đang tải Sky Run" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+      <img src="./ui/logo.webp" alt="Sky Run" width="340" height="170" />
+      <div class="bar"><i></i></div>
+      <p>Đang tải…</p>
+    </div>
     <div id="app"></div>
   </body>
 </html>
