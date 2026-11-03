@@ -8,7 +8,10 @@ const SHARED = '../../../shared/';
 const ADMINS = ['ducdm@vng.com.vn', 'minhducdl87@gmail.com'];
 /** ~1 KB/ván: 20k ván ≈ 20 MB tải một lần — quá thì lấy các ván MỚI nhất, như trần MAX_SCAN của server. */
 const LIMIT = 20000;
-/** Portal.FB.limit chỉ đợi 8 s — đọc vài nghìn dòng qua long-polling lâu hơn thế. */
+/** Trần `limit()` của Firestore cho MỘT câu truy vấn. Bản 02/11 gọi thẳng `limit(20000)` → server từ chối mọi lần đọc
+ *  ("Limit value … over the maximum value of 10000") dù chỉ có vài trăm dòng: dashboard portal chưa từng tải được. */
+const PAGE = 10000;
+/** Portal.FB.limit chỉ đợi 8 s — đọc vài nghìn dòng qua long-polling lâu hơn thế. Tính cho TỪNG trang. */
 const READ_TIMEOUT = 45000;
 
 function script(src) {
@@ -66,9 +69,18 @@ async function readRows(days) {
   }
   const { sinceMs } = await import('./run-log-stats.js');
   const now = Date.now();
-  const { collection, query, where, orderBy, limit, getDocs } = f.fsM;
+  const { collection, query, where, orderBy, limit, startAfter, getDocs } = f.fsM;
   // Trần trên khớp luật (`at` ≤ giờ server + 1 giờ): dòng lệch giờ không chiếm chỗ của ván thật trong `limit`.
-  const snap = await withTimeout(getDocs(query(collection(f.db, 'skyRuns'), where('at', '>=', sinceMs(days, now)),
-    where('at', '<=', now + 3600000), orderBy('at', 'desc'), limit(LIMIT))), READ_TIMEOUT);
-  cache = { days, now, rows: snap.docs.map((d) => d.data()) };
+  const base = [collection(f.db, 'skyRuns'), where('at', '>=', sinceMs(days, now)), where('at', '<=', now + 3600000),
+    orderBy('at', 'desc')];
+  const docs = [];
+  for (;;) {
+    const n = Math.min(PAGE, LIMIT - docs.length);
+    // Con trỏ là DÒNG cuối (không phải giá trị `at`): Firestore tự thêm thứ tự theo id nên hai ván trùng ms không rơi mất.
+    const after = docs.length ? [startAfter(docs[docs.length - 1])] : [];
+    const snap = await withTimeout(getDocs(query(...base, ...after, limit(n))), READ_TIMEOUT);
+    docs.push(...snap.docs);
+    if (snap.size < n || docs.length >= LIMIT) break;
+  }
+  cache = { days, now, rows: docs.map((d) => d.data()) };
 }

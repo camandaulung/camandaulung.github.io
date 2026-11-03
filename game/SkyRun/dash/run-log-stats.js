@@ -1,5 +1,5 @@
 const Z = /^\d{4}-\d{2}-\d{2}\.(v|hg)\d{1,3}$/, T = (t) => new Date(t + 252e5).toISOString().slice(0, 10);
-const G = /* @__PURE__ */ new Set(["route", "rv", "sv", "alt", "dist", "dur", "score", "crash", "tainted"]), K = /^[A-Za-z][A-Za-z0-9_]{0,31}$/, C = /^[a-z][a-z-]{0,15}$/, O = (t) => typeof t == "number" && Number.isFinite(t), v = (t, n, e) => Math.min(e, Math.max(n, t)), N = (t) => O(t) ? v(Math.round(t), 1, 99) : 1;
+const G = /* @__PURE__ */ new Set(["route", "rv", "sv", "alt", "dist", "dur", "score", "crash", "tainted"]), K = /^[A-Za-z][A-Za-z0-9_]{0,31}$/, C = /^[a-z][a-z-]{0,15}$/, O = (t) => typeof t == "number" && Number.isFinite(t), v = (t, n, e) => Math.min(e, Math.max(n, t)), N = (t) => O(t) ? v(Math.round(t), 1, 9999) : 1;
 function x(t, n) {
   if (t === null || typeof t == "boolean") return t;
   if (typeof t == "number") return Number.isFinite(t) ? v(Math.round(t * 1e3) / 1e3, -1e9, 1e9) : null;
