@@ -3,20 +3,26 @@
 import { SERIES, esc, fmt } from './dash-svg.js';
 
 /** Màu theo `rv` — cố định theo luật bay, không theo thứ tự đang hiện (lọc bớt luật thì màu không đổi chủ). Hà Giang
- *  (rv 1000 + n) lệch một nấc: không thì v3 và hg3 trùng màu trên cùng biểu đồ. */
-export const rvColor = (rv) => SERIES[(rv >= 1000 ? rv - 999 : rv - 1) % SERIES.length];
-/** rv = map + phiên bản route (src/world/maps.ts logRvBase): 2 = ván thử `?alt`, 1000 + n = Hà Giang `.hgN`. */
-export const rvName = (rv) => (rv === 2 ? 'Luật thử ?alt' : rv >= 1000 ? `Hà Giang hg${rv - 1000}` : `Khau Phạ v${rv}`);
+ *  (rv 1000 + n) lệch một nấc, Mù Cang Chải (2000 + n) vào ô còn trống — SERIES 4 màu: ?alt ô 1, v3 ô 2, hg3 ô 0, mc1 ô 3.
+ *  Hết ô: Fansipan fp1 chung ô 1 với ?alt (luật thử chưa bật chung, hiếm khi cùng khoảng ngày). */
+export const rvColor = (rv) => SERIES[(rv >= 3000 ? rv - 3000 : rv >= 2000 ? rv - 1998 : rv >= 1000 ? rv - 999 : rv - 1) % SERIES.length];
+/** rv = map + phiên bản route (src/world/maps.ts logRvBase): 2 = ván thử `?alt`, 1000 + n = Hà Giang `.hgN`,
+ *  2000 + n = Mù Cang Chải `.mcN`, 3000 + n = Fansipan `.fpN`. */
+export const rvName = (rv) => (rv === 2 ? 'Luật thử ?alt' : rv >= 3000 ? `Fansipan fp${rv - 3000}` : rv >= 2000 ? `Mù Cang Chải mc${rv - 2000}` : rv >= 1000 ? `Hà Giang hg${rv - 1000}` : `Khau Phạ v${rv}`);
 /** Số km giữ đủ chữ số cho mốc tròn 50 m (đoạn 250 m: "2,25 km" chứ không làm tròn thành "2,3 km"); số lẻ thì 1 chữ số. */
 const kmNum = (m) => fmt(m / 1000, m % 1000 === 0 ? 0 : m % 100 === 0 ? 1 : m % 50 === 0 ? 2 : 1);
 export const meters = (m) => (m == null ? '—' : m >= 1000 ? `${kmNum(m)} km` : `${fmt(m)} m`);
 export const segText = (from, seg) => (from + seg <= 1000 ? `${fmt(from)}–${fmt(from + seg)} m` : `${kmNum(from)}–${kmNum(from + seg)} km`);
 
 export const KIND = { pillar: 'Cột đá', spike: 'Mỏm đá', ridge: 'Sống đá', bridge: 'Cầu phướn', overhang: 'Mái đá' };
-// Vùng Khau Phạ + Hà Giang (src/world/track-layout.ts RunZone). Log Hà Giang có rv 1000 + n (maps.ts logRvBase).
+// Vùng Khau Phạ + Hà Giang (src/world/track-layout.ts RunZone). Log Hà Giang có rv 1000 + n (maps.ts logRvBase); Mù Cang
+// Chải 2000 + n, mã vùng thêm tiền tố `mc-` ở server (stat-math.ts `deathZone`) — không thì rơi ở suối Nậm Kim thành "Sông Nho Quế".
+// Fansipan 3000 + n → `fp-` (chỉ ba đoạn có hàng: cáp treo, suối, nóc mây).
 export const ZONE = {
   gorge: 'Khe', mouth: 'Miệng khe', valley: 'Thung lũng', village: 'Làng',
   rim: 'HG · Gờ Mã Pí Lèng', dive: 'HG · Lao Tu Sản', river: 'HG · Sông Nho Quế', cave: 'HG · Hang', climb: 'HG · Leo cột gió', gate: 'HG · Cổng Trời',
+  'mc-valley': 'MCC · Ruộng bậc thang', 'mc-dive': 'MCC · Đổ đèo', 'mc-river': 'MCC · Suối Nậm Kim', 'mc-climb': 'MCC · Đồi Mâm Xôi', 'mc-village': 'MCC · Bản',
+  'fp-gorge': 'FP · Cáp treo giữa hai tầng mây', 'fp-river': 'FP · Suối Mường Hoa', 'fp-valley': 'FP · Biển mây',
 };
 export const FLIGHT = { low: 'Thấp', zero: 'Tầm 0', high: 'Cao', thermal: 'Luồng nhiệt' };
 export const DEVICE = { high: 'Máy mạnh', mid: 'Máy vừa', low: 'Máy yếu' };

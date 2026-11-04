@@ -8,6 +8,7 @@ const PARTS = [
   ['meters', 'Mét × hệ số', 'var(--s1)'],
   ['nearMiss', 'Sượt', 'var(--s3)'],
   ['gust', 'Gió xuôi', 'var(--s4)'],
+  ['boost', 'Gió tốc', 'var(--s5)'],
 ];
 
 export function scoreSection(s, w) {
