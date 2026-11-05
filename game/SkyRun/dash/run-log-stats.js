@@ -121,6 +121,7 @@ function ut(t) {
     "mc-river",
     "mc-climb",
     "mc-village",
+    "mc-gate",
     "fp-gorge",
     "fp-river",
     "fp-valley"

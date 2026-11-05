@@ -22,6 +22,7 @@ export const ZONE = {
   gorge: 'Khe', mouth: 'Miệng khe', valley: 'Thung lũng', village: 'Làng',
   rim: 'HG · Gờ Mã Pí Lèng', dive: 'HG · Lao Tu Sản', river: 'HG · Sông Nho Quế', cave: 'HG · Hang', climb: 'HG · Leo cột gió', gate: 'HG · Cổng Trời',
   'mc-valley': 'MCC · Ruộng bậc thang', 'mc-dive': 'MCC · Đổ đèo', 'mc-river': 'MCC · Suối Nậm Kim', 'mc-climb': 'MCC · Đồi Mâm Xôi', 'mc-village': 'MCC · Bản',
+  'mc-gate': 'MCC · Dốc đá về đỉnh',
   'fp-gorge': 'FP · Cáp treo giữa hai tầng mây', 'fp-river': 'FP · Suối Mường Hoa', 'fp-valley': 'FP · Biển mây',
 };
 export const FLIGHT = { low: 'Thấp', zero: 'Tầm 0', high: 'Cao', thermal: 'Luồng nhiệt' };
